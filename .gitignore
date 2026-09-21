@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# Environment and Secrets
+.env.local
+.env.*.local
+
+# Databases & Runtime Data
+backend/data/*.db-shm
+backend/data/*.db-wal
+data/*.db-shm
+data/*.db-wal
+
+# OS & Editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+
+# Large 3D CAD Models (>50MB GitHub limits)
+*.fbx
+*.glb
+!frontend/public/models/human_body.glb

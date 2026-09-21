@@ -1,0 +1,169 @@
+{
+  "version": "2026.1",
+  "category": "Essential Indian Government Hospital OPD Pharmacology",
+  "drugs": [
+    {
+      "name": "Paracetamol",
+      "class": "Analgesic / Antipyretic",
+      "availableStrengths": ["500mg", "650mg"],
+      "defaultFrequency": "TDS",
+      "route": "Oral",
+      "timing": "After Food (PC)",
+      "maxDailyDose": "4000mg",
+      "indications": ["Pyrexia", "Headache", "Bodyache"]
+    },
+    {
+      "name": "Pantoprazole",
+      "class": "Proton Pump Inhibitor (PPI)",
+      "availableStrengths": ["40mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Before Food (AC)",
+      "indications": ["GERD", "Gastric Hyperacidity", "NSAID Gastropathy Prophylaxis"]
+    },
+    {
+      "name": "Rabeprazole",
+      "class": "Proton Pump Inhibitor (PPI)",
+      "availableStrengths": ["20mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Before Food (AC)",
+      "indications": ["GERD", "Dyspepsia"]
+    },
+    {
+      "name": "Metformin",
+      "class": "Biguanide Antidiabetic",
+      "availableStrengths": ["500mg", "850mg", "1000mg"],
+      "defaultFrequency": "BD",
+      "route": "Oral",
+      "timing": "With Food",
+      "indications": ["Type 2 Diabetes Mellitus"]
+    },
+    {
+      "name": "Glimepiride",
+      "class": "Sulfonylurea Antidiabetic",
+      "availableStrengths": ["1mg", "2mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Before Food (AC)",
+      "indications": ["Type 2 Diabetes Mellitus"]
+    },
+    {
+      "name": "Amlodipine",
+      "class": "Calcium Channel Blocker (CCB)",
+      "availableStrengths": ["5mg", "10mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Anytime",
+      "indications": ["Essential Hypertension", "Chronic Stable Angina"]
+    },
+    {
+      "name": "Telmisartan",
+      "class": "Angiotensin II Receptor Blocker (ARB)",
+      "availableStrengths": ["40mg", "80mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Anytime",
+      "indications": ["Hypertension", "Cardiovascular Risk Reduction"]
+    },
+    {
+      "name": "Atorvastatin",
+      "class": "HMG-CoA Reductase Inhibitor (Statin)",
+      "availableStrengths": ["10mg", "20mg", "40mg"],
+      "defaultFrequency": "HS",
+      "route": "Oral",
+      "timing": "At Bedtime",
+      "indications": ["Hyperlipidemia", "Atherosclerotic CAD Prevention"]
+    },
+    {
+      "name": "Amoxicillin-Clavulanate",
+      "class": "Beta-Lactam Antibiotic",
+      "availableStrengths": ["625mg"],
+      "defaultFrequency": "BD",
+      "route": "Oral",
+      "timing": "With Food",
+      "indications": ["Bacterial Sinusitis", "Lower Respiratory Infections", "Skin Infections"]
+    },
+    {
+      "name": "Azithromycin",
+      "class": "Macrolide Antibiotic",
+      "availableStrengths": ["250mg", "500mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Before Food (AC)",
+      "indications": ["Pharyngitis", "Community Acquired Pneumonia", "Bronchitis"]
+    },
+    {
+      "name": "Cefixime",
+      "class": "Third-Generation Cephalosporin",
+      "availableStrengths": ["200mg"],
+      "defaultFrequency": "BD",
+      "route": "Oral",
+      "timing": "After Food (PC)",
+      "indications": ["Enteric Fever", "Urinary Tract Infection", "Bronchitis"]
+    },
+    {
+      "name": "Levocetirizine",
+      "class": "Second-Generation Antihistamine",
+      "availableStrengths": ["5mg"],
+      "defaultFrequency": "HS",
+      "route": "Oral",
+      "timing": "At Bedtime",
+      "indications": ["Allergic Rhinitis", "Urticaria", "Pruritus"]
+    },
+    {
+      "name": "Montelukast",
+      "class": "Leukotriene Receptor Antagonist",
+      "availableStrengths": ["10mg"],
+      "defaultFrequency": "HS",
+      "route": "Oral",
+      "timing": "At Bedtime",
+      "indications": ["Bronchial Asthma Prophylaxis", "Allergic Rhinitis"]
+    },
+    {
+      "name": "Diclofenac",
+      "class": "NSAID",
+      "availableStrengths": ["50mg"],
+      "defaultFrequency": "BD",
+      "route": "Oral",
+      "timing": "After Food (PC)",
+      "indications": ["Acute Musculoskeletal Pain", "Arthritis Flare"]
+    },
+    {
+      "name": "Ibuprofen",
+      "class": "NSAID",
+      "availableStrengths": ["400mg"],
+      "defaultFrequency": "TDS",
+      "route": "Oral",
+      "timing": "After Food (PC)",
+      "indications": ["Mild to Moderate Pain", "Inflammation"]
+    },
+    {
+      "name": "Warfarin",
+      "class": "Vitamin K Antagonist Anticoagulant",
+      "availableStrengths": ["2mg", "5mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "At Bedtime",
+      "indications": ["Atrial Fibrillation", "Mechanical Heart Valve", "DVT/PE"]
+    },
+    {
+      "name": "Aspirin",
+      "class": "Antiplatelet",
+      "availableStrengths": ["75mg", "150mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "After Food (PC)",
+      "indications": ["Secondary Prevention of CAD / Stroke"]
+    },
+    {
+      "name": "Digoxin",
+      "class": "Cardiac Glycoside",
+      "availableStrengths": ["0.25mg"],
+      "defaultFrequency": "OD",
+      "route": "Oral",
+      "timing": "Morning",
+      "indications": ["Heart Failure with Reduced EF", "Atrial Fibrillation Rate Control"]
+    }
+  ]
+}

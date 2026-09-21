@@ -1,0 +1,38 @@
+# Fly.io Configuration for AIIA Sovereign MediKiosk Backend
+# App Name: sih-doctor-backend
+app = "sih-doctor-backend"
+primary_region = "bom" # Mumbai, India (Lowest Latency for Indian OPD)
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[env]
+  PORT = "8001"
+  NODE_ENV = "production"
+  DB_PATH = "/app/data/hospital.db"
+  CORS_ORIGIN = "*"
+
+[http_service]
+  internal_port = 8001
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "15s"
+  method = "GET"
+  timeout = "3s"
+  path = "/health"
+
+# Persistent SQLite WAL Storage Volume (1GB Free NVMe)
+[mounts]
+  source = "medikiosk_data"
+  destination = "/app/data"
+  initial_size = "1GB"

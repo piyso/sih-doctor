@@ -1,0 +1,39 @@
+{
+  "name": "aiia-medikiosk-backend",
+  "version": "1.0.0",
+  "description": "AIIA Pre-Consultation MediKiosk & Ambient Scribing Sovereign Engine - PS ID 26047",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && (cp -r src/data dist/ 2>/dev/null || true)",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "seed": "tsx src/db/seed.ts",
+    "test": "tsx tests/runner.ts",
+    "test:opd": "tsx tests/opd_benchmark.test.ts",
+    "test:kyc": "tsx tests/kyc_pii_redaction.test.ts",
+    "test:contraindications": "tsx tests/contraindications.test.ts",
+    "test:fhir": "tsx tests/fhir_validation.test.ts",
+    "test:zkp": "tsx tests/zkp_verification.test.ts",
+    "test:stress": "tsx tests/stress_100k.test.ts",
+    "benchmark:efficiency": "tsx tests/deep_system_efficiency_benchmark.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "snarkjs": "^0.7.5",
+    "uuid": "^11.0.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.4",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.14",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

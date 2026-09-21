@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: 254.00mm 650.00mm;
+    margin: 0;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #ffffff;
+    color: #000000;
+    -webkit-font-smoothing: antialiased;
+  }
+  .figure-box {
+    border: 1pt solid #000000;
+    padding: 14px 16px;
+    background: #ffffff;
+    width: 920px;
+  }
+  .figure-caption {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0.02em;
+    color: #000000;
+  }
+  .mono {
+    font-family: "Courier New", Courier, monospace;
+  }
+  table.patent-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.6pt;
+    line-height: 1.35;
+    margin: 6px 0;
+    border-top: 1.5pt solid #000000;
+    border-bottom: 1.5pt solid #000000;
+  }
+  table.patent-table th {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+    text-align: left;
+    padding: 4px 6px;
+    font-size: 7.2pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1pt solid #000000;
+    background: #ffffff;
+    color: #000000;
+  }
+  table.patent-table td {
+    padding: 3.5px 6px;
+    border-bottom: 0.4pt solid #d1d5db;
+    color: #000000;
+    vertical-align: middle;
+  }
+  table.patent-table tr:last-child td {
+    border-bottom: none;
+  }
+  .mono-tag {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.8pt;
+    font-weight: bold;
+    border: 0.8pt solid #000000;
+    padding: 1px 5px;
+    display: inline-block;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="figure-box">
+
+<svg viewBox="0 0 920 220" style="width: 100%; height: auto; font-family: Arial, Helvetica, sans-serif;">
+  <defs>
+    <marker id="arrow4" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#000000"/>
+    </marker>
+  </defs>
+
+  <!-- 510: Input Orders -->
+  <rect x="15" y="15" width="190" height="185" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="110" y="34" font-size="8.0" font-weight="bold" text-anchor="middle">510: INPUT ORDERS</text>
+  <line x1="25" y1="40" x2="195" y2="40" stroke="#000000" stroke-width="0.8"/>
+  <text x="25" y="56" font-size="7.5" font-weight="bold">Prescription Bundle</text>
+  <text x="25" y="74" font-size="7.0">• 512: Allopathic Rx (Warfarin)</text>
+  <text x="25" y="90" font-size="7.0">• 514: Classical Ayush (Guggulu)</text>
+  <text x="25" y="106" font-size="7.0">• 516: Classical Adjuvant (Madhu)</text>
+  <text x="25" y="122" font-size="7.0">• 518: Patient eGFR &amp; Vitals</text>
+  <rect x="25" y="150" width="170" height="36" fill="#ffffff" stroke="#000000" stroke-width="0.8"/>
+  <text x="110" y="166" font-size="7.0" font-weight="bold" text-anchor="middle">Sub-Millisecond Ingestion</text>
+  <text x="110" y="178" font-size="6.5" text-anchor="middle" class="mono">0.033 ms Extraction</text>
+
+  <!-- Connector -->
+  <line x1="205" y1="107" x2="238" y2="107" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- 520: 4-Tier Filter Gates -->
+  <rect x="240" y="15" width="280" height="185" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="380" y="34" font-size="8.0" font-weight="bold" text-anchor="middle">520: 4-TIER FILTER GATES</text>
+  <line x1="250" y1="40" x2="510" y2="40" stroke="#000000" stroke-width="0.8"/>
+
+  <rect x="250" y="48" width="260" height="30" fill="#ffffff" stroke="#000000" stroke-width="0.8"/>
+  <text x="258" y="60" font-size="7.0" font-weight="bold">522: Gate 1: CYP450 Substrate &amp; Enzyme Filter</text>
+  <text x="258" y="71" font-size="6.5">CYP2C9 (Guggulu + Warfarin) • CYP3A4 Statin Competition</text>
+
+  <rect x="250" y="84" width="260" height="30" fill="#ffffff" stroke="#000000" stroke-width="0.8"/>
+  <text x="258" y="96" font-size="7.0" font-weight="bold">524: Gate 2: Pharmacodynamic Synergism Filter</text>
+  <text x="258" y="107" font-size="6.5">Digoxin + Yashtimadhu (11b-HSD2 hypokalemia K+ &lt; 2.5)</text>
+
+  <rect x="250" y="120" width="260" height="30" fill="#ffffff" stroke="#000000" stroke-width="0.8"/>
+  <text x="258" y="132" font-size="7.0" font-weight="bold">526: Gate 3: Renal Clearance Threshold (eGFR)</text>
+  <text x="258" y="143" font-size="6.5">eGFR &lt; 30 mL/min: Absolute ban on heavy metal Bhasmas</text>
+
+  <rect x="250" y="156" width="260" height="32" fill="#ffffff" stroke="#000000" stroke-width="0.8"/>
+  <text x="258" y="168" font-size="7.0" font-weight="bold">528: Gate 4: Charaka 18-Viruddha Ahara Filter</text>
+  <text x="258" y="180" font-size="6.5">Kshira-Moolaka • Ushna Dadhi • Madhu-Ghrita (1:1 ratio)</text>
+
+  <!-- Connector -->
+  <line x1="520" y1="107" x2="558" y2="107" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- 540: Bayesian Core -->
+  <rect x="560" y="15" width="180" height="185" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="650" y="34" font-size="8.0" font-weight="bold" text-anchor="middle">540: BAYESIAN CORE</text>
+  <line x1="570" y1="40" x2="730" y2="40" stroke="#000000" stroke-width="0.8"/>
+  <text x="575" y="56" font-size="7.2" font-weight="bold">Beta-Binomial Updating</text>
+  <text x="575" y="74" font-size="6.8">Prior: Beta(a0, b0)</text>
+  <text x="575" y="90" font-size="6.8">Observed: (k, n-k)</text>
+  <text x="575" y="106" font-size="6.8">E[q] = (a+k)/(a+b+n)</text>
+  <text x="575" y="126" font-size="7.2" font-weight="bold">Bayes Factor (BF10):</text>
+  <text x="575" y="142" font-size="7.2" font-weight="bold">BF10 &gt; 100 (Decisive)</text>
+  <text x="575" y="174" font-size="6.8" class="mono">0.16ms Latency (0% FP)</text>
+
+  <!-- Connector -->
+  <line x1="740" y1="107" x2="778" y2="107" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- 560: Action Terminal -->
+  <rect x="780" y="15" width="125" height="185" fill="#ffffff" stroke="#000000" stroke-width="1.4"/>
+  <text x="842" y="34" font-size="8.0" font-weight="bold" text-anchor="middle">560: ACTION</text>
+  <line x1="790" y1="40" x2="895" y2="40" stroke="#000000" stroke-width="0.8"/>
+  <text x="792" y="56" font-size="7.2" font-weight="bold">Contraindication</text>
+  <text x="792" y="74" font-size="6.8">• Modal Audio</text>
+  <text x="792" y="90" font-size="6.8">• Screen Flash</text>
+  <text x="792" y="106" font-size="6.8">• CYP Pathway</text>
+  <text x="792" y="122" font-size="6.8">• Override Log</text>
+  <text x="792" y="138" font-size="6.8">• Mandate Justify</text>
+  <rect x="790" y="152" width="105" height="34" fill="#ffffff" stroke="#000000" stroke-width="0.8"/>
+  <text x="842" y="172" font-size="7.0" font-weight="bold" text-anchor="middle">AUDIT LOGGED</text>
+</svg>
+<div class="figure-caption">FIG. 4: Pharmacological decision-tree and Bayesian Beta-Binomial contraindication pipeline (Dual-Pharmacology Truth Engine).</div>
+
+</div>
+</body>
+</html>

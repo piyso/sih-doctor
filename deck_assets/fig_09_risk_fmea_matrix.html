@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: 254.00mm 650.00mm;
+    margin: 0;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #ffffff;
+    color: #000000;
+    -webkit-font-smoothing: antialiased;
+  }
+  .figure-box {
+    border: 1pt solid #000000;
+    padding: 14px 16px;
+    background: #ffffff;
+    width: 920px;
+  }
+  .figure-caption {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0.02em;
+    color: #000000;
+  }
+  .mono {
+    font-family: "Courier New", Courier, monospace;
+  }
+  table.patent-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.6pt;
+    line-height: 1.35;
+    margin: 6px 0;
+    border-top: 1.5pt solid #000000;
+    border-bottom: 1.5pt solid #000000;
+  }
+  table.patent-table th {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+    text-align: left;
+    padding: 4px 6px;
+    font-size: 7.2pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1pt solid #000000;
+    background: #ffffff;
+    color: #000000;
+  }
+  table.patent-table td {
+    padding: 3.5px 6px;
+    border-bottom: 0.4pt solid #d1d5db;
+    color: #000000;
+    vertical-align: middle;
+  }
+  table.patent-table tr:last-child td {
+    border-bottom: none;
+  }
+  .mono-tag {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.8pt;
+    font-weight: bold;
+    border: 0.8pt solid #000000;
+    padding: 1px 5px;
+    display: inline-block;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="figure-box">
+
+<div style="margin-bottom: 6px;">
+  <div style="font-size: 7.2pt; font-weight: bold; text-transform: uppercase; color: #475569;" class="mono">
+    FAILURE MODES AND EFFECTS ANALYSIS (FMEA) • ARCHITECTURAL SAFEGUARD SUITE
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+  <!-- Fail 1 -->
+  <div style="border: 1pt solid #000000; padding: 8px 10px;">
+    <div style="display: flex; justify-content: space-between; border-bottom: 0.8pt solid #000000; padding-bottom: 3px; margin-bottom: 4px;">
+      <span style="font-size: 7.5pt; font-weight: bold;" class="mono">[FAIL-01] ACOUSTIC SATURATION</span>
+      <span class="mono-tag">75–85 dB NOISE</span>
+    </div>
+    <div style="font-size: 7.0pt; color: #333333; margin-bottom: 4px;">Chaotic public OPD waiting halls with extreme ambient chatter, reverberation, and crowd noise.</div>
+    <div style="font-size: 7.2pt; font-weight: bold; border-top: 0.5pt dashed #000000; padding-top: 4px;">
+      Architectural Safeguard: Dual-mic hardware beamforming + WebRTC spectral noise gating + Indian clinical phonetic soundex mapping.
+    </div>
+  </div>
+
+  <!-- Fail 2 -->
+  <div style="border: 1pt solid #000000; padding: 8px 10px;">
+    <div style="display: flex; justify-content: space-between; border-bottom: 0.8pt solid #000000; padding-bottom: 3px; margin-bottom: 4px;">
+      <span style="font-size: 7.5pt; font-weight: bold;" class="mono">[FAIL-02] NETWORK BLACKOUT</span>
+      <span class="mono-tag">WAN DROPOUT</span>
+    </div>
+    <div style="font-size: 7.0pt; color: #333333; margin-bottom: 4px;">Severe network failures and power instability in hospital basements and remote primary health centres.</div>
+    <div style="font-size: 7.2pt; font-weight: bold; border-top: 0.5pt dashed #000000; padding-top: 4px;">
+      Architectural Safeguard: 100% bare-metal local execution on SBC; native embedded SQLite WAL; zero cloud token dependence.
+    </div>
+  </div>
+
+  <!-- Fail 3 -->
+  <div style="border: 1pt solid #000000; padding: 8px 10px;">
+    <div style="display: flex; justify-content: space-between; border-bottom: 0.8pt solid #000000; padding-bottom: 3px; margin-bottom: 4px;">
+      <span style="font-size: 7.5pt; font-weight: bold;" class="mono">[FAIL-03] CLINICIAN FRICTION</span>
+      <span class="mono-tag">ZERO TYPING</span>
+    </div>
+    <div style="font-size: 7.0pt; color: #333333; margin-bottom: 4px;">High clinical burnout; physicians refuse complex software requiring extensive manual keyboard data entry.</div>
+    <div style="font-size: 7.2pt; font-weight: bold; border-top: 0.5pt dashed #000000; padding-top: 4px;">
+      Architectural Safeguard: Passive ambient acoustic scribe; physician only performs 1-click verification of auto-structured SOAP note.
+    </div>
+  </div>
+
+  <!-- Fail 4 -->
+  <div style="border: 1pt solid #000000; padding: 8px 10px;">
+    <div style="display: flex; justify-content: space-between; border-bottom: 0.8pt solid #000000; padding-bottom: 3px; margin-bottom: 4px;">
+      <span style="font-size: 7.5pt; font-weight: bold;" class="mono">[FAIL-04] CROSS-PHARMA TOXICITY</span>
+      <span class="mono-tag">BF10 &gt; 100</span>
+    </div>
+    <div style="font-size: 7.0pt; color: #333333; margin-bottom: 4px;">Undetected lethal interactions between concurrent Allopathic drugs and Ayurvedic classical herbal compounds.</div>
+    <div style="font-size: 7.2pt; font-weight: bold; border-top: 0.5pt dashed #000000; padding-top: 4px;">
+      Architectural Safeguard: Bayesian Beta-Binomial Truth Engine with NPvCC rules enforces mandatory clinical justification logging.
+    </div>
+  </div>
+</div>
+<div class="figure-caption">FIG. 9: 4-Quadrant Failure Modes and Effects Analysis (FMEA) and deterministic architectural safeguard matrix.</div>
+
+</div>
+</body>
+</html>

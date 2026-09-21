@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: sih-doctor-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8001
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: DB_PATH
+        value: /app/data/hospital.db
+    disk:
+      name: hospital-data
+      mountPath: /app/data
+      sizeGB: 1
+
+  - type: web
+    name: sih-doctor-frontend
+    env: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    region: singapore
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

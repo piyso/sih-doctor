@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: 254.00mm 650.00mm;
+    margin: 0;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #ffffff;
+    color: #000000;
+    -webkit-font-smoothing: antialiased;
+  }
+  .figure-box {
+    border: 1pt solid #000000;
+    padding: 14px 16px;
+    background: #ffffff;
+    width: 920px;
+  }
+  .figure-caption {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0.02em;
+    color: #000000;
+  }
+  .mono {
+    font-family: "Courier New", Courier, monospace;
+  }
+  table.patent-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.6pt;
+    line-height: 1.35;
+    margin: 6px 0;
+    border-top: 1.5pt solid #000000;
+    border-bottom: 1.5pt solid #000000;
+  }
+  table.patent-table th {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+    text-align: left;
+    padding: 4px 6px;
+    font-size: 7.2pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1pt solid #000000;
+    background: #ffffff;
+    color: #000000;
+  }
+  table.patent-table td {
+    padding: 3.5px 6px;
+    border-bottom: 0.4pt solid #d1d5db;
+    color: #000000;
+    vertical-align: middle;
+  }
+  table.patent-table tr:last-child td {
+    border-bottom: none;
+  }
+  .mono-tag {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.8pt;
+    font-weight: bold;
+    border: 0.8pt solid #000000;
+    padding: 1px 5px;
+    display: inline-block;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="figure-box">
+
+<svg viewBox="0 0 920 190" style="width: 100%; height: auto; font-family: Arial, Helvetica, sans-serif;">
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#000000"/>
+    </marker>
+  </defs>
+
+  <!-- Stage 10 -->
+  <rect x="10" y="20" width="135" height="135" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="77" y="38" font-size="7.5" font-weight="bold" text-anchor="middle">STAGE [310]</text>
+  <line x1="20" y1="44" x2="135" y2="44" stroke="#000000" stroke-width="0.6"/>
+  <text x="77" y="60" font-size="8.0" font-weight="bold" text-anchor="middle">Far-Field Mic</text>
+  <text x="20" y="78" font-size="6.8">• Dual-Mic Array</text>
+  <text x="20" y="92" font-size="6.8">• Hardware AGC</text>
+  <text x="20" y="106" font-size="6.8">• Beamforming DSP</text>
+  <text x="20" y="120" font-size="6.8">• Noise Suppress</text>
+  <text x="77" y="142" font-size="6.5" font-weight="bold" text-anchor="middle" class="mono">16kHz 16-bit PCM</text>
+
+  <line x1="145" y1="87" x2="163" y2="87" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- Stage 20 -->
+  <rect x="165" y="20" width="135" height="135" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="232" y="38" font-size="7.5" font-weight="bold" text-anchor="middle">STAGE [320]</text>
+  <line x1="175" y1="44" x2="290" y2="44" stroke="#000000" stroke-width="0.6"/>
+  <text x="232" y="60" font-size="8.0" font-weight="bold" text-anchor="middle">WebRTC VAD</text>
+  <text x="175" y="78" font-size="6.8">• Spectral Gating</text>
+  <text x="175" y="92" font-size="6.8">• 30ms Frame Step</text>
+  <text x="175" y="106" font-size="6.8">• Silence Dropout</text>
+  <text x="175" y="120" font-size="6.8">• Chatter Filter</text>
+  <text x="232" y="142" font-size="6.5" font-weight="bold" text-anchor="middle" class="mono">75–85dB Gated</text>
+
+  <line x1="300" y1="87" x2="318" y2="87" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- Stage 30 -->
+  <rect x="320" y="20" width="135" height="135" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="387" y="38" font-size="7.5" font-weight="bold" text-anchor="middle">STAGE [330]</text>
+  <line x1="330" y1="44" x2="445" y2="44" stroke="#000000" stroke-width="0.6"/>
+  <text x="387" y="60" font-size="8.0" font-weight="bold" text-anchor="middle">Whisper C++</text>
+  <text x="330" y="78" font-size="6.8">• Code-Mixed ASR</text>
+  <text x="330" y="92" font-size="6.8">• Hindi + Hinglish</text>
+  <text x="330" y="106" font-size="6.8">• GGUF Quantized</text>
+  <text x="330" y="120" font-size="6.8">• Local NPU Engine</text>
+  <text x="387" y="142" font-size="6.5" font-weight="bold" text-anchor="middle" class="mono">0.68s Latency</text>
+
+  <line x1="455" y1="87" x2="473" y2="87" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- Stage 40 -->
+  <rect x="475" y="20" width="135" height="135" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="542" y="38" font-size="7.5" font-weight="bold" text-anchor="middle">STAGE [340]</text>
+  <line x1="485" y1="44" x2="600" y2="44" stroke="#000000" stroke-width="0.6"/>
+  <text x="542" y="60" font-size="8.0" font-weight="bold" text-anchor="middle">Clinical NER</text>
+  <text x="485" y="78" font-size="6.8">• Phonetic Linker</text>
+  <text x="485" y="92" font-size="6.8">• Indian Soundex</text>
+  <text x="485" y="106" font-size="6.8">• Herb Metaphone</text>
+  <text x="485" y="120" font-size="6.8">• 1,941 Morbidity</text>
+  <text x="542" y="142" font-size="6.5" font-weight="bold" text-anchor="middle" class="mono">NAMASTE Codex</text>
+
+  <line x1="610" y1="87" x2="628" y2="87" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- Stage 50 -->
+  <rect x="630" y="20" width="135" height="135" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+  <text x="697" y="38" font-size="7.5" font-weight="bold" text-anchor="middle">STAGE [350]</text>
+  <line x1="640" y1="44" x2="755" y2="44" stroke="#000000" stroke-width="0.6"/>
+  <text x="697" y="60" font-size="8.0" font-weight="bold" text-anchor="middle">Negation Gate</text>
+  <text x="640" y="78" font-size="6.8">• DISPLACE-M Rules</text>
+  <text x="640" y="92" font-size="6.8">• "dard nahi hai"</text>
+  <text x="640" y="106" font-size="6.8">• Scope Detection</text>
+  <text x="640" y="120" font-size="6.8">• False Pos Guard</text>
+  <text x="697" y="142" font-size="6.5" font-weight="bold" text-anchor="middle" class="mono">0.00% False Neg</text>
+
+  <line x1="765" y1="87" x2="783" y2="87" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- Stage 60 -->
+  <rect x="785" y="20" width="125" height="135" fill="#ffffff" stroke="#000000" stroke-width="1.4"/>
+  <text x="847" y="38" font-size="7.5" font-weight="bold" text-anchor="middle">STAGE [360]</text>
+  <line x1="795" y1="44" x2="900" y2="44" stroke="#000000" stroke-width="0.8"/>
+  <text x="847" y="60" font-size="8.0" font-weight="bold" text-anchor="middle">SOAP Builder</text>
+  <text x="795" y="78" font-size="6.8">• In-Memory FHIR</text>
+  <text x="795" y="92" font-size="6.8">• Posology Kala</text>
+  <text x="795" y="106" font-size="6.8">• Verhoeff D5 QR</text>
+  <text x="795" y="120" font-size="6.8">• zk-SNARK Seal</text>
+  <text x="847" y="142" font-size="6.5" font-weight="bold" text-anchor="middle" class="mono">0.033ms Push</text>
+</svg>
+<div class="figure-caption">FIG. 3: Signal processing and code-mixed natural language parsing pipeline of the Far-Field Ambient Acoustic Scribe.</div>
+
+</div>
+</body>
+</html>

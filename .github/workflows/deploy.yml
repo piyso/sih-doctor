@@ -1,0 +1,66 @@
+name: SIH Doctor CI/CD & Coolify Auto-Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  validate-and-test:
+    name: ⚡ 22-Battery Clinical Rigor & Build Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: 📦 Install Native OCR & Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-hin tesseract-ocr-eng libsqlite3-dev
+
+      - name: 🧪 Install Backend Dependencies & Run 22 Test Batteries
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+      - name: 🎨 Install Frontend Dependencies & Validate Vite Build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+  coolify-auto-deploy:
+    name: 🚀 Coolify Auto-Deploy Webhook Trigger
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📡 Trigger Coolify Deploy Webhook (if COOLIFY_WEBHOOK_URL secret exists)
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+        run: |
+          if [ -n "$COOLIFY_WEBHOOK" ]; then
+            echo "🚀 Triggering Coolify Auto-Deploy Webhook..."
+            curl -X POST "$COOLIFY_WEBHOOK" -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || curl -X GET "$COOLIFY_WEBHOOK"
+            echo "✅ Coolify deployment successfully triggered!"
+          else
+            echo "ℹ️ COOLIFY_WEBHOOK_URL secret not set. Skipping webhook trigger. (Coolify's native GitHub App webhook handles automatic rebuild on push)."
+          fi

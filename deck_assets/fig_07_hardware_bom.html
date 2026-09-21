@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: 254.00mm 650.00mm;
+    margin: 0;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #ffffff;
+    color: #000000;
+    -webkit-font-smoothing: antialiased;
+  }
+  .figure-box {
+    border: 1pt solid #000000;
+    padding: 14px 16px;
+    background: #ffffff;
+    width: 920px;
+  }
+  .figure-caption {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0.02em;
+    color: #000000;
+  }
+  .mono {
+    font-family: "Courier New", Courier, monospace;
+  }
+  table.patent-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.6pt;
+    line-height: 1.35;
+    margin: 6px 0;
+    border-top: 1.5pt solid #000000;
+    border-bottom: 1.5pt solid #000000;
+  }
+  table.patent-table th {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+    text-align: left;
+    padding: 4px 6px;
+    font-size: 7.2pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1pt solid #000000;
+    background: #ffffff;
+    color: #000000;
+  }
+  table.patent-table td {
+    padding: 3.5px 6px;
+    border-bottom: 0.4pt solid #d1d5db;
+    color: #000000;
+    vertical-align: middle;
+  }
+  table.patent-table tr:last-child td {
+    border-bottom: none;
+  }
+  .mono-tag {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.8pt;
+    font-weight: bold;
+    border: 0.8pt solid #000000;
+    padding: 1px 5px;
+    display: inline-block;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="figure-box">
+
+<div style="margin-bottom: 6px;">
+  <div style="font-size: 7.2pt; font-weight: bold; text-transform: uppercase; color: #475569;" class="mono">
+    BILL OF MATERIALS SPECIFICATION [BOM-700] • INDUSTRIAL GRADE EDGE HARDWARE
+  </div>
+</div>
+
+<table class="patent-table">
+  <thead>
+    <tr>
+      <th style="width: 8%;">Item</th>
+      <th style="width: 25%;">Hardware Sub-System</th>
+      <th style="width: 49%;">Enterprise Technical Specification</th>
+      <th style="width: 18%; text-align: right;">Cost (INR)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="mono">01</td>
+      <td><strong>Single Board Computer (SBC)</strong></td>
+      <td>Raspberry Pi 5 (8GB LPDDR4X, Quad-Core Cortex-A76 @ 2.4GHz) / RK3588 NPU</td>
+      <td style="text-align: right;" class="mono">₹7,200</td>
+    </tr>
+    <tr>
+      <td class="mono">02</td>
+      <td><strong>High-Endurance NVMe Storage</strong></td>
+      <td>128GB High-Endurance M.2 2280 NVMe SSD via PCIe HAT (Native SQLite WAL)</td>
+      <td style="text-align: right;" class="mono">₹1,600</td>
+    </tr>
+    <tr>
+      <td class="mono">03</td>
+      <td><strong>Industrial Touch Display</strong></td>
+      <td>10.1" Rugged Capacitive IPS Touchscreen (1280×800, Anti-glare, IP54 Front)</td>
+      <td style="text-align: right;" class="mono">₹3,100</td>
+    </tr>
+    <tr>
+      <td class="mono">04</td>
+      <td><strong>Far-Field Acoustic Sensor</strong></td>
+      <td>Dual-Mic Beamforming Array with Hardware AGC &amp; Acoustic DSP Filtering</td>
+      <td style="text-align: right;" class="mono">₹650</td>
+    </tr>
+    <tr>
+      <td class="mono">05</td>
+      <td><strong>Thermal Slip Printer &amp; OCR</strong></td>
+      <td>58mm Embedded Thermal Mechanism + High-Resolution CMOS Optical Scanner</td>
+      <td style="text-align: right;" class="mono">₹850</td>
+    </tr>
+    <tr>
+      <td class="mono">06</td>
+      <td><strong>Enclosure &amp; Power Regulation</strong></td>
+      <td>Wall-Mount Powder-Coated Steel Chassis + Official 27W USB-C PD Adapter</td>
+      <td style="text-align: right;" class="mono">₹600</td>
+    </tr>
+    <tr style="background: #f8fafc; font-weight: bold; border-top: 1.2pt solid #000000; border-bottom: 1.2pt solid #000000;">
+      <td class="mono">TOTAL</td>
+      <td colspan="2">TOTAL UNIT CAPITAL EXPENDITURE (CapEx) PER MEDIKIOSK TERMINAL</td>
+      <td style="text-align: right; font-size: 8.8pt;" class="mono">₹13,400 (~$160)</td>
+    </tr>
+    <tr>
+      <td class="mono">OPEX</td>
+      <td colspan="2">RECURRING MONTHLY CLOUD API TOKEN / SAAS EXPENSE</td>
+      <td style="text-align: right; font-weight: bold; color: #1e3a8a;" class="mono">₹0 / MONTH</td>
+    </tr>
+  </tbody>
+</table>
+<div class="figure-caption">FIG. 7: Itemized engineering bill of materials (BOM) and capital cost sizing model for bare-metal edge kiosk deployment.</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,52 @@
+# ==============================================================================
+# AIIA Sovereign MediKiosk & Hospital OS - Production Compose Orchestration
+# Air-Gapped Zero-Cloud Multi-Container Deployment (PS ID 26047)
+# ==============================================================================
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aiia-medikiosk-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - NODE_ENV=production
+      - DB_PATH=/app/data/hospital.db
+      - USE_MOCK=false
+      - CORS_ORIGIN=*
+    volumes:
+      - medikiosk-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - medikiosk-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aiia-medikiosk-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - medikiosk-net
+
+volumes:
+  medikiosk-data:
+    driver: local
+
+networks:
+  medikiosk-net:
+    driver: bridge

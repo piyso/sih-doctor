@@ -1,0 +1,39 @@
+{
+  "protocol": "Groth16",
+  "curve": "bn128",
+  "circuitName": "integrity_check",
+  "patentTitle": "Adaptive Distributed Memory Retrieval Apparatus with Reinforcement Learning",
+  "patentClaims": "IPO & USPTO Claims 1-43",
+  "cryptographicGuarantee": "Proves case-sheet computation and hashing integrity without exposing patient plaintext PHI",
+  "vkSummary": {
+    "protocol": "groth16",
+    "curve": "bn128",
+    "nPublic": 1,
+    "vk_alpha_1": [
+      "0x1cbb321d582b130e9d6efb343ef0ef4c172d113ae8b0e8b233a0ce0bc8351586",
+      "0x0cfec00455db4db5d41cbf4874033b0060fb8f9f0aef4aa3be6f8df784b2eb32",
+      "0x01"
+    ],
+    "vk_beta_2": [
+      [
+        "0x138da7cb920ef0d5d9c7271427c3d2568600c0aa2360a804cefd325cfa790fa1",
+        "0x217d8aeaf664eb28cf1297e6be7781b2382ec2d790d5757d5445778848f0e57e"
+      ],
+      [
+        "0x0d2ffea71cf570d24ff96f8c5b0587289f8eb7d65b2149b01ae20ab160ea3d4d",
+        "0x2b380f2d9193798cf0a9314488b394f4c28f11ecf330ad3c9886a11ec5b8c0aa"
+      ],
+      [
+        "0x01",
+        "0x00"
+      ]
+    ]
+  },
+  "benchmarkMetrics": {
+    "meanVerificationLatencyMs": 4.86,
+    "p95VerificationLatencyMs": 6.09,
+    "p99VerificationLatencyMs": 8.53,
+    "targetCurve": "alt_bn128",
+    "status": "VERIFIED_VALID"
+  }
+}
