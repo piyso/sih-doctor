@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, AlertTriangle, ShieldCheck, Printer, FileCode, CheckCircle2, Sparkles, Zap, Check } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, ShieldCheck, Printer, FileCode, CheckCircle2, Sparkles, Zap, Search, AlertOctagon, Check } from 'lucide-react';
 import { AllopathicMedication, AyushFormulation, ConflictAlert, HypergraphPolypharmacyResult, SessionDetail } from '../../types/api';
 import { CLINICAL_ALLOPATHIC_FORMULARY, CLINICAL_AYUSH_FORMULARY, FormularyAllopathicItem, FormularyAyushItem } from '../../services/clinicalFormulary';
 import { api } from '../../services/api';
@@ -65,7 +65,7 @@ export const getConflictResolutionStrategy = (
       bf10: 168.4,
       posteriorProb: 0.9941,
       cases: 1420,
-      mechanismDetail: 'Hepatic CYP2C9/CY3A4 inhibition by guggulsterones elevates free warfarin fraction, causing fatal INR surge.',
+      mechanismDetail: 'Hepatic CYP2C9/CYP3A4 inhibition by guggulsterones elevates free warfarin fraction, causing fatal INR surge.',
       severityTitle: 'CRITICAL HEMORRHAGE RISK'
     };
   }
@@ -193,9 +193,15 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
   onOpenRxModal
 }) => {
   const [activeConflictAlert, setActiveConflictAlert] = useState<ConflictAlert | null>(null);
-  const [hypergraph, setHypergraph] = useState<HypergraphPolypharmacyResult | null>(null);
+  const [_hypergraph, setHypergraph] = useState<HypergraphPolypharmacyResult | null>(null);
   const [showFhirModal, setShowFhirModal] = useState(false);
   const [fhirData, setFhirData] = useState<any>(null);
+
+  // Search filter state
+  const [searchAllo, setSearchAllo] = useState('');
+  const [searchAyush, setSearchAyush] = useState('');
+  const [isAlloSearchOpen, setIsAlloSearchOpen] = useState(false);
+  const [isAyushSearchOpen, setIsAyushSearchOpen] = useState(false);
 
   // Reactive Higher-Order Polypharmacy Evaluation
   React.useEffect(() => {
@@ -232,7 +238,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
   };
 
   const handleAddAllopathic = async (medTemplate: FormularyAllopathicItem) => {
-    sovereignSound('notch');
+    sovereignSound.playDialNotch();
     const newMed: AllopathicMedication = {
       name: medTemplate.name,
       genericName: medTemplate.genericName,
@@ -243,12 +249,14 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
     };
     const updated = [...allopathicMeds, newMed];
     setAllopathicMeds(updated);
+    setIsAlloSearchOpen(false);
+    setSearchAllo('');
 
     // Evaluate conflicts via live Bayesian Truth Engine
     try {
       const alerts = await api.checkContraindications(updated, ayushFormulations);
       if (alerts.length > 0) {
-        sovereignSound('alert');
+        sovereignSound.playClinicalAlert();
         setActiveConflictAlert(alerts[0]);
       }
     } catch (e) {
@@ -257,7 +265,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
   };
 
   const handleAddAyush = async (ayushTemplate: FormularyAyushItem) => {
-    sovereignSound('notch');
+    sovereignSound.playDialNotch();
     const newAyush: AyushFormulation = {
       classicalName: ayushTemplate.classicalName,
       namasteCode: ayushTemplate.namasteCode,
@@ -271,12 +279,14 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
     };
     const updated = [...ayushFormulations, newAyush];
     setAyushFormulations(updated);
+    setIsAyushSearchOpen(false);
+    setSearchAyush('');
 
     // Evaluate conflicts via live Bayesian Truth Engine
     try {
       const alerts = await api.checkContraindications(allopathicMeds, updated);
       if (alerts.length > 0) {
-        sovereignSound('alert');
+        sovereignSound.playClinicalAlert();
         setActiveConflictAlert(alerts[0]);
       }
     } catch (e) {
@@ -285,17 +295,17 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
   };
 
   const handleRemoveAllopathic = (idx: number) => {
-    sovereignSound('notch');
+    sovereignSound.playDialNotch();
     setAllopathicMeds(allopathicMeds.filter((_, i) => i !== idx));
   };
 
   const handleRemoveAyush = (idx: number) => {
-    sovereignSound('notch');
+    sovereignSound.playDialNotch();
     setAyushFormulations(ayushFormulations.filter((_, i) => i !== idx));
   };
 
   const handleGenerateFhir = async () => {
-    sovereignSound('chime');
+    sovereignSound.playCrystalChime();
     try {
       const bundle = await api.generateFhirBundle(sessionId);
       setFhirData(bundle);
@@ -315,13 +325,24 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
   };
 
   const handlePrintClick = () => {
-    sovereignSound('shutter');
+    sovereignSound.playMechanicalSnap();
     if (onOpenRxModal) {
       onOpenRxModal();
     } else {
       window.print();
     }
   };
+
+  const filteredAllo = CLINICAL_ALLOPATHIC_FORMULARY.filter(m =>
+    m.name.toLowerCase().includes(searchAllo.toLowerCase()) ||
+    m.genericName.toLowerCase().includes(searchAllo.toLowerCase()) ||
+    m.category.toLowerCase().includes(searchAllo.toLowerCase())
+  );
+
+  const filteredAyush = CLINICAL_AYUSH_FORMULARY.filter(a =>
+    a.classicalName.toLowerCase().includes(searchAyush.toLowerCase()) ||
+    a.category.toLowerCase().includes(searchAyush.toLowerCase())
+  );
 
   return (
     <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -331,8 +352,9 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
           <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.01em', margin: 0 }}>
             Prescription Pad (Dual-Pharmacology)
           </h3>
-          <span className="badge badge-routine" style={{ fontSize: 10, padding: '2px 8px' }}>
-            Safety Interlock Active
+          <span className="badge badge-routine" style={{ fontSize: 10, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ShieldCheck size={11} />
+            <span>Safety Interlock Active</span>
           </span>
         </div>
 
@@ -341,6 +363,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
             onClick={handleGenerateFhir}
             className="btn btn-secondary"
             style={{ padding: '6px 12px', fontSize: 11.5, gap: 5 }}
+            title="Generate ABDM FHIR R4 Bundle"
           >
             <FileCode size={13} color="#16a34a" />
             <span>ABDM FHIR R4</span>
@@ -351,7 +374,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
             style={{ padding: '6px 14px', fontSize: 11.5, gap: 5 }}
           >
             <Printer size={13} />
-            <span>Print Rx</span>
+            <span>Finalize Rx</span>
           </button>
         </div>
       </div>
@@ -388,9 +411,30 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                 {allopathicMeds.length}
               </span>
             </span>
+
+            <button
+              type="button"
+              onClick={() => setIsAlloSearchOpen(!isAlloSearchOpen)}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#0284c7',
+                background: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                padding: '3px 8px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <Search size={11} />
+              <span>{isAlloSearchOpen ? 'Close Search' : '+ Search Formulary'}</span>
+            </button>
           </div>
 
-          {/* Preset Buttons */}
+          {/* Quick Formulary Buttons */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {CLINICAL_ALLOPATHIC_FORMULARY.slice(0, 5).map((med) => (
               <button
@@ -410,6 +454,45 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
               </button>
             ))}
           </div>
+
+          {/* Search Popover */}
+          {isAlloSearchOpen && (
+            <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: 10 }}>
+              <input
+                type="text"
+                value={searchAllo}
+                onChange={(e) => setSearchAllo(e.target.value)}
+                placeholder="Search NLEM generic name, brand or category..."
+                style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #cbd5e1', marginBottom: 8 }}
+                autoFocus
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                {filteredAllo.map(med => (
+                  <div
+                    key={med.id}
+                    onClick={() => handleAddAllopathic(med)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      fontSize: 11.5
+                    }}
+                  >
+                    <div>
+                      <strong style={{ color: '#0f172a' }}>{med.name}</strong> ({med.dosage})
+                      <div style={{ fontSize: 10, color: '#64748b' }}>{med.genericName} · {med.frequency}</div>
+                    </div>
+                    <span style={{ fontSize: 10, color: '#0284c7', fontWeight: 600 }}>+ Add</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Active List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -482,9 +565,30 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                 {ayushFormulations.length}
               </span>
             </span>
+
+            <button
+              type="button"
+              onClick={() => setIsAyushSearchOpen(!isAyushSearchOpen)}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#16a34a',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                padding: '3px 8px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <Search size={11} />
+              <span>{isAyushSearchOpen ? 'Close Search' : '+ Search AFI'}</span>
+            </button>
           </div>
 
-          {/* Preset Buttons */}
+          {/* Quick Formulary Buttons */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {CLINICAL_AYUSH_FORMULARY.slice(0, 5).map((ayush) => (
               <button
@@ -505,41 +609,95 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
             ))}
           </div>
 
+          {/* Search Popover */}
+          {isAyushSearchOpen && (
+            <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: 10 }}>
+              <input
+                type="text"
+                value={searchAyush}
+                onChange={(e) => setSearchAyush(e.target.value)}
+                placeholder="Search AFI classical compound, category or Bhasma..."
+                style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #cbd5e1', marginBottom: 8 }}
+                autoFocus
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                {filteredAyush.map(ay => (
+                  <div
+                    key={ay.id}
+                    onClick={() => handleAddAyush(ay)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      fontSize: 11.5
+                    }}
+                  >
+                    <div>
+                      <strong style={{ color: '#0f172a' }}>{ay.classicalName}</strong>
+                      {ay.isScheduleE1 && (
+                        <span style={{ fontSize: 9, background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: 4, marginLeft: 6, fontWeight: 700 }}>
+                          Sch E1
+                        </span>
+                      )}
+                      <div style={{ fontSize: 10, color: '#64748b' }}>Anupana: {ay.anupana} · {ay.dose}</div>
+                    </div>
+                    <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>+ Add</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Active List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {ayushFormulations.map((ay, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: '#f8fafc',
-                  padding: '10px 12px',
-                  borderRadius: 8,
-                  border: '1px solid #e2e8f0'
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                    {ay.classicalName} <span style={{ color: '#16a34a', fontWeight: 600 }}>({ay.dose})</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: '#b45309', marginTop: 1, fontWeight: 500 }}>
-                    अनुपान (Anupana): {ay.anupana}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 1 }}>
-                    {ay.frequency} · {ay.durationDays} Days · {ay.dosageForm}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleRemoveAyush(idx)}
-                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 6 }}
-                  title="Remove formulation"
+            {ayushFormulations.map((ay, idx) => {
+              const isSchE1 = /rasa|bhasma|sindura|vatsanabha|kupilu|gunja|bhanga/i.test(ay.classicalName || '');
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: '#f8fafc',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: isSchE1 ? '1px solid #fde68a' : '1px solid #e2e8f0'
+                  }}
                 >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span>{ay.classicalName}</span>
+                      <span style={{ color: '#16a34a', fontWeight: 600 }}>({ay.dose})</span>
+                      {isSchE1 && (
+                        <span style={{ fontSize: 9.5, background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <AlertOctagon size={10} />
+                          <span>Sch E1 (Rule 161)</span>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#b45309', marginTop: 1, fontWeight: 500 }}>
+                      अनुपान (Anupana): {ay.anupana}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 1 }}>
+                      {ay.frequency} · {ay.durationDays} Days · {ay.dosageForm}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveAyush(idx)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 6 }}
+                    title="Remove formulation"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
 
             {ayushFormulations.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 12, color: '#94a3b8', border: '1px dashed #cbd5e1', borderRadius: 8 }}>
@@ -708,9 +866,14 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: 12, color: '#334155', lineHeight: 1.5, paddingLeft: 14 }}>
+              <p style={{ fontSize: 12, color: '#334155', lineHeight: 1.5, paddingLeft: 14, margin: 0 }}>
                 {dietary.pathya}
               </p>
+              {dietary.agniAdvisory && (
+                <div style={{ fontSize: 10.5, color: '#0284c7', fontWeight: 600, paddingLeft: 14, marginTop: 4 }}>
+                  • {dietary.agniAdvisory}
+                </div>
+              )}
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -719,7 +882,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                   अपथ्य (Apathya / Strict Prohibitions):
                 </span>
               </div>
-              <p style={{ fontSize: 12, color: '#334155', lineHeight: 1.5, paddingLeft: 14 }}>
+              <p style={{ fontSize: 12, color: '#334155', lineHeight: 1.5, paddingLeft: 14, margin: 0 }}>
                 {dietary.apathya}
               </p>
             </div>

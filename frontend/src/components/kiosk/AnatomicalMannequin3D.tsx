@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { sovereignSound } from '../../utils/audio';
+import { BASE_URL } from '../../services/api';
 import {
+
   RotateCw,
   ZoomIn,
   ZoomOut,
@@ -1991,42 +1993,66 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       );
     };
 
-    // Fast streaming fetch from GitHub Releases CDN with byte-level progress reporting
+    // Fast streaming fetch with multiple CORS-safe endpoints, HTML guardrails & byte-level progress reporting
     const fetchFromCDN = async () => {
-      const response = await fetch(CDN_RELEASE_URL);
-      if (!response.ok) throw new Error(`HTTP ${response.status} on CDN`);
-      const reader = response.body?.getReader();
-      const contentLength = +(response.headers.get('Content-Length') || '226694516');
+      const candidates = [
+        '/api/models/anatomical-smooth',
+        `${BASE_URL}/api/models/anatomical-smooth`,
+        CDN_RELEASE_URL
+      ];
 
-      if (!reader) {
-        const buf = await response.arrayBuffer();
-        saveToIndexedDB(buf);
-        parseAndMount(buf);
-        return;
+      for (const url of candidates) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('text/html')) continue; // Skip HTML rewrites/errors
+
+          const reader = response.body?.getReader();
+          const contentLength = +(response.headers.get('Content-Length') || '226694516');
+
+          if (!reader) {
+            const buf = await response.arrayBuffer();
+            if (buf.byteLength > 10000000) {
+              saveToIndexedDB(buf);
+              parseAndMount(buf);
+              return;
+            }
+            continue;
+          }
+
+          let receivedLength = 0;
+          const chunks: Uint8Array[] = [];
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            receivedLength += value.length;
+            const pct = Math.min(99, Math.round((receivedLength / contentLength) * 100));
+            setLoadingProgress(pct);
+          }
+
+          const combined = new Uint8Array(receivedLength);
+          let position = 0;
+          for (const chunk of chunks) {
+            combined.set(chunk, position);
+            position += chunk.length;
+          }
+
+          if (combined.byteLength > 10000000) {
+            saveToIndexedDB(combined.buffer);
+            parseAndMount(combined.buffer);
+            return;
+          }
+        } catch (e) {
+          console.warn(`Candidate ${url} failed:`, e);
+        }
       }
 
-      let receivedLength = 0;
-      const chunks: Uint8Array[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        receivedLength += value.length;
-        const pct = Math.min(99, Math.round((receivedLength / contentLength) * 100));
-        setLoadingProgress(pct);
-      }
-
-      const combined = new Uint8Array(receivedLength);
-      let position = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, position);
-        position += chunk.length;
-      }
-
-      saveToIndexedDB(combined.buffer);
-      parseAndMount(combined.buffer);
+      fallbackDirect();
     };
+
 
     // Main loader entrypoint: Cache -> Localhost direct -> CDN live stream -> Fail-safe
     loadFromIndexedDB()

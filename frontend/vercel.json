@@ -4,8 +4,13 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/models/anatomical-smooth",
+      "destination": "https://github.com/piyso/sih-doctor/releases/download/v1.0.0-assets/3d_mannequin_smooth.glb"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
 }
+

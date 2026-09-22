@@ -26,6 +26,8 @@ import { ashaRouter } from './routes/asha.routes';
 import { ClinicalParserService } from './services/clinicalParser.service';
 import { PiyGraphService } from './services/piygraph.service';
 import { AudioVadPipelineService } from './services/audioVadPipeline.service';
+import fs from 'fs';
+import path from 'path';
 import { PhoneticNormalizerService } from './services/phoneticNormalizer.service';
 
 dotenv.config();
@@ -61,8 +63,42 @@ app.get(['/health', '/api/health'], (_req, res) => {
   });
 });
 
+// High-Speed CORS-Enabled 3D Anatomical Model Streaming Endpoint (2,178 Meshes)
+app.get('/api/models/anatomical-smooth', async (req, res) => {
+  const localModelPath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', '3d_mannequin_smooth.glb');
+  if (fs.existsSync(localModelPath)) {
+    res.setHeader('Content-Type', 'model/gltf-binary');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(localModelPath);
+  }
+
+  const cdnUrl = 'https://github.com/piyso/sih-doctor/releases/download/v1.0.0-assets/3d_mannequin_smooth.glb';
+  try {
+    const range = req.headers.range;
+    const fetchHeaders: Record<string, string> = {};
+    if (range) fetchHeaders['Range'] = range;
+
+    const response = await fetch(cdnUrl, { headers: fetchHeaders });
+    res.status(response.status);
+    response.headers.forEach((val, key) => {
+      if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
+        res.setHeader(key, val);
+      }
+    });
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const arrayBuffer = await response.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    console.error('Error streaming 3D model:', err);
+    res.status(500).json({ error: 'Failed to stream 3D model' });
+  }
+});
+
 // Mount Routes
 app.use('/api/kiosk', kioskRouter);
+
 app.use('/api/documents', documentsRouter);
 app.use('/api/doctor', doctorRouter);
 app.use('/api/contraindications', contraindicationsRouter);
