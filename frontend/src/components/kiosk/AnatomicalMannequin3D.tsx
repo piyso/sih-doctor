@@ -1899,69 +1899,35 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       setLoadingProgress(100);
     };
 
-    // 8. Progressive High-Fidelity Medical Streaming (Instant 1.7MB Silhouette + Seamless 1,751-Mesh Internal Anatomy)
+    // 8. Direct High-Fidelity Anatomical Loading Pipeline (5.77M Clean Vertices / 1,751 Meshes)
     const gltfLoader = new GLTFLoader();
-    let isHighFidelityMounted = false;
 
-    // Load High-Fidelity Master Anatomy (1,751 Meshes / Internal Visceral & Skeletal Layers)
-    const loadFullMedicalAnatomy = () => {
-      gltfLoader.load(
-        '/models/3d_mannequin_instant.glb',
-        (gltfInstant) => {
-          if (!isHighFidelityMounted) {
-            isHighFidelityMounted = true;
-            // Clear temporary proxy meshes and mount full high-definition anatomy
-            while (humanGroup.children.length > 0) {
-              humanGroup.remove(humanGroup.children[0]);
-            }
-            setupLoadedInternalModel(gltfInstant.scene);
-          }
-        },
-        undefined,
-        () => {
-          // If instant 75MB is missing, load fast 226MB full anatomy
-          gltfLoader.load(
-            '/models/3d_mannequin_fast.glb',
-            (gltfFast) => {
-              if (!isHighFidelityMounted) {
-                isHighFidelityMounted = true;
-                while (humanGroup.children.length > 0) {
-                  humanGroup.remove(humanGroup.children[0]);
-                }
-                setupLoadedInternalModel(gltfFast.scene);
-              }
-            },
-            undefined,
-            (err) => console.log('Background HD anatomy stream ready:', err)
-          );
-        }
-      );
-    };
-
-    // Stage 1: Fast Base Mesh (<0.2s Instant Display)
     gltfLoader.load(
-      '/models/human_body.glb',
-      (gltfBase) => {
-        if (!isHighFidelityMounted) {
-          setupLoadedInternalModel(gltfBase.scene);
-          setModelLoaded(true);
-          setLoadingProgress(100);
-        }
-        // Immediately kick off high-fidelity internal organ streaming in background
-        loadFullMedicalAnatomy();
+      '/models/3d_mannequin_fast.glb',
+      (gltf) => {
+        setupLoadedInternalModel(gltf.scene);
       },
       (xhr) => {
-        if (!isHighFidelityMounted) {
-          if (xhr.total > 0) {
-            setLoadingProgress(Math.min(99, Math.round((xhr.loaded / xhr.total) * 100)));
-          } else if (xhr.loaded > 0) {
-            setLoadingProgress(Math.min(95, Math.round((xhr.loaded / (1.8 * 1024 * 1024)) * 100)));
-          }
+        if (xhr.total > 0) {
+          setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100));
         }
       },
-      (errBase) => {
-        console.warn('Base GLB load skipped, loading HD anatomy directly:', errBase);
-        loadFullMedicalAnatomy();
+      (err) => {
+        console.warn('Primary GLB failed, trying smooth fallback:', err);
+        gltfLoader.load(
+          '/models/3d_mannequin_smooth.glb',
+          (gltfSmooth) => {
+            setupLoadedInternalModel(gltfSmooth.scene);
+          },
+          (xhr) => {
+            if (xhr.total > 0) {
+              setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100));
+            }
+          },
+          (errOpt) => {
+            console.error('All GLB anatomical loads failed:', errOpt);
+          }
+        );
       }
     );
 
