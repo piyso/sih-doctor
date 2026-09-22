@@ -2240,37 +2240,20 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
       {/* Floating 3D Hover Inspection Tooltip HUD */}
       {hoveredMeshInfo && (
-        <div className="absolute top-4 right-4 z-30 max-w-xs p-3 rounded-2xl bg-card/95 dark:bg-card/95 backdrop-blur-md border border-border/90 shadow-xl pointer-events-none transition-all text-card-foreground">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-primary font-bold text-xs uppercase tracking-wider">
-              <Target size={12} />
-              <span>{hoveredMeshInfo.system} System</span>
-            </div>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold bg-muted text-foreground border border-border/70">
-              {hoveredMeshInfo.isRight ? 'Right (दायां)' : hoveredMeshInfo.isLeft ? 'Left (बायां)' : 'Midline (मध्य)'}
-            </span>
-          </div>
-          <div className="text-foreground text-xs font-heading font-bold mt-1">{hoveredMeshInfo.hindiName}</div>
-          <div className="text-muted-foreground text-[10px] font-mono">{hoveredMeshInfo.regionId}</div>
-          {hoveredMeshInfo.marma && (
-            <div className="mt-1 text-[10px] text-foreground bg-muted/80 px-2 py-0.5 rounded-lg border border-border/80 flex items-center gap-1.5">
-              <Zap size={10} className="text-primary shrink-0" />
-              <span>{hoveredMeshInfo.marma}</span>
-            </div>
-          )}
+        <div className="absolute top-4 right-4 z-30 px-3.5 py-2 rounded-xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md pointer-events-none transition-all text-card-foreground">
+          <div className="text-foreground text-xs sm:text-sm font-heading font-bold">{hoveredMeshInfo.hindiName}</div>
         </div>
       )}
 
-      {/* Floating Camera & Angle Controls (Bottom-Left) */}
+      {/* Camera Angle Controls (Front / Back) */}
       {showAngleControls && (
-        <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-2 z-20 pointer-events-auto">
-          {/* Angle Presets */}
+        <div className="absolute bottom-4 left-4 flex items-center gap-1.5 z-20 pointer-events-auto">
           <div className="flex items-center gap-1 p-1 bg-card/90 dark:bg-card/90 backdrop-blur-md rounded-xl border border-border/80 shadow-sm">
             <button
               type="button"
               onClick={() => applyAnglePreset(0, 0)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                viewMode === 'front' ? 'bg-primary text-primary-foreground shadow-xs font-bold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              className={`px-3.5 py-1.5 text-xs font-heading font-bold rounded-lg transition-all cursor-pointer ${
+                viewMode === 'front' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
               }`}
             >
               Front (सामने)
@@ -2278,56 +2261,12 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
             <button
               type="button"
               onClick={() => applyAnglePreset(Math.PI, 0)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                viewMode === 'back' ? 'bg-primary text-primary-foreground shadow-xs font-bold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              className={`px-3.5 py-1.5 text-xs font-heading font-bold rounded-lg transition-all cursor-pointer ${
+                viewMode === 'back' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
               }`}
             >
               Back (पीछे)
             </button>
-            <button
-              type="button"
-              onClick={() => setIsAutoRotating(!isAutoRotating)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                isAutoRotating ? 'bg-primary text-primary-foreground border border-primary shadow-xs font-bold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-              }`}
-              title="Toggle Auto-Orbit Scan"
-            >
-              <RotateCw size={12} className={isAutoRotating ? 'animate-spin' : ''} />
-              <span>3D Scan</span>
-            </button>
-          </div>
-
-          {/* Anatomical System Layer Filter Tabs */}
-          <div className="hidden sm:flex items-center gap-1 p-1 bg-card/90 dark:bg-card/90 backdrop-blur-md rounded-xl border border-border/80 shadow-sm">
-            {[
-              { id: 'all' as const, label: 'All', icon: Layers },
-              { id: 'muscular' as const, label: 'Muscles', icon: Activity },
-              { id: 'skeletal' as const, label: 'Skeleton', icon: Bone },
-              { id: 'vascular' as const, label: 'Vessels', icon: Zap },
-              { id: 'visceral' as const, label: 'Organs', icon: Heart }
-            ].map(layer => {
-              const Icon = layer.icon;
-              const isActive = activeSystemLayer === layer.id;
-              return (
-                <button
-                  key={layer.id}
-                  type="button"
-                  onClick={() => {
-                    try { sovereignSound.playMechanicalSnap(); } catch {}
-                    if (onSystemLayerChange) onSystemLayerChange(layer.id);
-                    else setInternalSystemLayer(layer.id);
-                  }}
-                  className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground shadow-xs font-bold'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                  }`}
-                >
-                  <Icon size={12} />
-                  <span>{layer.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
       )}

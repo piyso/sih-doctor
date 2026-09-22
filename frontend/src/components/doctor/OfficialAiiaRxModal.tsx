@@ -543,7 +543,7 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
                     }}
                   >
                     <AlertTriangle size={11} />
-                    <span>Simulate Forgery Tamper (Lockout)</span>
+                    <span>Assert Tamper Rejection (Security Audit)</span>
                   </button>
                 </div>
 

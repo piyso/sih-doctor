@@ -258,12 +258,12 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
   };
 
   const stepLabelsBilingual = [
-    { en: 'Language', hi: 'भाषा चयन' },
-    { en: 'ABHA Identity', hi: 'पहचान' },
-    { en: 'Voice & Body', hi: 'अंग व ध्वनि' },
-    { en: 'SOCRATES', hi: 'लक्षण' },
-    { en: 'Ayush Pariksha', hi: 'दशविध परीक्षा' },
-    { en: 'Document OCR', hi: 'दस्तावेज़' }
+    { num: 1, title: 'भाषा (Language)', short: 'भाषा' },
+    { num: 2, title: 'मरीज़ पहचान (Patient ID)', short: 'पहचान' },
+    { num: 3, title: 'तकलीफ़ व अंग (Symptoms)', short: 'लक्षण' },
+    { num: 4, title: 'दर्द का विवरण (Pain Details)', short: 'विवरण' },
+    { num: 5, title: 'पाचन व स्वास्थ्य (Health & Digestion)', short: 'पाचन' },
+    { num: 6, title: 'पर्चे व दस्तावेज़ (Documents)', short: 'दस्तावेज़' }
   ];
 
   return (
@@ -298,8 +298,8 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
                   Terminal 04
                 </span>
                 <span>•</span>
-                <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   Edge Node Active
                 </span>
               </div>
@@ -316,11 +316,8 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
               }}
               className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-600 text-white text-xs font-heading font-extrabold tracking-wide shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-2 border border-rose-400/40 active:scale-95"
             >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-              </span>
-              <AlertOctagon size={15} className="group-hover:rotate-12 transition-transform duration-200" />
+              <span className="w-2 h-2 rounded-full bg-white" />
+              <AlertOctagon size={15} />
               <span>Emergency SOS (आपातकाल)</span>
             </button>
           </div>
@@ -330,19 +327,18 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
         {currentStep < 7 && (
           <div className="mb-6 no-print">
             <div className="p-3 rounded-2xl bg-card border border-border/70 shadow-xs mb-3">
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-                    Step {currentStep} of 6
+                    Step {currentStep} / 6
                   </span>
                   <span className="text-xs sm:text-sm font-heading font-bold text-foreground">
-                    {stepLabelsBilingual[currentStep - 1]?.hi} · {stepLabelsBilingual[currentStep - 1]?.en}
+                    {stepLabelsBilingual[currentStep - 1]?.title}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-muted-foreground">
-                  <span className="text-primary">{Math.round((currentStep / 6) * 100)}%</span>
-                  <span>COMPLETED</span>
-                </div>
+                <span className="font-mono text-xs font-bold text-primary">
+                  {Math.round((currentStep / 6) * 100)}%
+                </span>
               </div>
 
               {/* Segmented Progress Bars */}
@@ -360,7 +356,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
                         sovereignSound.playDialNotch();
                         setCurrentStep(stepNum);
                       }}
-                      className="group flex flex-col gap-1 text-left cursor-pointer transition-all"
+                      className="group flex flex-col gap-1 text-center cursor-pointer transition-all"
                     >
                       <div
                         className={`h-2 rounded-full transition-all duration-300 ${
@@ -371,9 +367,9 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
                             : 'bg-muted/70 group-hover:bg-muted'
                         }`}
                       />
-                      <div className="hidden sm:flex flex-col text-[10px] leading-tight mt-0.5">
-                        <span className={`font-semibold truncate ${isActive ? 'text-emerald-600 dark:text-emerald-400 font-bold' : isDone ? 'text-foreground/80' : 'text-muted-foreground'}`}>
-                          {step.en}
+                      <div className="hidden sm:flex flex-col text-[11px] leading-tight mt-1 text-center">
+                        <span className={`font-semibold truncate ${isActive ? 'text-primary font-bold' : isDone ? 'text-foreground/80' : 'text-muted-foreground'}`}>
+                          {step.short}
                         </span>
                       </div>
                     </button>
@@ -525,25 +521,32 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
           {/* Center Indicator Capsule */}
           <div className="flex items-center gap-2 px-2">
             <span className="text-xs font-semibold text-foreground tracking-tight whitespace-nowrap">
-              Step {currentStep} of 6 · {stepLabelsBilingual[currentStep - 1]?.hi || stepLabelsBilingual[currentStep - 1]?.en}
+              Step {currentStep} / 6 : {stepLabelsBilingual[currentStep - 1]?.title}
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              sovereignSound.playMechanicalSnap();
-              if (currentStep === 6) {
-                handleCompleteIntake();
-              } else {
-                setCurrentStep(currentStep + 1);
-              }
-            }}
-            className="tactile-btn-primary px-4 py-1.5 text-xs font-semibold rounded-full gap-1.5 shadow-sm"
-          >
-            <span>{currentStep === 6 ? 'टोकन प्राप्त करें / Complete' : 'आगे बढ़ें / Next'}</span>
-            <ArrowRight size={13} />
-          </button>
+          {(() => {
+            const isStep3Blocked = currentStep === 3 && (!selectedBodyRegion || !transcript || transcript.trim().length === 0);
+            return (
+              <button
+                type="button"
+                disabled={isStep3Blocked}
+                onClick={() => {
+                  if (isStep3Blocked) return;
+                  sovereignSound.playMechanicalSnap();
+                  if (currentStep === 6) {
+                    handleCompleteIntake();
+                  } else {
+                    setCurrentStep(currentStep + 1);
+                  }
+                }}
+                className="tactile-btn-primary px-4 py-1.5 text-xs font-semibold rounded-full gap-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span>{currentStep === 6 ? 'टोकन प्राप्त करें / Complete' : 'आगे बढ़ें / Next'}</span>
+                <ArrowRight size={13} />
+              </button>
+            );
+          })()}
         </nav>
       )}
 

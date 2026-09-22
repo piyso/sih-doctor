@@ -24,10 +24,13 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   onNext,
   onBack
 }) => {
+  const isKneeOrJoint = /knee|घुटना|जानु|joint|जोड़/i.test(selectedBodyRegion || '');
+  const defaultCharacter = isKneeOrJoint ? 'Stiffness / Stambha' : 'Dull aching (Bheda)';
+
   const currentSymptom: SocratesSymptom = symptoms[0] || {
     site: selectedBodyRegion || '',
     onset: '',
-    character: 'Dull aching (Bheda)',
+    character: defaultCharacter,
     radiation: '',
     associations: [],
     timing: '',
@@ -42,7 +45,7 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
       setSymptoms([{
         site: selectedBodyRegion,
         onset: '',
-        character: 'Dull aching (Bheda)',
+        character: defaultCharacter,
         radiation: '',
         associations: [],
         timing: '',
@@ -51,7 +54,7 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
         severityScore: 0
       }]);
     }
-  }, [selectedBodyRegion, symptoms.length, setSymptoms]);
+  }, [selectedBodyRegion, symptoms.length, setSymptoms, defaultCharacter]);
 
   const updateCurrentSymptom = (field: keyof SocratesSymptom, value: any) => {
     const updated = { ...currentSymptom, [field]: value };
@@ -133,25 +136,25 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto py-2 px-1 sm:px-4">
-      {/* Sleek Minimalist Header */}
+      {/* Clean Header */}
       <div className="text-center mb-5">
         <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">
-          लक्षणों का संपूर्ण विश्लेषण · SOCRATES Matrix
+          दर्द व लक्षण विवरण (Pain Details)
         </h2>
         <div className="flex justify-center items-center gap-3">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Clinical pain quantification &amp; real-time autonomous triage
+            दर्द की तीव्रता और फैलाव का चयन करें
           </p>
           <button
             type="button"
             onClick={() => {
               sovereignSound.playMechanicalSnap();
-              sovereignSound.speakGuidance('कृपया अपने दर्द का स्थान, फैलाव, और तीव्रता 1 से 10 के पैमाने पर चुनें। आपके वाइटल्स स्वतः रिकॉर्ड किए जा रहे हैं।');
+              sovereignSound.speakGuidance('कृपया अपने दर्द का स्थान, फैलाव, और तीव्रता चुनें।');
             }}
-            className="tactile-btn text-[11px] font-semibold px-2.5 py-0.5 rounded-full gap-1 text-sky-600 dark:text-sky-400 border-sky-500/30 bg-sky-500/10 cursor-pointer"
+            className="tactile-btn text-[11px] font-semibold px-2.5 py-0.5 rounded-full gap-1 text-primary border-primary/30 bg-primary/10 cursor-pointer"
           >
             <Volume2 size={12} />
-            <span>Audio Guidance</span>
+            <span>सुनें</span>
           </button>
         </div>
       </div>
@@ -457,6 +460,33 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
             })()}
           </div>
         </div>
+      </div>
+
+      {/* Bottom Step 4 Action Navigation Bar */}
+      <div className="flex items-center justify-between gap-4 pt-3 border-t border-border/70">
+        <button
+          type="button"
+          onClick={() => {
+            try { sovereignSound.playMechanicalSnap(); } catch {}
+            onBack();
+          }}
+          className="tactile-btn px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground border border-border/80 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+        >
+          <ArrowLeft size={16} />
+          <span>पिछला: लक्षण (Back: Symptoms)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            try { sovereignSound.playMechanicalSnap(); } catch {}
+            onNext();
+          }}
+          className="btn btn-primary px-7 py-3.5 rounded-2xl text-xs sm:text-sm font-heading font-extrabold flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all active:scale-95"
+        >
+          <span>आगे बढ़ें: पाचन व स्वास्थ्य (Next: Health)</span>
+          <ArrowRight size={16} />
+        </button>
       </div>
     </div>
   );

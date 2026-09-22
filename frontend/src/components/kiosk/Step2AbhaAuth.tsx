@@ -42,7 +42,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
   const aadhaarRingColor = !isAadhaarComplete ? '#06b6d4' : (isAadhaarValid ? '#10b981' : '#f43f5e');
   const isAbhaValid = patient.abhaId ? patient.abhaId.length >= 14 : false;
 
-  const handleSimulateOtp = () => {
+  const handleSendOtp = () => {
     sovereignSound.playMechanicalSnap();
     setOtpSent(true);
   };
@@ -432,7 +432,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
             {!otpSent ? (
               <button
                 type="button"
-                onClick={handleSimulateOtp}
+                onClick={handleSendOtp}
                 className="btn btn-secondary text-xs px-3.5 py-1.5 rounded-lg"
               >
                 Send Verification OTP

@@ -87,7 +87,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session }) => {
               </span>
             </div>
             <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-              ABHA: <span className="text-primary font-semibold">{session.patientId}</span>
+              ABHA: <span className="text-primary font-semibold">{session.abhaId || session.patientId}</span>
             </div>
           </div>
         </div>

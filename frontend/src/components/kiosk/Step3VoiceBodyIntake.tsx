@@ -591,10 +591,11 @@ const REGIONAL_COMPLAINTS: Record<string, { symptoms: SymptomItem[]; ayushContex
     hindiName: 'बायां घुटना',
     enName: 'Left Knee Joint',
     symptoms: [
+      { hi: 'घुटने में दर्द व सूजन', en: 'Knee Pain & Swelling' },
+      { hi: 'चलने व मुड़ने में जकड़न', en: 'Stiffness on Walking & Flexion' },
       { hi: 'घुटने में कट-कट की आवाज़', en: 'Knee Crepitus / Clicking' },
-      { hi: 'घुटने में सूजन व दर्द', en: 'Knee Swelling & Effusion' },
-      { hi: 'सुबह उठने पर भारी अकड़न', en: 'Morning Joint Stiffness' },
-      { hi: 'सीढ़ियाँ चढ़ने-उतरने में कठिनाई', en: 'Difficulty on Stairs' }
+      { hi: 'सीढ़ियाँ चढ़ने व भार सहने में तकलीफ़', en: 'Difficulty Bearing Weight / Stairs' },
+      { hi: 'सुबह उठने पर भारी अकड़न', en: 'Morning Joint Stiffness' }
     ],
     ayushContext: 'Vama Janu Sandhi Marma · Sandhivata'
   },
@@ -602,10 +603,11 @@ const REGIONAL_COMPLAINTS: Record<string, { symptoms: SymptomItem[]; ayushContex
     hindiName: 'दायां घुटना',
     enName: 'Right Knee Joint',
     symptoms: [
+      { hi: 'दाहिने घुटने में दर्द व सूजन', en: 'Right Knee Pain & Swelling' },
+      { hi: 'चलने व मुड़ने में जकड़न', en: 'Stiffness on Walking & Flexion' },
       { hi: 'दाहिने घुटने में कट-कट की आवाज़', en: 'Knee Crepitus / Clicking' },
-      { hi: 'घुटने की कटोरी में दर्द', en: 'Patellofemoral Pain' },
-      { hi: 'चलने पर घुटने का लचकना', en: 'Joint Instability / Giving Way' },
-      { hi: 'घुटने में सूजन व गर्माहट', en: 'Knee Swelling & Warmth' }
+      { hi: 'सीढ़ियाँ चढ़ने व भार सहने में तकलीफ़', en: 'Difficulty Bearing Weight / Stairs' },
+      { hi: 'सुबह उठने पर भारी अकड़न', en: 'Morning Joint Stiffness' }
     ],
     ayushContext: 'Dakshina Janu Sandhi Marma · Sandhivata'
   },
@@ -851,11 +853,11 @@ const getOrganSensations = (region: string, transcript: string = ''): SensationI
   if (['Left Knee', 'Right Knee', 'Lumbar Spine (Kati)', 'Cervical Spine', 'Upper Back / Thoracic', 'Left Shoulder', 'Right Shoulder', 'Left Hip', 'Right Hip', 'Left Foot', 'Right Foot', 'Sciatic Pathway / Calves', 'Sacral / Sciatica Origin'].includes(region)) {
     return [
       { key: 'crepitus', label: 'जोड़ों में कट-कट', en: 'Joint Crepitus / Clicking', icon: Bone },
-      { key: 'stiffness', label: 'सुबह उठने पर अकड़न', en: 'Morning Stiffness', icon: Shield },
-      { key: 'sciatica', label: 'करंट जैसा खिंचाव', en: 'Shooting Nerve Pain', icon: Zap },
+      { key: 'stiffness', label: 'चलने व मुड़ने में जकड़न', en: 'Walking & Flexion Stiffness', icon: Shield },
+      { key: 'morning_stiff', label: 'सुबह उठने पर अकड़न', en: 'Morning Stiffness', icon: Clock },
       { key: 'swelling', label: 'सूजन व गर्माहट', en: 'Swelling & Warmth', icon: Droplets },
-      { key: 'deep_ache', label: 'हड्डी में गहरा दर्द', en: 'Deep Bone Ache', icon: HeartPulse },
-      { key: 'numbness', label: 'सुन्नपन व झुनझुनी', en: 'Numbness / Tingling', icon: Activity }
+      { key: 'strain', label: 'खिंचाव व भार में तकलीफ़', en: 'Strain & Weight Pain', icon: Zap },
+      { key: 'deep_ache', label: 'जोड़ में गहरा दर्द', en: 'Deep Joint Ache', icon: HeartPulse }
     ];
   }
 
@@ -996,6 +998,10 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       if (LOCUS_TO_MACRO_ZONE[regionId]) {
         setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
       }
+      // Auto-advance smoothly after 350ms so user perceives the tactile highlight on the selected organ!
+      setTimeout(() => {
+        setSubPhase('symptoms');
+      }, 350);
     }
   };
 
@@ -1223,10 +1229,10 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
             {/* Left: Selected Organ Status / Instruction */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md">
-                <HeartPulse size={18} className={`shrink-0 ${selectedBodyRegion ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+                <HeartPulse size={18} className={`shrink-0 ${selectedBodyRegion ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div className="flex flex-col text-left">
                   <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider font-bold">
-                    {selectedBodyRegion ? 'चयनित अंग' : 'शरीर मॉडल'}
+                    {selectedBodyRegion ? 'चयनित अंग' : 'शरीर पर छुएं'}
                   </span>
                   <span className="font-heading font-extrabold text-sm sm:text-base text-foreground">
                     {selectedBodyRegion ? (
@@ -1300,13 +1306,13 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               }`}>
                 <div className="flex items-center gap-3 min-w-0 text-left">
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    congruenceMismatch.isEmergency ? 'bg-white text-rose-600 animate-pulse' : 'bg-amber-500/20 text-amber-600'
+                    congruenceMismatch.isEmergency ? 'bg-white text-rose-600' : 'bg-amber-500/20 text-amber-600'
                   }`}>
                     <HeartPulse size={22} />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider opacity-90">
-                      {congruenceMismatch.isEmergency ? '🚨 आपातकालीन विसंगति (Emergency Override)' : 'सुझाव (Recommendation)'}
+                      {congruenceMismatch.isEmergency ? 'तत्काल ध्यान दें (Emergency Attention)' : 'सुझाव (Recommendation)'}
                     </span>
                     <span className="font-heading font-extrabold text-xs sm:text-sm truncate">
                       {congruenceMismatch.reasonHindi}
@@ -1341,19 +1347,25 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               <span>पिछला (Back)</span>
             </button>
 
-            {/* Right: Continue to Step 3.1 Symptoms & Voice Studio */}
+            {/* Right: Continue to Step 3.1 Symptoms & Voice Studio (Compulsory Gated) */}
             <button
               type="button"
+              disabled={!selectedBodyRegion}
               onClick={() => {
+                if (!selectedBodyRegion) return;
                 try { sovereignSound.playMechanicalSnap(); } catch {}
                 setSubPhase('symptoms');
               }}
-              className="pointer-events-auto btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl hover:shadow-2xl cursor-pointer transition-all active:scale-95"
+              className={`pointer-events-auto btn px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl transition-all active:scale-95 ${
+                selectedBodyRegion
+                  ? 'btn-primary hover:shadow-2xl cursor-pointer'
+                  : 'bg-muted text-muted-foreground/60 cursor-not-allowed border border-border/40 opacity-70'
+              }`}
             >
               <span>
                 {selectedBodyRegion
                   ? `आगे बढ़ें: ${currentRegionalData.hindiName.split('(')[0].trim()}`
-                  : 'आगे बढ़ें: लक्षण बताएं ➔'}
+                  : 'कृपया शरीर पर अंग चुनें (Select Body Part)'}
               </span>
               <ArrowRight size={18} />
             </button>
@@ -1371,18 +1383,18 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
           <div className="p-4 sm:p-5 rounded-3xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center shrink-0 shadow-2xs">
-                <HeartPulse size={24} className="animate-pulse" />
+                <HeartPulse size={24} />
               </div>
               <div className="flex flex-col min-w-0 text-left">
                 <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest font-bold">
-                  चयनित अंग • Clinical Locus
+                  चयनित अंग (Selected Area)
                 </span>
                 <span className="font-heading font-extrabold text-lg sm:text-xl text-foreground truncate">
                   {currentRegionalData.hindiName}
                 </span>
                 {currentRegionalData.enName && (
                   <span className="text-xs text-muted-foreground font-mono">
-                    {currentRegionalData.enName} · {currentRegionalData.ayushContext}
+                    {currentRegionalData.enName}
                   </span>
                 )}
               </div>
@@ -1411,7 +1423,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               <div className="flex items-start gap-3.5 min-w-0 text-left">
                 <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
                   congruenceMismatch.isEmergency
-                    ? 'bg-rose-600 text-white animate-pulse'
+                    ? 'bg-rose-600 text-white'
                     : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'
                 }`}>
                   {congruenceMismatch.isEmergency ? <HeartPulse size={22} /> : <AlertTriangle size={20} />}
@@ -1423,13 +1435,8 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                         ? 'bg-rose-600 text-white'
                         : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                     }`}>
-                      {congruenceMismatch.isEmergency ? '🚨 आपातकालीन विसंगति (Emergency Override)' : 'चिकित्सा सुझाव (Clinical Recommendation)'}
+                      {congruenceMismatch.isEmergency ? 'तत्काल ध्यान दें (Important)' : 'सुझाव (Recommendation)'}
                     </span>
-                    {congruenceMismatch.ayushMarmaAlert && (
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
-                        • {congruenceMismatch.ayushMarmaAlert}
-                      </span>
-                    )}
                   </div>
                   <span className="font-heading font-bold text-sm sm:text-base text-foreground leading-snug">
                     {congruenceMismatch.reasonHindi}
@@ -1496,7 +1503,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               <div className="flex items-center gap-2">
                 <Radio size={18} className="text-primary" />
                 <span className="font-heading font-extrabold text-sm sm:text-base text-foreground">
-                  ध्वनि इनपुट (Speech Intake)
+                  बोलकर बताएं (Speak Symptoms)
                 </span>
               </div>
 
@@ -1522,7 +1529,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                 {parseSuccess && (
                   <div className="flex items-center gap-1 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/30">
                     <CheckCircle2 size={13} />
-                    <span>PARSED</span>
+                    <span>सत्यापित (Saved)</span>
                   </div>
                 )}
               </div>
@@ -1588,25 +1595,25 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                     </p>
                   ) : (
                     <p className="text-xs sm:text-sm text-muted-foreground font-sans">
-                      बोलें: अपनी बीमारी, कहाँ दर्द है, कब से है (उदा: सीने में भारीपन व घबराहट हो रही है)...
+                      माइक दबाकर बोलें: अपनी तकलीफ़ बताएं, जैसे "सीने में दर्द है" या "बुखार है"...
                     </p>
                   )}
 
-                  {/* Correction & Recovery Action Bar */}
+                  {/* Correction & Action Bar */}
                   {transcript && (
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50 flex-wrap">
                       <span className="text-[10px] font-mono text-muted-foreground font-semibold">
-                        गलत शब्द या लक्षण? (Speech Error Recovery):
+                        गलत लिखा है? (Correction):
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handleUndoLastClause}
                           className="px-2.5 py-1 rounded-lg bg-muted/80 hover:bg-muted text-foreground text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border border-border/70"
-                          title="Undo Last Entry / पिछला लक्षण हटाएं"
+                          title="Undo"
                         >
                           <Undo2 size={12} className="text-primary" />
-                          <span>पिछला हटाएं (Undo)</span>
+                          <span>हटाएं (Undo)</span>
                         </button>
                         <button
                           type="button"
@@ -1649,7 +1656,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                 onClick={toggleRecording}
                 className={`w-full sm:w-auto min-w-[220px] py-3.5 px-8 text-sm sm:text-base font-heading font-bold rounded-2xl flex items-center justify-center gap-2.5 cursor-pointer transition-all shadow-md active:scale-95 ${
                   isRecording
-                    ? 'bg-rose-600 text-white ring-4 ring-rose-400/30 animate-pulse'
+                    ? 'bg-rose-600 text-white ring-4 ring-rose-400/30 shadow-lg'
                     : 'bg-primary text-primary-foreground hover:bg-primary/95'
                 }`}
               >
@@ -1675,9 +1682,9 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-primary" />
                   <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground text-left">
-                    1. सामान्य लक्षण चुनें (Clinical Symptoms)
+                    1. सामान्य लक्षण (Symptoms)
                   </span>
                 </div>
                 <span className="text-xs font-heading font-extrabold text-primary bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20">
@@ -1689,13 +1696,13 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               {!selectedBodyRegion && (
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-3 mb-1">
                   {[
-                    { id: 'general', label: '⭐ प्रमुख लक्षण' },
-                    { id: 'fever', label: '🔥 बुखार व ठंड' },
-                    { id: 'cardiorespiratory', label: '❤️ सीना व सांस' },
-                    { id: 'gastro', label: '🍲 पेट व पाचन' },
-                    { id: 'ortho', label: '🦴 जोड़ व कमर' },
-                    { id: 'neuro', label: '🧠 सिरदर्द व चक्कर' },
-                    { id: 'dermatology', label: '✨ त्वचा व एलर्जी' }
+                    { id: 'general', label: 'प्रमुख लक्षण' },
+                    { id: 'fever', label: 'बुखार व संक्रमण' },
+                    { id: 'cardiorespiratory', label: 'सीना व सांस' },
+                    { id: 'gastro', label: 'पेट व पाचन' },
+                    { id: 'ortho', label: 'जोड़ व कमर' },
+                    { id: 'neuro', label: 'सिरदर्द व चक्कर' },
+                    { id: 'dermatology', label: 'त्वचा व एलर्जी' }
                   ].map((cat) => {
                     const isCatActive = systemicCategory === cat.id;
                     return (
@@ -1760,7 +1767,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               {/* Severity Segmented Toggle */}
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground mb-2.5 block text-left">
-                  2. तकलीफ़ की तीव्रता (Severity Level)
+                  2. दर्द की तीव्रता (Severity)
                 </span>
                 <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-muted/40 border border-border/70">
                   {SEVERITY_LEVELS.map((s) => (
@@ -1790,7 +1797,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               {/* Duration Capsule Tabs */}
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground mb-2.5 block text-left">
-                  3. कब से तकलीफ़ है? (Duration)
+                  3. कब से है? (Duration)
                 </span>
                 <div className="grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-muted/40 border border-border/70">
                   {DURATION_CHOICES.map((d) => (
@@ -1819,7 +1826,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
             <div className="pt-4 border-t border-border/60">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground block text-left">
-                  4. लक्षण का स्वभाव व अनुभूति (Symptom Character & Sensation)
+                  4. कैसा दर्द या तकलीफ़ है? (Sensation)
                 </span>
                 <span className="text-[11px] font-mono text-muted-foreground">
                   {currentRegionalData.enName}
@@ -1903,15 +1910,26 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               <span>3D मॉडल पर वापस जाएं (Back to 3D)</span>
             </button>
 
+            {/* Right: Continue to Step 4 Details (Compulsory Gated: requires symptom or voice transcript) */}
             <button
               type="button"
+              disabled={!transcript || transcript.trim().length === 0}
               onClick={() => {
+                if (!transcript || transcript.trim().length === 0) return;
                 try { sovereignSound.playMechanicalSnap(); } catch {}
                 onNext();
               }}
-              className="btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl hover:shadow-2xl cursor-pointer transition-all active:scale-95"
+              className={`btn px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl transition-all active:scale-95 ${
+                transcript && transcript.trim().length > 0
+                  ? 'btn-primary hover:shadow-2xl cursor-pointer'
+                  : 'bg-muted text-muted-foreground/60 cursor-not-allowed border border-border/40 opacity-70'
+              }`}
             >
-              <span>आगे बढ़ें: लक्षण विश्लेषण (Next: SOCRATES Analysis)</span>
+              <span>
+                {transcript && transcript.trim().length > 0
+                  ? 'आगे बढ़ें: दर्द विवरण (Next: Details)'
+                  : 'लक्षण चुनें या बोलें (Select or Speak Symptoms)'}
+              </span>
               <ArrowRight size={18} />
             </button>
           </div>

@@ -539,9 +539,9 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
             }}
             title="Acoustic tuning for room geometry"
           >
-            <option value="far_field_cabin">🎙️ Far-Field Cabin (+14dB)</option>
-            <option value="whisper_boost">🤫 Ultra-Whisper Boost (+18dB)</option>
-            <option value="standard">🏢 Standard Desk (+6dB)</option>
+            <option value="far_field_cabin">Far-Field Cabin (+14dB)</option>
+            <option value="whisper_boost">Ultra-Whisper Boost (+18dB)</option>
+            <option value="standard">Standard Desk (+6dB)</option>
           </select>
 
           <select

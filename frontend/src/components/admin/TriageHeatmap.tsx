@@ -211,7 +211,7 @@ export const TriageHeatmap: React.FC = () => {
               <strong>2. False Claim Malingerers:</strong> If patient falsely reports 10/10 chest pain to jump the 40-minute general line, bedside nurse confirms stable vitals (SpO2 &gt; 98%, HR normal, no ST deviation).
             </div>
             <div className="mt-1.5 text-rose-700 dark:text-rose-400 font-semibold">
-              ➔ Result: Automatic +25 minute queue downgrade penalty to deter queue gaming.
+              -&gt; Result: Automatic +25 minute queue downgrade penalty to deter queue gaming.
             </div>
           </div>
         </div>

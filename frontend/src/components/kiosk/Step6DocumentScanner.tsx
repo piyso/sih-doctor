@@ -29,7 +29,8 @@ import {
   Eye,
   RefreshCw,
   Flame,
-  ShieldAlert
+  ShieldAlert,
+  Zap
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { api } from '../../services/api';
@@ -787,7 +788,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: 5 }}>
-            ⚡ Cross-Step Bayesian Clinical Prior:
+            <Zap size={14} color="#1e40af" style={{ flexShrink: 0 }} /> Cross-Step Bayesian Clinical Prior:
           </span>
           <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
             Locus: {clinicalPrior.bodyRegion}
@@ -799,7 +800,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
           )}
           {patient?.pregnancy && (
             <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
-              🤰 Pregnancy Gate Engaged (Teratogenic Block Active)
+              Pregnancy Safety Gate Active (Teratogenic Block Active)
             </span>
           )}
         </div>
@@ -1463,7 +1464,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                 <CheckCircle2 size={15} color="#16a34a" style={{ flexShrink: 0 }} />
                 <span>
                   <strong>Fuzzy Autocorrection:</strong>{' '}
-                  {currentDoc.fuzzyCorrections.map((c: any) => `${c.original} ➔ ${c.corrected}`).join(', ')}
+                  {currentDoc.fuzzyCorrections.map((c: any) => `${c.original} -> ${c.corrected}`).join(', ')}
                 </span>
               </div>
             )}
@@ -1487,7 +1488,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                 <Sparkles size={15} color="#9333ea" style={{ flexShrink: 0 }} />
                 <span>
                   <strong>Hindi Posology:</strong>{' '}
-                  {currentDoc.vernacularPosologyDetected.map((v: any) => `"${v.phrase}" ➔ ${v.meaning}`).join(', ')}
+                  {currentDoc.vernacularPosologyDetected.map((v: any) => `"${v.phrase}" -> ${v.meaning}`).join(', ')}
                 </span>
               </div>
             )}
@@ -2109,7 +2110,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
               className="sovereign-button-primary"
               style={{ width: '100%', padding: '10px 0', fontSize: 13 }}
             >
-              <span>Simulate Mobile Camera Upload (Demo)</span>
+              <span>Load BYOD Peer Scanned Document</span>
             </button>
           </div>
         </div>

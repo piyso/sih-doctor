@@ -30,55 +30,78 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
   pariksha,
   setPariksha,
   symptoms = [],
+  selectedBodyRegion = '',
   transcript = '',
   language = 'hi',
   onNext,
   onBack
 }) => {
-  // Auto-calibrate on mount if patient hasn't customized yet
-  useEffect(() => {
-    const fullText = (transcript + ' ' + symptoms.map(s => `${s.site} ${s.character} ${s.associations?.join(' ')}`).join(' ')).toLowerCase();
-    
-    let inferredAgni: AgniType = pariksha.agni || 'SAMAGNI';
-    let inferredPrakriti = pariksha.prakriti || 'Vata-Pitta';
-    let inferredVikriti = pariksha.vikriti || 'Sama';
+  const hasUserModified = React.useRef(false);
 
-    if (fullText.includes('जलन') || fullText.includes('acid') || fullText.includes('burn') || fullText.includes('heartburn') || fullText.includes('pitta')) {
-      inferredAgni = 'TIKSHNAGNI';
-      inferredPrakriti = 'Pittaja';
-      inferredVikriti = 'Pitta Aggravation';
-    } else if (fullText.includes('कफ') || fullText.includes('cough') || fullText.includes('बलगम') || fullText.includes('भारीपन') || fullText.includes('heavy') || fullText.includes('swelling')) {
-      inferredAgni = 'MANDAGNI';
-      inferredPrakriti = 'Kaphaja';
-      inferredVikriti = 'Kapha Aggravation';
-    } else if (fullText.includes('वात') || fullText.includes('gas') || fullText.includes('दर्द') || fullText.includes('pain') || fullText.includes('खिंचाव') || fullText.includes('spasm') || fullText.includes('stiff')) {
+  // Deep Ayurvedic Clinical Diagnostic Evaluator
+  // Knee (जानु) / Joint (संधि) -> Sandhigata Vata (वात व्याधि) -> Pakwashaya Mula -> Vishamagni (विषमाग्नि)
+  const fullText = (transcript + ' ' + selectedBodyRegion + ' ' + symptoms.map(s => `${s.site} ${s.character} ${s.associations?.join(' ')}`).join(' ')).toLowerCase();
+
+  const isJointOrVata = (
+    /knee|घुटना|जानु|leg|foot|hip|joint|जोड़|संधि|पिंडली|sprain|ligament|arthritis|गठिया|वात|spine|back|कमर|kati|sciatica|सायटिका|shoulder|कंधा/i.test(selectedBodyRegion || '') ||
+    /knee|घुटना|जानु|कट-कट|जोड़|joint|arthritis|गठिया|चलने में|वात|कब्ज|गैस|sprain|ligament|चोट|जानु संधि/i.test(fullText)
+  );
+  const isPitta = (
+    /acidity|acid|burn|जलन|खट्टी|दाह|pitta|पित्त|epigastrium|heartburn|छाती में जलन|सीने में जलन/i.test(selectedBodyRegion || '') ||
+    /जलन|acid|burn|heartburn|pitta|पित्त|खट्टी डकार|दाह/i.test(fullText)
+  );
+  const isKapha = (
+    /lung|फेफड़े|cough|खांसी|बलगम|phlegm|asthma|दमा|कफ|भारीपन|swelling/i.test(selectedBodyRegion || '') ||
+    /कफ|cough|बलगम|phlegm|भारीपन|sluggish/i.test(fullText)
+  );
+
+  // Auto-calibrate on mount or when symptom/region context changes unless patient manually customized
+  useEffect(() => {
+    if (hasUserModified.current) return;
+
+    let inferredAgni: AgniType = 'SAMAGNI';
+    let inferredPrakriti = 'Vata-Pitta';
+    let inferredVikriti = 'Sama';
+
+    if (isJointOrVata) {
+      // Sandhigata Vata has its origin in Pakwashaya (colon) -> causes Vishamagni (erratic appetite, gas, bloating)
       inferredAgni = 'VISHAMAGNI';
       inferredPrakriti = 'Vataja';
       inferredVikriti = 'Vata Aggravation';
+    } else if (isPitta) {
+      inferredAgni = 'TIKSHNAGNI';
+      inferredPrakriti = 'Pittaja';
+      inferredVikriti = 'Pitta Aggravation';
+    } else if (isKapha) {
+      inferredAgni = 'MANDAGNI';
+      inferredPrakriti = 'Kaphaja';
+      inferredVikriti = 'Kapha Aggravation';
     }
 
-    // Set defaults cleanly
     setPariksha(prev => ({
       ...prev,
-      agni: prev.agni || inferredAgni,
-      prakriti: prev.prakriti || inferredPrakriti,
-      vikriti: prev.vikriti || inferredVikriti,
+      agni: inferredAgni,
+      prakriti: inferredPrakriti,
+      vikriti: inferredVikriti,
       sara: prev.sara || 'Madhyama',
       satva: prev.satva || 'Pravara'
     }));
-  }, []);
+  }, [selectedBodyRegion, transcript, symptoms]);
 
   const handleSelectAgni = (type: AgniType) => {
+    hasUserModified.current = true;
     try { sovereignSound.playDialNotch(); } catch {}
     setPariksha(prev => ({ ...prev, agni: type }));
   };
 
   const handleSelectPrakriti = (p: string) => {
+    hasUserModified.current = true;
     try { sovereignSound.playDialNotch(); } catch {}
     setPariksha(prev => ({ ...prev, prakriti: p }));
   };
 
   const handleSelectVitality = (v: 'Pravara' | 'Madhyama' | 'Avara') => {
+    hasUserModified.current = true;
     try { sovereignSound.playDialNotch(); } catch {}
     setPariksha(prev => ({ ...prev, sara: v, satva: v }));
   };
@@ -97,23 +120,18 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
   return (
     <div className="w-full max-w-3xl mx-auto py-2 px-2 sm:px-4 flex flex-col gap-5 animate-in fade-in duration-300">
       
-      {/* 1. Sleek Flagship Header */}
+      {/* 1. Clean Hospital Header */}
       <div className="p-4 sm:p-5 rounded-3xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="h-11 w-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <Flame size={22} className="animate-pulse" />
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <Flame size={20} />
           </div>
           <div className="flex flex-col min-w-0 text-left">
-            <div className="flex items-center gap-2">
-              <span className="font-heading font-extrabold text-base sm:text-lg text-foreground">
-                आयुष स्वास्थ्य मूल्यांकन · Ayush Pariksha
-              </span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                NAMASTE
-              </span>
-            </div>
+            <span className="font-heading font-extrabold text-base sm:text-lg text-foreground">
+              पाचन व स्वास्थ्य (Digestion & Health)
+            </span>
             <span className="text-xs text-muted-foreground font-sans mt-0.5">
-              चरक संहिता अनुसार पाचन, प्रकृति व शारीरिक बल का आकलन
+              अपनी भूख, पाचन व सामान्य ऊर्जा का चयन करें
             </span>
           </div>
         </div>
@@ -129,29 +147,16 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         </button>
       </div>
 
-      {/* 2. AI Pre-Calibration Notice Banner */}
-      <div className="p-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-primary/5 to-transparent border border-amber-500/30 flex items-center justify-between gap-3 text-left">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Sparkles size={16} className="text-amber-500 shrink-0" />
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-heading font-bold text-foreground">
-              लक्षणों के आधार पर स्वतः चयनित (AI Pre-Selected)
-            </span>
-            <span className="text-[11px] text-muted-foreground font-sans truncate">
-              आपके लक्षणों के आधार पर विकल्प पहले से चुने गए हैं। यदि बदलना चाहें तो किसी भी कार्ड पर टैप करें।
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Question 1: भूख व पाचन (Digestion & Metabolism · अग्नि) */}
+      {/* 3. Question 1: भूख व पाचन कैसा रहता है? (Digestion & Appetite) */}
       <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 flex flex-col gap-3 shadow-xs">
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
             <Flame size={18} className="text-amber-500" />
             <span>1. आपकी भूख व पाचन कैसा रहता है? (Digestion & Appetite)</span>
           </span>
-          <span className="text-[11px] font-mono text-muted-foreground">अग्नि परीक्षा</span>
+          <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
+            अग्नि परीक्षा
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
@@ -187,6 +192,12 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           ].map((opt) => {
             const isSelected = pariksha.agni === opt.type;
             const Icon = opt.icon;
+            const isAutoCalibrated = isSelected && !hasUserModified.current && (
+              (opt.type === 'VISHAMAGNI' && isJointOrVata) ||
+              (opt.type === 'TIKSHNAGNI' && isPitta) ||
+              (opt.type === 'MANDAGNI' && isKapha)
+            );
+
             return (
               <button
                 key={opt.type}
@@ -203,9 +214,16 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
                     <Icon size={16} />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="font-heading font-bold text-xs sm:text-sm text-foreground">
-                      {opt.title}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-heading font-bold text-xs sm:text-sm text-foreground">
+                        {opt.title}
+                      </span>
+                      {isAutoCalibrated && (
+                        <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {isJointOrVata && opt.type === 'VISHAMAGNI' ? 'घुटने/जोड़ अनुसार चयनित' : 'स्वतः चयनित'}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-muted-foreground font-sans mt-0.5 leading-relaxed">
                       {opt.sub}
                     </span>
@@ -223,22 +241,21 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         </div>
       </div>
 
-      {/* 4. Question 2: शारीरिक प्रकृति (Body Constitution · दोष) */}
+      {/* 4. Question 2: शारीरिक प्रकृति */}
       <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 flex flex-col gap-3 shadow-xs">
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
             <Zap size={18} className="text-primary" />
-            <span>2. आपकी स्वाभाविक शारीरिक प्रकृति क्या है? (Body Constitution)</span>
+            <span>2. आपकी शारीरिक प्रकृति (Body Type)</span>
           </span>
-          <span className="text-[11px] font-mono text-muted-foreground">प्रकृति निर्धारण</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
           {[
-            { id: 'Vataja', title: 'वात प्रधान (Vata)', sub: 'हल्का शरीर, ठंड लगना, सक्रिय', color: 'text-sky-600 dark:text-sky-400 border-sky-500/30' },
-            { id: 'Pittaja', title: 'पित्त प्रधान (Pitta)', sub: 'गर्माहट, तेज भूख, मध्यम देह', color: 'text-amber-600 dark:text-amber-400 border-amber-500/30' },
-            { id: 'Kaphaja', title: 'कफ प्रधान (Kapha)', sub: 'मजबूत शरीर, शांत, स्थिर', color: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30' },
-            { id: 'Vata-Pitta', title: 'मिश्रित / सम (Balanced)', sub: 'दोहरे दोषों का संतुलित प्रभाव', color: 'text-purple-600 dark:text-purple-400 border-purple-500/30' }
+            { id: 'Vataja', title: 'हल्का शरीर (Vata)', sub: 'ठंड लगना, सक्रिय, दुबला शरीर' },
+            { id: 'Pittaja', title: 'गर्म शरीर (Pitta)', sub: 'गर्मी लगना, तेज भूख, मध्यम देह' },
+            { id: 'Kaphaja', title: 'मजबूत शरीर (Kapha)', sub: 'भारी शरीर, शांत, स्थिर' },
+            { id: 'Vata-Pitta', title: 'संतुलित (Balanced)', sub: 'दोषों का मिला-जुला प्रभाव' }
           ].map((p) => {
             const isSelected = (pariksha.prakriti || 'Vata-Pitta') === p.id;
             return (
@@ -260,34 +277,33 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         </div>
       </div>
 
-      {/* 5. Question 3: ऊर्जा व शारीरिक सहनशक्ति (Energy & Vitality · बल) */}
+      {/* 5. Question 3: ऊर्जा व सहनशक्ति */}
       <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 flex flex-col gap-3 shadow-xs">
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
             <Scale size={18} className="text-primary" />
-            <span>3. आपका सामान्य ऊर्जा स्तर व सहनशक्ति कैसी है? (Vitality & Energy)</span>
+            <span>3. ऊर्जा स्तर व सहनशक्ति (Energy Level)</span>
           </span>
-          <span className="text-[11px] font-mono text-muted-foreground">धातु सार व बल</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
           {[
             {
               key: 'Pravara' as const,
-              title: 'उत्तम बल (High / Robust)',
-              sub: 'दिनभर अच्छी स्फूर्ति, मजबूत रोग प्रतिरोधक क्षमता।',
+              title: 'उत्तम ऊर्जा (High)',
+              sub: 'दिनभर अच्छी स्फूर्ति व ताज़गी।',
               dot: 'bg-emerald-500'
             },
             {
               key: 'Madhyama' as const,
-              title: 'मध्यम बल (Moderate)',
-              sub: 'सामान्य ऊर्जा स्तर, काम करने पर सामान्य थकान।',
+              title: 'सामान्य ऊर्जा (Normal)',
+              sub: 'सामान्य ऊर्जा व दैनिक काम।',
               dot: 'bg-amber-500'
             },
             {
               key: 'Avara' as const,
-              title: 'कमजोर बल (Low / Weak)',
-              sub: 'जल्दी थकान, शारीरिक कमजोरी या कमजोरी का अहसास।',
+              title: 'कमजोरी (Low)',
+              sub: 'जल्दी थकान व कमजोरी महसूस होना।',
               dot: 'bg-rose-500'
             }
           ].map((lvl) => {
@@ -343,7 +359,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           }}
           className="btn btn-primary px-7 py-3.5 rounded-2xl text-xs sm:text-sm font-heading font-extrabold flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all active:scale-95"
         >
-          <span>आगे बढ़ें: दस्तावेज़ स्कैन ➔</span>
+          <span>आगे बढ़ें: दस्तावेज़ स्कैन</span>
           <ArrowRight size={16} />
         </button>
       </div>
