@@ -463,6 +463,10 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
           <Step5Pariksha
             pariksha={pariksha}
             setPariksha={setPariksha}
+            symptoms={symptoms}
+            selectedBodyRegion={selectedBodyRegion}
+            transcript={transcript}
+            language={language}
             onNext={() => setCurrentStep(6)}
             onBack={() => setCurrentStep(4)}
           />

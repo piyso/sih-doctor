@@ -31,10 +31,11 @@ documentsRouter.post('/ocr-image', async (req: Request, res: Response): Promise<
     const targetPatientId = patientId || 'pat-default';
     const patientExists = db.prepare(`SELECT id FROM patients WHERE id = ?`).get(targetPatientId);
     if (!patientExists) {
+      const autoAbha = `91-OCR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       db.prepare(`
         INSERT OR IGNORE INTO patients (id, abha_id, name, age, gender, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(targetPatientId, '91-0000-0000-0000', 'Pre-Intake Patient', 45, 'UNKNOWN', new Date().toISOString());
+      `).run(targetPatientId, autoAbha, 'Pre-Intake Patient', 45, 'UNKNOWN', new Date().toISOString());
     }
 
     const digitized = await NativeImageOCRService.processImage(
@@ -95,10 +96,11 @@ documentsRouter.post('/ocr', (req: Request, res: Response): void => {
     const targetPatientId = patientId || 'pat-default';
     const patientExists = db.prepare(`SELECT id FROM patients WHERE id = ?`).get(targetPatientId);
     if (!patientExists) {
+      const autoAbha = `91-OCR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       db.prepare(`
         INSERT OR IGNORE INTO patients (id, abha_id, name, age, gender, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(targetPatientId, '91-0000-0000-0000', 'Pre-Intake Patient', 45, 'UNKNOWN', new Date().toISOString());
+      `).run(targetPatientId, autoAbha, 'Pre-Intake Patient', 45, 'UNKNOWN', new Date().toISOString());
     }
 
     const digitized = DocumentOCRService.processDocumentText(

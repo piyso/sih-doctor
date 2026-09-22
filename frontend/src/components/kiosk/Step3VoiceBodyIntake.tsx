@@ -710,7 +710,84 @@ const REGIONAL_COMPLAINTS: Record<string, { symptoms: SymptomItem[]; ayushContex
   }
 };
 
-const getOrganSensations = (region: string): SensationItem[] => {
+const SYSTEMIC_COMPLAINT_CATEGORIES: Record<string, { titleHi: string; titleEn: string; symptoms: SymptomItem[] }> = {
+  general: {
+    titleHi: 'प्रमुख व सामान्य लक्षण',
+    titleEn: 'Primary & General Symptoms',
+    symptoms: [
+      { hi: 'तेज़ बुखार व ठंड लगना', en: 'High Grade Fever & Chills / Jwara' },
+      { hi: 'कमजोरी, चक्कर व थकान', en: 'Severe Malaise & Fatigue / Daurbalya' },
+      { hi: 'भूख न लगना व अपच', en: 'Loss of Appetite & Indigestion / Aruchi' },
+      { hi: 'अनिद्रा, घबराहट व बेचैनी', en: 'Insomnia & Restlessness / Anidra' },
+      { hi: 'पूरे बदन में भारी दर्द', en: 'Generalized Bodyache / Angamarda' },
+      { hi: 'जी मिचलाना व उल्टी', en: 'Nausea & Emesis / Chhardi' }
+    ]
+  },
+  fever: {
+    titleHi: 'बुखार व संक्रमण',
+    titleEn: 'Fever & Infection',
+    symptoms: [
+      { hi: 'ठंड लगकर कंपकंपी व बुखार', en: 'Fever with Rigors & Chills' },
+      { hi: 'शरीर में तीव्र टूटन व सिरदर्द', en: 'Severe Bodyache & Headache' },
+      { hi: 'गले में खराश व सूखी खांसी', en: 'Sore Throat & Dry Cough' },
+      { hi: 'पसीना आने पर भी तपिश', en: 'Persistent High Pyrexia' }
+    ]
+  },
+  cardiorespiratory: {
+    titleHi: 'सीना व सांस',
+    titleEn: 'Chest & Respiration',
+    symptoms: [
+      { hi: 'सीने में भारी दबाव व घुटन', en: 'Crushing Chest Angina', isEmergency: true },
+      { hi: 'सांस फूलना व घरघराहट', en: 'Acute Dyspnea & Wheezing', isEmergency: true },
+      { hi: 'धड़कन तेज़ व पसीना आना', en: 'Palpitations & Cold Sweat', isEmergency: true },
+      { hi: 'लगातार खांसी व बलगम', en: 'Chronic Productive Cough' }
+    ]
+  },
+  gastro: {
+    titleHi: 'पेट व पाचन',
+    titleEn: 'GI & Digestion',
+    symptoms: [
+      { hi: 'खट्टी डकार व सीने-पेट में जलन', en: 'Acid Reflux & Heartburn / Amlapitta' },
+      { hi: 'पेट में मरोड़, शूल व गैस', en: 'Colicky Abdominal Pain & Gas' },
+      { hi: 'दस्त, पतले दस्त व ऐंठन', en: 'Acute Diarrhea & Cramping' },
+      { hi: 'कब्ज व शौच में कठिनाई', en: 'Severe Constipation / Vibandha' }
+    ]
+  },
+  ortho: {
+    titleHi: 'जोड़ व कमर',
+    titleEn: 'Joints & Spine',
+    symptoms: [
+      { hi: 'घुटनों व जोड़ों में दर्द व कट-कट', en: 'Joint Pain & Crepitus / Sandhivata' },
+      { hi: 'कमर से पैर तक सायटिका दर्द', en: 'Sciatica Nerve Pain / Gridhrasi' },
+      { hi: 'सुबह उठते ही जोड़ों में जकड़न', en: 'Morning Joint Stiffness / Amavata' },
+      { hi: 'मांसपेशियों में ऐंठन व खिंचाव', en: 'Muscle Spasms & Cramps' }
+    ]
+  },
+  neuro: {
+    titleHi: 'सिरदर्द व तंत्रिका',
+    titleEn: 'Neuro & Cranial',
+    symptoms: [
+      { hi: 'आधासीसी धड़कता सिरदर्द', en: 'Throbbing Migraine / Ardhavabhedaka' },
+      { hi: 'सिर घूमना व चक्कर आना', en: 'Severe Vertigo / Bhrama' },
+      { hi: 'हाथ-पैरों में सुन्नपन व झुनझुनी', en: 'Peripheral Neuropathy / Suptata' },
+      { hi: 'चेहरे या अंग में अचानक कमजोरी', en: 'Sudden Weakness / Paresthesia', isEmergency: true }
+    ]
+  },
+  dermatology: {
+    titleHi: 'त्वचा व एलर्जी',
+    titleEn: 'Skin & Allergy',
+    symptoms: [
+      { hi: 'असहनीय खुजली व लाल चकत्ते', en: 'Severe Urticaria / Sheetapitta' },
+      { hi: 'त्वचा पर छाले या जलन', en: 'Eczema & Vesicular Lesions' },
+      { hi: 'त्वचा का रूखापन व पपड़ी', en: 'Dry Scaling & Psoriasis / Kushtha' },
+      { hi: 'संवेदनशील अंगों पर संक्रमण', en: 'Intimate Fungal Infection' }
+    ]
+  }
+};
+
+const getOrganSensations = (region: string, transcript: string = ''): SensationItem[] => {
+  const text = transcript.toLowerCase();
+
   if (region === 'Left Chest / Precordium' || region === 'Right Chest') {
     return [
       { key: 'crushing', label: 'भारी दबाव व जकड़न', en: 'Crushing Pressure', icon: Shield },
@@ -781,12 +858,36 @@ const getOrganSensations = (region: string): SensationItem[] => {
       { key: 'numbness', label: 'सुन्नपन व झुनझुनी', en: 'Numbness / Tingling', icon: Activity }
     ];
   }
+
+  // If no region selected, inspect transcript intent:
+  if (text.includes('बुखार') || text.includes('fever') || text.includes('ठंड') || text.includes('chills')) {
+    return [
+      { key: 'pyrexia', label: 'तेज़ तपिश व गर्माहट', en: 'Burning Pyrexia', icon: Flame },
+      { key: 'rigor', label: 'कंपकंपी व ठंड लगना', en: 'Chills & Rigors', icon: Wind },
+      { key: 'bodyache', label: 'बदन में भारी टूटन', en: 'Generalized Aching', icon: HeartPulse },
+      { key: 'heaviness', label: 'सिर व माथे में भारीपन', en: 'Heavy Head Congestion', icon: Shield },
+      { key: 'prostration', label: 'कमजोरी व शिथिलता', en: 'Prostration / Fatigue', icon: Activity },
+      { key: 'sweat', label: 'अत्यधिक पसीना व बेचैनी', en: 'Diaphoresis & Malaise', icon: Droplets }
+    ];
+  }
+
+  if (text.includes('पेट') || text.includes('acid') || text.includes('जलन') || text.includes('gas') || text.includes('vomit')) {
+    return [
+      { key: 'burning', label: 'खट्टी डकार व जलन', en: 'Acid Reflux Burn', icon: Flame },
+      { key: 'colic', label: 'पेट में मरोड़ व शूल', en: 'Colicky Spasm', icon: Zap },
+      { key: 'bloating', label: 'पेट फूलना व भारीपन', en: 'Abdominal Fullness', icon: Shield },
+      { key: 'nausea', label: 'जी मिचलाना व उल्टी', en: 'Nausea & Emesis', icon: Activity },
+      { key: 'cramping', label: 'आंतों में ऐंठन व मरोड़', en: 'Intestinal Cramps', icon: Droplets },
+      { key: 'hunger', label: 'खाली पेट तेज़ टीस', en: 'Hunger Pain / Reflux', icon: HeartPulse }
+    ];
+  }
+
   return [
     { key: 'crushing', label: 'भारी दबाव व जकड़न', en: 'Heavy Pressure', icon: Shield },
     { key: 'sharp', label: 'तेज़ चुभन व टीस', en: 'Sharp / Stabbing', icon: Zap },
     { key: 'burning', label: 'तेज़ जलन व दाह', en: 'Burning Heat', icon: Flame },
-    { key: 'throbbing', label: 'धड़कता दर्द', en: 'Throbbing Pulse', icon: HeartPulse },
-    { key: 'stiffness', label: 'अकड़न व जकड़न', en: 'Stiffness', icon: Bone },
+    { key: 'throbbing', label: 'धड़कता दर्द व स्पंदन', en: 'Throbbing Pulse', icon: HeartPulse },
+    { key: 'stiffness', label: 'अकड़न व जकड़न', en: 'Stiffness & Spasm', icon: Bone },
     { key: 'numbness', label: 'सुन्नपन व झुनझुनी', en: 'Tingling / Numb', icon: Activity }
   ];
 };
@@ -840,6 +941,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const [duration, setDuration] = useState<'today' | '2-3days' | '1week' | 'chronic'>('2-3days');
   const [isManualEditing, setIsManualEditing] = useState(false);
   const [manualTextDraft, setManualTextDraft] = useState('');
+  const [systemicCategory, setSystemicCategory] = useState<string>('general');
 
   const handleClearTranscript = () => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
@@ -1036,22 +1138,47 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     }
   };
 
-  const currentRegionalData = REGIONAL_COMPLAINTS[selectedBodyRegion] || {
-    hindiName: selectedBodyRegion || 'सामान्य शरीर',
-    enName: 'Full Body Assessment',
-    symptoms: [
-      { hi: 'असहनीय तकलीफ़ व दर्द', en: 'Severe Pain & Distress' },
-      { hi: 'सूजन व भारीपन', en: 'Swelling & Heaviness' },
-      { hi: 'जलन या खिंचाव', en: 'Burning or Muscle Spasm' },
-      { hi: 'जकड़न व कमजोरी', en: 'Stiffness & Weakness' }
-    ],
-    ayushContext: 'Marma & Srotas Locus'
-  };
+  // Adaptive Multi-Modal Symptom & Locus Synthesizer:
+  // Combines 3D touched locus + Spoken acoustic transcript + Systemic clinical category
+  const dynamicSymptomData = useMemo(() => {
+    // 1. If user selected a specific 3D body organ, use that organ's specific clinical profile
+    if (selectedBodyRegion && REGIONAL_COMPLAINTS[selectedBodyRegion]) {
+      return REGIONAL_COMPLAINTS[selectedBodyRegion];
+    }
 
+    // 2. If user spoke in the mic, detect voice intent to automatically match the best category
+    const text = (transcript || '').toLowerCase();
+    let effectiveCategory = systemicCategory;
+
+    if (text.includes('बुखार') || text.includes('fever') || text.includes('ठंड') || text.includes('ताप') || text.includes('chills') || text.includes('कंपकंपी')) {
+      effectiveCategory = 'fever';
+    } else if (text.includes('सीना') || text.includes('छाती') || text.includes('chest') || text.includes('heart') || text.includes('धड़कन') || text.includes('palpitation') || text.includes('सांस') || text.includes('दमा') || text.includes('खांसी') || text.includes('cough') || text.includes('breath') || text.includes('बलगम')) {
+      effectiveCategory = 'cardiorespiratory';
+    } else if (text.includes('पेट') || text.includes('acid') || text.includes('जलन') || text.includes('gas') || text.includes('vomit') || text.includes('दस्त') || text.includes('कब्ज') || text.includes('stomach') || text.includes('उल्टी') || text.includes('मरोड़')) {
+      effectiveCategory = 'gastro';
+    } else if (text.includes('घुटना') || text.includes('कमर') || text.includes('पीठ') || text.includes('जोड़') || text.includes('हड्डी') || text.includes('knee') || text.includes('back') || text.includes('joint') || text.includes('spine') || text.includes('कट-कट')) {
+      effectiveCategory = 'ortho';
+    } else if (text.includes('सिर') || text.includes('चक्कर') || text.includes('माइग्रेन') || text.includes('headache') || text.includes('vertigo') || text.includes('migraine')) {
+      effectiveCategory = 'neuro';
+    } else if (text.includes('खुजली') || text.includes('दाने') || text.includes('चकत्ते') || text.includes('त्वचा') || text.includes('skin') || text.includes('rash') || text.includes('itch')) {
+      effectiveCategory = 'dermatology';
+    }
+
+    const cat = SYSTEMIC_COMPLAINT_CATEGORIES[effectiveCategory] || SYSTEMIC_COMPLAINT_CATEGORIES.general;
+
+    return {
+      hindiName: cat.titleHi,
+      enName: cat.titleEn,
+      symptoms: cat.symptoms,
+      ayushContext: 'Samanya Sharira · Tri-Dosha & Srotas Evaluation'
+    };
+  }, [selectedBodyRegion, transcript, systemicCategory]);
+
+  const currentRegionalData = dynamicSymptomData;
   const clusterKey = LOCUS_TO_CLUSTER[selectedBodyRegion];
   const currentCluster = clusterKey ? CLUSTER_DISAMBIGUATION[clusterKey] : null;
   const congruenceMismatch = useMemo(() => evaluateCongruenceMismatch(selectedBodyRegion, transcript), [selectedBodyRegion, transcript]);
-  const activeSensations = useMemo(() => getOrganSensations(selectedBodyRegion), [selectedBodyRegion]);
+  const activeSensations = useMemo(() => getOrganSensations(selectedBodyRegion, transcript), [selectedBodyRegion, transcript]);
 
   const handleAudioGuidance = () => {
     try {
@@ -1546,7 +1673,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
             
             {/* Quick 1-Tap Symptom Chips */}
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
                   <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground text-left">
@@ -1557,6 +1684,41 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                   {currentRegionalData.hindiName.split('(')[0].trim()}
                 </span>
               </div>
+
+              {/* Systemic Category Filter Strip (When on Full Body / General or Exploring) */}
+              {!selectedBodyRegion && (
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-3 mb-1">
+                  {[
+                    { id: 'general', label: '⭐ प्रमुख लक्षण' },
+                    { id: 'fever', label: '🔥 बुखार व ठंड' },
+                    { id: 'cardiorespiratory', label: '❤️ सीना व सांस' },
+                    { id: 'gastro', label: '🍲 पेट व पाचन' },
+                    { id: 'ortho', label: '🦴 जोड़ व कमर' },
+                    { id: 'neuro', label: '🧠 सिरदर्द व चक्कर' },
+                    { id: 'dermatology', label: '✨ त्वचा व एलर्जी' }
+                  ].map((cat) => {
+                    const isCatActive = systemicCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          try { sovereignSound.playMechanicalSnap(); } catch {}
+                          setSystemicCategory(cat.id);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold shrink-0 transition-all cursor-pointer border ${
+                          isCatActive
+                            ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                            : 'bg-muted/40 hover:bg-muted text-foreground border-border/70'
+                        }`}
+                      >
+                        <span>{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {currentRegionalData.symptoms.map((sym, idx) => (
                   <button
