@@ -1899,33 +1899,45 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       setLoadingProgress(100);
     };
 
-    // 8. Direct High-Fidelity Anatomical Loading Pipeline (5.77M Clean Vertices / 1,751 Meshes)
+    // 8. Instant-Load High-Fidelity Anatomical Pipeline (1.7MB Fast Mesh + Zero-Freeze Progressive Fallbacks)
     const gltfLoader = new GLTFLoader();
 
+    const handleProgress = (xhr: ProgressEvent) => {
+      if (xhr.total > 0) {
+        setLoadingProgress(Math.min(99, Math.round((xhr.loaded / xhr.total) * 100)));
+      } else if (xhr.loaded > 0) {
+        // Estimate progress for chunked HTTP/2 transfer encoding
+        const estTotal = 1.8 * 1024 * 1024;
+        setLoadingProgress(Math.min(95, Math.round((xhr.loaded / estTotal) * 100)));
+      }
+    };
+
     gltfLoader.load(
-      '/models/3d_mannequin_fast.glb',
+      '/models/human_body.glb',
       (gltf) => {
         setupLoadedInternalModel(gltf.scene);
       },
-      (xhr) => {
-        if (xhr.total > 0) {
-          setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100));
-        }
-      },
+      handleProgress,
       (err) => {
-        console.warn('Primary GLB failed, trying smooth fallback:', err);
+        console.warn('1.7MB GLB failed, trying instant 75MB fallback:', err);
         gltfLoader.load(
-          '/models/3d_mannequin_smooth.glb',
-          (gltfSmooth) => {
-            setupLoadedInternalModel(gltfSmooth.scene);
+          '/models/3d_mannequin_instant.glb',
+          (gltfInstant) => {
+            setupLoadedInternalModel(gltfInstant.scene);
           },
-          (xhr) => {
-            if (xhr.total > 0) {
-              setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100));
-            }
-          },
-          (errOpt) => {
-            console.error('All GLB anatomical loads failed:', errOpt);
+          handleProgress,
+          (errInstant) => {
+            console.warn('Instant GLB failed, trying fast 226MB fallback:', errInstant);
+            gltfLoader.load(
+              '/models/3d_mannequin_fast.glb',
+              (gltfFast) => {
+                setupLoadedInternalModel(gltfFast.scene);
+              },
+              handleProgress,
+              (errOpt) => {
+                console.error('All GLB anatomical loads failed:', errOpt);
+              }
+            );
           }
         );
       }
