@@ -120,8 +120,8 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
     options: [
       {
         id: 'Left Chest / Precordium',
-        hindiLabel: 'बायां सीना / दिल (Heart)',
-        label: 'Left Chest (Precordium)',
+        hindiLabel: 'बायां सीना (हृदय)',
+        label: 'Left Chest & Precordium',
         badgeText: 'हृदय मर्म · आपातकाल',
         keyDifferentiatingSymptom: 'सीने में भारी दबाव, घबराहट, बायीं बांह में खिंचाव (Angina / Tightness)',
         iconType: 'heart',
@@ -137,7 +137,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Lungs & Respiration',
-        hindiLabel: 'फेफड़े व सांस (Lungs)',
+        hindiLabel: 'फेफड़े व सांस',
         label: 'Bilateral Pulmonary',
         badgeText: 'श्वास कष्ट / दमा / खांसी',
         keyDifferentiatingSymptom: 'सांस फूलना, सीटी जैसी आवाज, लगातार खांसी (Dyspnea, wheezing, cough)',
@@ -145,7 +145,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Epigastrium',
-        hindiLabel: 'सीने में जलन / एसिडिटी',
+        hindiLabel: 'सीने में जलन',
         label: 'Epigastric Acidity',
         badgeText: 'अम्लपित्त / गैस',
         keyDifferentiatingSymptom: 'खट्टी डकारें, सीने के मध्य जलन, खाली पेट दर्द (Heartburn, burning reflux)',
@@ -162,7 +162,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
     options: [
       {
         id: 'Epigastrium',
-        hindiLabel: 'ऊपरी पेट (Upper Abdomen / Agni)',
+        hindiLabel: 'ऊपरी पेट (आमाशय)',
         label: 'Epigastrium (Upper Stomach)',
         badgeText: 'अम्लपित्त / आमाशय / सीने के नीचे जलन',
         keyDifferentiatingSymptom: 'खाना खाने के बाद जलन, नाभि के ऊपर दर्द (Gastritis, upper abdominal ache)',
@@ -170,7 +170,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Umbilicus / Mid-Abdomen',
-        hindiLabel: 'मध्य पेट / नाभि (Mid Abdomen)',
+        hindiLabel: 'मध्य पेट (नाभि)',
         label: 'Umbilicus (Navel Zone)',
         badgeText: 'नाभि मरोड़ / वायु विकार / अफारा',
         keyDifferentiatingSymptom: 'पेट फूलना, नाभि के चारों तरफ मरोड़ (Colic, gas distension, cramps)',
@@ -178,7 +178,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Pelvic / Hypogastrium',
-        hindiLabel: 'निचला पेट / पेडू (Lower Abdomen / Pelvis)',
+        hindiLabel: 'निचला पेट व पेडू',
         label: 'Pelvis & Hypogastrium',
         badgeText: 'निचला पेट / पेडू दर्द / बस्ति',
         keyDifferentiatingSymptom: 'पेशाब में जलन, निचले पेट में भारीपन (UTI, pelvic discomfort)',
@@ -186,7 +186,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Right Lower Quadrant (RLQ)',
-        hindiLabel: 'दायां निचला पेट (RLQ / Appendix)',
+        hindiLabel: 'दायां निचला पेट (अपेंडिक्स)',
         label: 'Right Lower Quadrant (Appendix)',
         badgeText: 'दायां निचला हिस्सा · अपेंडिक्स स्थान',
         keyDifferentiatingSymptom: 'दाहिने निचले पेट में तीव्र चुभन, चलने पर दर्द (McBurney point tenderness)',
@@ -195,7 +195,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Left Lower Quadrant (LLQ)',
-        hindiLabel: 'बायां निचला पेट (LLQ / Left Kidney)',
+        hindiLabel: 'बायां निचला पेट (गुर्दा)',
         label: 'Left Lower Quadrant (Kidney/Colon)',
         badgeText: 'बायां निचला हिस्सा · वृक्क / पथरी मरोड़',
         keyDifferentiatingSymptom: 'बायीं तरफ चुभन, पेशाब में जलन या रुकावट (Left renal colic / diverticular ache)',
@@ -212,7 +212,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
     options: [
       {
         id: 'Cervical Spine',
-        hindiLabel: 'गर्दन (Cervical)',
+        hindiLabel: 'गर्दन की रीढ़',
         label: 'Cervical Spine (Nape)',
         badgeText: 'मन्यास्तम्भ / ग्रीवा',
         keyDifferentiatingSymptom: 'गर्दन में जकड़न, सिर के पीछे तक भारीपन (Neck stiffness, occipital pain)',
@@ -220,7 +220,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Upper Back / Thoracic',
-        hindiLabel: 'ऊपरी पीठ / कंधे',
+        hindiLabel: 'ऊपरी पीठ व रीढ़',
         label: 'Upper Back & Scapular',
         badgeText: 'कंधों के बीच जकड़न',
         keyDifferentiatingSymptom: 'कंधों व पसलियों के पीछे मांसपेशियों में खिंचाव (Interscapular muscle spasm)',
@@ -228,7 +228,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Lumbar Spine (Kati)',
-        hindiLabel: 'निचली कमर (Lumbago)',
+        hindiLabel: 'निचली कमर (कटि)',
         label: 'Lumbar Spine (Kati Shula)',
         badgeText: 'कटि शूल / कमर दर्द',
         keyDifferentiatingSymptom: 'झुकने या वजन उठाने पर तेज दर्द, अकड़न (Lumbago, disc compression)',
@@ -236,7 +236,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Sacral / Sciatica Origin',
-        hindiLabel: 'त्रिक / नितंब नस',
+        hindiLabel: 'त्रिक व नितंब (सायटिका)',
         label: 'Sacrum & Sciatica Root',
         badgeText: 'गृध्रसी / सायटिका मूल',
         keyDifferentiatingSymptom: 'बैठने पर नितंब में तेज दर्द, नस दबना (Piriformis syndrome, sciatica root)',
@@ -318,7 +318,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
     options: [
       {
         id: 'Right Knee',
-        hindiLabel: 'दायां घुटना (Janu)',
+        hindiLabel: 'दायां घुटना',
         label: 'Right Knee Joint',
         badgeText: 'घुटना दर्द / सूजन',
         keyDifferentiatingSymptom: 'दाहिने घुटने में कट-कट आवाज, सीढ़ी चढ़ने पर दर्द (Right knee osteoarthritis)',
@@ -326,7 +326,7 @@ export const CLUSTER_DISAMBIGUATION: Record<string, {
       },
       {
         id: 'Left Knee',
-        hindiLabel: 'बायां घुटना (Janu)',
+        hindiLabel: 'बायां घुटना',
         label: 'Left Knee Joint',
         badgeText: 'घुटना दर्द / सूजन',
         keyDifferentiatingSymptom: 'बाएं घुटने में सूजन या मुड़ने में दर्द (Left knee arthritis / sprain)',
@@ -601,7 +601,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Face & Sinus',
     subKey: 'face',
-    hindiLabel: 'चेहरा व आँखें (Eyes & Sinus)',
+    hindiLabel: 'चेहरा व आँखें',
     label: 'Face, Sinuses & Eyes',
     badgeText: 'साइनस / आँखों में जलन',
     ayushMarma: 'फण व आवर्त मर्म',
@@ -614,7 +614,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Ear',
     subKey: 'ear_l',
-    hindiLabel: 'बायां कान (Left Ear)',
+    hindiLabel: 'बायां कान',
     label: 'Left Ear & Hearing',
     badgeText: 'कर्ण शूल / टीस',
     ayushMarma: 'विदुर मर्म (Vidhura Marma)',
@@ -627,7 +627,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Ear',
     subKey: 'ear_r',
-    hindiLabel: 'दायां कान (Right Ear)',
+    hindiLabel: 'दायां कान',
     label: 'Right Ear & Hearing',
     badgeText: 'कर्ण शूल / टीस',
     ayushMarma: 'विदुर मर्म (दक्षिण)',
@@ -640,7 +640,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Neck',
     subKey: 'throat',
-    hindiLabel: 'गला व थाइरॉइड (Throat)',
+    hindiLabel: 'गला व थाइरॉइड',
     label: 'Throat & Larynx',
     badgeText: 'खराश / टॉन्सिल',
     ayushMarma: 'मन्या व नीला मर्म',
@@ -653,7 +653,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Cervical Spine',
     subKey: 'cervical',
-    hindiLabel: 'गर्दन की रीढ़ (Cervical Spine)',
+    hindiLabel: 'गर्दन की रीढ़',
     label: 'Cervical Spine (Posterior)',
     badgeText: 'सर्वाइकल / गर्दन जकड़न',
     ayushMarma: 'ग्रीवा संधि · कृकाटिका',
@@ -669,7 +669,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Chest / Precordium',
     subKey: 'heart',
-    hindiLabel: 'बायां सीना / दिल (Heart)',
+    hindiLabel: 'बायां सीना (हृदय)',
     label: 'Left Chest (Precordium)',
     badgeText: 'हृदय मर्म · आपातकाल',
     ayushMarma: 'हृदय मर्म (सद्यः प्राणहर)',
@@ -683,7 +683,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Chest',
     subKey: 'right_chest',
-    hindiLabel: 'दायां सीना (Right Thorax)',
+    hindiLabel: 'दायां सीना',
     label: 'Right Thorax',
     badgeText: 'दाहिनी छाती का दर्द',
     ayushMarma: 'स्तनरोहित मर्म',
@@ -696,7 +696,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Lungs & Respiration',
     subKey: 'lungs',
-    hindiLabel: 'फेफड़े व सांस (Lungs)',
+    hindiLabel: 'फेफड़े व सांस',
     label: 'Lungs & Respiration',
     badgeText: 'दमा / खांसी / सांस फूलना',
     ayushMarma: 'प्राणवह स्रोतस् · फुप्फुस',
@@ -711,7 +711,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Epigastrium',
     subKey: 'stomach',
-    hindiLabel: 'ऊपरी पेट / आमाशय (Epigastrium)',
+    hindiLabel: 'ऊपरी पेट (आमाशय)',
     label: 'Epigastrium (Upper Stomach)',
     badgeText: 'ऊपरी पेट / अम्लपित्त / गैस',
     ayushMarma: 'आमाशय · समान वात / पाचक अग्नि',
@@ -724,7 +724,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Umbilicus / Mid-Abdomen',
     subKey: 'navel',
-    hindiLabel: 'मध्य पेट / नाभि (Umbilicus)',
+    hindiLabel: 'मध्य पेट (नाभि)',
     label: 'Navel & Mid-Abdomen',
     badgeText: 'नाभि मर्म / मरोड़ / अफारा',
     ayushMarma: 'नाभि मर्म (सिरा मर्म)',
@@ -737,7 +737,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Pelvic / Hypogastrium',
     subKey: 'pelvis',
-    hindiLabel: 'निचला पेट / पेडू (Lower Abdomen / Pelvis)',
+    hindiLabel: 'निचला पेट व पेडू',
     label: 'Lower Abdomen & Pelvis',
     badgeText: 'निचला पेट / पेडू / बस्ति',
     ayushMarma: 'बस्ति मर्म (सद्यः प्राणहर महामर्म)',
@@ -750,7 +750,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Lower Quadrant (RLQ)',
     subKey: 'appendix',
-    hindiLabel: 'दायां निचला पेट (RLQ / Appendix)',
+    hindiLabel: 'दायां निचला पेट (अपेंडिक्स)',
     label: 'Right Lower Quadrant',
     badgeText: 'दायां निचला पेट · अपेंडिक्स',
     ayushMarma: 'उण्डुक स्थान (Unduka)',
@@ -764,7 +764,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Lower Quadrant (LLQ)',
     subKey: 'llq_kidney',
-    hindiLabel: 'बायां निचला पेट / गुर्दा (LLQ)',
+    hindiLabel: 'बायां निचला पेट (गुर्दा)',
     label: 'Left Lower Quadrant',
     badgeText: 'बायां निचला पेट · वृक्क / पथरी',
     ayushMarma: 'गुद सन्निकृष्ट मर्म',
@@ -779,7 +779,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Upper Back / Thoracic',
     subKey: 'upper_back',
-    hindiLabel: 'ऊपरी पीठ व रीढ़ (Thoracic Spine)',
+    hindiLabel: 'ऊपरी पीठ व रीढ़',
     label: 'Upper Back & Scapulae',
     badgeText: 'पीठ की अकड़न / कंधे',
     ayushMarma: 'अंसफलक मर्म',
@@ -793,7 +793,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Lumbar Spine (Kati)',
     subKey: 'lumbar',
-    hindiLabel: 'निचली कमर / कटि (Lumbar Spine)',
+    hindiLabel: 'निचली कमर (कटि)',
     label: 'Lumbar Spine (Kati)',
     badgeText: 'कमर दर्द / स्लिप डिस्क',
     ayushMarma: 'कटिकतरुण मर्म (कटि शूल)',
@@ -807,7 +807,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Sacral / Sciatica Origin',
     subKey: 'sacrum',
-    hindiLabel: 'त्रिक / नितंब व सायटिका मूल',
+    hindiLabel: 'त्रिक व नितंब (सायटिका)',
     label: 'Sacrum & Sciatica Origin',
     badgeText: 'गृध्रसी / नितंब शूल',
     ayushMarma: 'नितम्ब व कुकुन्दर मर्म',
@@ -823,7 +823,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Shoulder',
     subKey: 'shoulder_r',
-    hindiLabel: 'दायां कंधा (Right Shoulder)',
+    hindiLabel: 'दायां कंधा',
     label: 'Right Shoulder Joint',
     badgeText: 'कंधा संधि / जकड़न',
     ayushMarma: 'अंस मर्म (दायां)',
@@ -836,7 +836,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Shoulder',
     subKey: 'shoulder_l',
-    hindiLabel: 'बायां कंधा (Left Shoulder)',
+    hindiLabel: 'बायां कंधा',
     label: 'Left Shoulder Joint',
     badgeText: 'कंधा संधि / जकड़न',
     ayushMarma: 'अंस मर्म (बायां)',
@@ -849,7 +849,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Arm',
     subKey: 'arm_r',
-    hindiLabel: 'दायीं बांह व कोहनी (Right Arm)',
+    hindiLabel: 'दायीं बांह व कोहनी',
     label: 'Right Arm & Elbow',
     badgeText: 'कोहनी / बांह दर्द',
     ayushMarma: 'कूर्पर मर्म (दायां)',
@@ -862,7 +862,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Arm',
     subKey: 'arm_l',
-    hindiLabel: 'बायीं बांह व कोहनी (Left Arm)',
+    hindiLabel: 'बायीं बांह व कोहनी',
     label: 'Left Arm & Elbow',
     badgeText: 'कोहनी / बांह दर्द',
     ayushMarma: 'कूर्पर मर्म (बायां)',
@@ -875,7 +875,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Hand',
     subKey: 'hand_r',
-    hindiLabel: 'दायां हाथ व कलाई (Right Hand)',
+    hindiLabel: 'दायां हाथ व कलाई',
     label: 'Right Hand & Wrist',
     badgeText: 'मणिबन्ध / हथेली / उंगलियां',
     ayushMarma: 'मणिबन्ध व तलहृदय (दायां)',
@@ -888,7 +888,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Hand',
     subKey: 'hand_l',
-    hindiLabel: 'बायां हाथ व कलाई (Left Hand)',
+    hindiLabel: 'बायां हाथ व कलाई',
     label: 'Left Hand & Wrist',
     badgeText: 'मणिबन्ध / हथेली / उंगलियां',
     ayushMarma: 'मणिबन्ध व तलहृदय (बायां)',
@@ -903,7 +903,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Hip',
     subKey: 'hip_r',
-    hindiLabel: 'दायां कूल्हा व जांघ (Right Hip)',
+    hindiLabel: 'दायां कूल्हा व जांघ',
     label: 'Right Hip & Thigh',
     badgeText: 'कूल्हा संधि / जांघ',
     ayushMarma: 'ऊर्वी मर्म (दायां)',
@@ -916,7 +916,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Hip',
     subKey: 'hip_l',
-    hindiLabel: 'बायां कूल्हा व जांघ (Left Hip)',
+    hindiLabel: 'बायां कूल्हा व जांघ',
     label: 'Left Hip & Thigh',
     badgeText: 'कूल्हा संधि / जांघ',
     ayushMarma: 'ऊर्वी मर्म (बायां)',
@@ -929,7 +929,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Knee',
     subKey: 'knee_l',
-    hindiLabel: 'बायां घुटना / जानु (Left Knee)',
+    hindiLabel: 'बायां घुटना',
     label: 'Left Knee Joint',
     badgeText: 'जानु संधि / घुटने का दर्द',
     ayushMarma: 'जानु मर्म (बायां)',
@@ -942,7 +942,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Knee',
     subKey: 'knee_r',
-    hindiLabel: 'दायां घुटना / जानु (Right Knee)',
+    hindiLabel: 'दायां घुटना',
     label: 'Right Knee Joint',
     badgeText: 'जानु संधि / घुटने का दर्द',
     ayushMarma: 'जानु मर्म (दायां)',
@@ -955,7 +955,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Sciatic Pathway / Calves',
     subKey: 'sciatica_path',
-    hindiLabel: 'पिंडली व सायटिका नस (Calves)',
+    hindiLabel: 'पिंडलियाँ व पैर',
     label: 'Calves & Sciatic Nerve',
     badgeText: 'गृध्रसी / पैर में उतरता दर्द',
     ayushMarma: 'इन्द्रबस्ति मर्म (मांस मर्म)',
@@ -969,7 +969,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Leg',
     subKey: 'leg_l',
-    hindiLabel: 'बायां निचला पैर (Left Shin)',
+    hindiLabel: 'बायीं पिंडली',
     label: 'Left Shin & Leg',
     badgeText: 'नली की हड्डी / पिंडली',
     ayushMarma: 'गुल्फ सन्निकृष्ट (बायां)',
@@ -982,7 +982,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Leg',
     subKey: 'leg_r',
-    hindiLabel: 'दायां निचला पैर (Right Shin)',
+    hindiLabel: 'दायीं पिंडली',
     label: 'Right Shin & Leg',
     badgeText: 'नली की हड्डी / पिंडली',
     ayushMarma: 'गुल्फ सन्निकृष्ट (दायां)',
@@ -995,7 +995,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Left Foot',
     subKey: 'foot_l',
-    hindiLabel: 'बायां पैर व तलवा (Left Foot)',
+    hindiLabel: 'बायां पैर व तलवा',
     label: 'Left Foot & Ankle',
     badgeText: 'गुल्फ / तलहृदय मर्म',
     ayushMarma: 'गुल्फ मर्म (बायां)',
@@ -1008,7 +1008,7 @@ export const MICRO_LOCI_CATALOG: MicroLocusItem[] = [
   {
     id: 'Right Foot',
     subKey: 'foot_r',
-    hindiLabel: 'दायां पैर व तलवा (Right Foot)',
+    hindiLabel: 'दायां पैर व तलवा',
     label: 'Right Foot & Ankle',
     badgeText: 'गुल्फ / तलहृदय मर्म',
     ayushMarma: 'गुल्फ मर्म (दायां)',
@@ -1453,6 +1453,15 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
   const targetCameraLookAtRef = useRef(new THREE.Vector3(0, 0.15, 0));
   const currentCameraLookAtRef = useRef(new THREE.Vector3(0, 0.15, 0));
 
+  const selectedRegionRef = useRef(selectedRegion);
+  selectedRegionRef.current = selectedRegion;
+
+  const activeMacroZoneRef = useRef(activeMacroZone);
+  activeMacroZoneRef.current = activeMacroZone;
+
+  const onMacroZoneChangeRef = useRef(onMacroZoneChange);
+  onMacroZoneChangeRef.current = onMacroZoneChange;
+
   const onSelectRegionRef = useRef(onSelectRegion);
   onSelectRegionRef.current = onSelectRegion;
 
@@ -1491,6 +1500,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
   const skinMeshRef = useRef<THREE.Mesh | null>(null);
   const skinMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const pointerDownPositionRef = useRef({ x: 0, y: 0 });
+  const lastHoveredRegionIdRef = useRef<string | null>(null);
 
   // Translucent Surgical Ghost Material for Non-Active Layers (Solid Matte Silhouette, No Glass Glitches)
   const ghostMaterialRef = useRef(
@@ -1669,10 +1679,10 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     camera.position.set(0, 0.15, 4.3);
     cameraRef.current = camera;
 
-    // 3. WebGL Renderer with ACES Tone Mapping
+    // 3. WebGL Renderer with ACES Tone Mapping & 60fps GPU optimization
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -2007,10 +2017,28 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         if (localHit) {
           const hitRegion = classifyHitToRegion(localHit);
 
-          // Auto drill-down into macro zone if clicked from full-body view
+          // 1. Toggle Off / Full Body Reset if clicking the SAME part that is already selected
+          if (selectedRegionRef.current === hitRegion) {
+            try { sovereignSound.playMechanicalSnap(); } catch {}
+            if (onMacroZoneChangeRef.current) {
+              onMacroZoneChangeRef.current('full');
+            } else {
+              setInternalMacroZone('full');
+            }
+            targetCameraPosRef.current.set(0, 0.15, 4.3);
+            targetCameraLookAtRef.current.set(0, 0.15, 0);
+            if (cameraRef.current) {
+              cameraRef.current.fov = 40;
+              cameraRef.current.updateProjectionMatrix();
+            }
+            onSelectRegionRef.current('');
+            return;
+          }
+
+          // 2. Select new part & drill-down into macro zone
           const targetZone = LOCUS_TO_MACRO_ZONE[hitRegion] || 'full';
-          if (activeMacroZone === 'full' && targetZone !== 'full') {
-            if (onMacroZoneChange) onMacroZoneChange(targetZone);
+          if (targetZone !== 'full') {
+            if (onMacroZoneChangeRef.current) onMacroZoneChangeRef.current(targetZone);
             else setInternalMacroZone(targetZone);
           }
 
@@ -2047,30 +2075,37 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       humanGroup.rotation.y = currentRotationYRef.current;
       humanGroup.rotation.x = currentRotationXRef.current;
 
-      // Raycast Hover Inspection
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      const intersects = raycasterRef.current.intersectObjects(humanGroup.children, true);
-      const topHit = getTargetHit(intersects);
+      // Raycast Hover Inspection (Deduplicated to eliminate 60fps React re-render thrashing)
+      if (!isDraggingRef.current) {
+        raycasterRef.current.setFromCamera(mouseRef.current, camera);
+        const intersects = raycasterRef.current.intersectObjects(humanGroup.children, true);
+        const topHit = getTargetHit(intersects);
 
-      if (topHit && !isDraggingRef.current) {
-        const localHit = humanGroup.worldToLocal(topHit.point.clone());
-        const hoverRegion = classifyHitToRegion(localHit);
-        const matchedLocus = MICRO_LOCI_CATALOG.find(l => l.id === hoverRegion);
+        if (topHit) {
+          const localHit = humanGroup.worldToLocal(topHit.point.clone());
+          const hoverRegion = classifyHitToRegion(localHit);
 
-        setHoveredMeshInfo({
-          name: topHit.object.name || hoverRegion,
-          regionId: hoverRegion,
-          hindiName: matchedLocus ? `${matchedLocus.hindiLabel} (${matchedLocus.label})` : hoverRegion,
-          system: 'muscular',
-          marma: matchedLocus?.ayushMarma || '',
-          isLeft: localHit.x > 0.025,
-          isRight: localHit.x < -0.025,
-          center: [localHit.x, localHit.y, localHit.z],
-          size: [0.1, 0.1, 0.1],
-          vertexCount: 0
-        });
-      } else {
-        setHoveredMeshInfo(null);
+          if (hoverRegion !== lastHoveredRegionIdRef.current) {
+            lastHoveredRegionIdRef.current = hoverRegion;
+            const matchedLocus = MICRO_LOCI_CATALOG.find(l => l.id === hoverRegion);
+
+            setHoveredMeshInfo({
+              name: topHit.object.name || hoverRegion,
+              regionId: hoverRegion,
+              hindiName: matchedLocus ? `${matchedLocus.hindiLabel} (${matchedLocus.label})` : hoverRegion,
+              system: 'muscular',
+              marma: matchedLocus?.ayushMarma || '',
+              isLeft: localHit.x > 0.025,
+              isRight: localHit.x < -0.025,
+              center: [localHit.x, localHit.y, localHit.z],
+              size: [0.1, 0.1, 0.1],
+              vertexCount: 0
+            });
+          }
+        } else if (lastHoveredRegionIdRef.current !== null) {
+          lastHoveredRegionIdRef.current = null;
+          setHoveredMeshInfo(null);
+        }
       }
 
       renderer.render(scene, camera);

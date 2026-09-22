@@ -49,15 +49,13 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       ctx.globalCompositeOperation = 'source-over';
 
       if (!isRecording) {
-        // Idle Resting Horizon Line (Clean slate)
+        // Idle Resting Horizon Line (Clean slate rendered once, zero CPU overhead)
         ctx.beginPath();
         ctx.strokeStyle = restingStroke;
         ctx.lineWidth = 1.5;
         ctx.moveTo(0, midY);
         ctx.lineTo(w, midY);
         ctx.stroke();
-
-        animationId = requestAnimationFrame(render);
         return;
       }
 
