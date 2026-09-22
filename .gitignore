@@ -25,7 +25,9 @@ data/*.db-wal
 .idea/
 *.log
 
-# Large 3D CAD Models (>50MB GitHub limits)
+# Large 3D CAD Models (>100MB GitHub limits) - Full 226MB Model is hosted on GitHub Releases CDN
 *.fbx
 *.glb
+*.part*
 !frontend/public/models/human_body.glb
+

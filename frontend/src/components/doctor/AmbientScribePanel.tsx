@@ -490,9 +490,9 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
           <div
             className={isListening ? 'live-dot' : ''}
             style={{
-              background: isListening ? '#16a34a' : '#94a3b8',
-              width: 9,
-              height: 9,
+              background: isListening ? '#0f172a' : '#94a3b8',
+              width: 8,
+              height: 8,
               borderRadius: '50%'
             }}
           />

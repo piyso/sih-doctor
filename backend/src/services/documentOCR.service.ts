@@ -199,6 +199,9 @@ export class DocumentOCRService {
       reviewReason = reviewReason || 'Fuzzy drug matching required manual physician confirmation.';
     }
 
+    const stoichiometricValidations = auditResult.stoichiometricValidations;
+    const biochemicalRatios = auditResult.biochemicalRatios;
+
     return {
       documentId: uuidv4(),
       patientId,
@@ -215,6 +218,8 @@ export class DocumentOCRService {
       plausibilityWarnings: plausibilityWarnings.length > 0 ? plausibilityWarnings : undefined,
       fuzzyCorrections: fuzzyCorrections.length > 0 ? fuzzyCorrections : undefined,
       vernacularPosologyDetected: vernacularPosologyDetected.length > 0 ? vernacularPosologyDetected : undefined,
+      stoichiometricValidations: stoichiometricValidations && stoichiometricValidations.length > 0 ? stoichiometricValidations : undefined,
+      biochemicalRatios: biochemicalRatios && biochemicalRatios.length > 0 ? biochemicalRatios : undefined,
       humanReviewRequired,
       reviewReason
     };

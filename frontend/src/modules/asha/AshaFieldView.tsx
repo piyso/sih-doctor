@@ -373,7 +373,7 @@ export const AshaFieldView: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: 8, fontSize: 11 }}>
                 <span style={{ color: '#94a3b8' }}>{record.createdAt}</span>
                 <span style={{ color: record.syncedToPhc ? '#16a34a' : '#d97706', fontWeight: 600 }}>
-                  {record.syncedToPhc ? '✓ Synced' : '● Offline'}
+                  {record.syncedToPhc ? '✓ Synced' : 'Offline'}
                 </span>
               </div>
             </div>

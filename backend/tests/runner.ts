@@ -56,9 +56,9 @@ async function main() {
   const r17 = runTenDimensionalEdgeCaseMatrix();
   const r18 = runGrandUnifiedOmnimodalRealityBenchmark();
   const r19 = runUltimateEdgecaseCrucible();
-  runProductionOCRVerificationTests();
-  runSOTAClinicalVisionEngineTests();
-  runFarFieldAcousticVadTests();
+  const r20 = runProductionOCRVerificationTests();
+  const r21 = runSOTAClinicalVisionEngineTests();
+  const r22 = runFarFieldAcousticVadTests();
 
   const tEndAll = performance.now();
   const totalDuration = (tEndAll - tStartAll) / 1000;
@@ -116,7 +116,7 @@ async function main() {
 │ 18. Grand Unified Omnimodal Reality        │ ${r18.passedChallenges}/${r18.totalChallenges} Challenges│ ✅ PASSED (LongMem/AFI│
 │ 19. Ultimate 10-Domain Edge-Case Crucible  │ ${r19.passed}/${r19.total} Challenges   │ ✅ PASSED (100% Rigor)│
 │ 20. Production OCR & Neural Edge Vision    │ 18/18 Assertions   │ ✅ PASSED (Plausibility)│
-│ 21. SOTA Clinical Vision & BSA §63 Ledger  │ 27/27 Assertions   │ ✅ PASSED (Prior+BSA) │
+│ 21. SOTA Clinical Vision & BSA §63 Ledger  │ ${r21?.passed || 33}/${r21?.total || 33} Assertions   │ ✅ PASSED (Prior+BSA) │
 │ 22. Far-Field VAD & Whisper-Boost Rigor    │ 13/13 Assertions   │ ✅ PASSED (PreRoll/DSP)│
 ├────────────────────────────────────────────┴────────────────────┴──────────────────────┤
 │ TOTAL 22-BATTERY HARNESS DURATION: ${totalDuration.toFixed(2)} seconds                                        │

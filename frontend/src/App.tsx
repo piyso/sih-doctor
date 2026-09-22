@@ -11,6 +11,7 @@ import { AshaFieldView } from './modules/asha/AshaFieldView';
 import { CommandCenterView } from './modules/admin/CommandCenterView';
 import { Button } from './components/ui/button';
 import { sovereignSound } from './utils/audio';
+import { api } from './services/api';
 import { ArrowLeft, Smartphone } from 'lucide-react';
 
 export function App() {
@@ -36,6 +37,10 @@ export function App() {
   const [isLeverModalOpen, setIsLeverModalOpen] = useState(false);
   const [isByodModalOpen, setIsByodModalOpen] = useState(false);
 
+  // Silent background wake-up ping for Render free tier backend container
+  useEffect(() => {
+    api.checkHealth().catch(() => {});
+  }, []);
 
   // Dynamic pointer coordinates for Fresnel spotlight across cards
   useEffect(() => {
@@ -105,8 +110,7 @@ export function App() {
               <span className="font-semibold text-foreground/90">Agastya Sutra</span>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-mono font-medium shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60 border border-border/80 text-muted-foreground text-[11px] font-mono font-medium shadow-2xs">
               <span>LIVE SQLite WAL</span>
             </div>
           </div>

@@ -11,7 +11,7 @@ This repository is split into two independent, decoupled sub-systems:
 2. `frontend/`: Standalone React 18 + Vite + TypeScript web application designed for touch-screen MediKiosks, tablets, and Doctor workstation desktops.
 
 > [!IMPORTANT]
-> **Outsource Readiness:** The frontend can be developed, tested, and completely demoed in **100% Standalone Mock Mode** without running the backend. Setting `VITE_USE_MOCK=true` or clicking the "Standalone Mock Mode" toggle in the header runs the full end-to-end clinical workflow with zero network dependencies.
+> **Zero Mocks · Sovereign Bare-Metal Architecture:** The frontend connects 100% directly to the live backend Express + SQLite WAL engine (`http://localhost:8001`). There are zero synthetic mocks or fake data fallbacks. If the backend is temporarily offline or spinning up (e.g. Render free tier cold-start), the frontend executes deterministic client-side edge engines directly in-browser: Tesseract.js WASM for OCR, stoichiometric biochemical ratio cross-validation, and Verhoeff D5 checksum verification.
 
 ---
 
@@ -24,15 +24,14 @@ npm run dev
 ```
 
 The application will launch on `http://localhost:5173`.
-By default, if the backend at `http://localhost:8000` is offline or unreachable, the frontend automatically falls back to local simulation mode with realistic network delays ($100-200\text{ ms}$).
+Vite is preconfigured to reverse-proxy `/api`, `/health`, and `/ws` to the live sovereign backend running on `http://localhost:8001`.
 
 ### Environment Variables (`.env`)
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `VITE_API_URL` | `http://localhost:8000` | REST API base URL |
-| `VITE_WS_URL` | `ws://localhost:8000/ws/ambient` | WebSocket endpoint for live ambient speech transcription |
-| `VITE_USE_MOCK` | `false` | Force standalone mock mode |
+| `VITE_API_URL` | `http://localhost:8001` | REST API base URL (auto-proxied locally via Vite) |
+| `VITE_WS_URL` | `ws://localhost:8001/ws/ambient` | WebSocket endpoint for live ambient speech transcription |
 
 ---
 

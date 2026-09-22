@@ -126,8 +126,8 @@ abdmRouter.get('/fhir-bundle/:sessionId', (req: Request, res: Response): void =>
     const vitals = JSON.parse(sessionRow.vitals_json || '{}');
 
     const provisionalDiagnoses = symptoms
-      .filter((s: any) => !s.isNegated)
-      .map((s: any) => AyushEngineService.resolveDiagnosis(s.name))
+      .filter((s: any) => !s?.isNegated)
+      .map((s: any) => AyushEngineService.resolveDiagnosis(s))
       .filter(Boolean);
 
     const record = {

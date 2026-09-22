@@ -23,7 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Heavy 3D Models (>50MB)
+# Heavy 3D Models (>100MB) - Full 226MB Model is hosted on GitHub Releases CDN
 *.fbx
 *.glb
+*.part*
 !public/models/human_body.glb
+

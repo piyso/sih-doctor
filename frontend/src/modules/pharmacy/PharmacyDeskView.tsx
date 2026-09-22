@@ -529,7 +529,7 @@ export const PharmacyDeskView: React.FC = () => {
               <div style={{ textAlign: 'left', fontSize: 9.5, color: '#64748b' }}>
                 <div><strong>चिकित्सक:</strong> डॉ. {selectedRx.doctorName}</div>
                 <div><strong>परामर्श कक्ष:</strong> {selectedRx.roomNumber}</div>
-                <div style={{ color: '#059669', fontWeight: 600, marginTop: 2 }}>● बारकोड सत्यापित</div>
+                <div style={{ color: '#059669', fontWeight: 600, marginTop: 2 }}>बारकोड सत्यापित</div>
               </div>
               <div style={{ padding: 2, background: '#ffffff', borderRadius: 6, border: '1px solid #e2e8f0' }}>
                 <RealQrCode

@@ -25,6 +25,15 @@ export const DoctorDeskContainer: React.FC = () => {
     const q = await api.getQueue();
     setQueue(q);
     if (q.length > 0) {
+      const handoffSessionId = sessionStorage.getItem('selected_doctor_session');
+      if (handoffSessionId) {
+        const target = q.find(item => item.sessionId === handoffSessionId);
+        if (target) {
+          sessionStorage.removeItem('selected_doctor_session');
+          handleSelectPatient(target);
+          return;
+        }
+      }
       if (!selectedSessionId || !q.some(item => item.sessionId === selectedSessionId)) {
         handleSelectPatient(q[0]);
       }

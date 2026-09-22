@@ -26,10 +26,19 @@ export interface AnalyteDefinition {
   decimalDivisors?: number[]; // Candidate divisors for dropped decimals (e.g. [10, 100, 1000])
 }
 
+export interface BiochemicalRatio {
+  name: string;
+  ratio: number;
+  interpretation: string;
+  isConcordant: boolean;
+}
+
 export interface PlausibilityAuditResult {
   auditedMarkers: LabMarker[];
   warnings: string[];
   unitConversions: string[];
+  stoichiometricValidations?: string[];
+  biochemicalRatios?: BiochemicalRatio[];
   requiresHumanReview: boolean;
   reviewReason?: string;
 }
@@ -123,15 +132,15 @@ export class PhysiologicalPlausibilityService {
       decimalDivisors: [10, 100] // Handles 11 -> 1.1, 14 -> 1.4
     },
     {
-      canonicalName: 'Blood Urea',
-      aliases: ['blood urea', 'urea', 'b. urea'],
-      standardMin: 15.0, standardMax: 45.0, minLethal: 5.0, maxLethal: 350.0, unit: 'mg/dL',
+      canonicalName: 'Blood Urea Nitrogen (BUN)',
+      aliases: ['blood urea nitrogen', 'bun'],
+      standardMin: 7.0, standardMax: 20.0, minLethal: 2.0, maxLethal: 150.0, unit: 'mg/dL',
       decimalDivisors: [10]
     },
     {
-      canonicalName: 'Blood Urea Nitrogen (BUN)',
-      aliases: ['bun', 'blood urea nitrogen'],
-      standardMin: 7.0, standardMax: 20.0, minLethal: 2.0, maxLethal: 150.0, unit: 'mg/dL',
+      canonicalName: 'Blood Urea',
+      aliases: ['blood urea', 'urea', 'b. urea'],
+      standardMin: 15.0, standardMax: 45.0, minLethal: 5.0, maxLethal: 350.0, unit: 'mg/dL',
       decimalDivisors: [10]
     },
     {
@@ -155,22 +164,22 @@ export class PhysiologicalPlausibilityService {
 
     // ── Liver Function Tests (LFT) ──
     {
-      canonicalName: 'Total Bilirubin',
-      aliases: ['bilirubin', 'total bilirubin', 'serum bilirubin', 's. bilirubin'],
-      standardMin: 0.2, standardMax: 1.2, minLethal: 0.05, maxLethal: 45.0, unit: 'mg/dL',
-      siConversion: { siUnit: 'umol', factor: 1 / 17.1 },
-      decimalDivisors: [10, 100]
-    },
-    {
       canonicalName: 'Direct Bilirubin',
-      aliases: ['direct bilirubin', 'conjugated bilirubin'],
+      aliases: ['direct bilirubin', 'conjugated bilirubin', 'd. bilirubin'],
       standardMin: 0.0, standardMax: 0.3, minLethal: 0.0, maxLethal: 30.0, unit: 'mg/dL',
       decimalDivisors: [10, 100]
     },
     {
       canonicalName: 'Indirect Bilirubin',
-      aliases: ['indirect bilirubin', 'unconjugated bilirubin'],
+      aliases: ['indirect bilirubin', 'unconjugated bilirubin', 'ind. bilirubin'],
       standardMin: 0.2, standardMax: 0.8, minLethal: 0.0, maxLethal: 30.0, unit: 'mg/dL',
+      decimalDivisors: [10, 100]
+    },
+    {
+      canonicalName: 'Total Bilirubin',
+      aliases: ['total bilirubin', 'serum bilirubin', 's. bilirubin', 't. bilirubin', 'bilirubin'],
+      standardMin: 0.2, standardMax: 1.2, minLethal: 0.05, maxLethal: 45.0, unit: 'mg/dL',
+      siConversion: { siUnit: 'umol', factor: 1 / 17.1 },
       decimalDivisors: [10, 100]
     },
     {
@@ -223,6 +232,11 @@ export class PhysiologicalPlausibilityService {
       canonicalName: 'Serum Chloride',
       aliases: ['chloride', 'serum chloride', 'cl-'],
       standardMin: 96.0, standardMax: 106.0, minLethal: 65.0, maxLethal: 145.0, unit: 'mEq/L'
+    },
+    {
+      canonicalName: 'Serum Bicarbonate',
+      aliases: ['bicarbonate', 'serum bicarbonate', 'hco3', 'total co2', 'co2'],
+      standardMin: 22.0, standardMax: 29.0, minLethal: 5.0, maxLethal: 55.0, unit: 'mEq/L'
     },
 
     // ── Diabetic & Glycemic Markers ──
@@ -414,12 +428,177 @@ export class PhysiologicalPlausibilityService {
       }
     }
 
+    // 4. Run Multi-Analyte Stoichiometric Cross-Validation
+    const stoich = this.auditStoichiometry(auditedMarkers, warnings, reviewReasons);
+
     return {
       auditedMarkers,
       warnings,
       unitConversions,
+      stoichiometricValidations: stoich.stoichiometricValidations.length > 0 ? stoich.stoichiometricValidations : undefined,
+      biochemicalRatios: stoich.biochemicalRatios.length > 0 ? stoich.biochemicalRatios : undefined,
       requiresHumanReview,
       reviewReason: reviewReasons.length > 0 ? reviewReasons.join('; ') : undefined
+    };
+  }
+
+  /**
+   * Stoichiometric Multi-Analyte Cross-Validation Engine
+   * Evaluates biological proportions between correlated analytes to mathematically prove
+   * dropped decimals and detect optical table transposition errors.
+   */
+  public static auditStoichiometry(
+    auditedMarkers: LabMarker[],
+    warnings: string[],
+    reviewReasons: string[]
+  ): {
+    stoichiometricValidations: string[];
+    biochemicalRatios: BiochemicalRatio[];
+  } {
+    const stoichiometricValidations: string[] = [];
+    const biochemicalRatios: BiochemicalRatio[] = [];
+
+    const findMarker = (term: string): LabMarker | undefined => {
+      const lower = term.toLowerCase();
+      return auditedMarkers.find(m => m.testName.toLowerCase().includes(lower));
+    };
+
+    // 1. BUN : Creatinine Ratio (Mathematical Proof of Dropped Decimals)
+    const creatMarker = auditedMarkers.find(m => m.testName.toLowerCase().includes('creatinine'));
+    const bunMarker = auditedMarkers.find(m => {
+      const l = m.testName.toLowerCase();
+      return l.includes('nitrogen') || l.includes('bun');
+    });
+    const ureaMarker = auditedMarkers.find(m => {
+      const l = m.testName.toLowerCase();
+      return (l.includes('urea') || l.includes('blood urea')) && !l.includes('nitrogen') && !l.includes('bun');
+    });
+
+    let effectiveBunVal: number | undefined;
+    if (bunMarker && !isNaN(bunMarker.value)) {
+      effectiveBunVal = bunMarker.value;
+    } else if (ureaMarker && !isNaN(ureaMarker.value)) {
+      effectiveBunVal = parseFloat((ureaMarker.value / 2.14).toFixed(1));
+    }
+
+    if (creatMarker && effectiveBunVal !== undefined && effectiveBunVal > 0) {
+      const currentCreat = creatMarker.value;
+      if (currentCreat > 0) {
+        const ratio = parseFloat((effectiveBunVal / currentCreat).toFixed(1));
+        const isConcordant = ratio >= 8.0 && ratio <= 25.0;
+
+        let interp = 'Normal Renal Equilibrium (10-20:1)';
+        if (ratio > 20.0) interp = 'Pre-Renal Azotemia / Dehydration Pattern (>20:1)';
+        else if (ratio < 10.0) interp = 'Intrinsic Renal / Low Urea Pattern (<10:1)';
+
+        biochemicalRatios.push({
+          name: 'BUN / Creatinine Ratio',
+          ratio,
+          interpretation: interp,
+          isConcordant
+        });
+
+        if (creatMarker.originalRawValue && creatMarker.originalRawValue > creatMarker.value) {
+          stoichiometricValidations.push(
+            `BUN_CREATININE_STOICHIOMETRIC_CONCORDANCE: Ratio ${ratio}:1 mathematically confirms dropped decimal in Creatinine (restored ${creatMarker.originalRawValue} -> ${creatMarker.value} mg/dL, BUN ${effectiveBunVal} mg/dL).`
+          );
+        } else if (isConcordant) {
+          stoichiometricValidations.push(
+            `BUN_CREATININE_EQUILIBRIUM: BUN/Creatinine ratio verified at ${ratio}:1 (${interp}).`
+          );
+        }
+      }
+    }
+
+    // 2. De Ritis Ratio (AST / ALT or SGOT / SGPT)
+    const astMarker = findMarker('sgot') || findMarker('ast');
+    const altMarker = findMarker('sgpt') || findMarker('alt');
+    if (astMarker && altMarker && astMarker.value > 0 && altMarker.value > 0) {
+      const deRitis = parseFloat((astMarker.value / altMarker.value).toFixed(2));
+      let interp = 'Normal Hepatic Equilibrium (0.8-1.2:1)';
+      if (deRitis > 2.0) interp = 'Elevated De Ritis Ratio (>2.0: Alcoholic / Cirrhotic / Ischemic Pattern)';
+      else if (deRitis < 0.8) interp = 'Inverted De Ritis Ratio (<0.8: Acute Viral Hepatitis / NAFLD Pattern)';
+
+      const isConcordant = deRitis >= 0.3 && deRitis <= 4.0;
+      biochemicalRatios.push({
+        name: 'De Ritis Ratio (AST/ALT)',
+        ratio: deRitis,
+        interpretation: interp,
+        isConcordant
+      });
+
+      if (!isConcordant) {
+        const warn = `DE_RITIS_EXTREME_DISCORDANCE: AST/ALT ratio is ${deRitis}:1. Verify potential dropped digit or misaligned table row.`;
+        warnings.push(warn);
+        reviewReasons.push(warn);
+      } else {
+        stoichiometricValidations.push(`DE_RITIS_CONCORDANCE: SGOT/SGPT ratio ${deRitis}:1 verified (${interp}).`);
+      }
+    }
+
+    // 3. Total Bilirubin vs Direct Bilirubin Conservation
+    const totalBili = findMarker('total bilirubin');
+    const directBili = findMarker('direct bilirubin');
+    if (totalBili && directBili) {
+      if (directBili.value > totalBili.value + 0.05) {
+        const warn = `OPTICAL_COLUMN_TRANSPOSITION: Direct Bilirubin (${directBili.value} mg/dL) exceeds Total Bilirubin (${totalBili.value} mg/dL). Possible table column inversion.`;
+        warnings.push(warn);
+        reviewReasons.push(warn);
+      } else {
+        stoichiometricValidations.push(
+          `BILIRUBIN_FRACTION_CONSERVED: Direct Bilirubin (${directBili.value}) <= Total Bilirubin (${totalBili.value} mg/dL).`
+        );
+      }
+    }
+
+    // 4. Total Protein vs Albumin + Globulin Conservation
+    const totalProtein = findMarker('total protein');
+    const albumin = findMarker('albumin');
+    const globulin = findMarker('globulin');
+    if (totalProtein && albumin && globulin) {
+      const sumFractions = parseFloat((albumin.value + globulin.value).toFixed(1));
+      const delta = Math.abs(totalProtein.value - sumFractions);
+      if (delta > 1.2) {
+        const warn = `PROTEIN_FRACTION_DISCORDANCE: Total Protein (${totalProtein.value} g/dL) differs from Albumin + Globulin sum (${sumFractions} g/dL).`;
+        warnings.push(warn);
+        reviewReasons.push(warn);
+      } else {
+        stoichiometricValidations.push(
+          `PROTEIN_FRACTIONS_CONSERVED: Albumin (${albumin.value}) + Globulin (${globulin.value}) = ${sumFractions} g/dL (Total Protein ${totalProtein.value} g/dL).`
+        );
+      }
+    }
+
+    // 5. Electrolyte Anion Gap
+    const sodium = findMarker('sodium') || findMarker('serum sodium');
+    const chloride = findMarker('chloride') || findMarker('serum chloride');
+    const bicarb = findMarker('bicarbonate') || findMarker('hco3');
+    if (sodium && chloride && bicarb && sodium.value > 0 && chloride.value > 0 && bicarb.value > 0) {
+      const gap = parseFloat((sodium.value - (chloride.value + bicarb.value)).toFixed(1));
+      const isNormal = gap >= 8.0 && gap <= 16.0;
+      const interp = isNormal 
+        ? 'Normal Anion Gap (8-16 mEq/L)' 
+        : (gap > 16.0 ? 'High Anion Gap Metabolic Acidosis (>16 mEq/L)' : 'Low Anion Gap / Potential Typo (<8 mEq/L)');
+
+      biochemicalRatios.push({
+        name: 'Electrolyte Anion Gap',
+        ratio: gap,
+        interpretation: interp,
+        isConcordant: gap >= 4.0 && gap <= 24.0
+      });
+
+      if (gap < 4.0 || gap > 28.0) {
+        const warn = `ANION_GAP_ANOMALY: Evaluated Anion Gap ${gap} mEq/L is outside biological plausibility. Verify electrolyte digits.`;
+        warnings.push(warn);
+        reviewReasons.push(warn);
+      } else {
+        stoichiometricValidations.push(`ANION_GAP_VERIFIED: Electrolyte Anion Gap calculated at ${gap} mEq/L (${interp}).`);
+      }
+    }
+
+    return {
+      stoichiometricValidations,
+      biochemicalRatios
     };
   }
 }

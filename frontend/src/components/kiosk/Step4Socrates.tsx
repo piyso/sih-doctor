@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowLeft, ArrowRight, AlertTriangle, Activity, AlertOctagon, HeartPulse, Volume2, ShieldAlert, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { SocratesSymptom, VitalsData } from '../../types/api';
 import { sovereignSound } from '../../utils/audio';
+import { getClinicalProfile } from '../../utils/clinicalOntology';
 
 interface Step4SocratesProps {
   symptoms: SocratesSymptom[];
@@ -24,8 +25,8 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   onNext,
   onBack
 }) => {
-  const isKneeOrJoint = /knee|घुटना|जानु|joint|जोड़/i.test(selectedBodyRegion || '');
-  const defaultCharacter = isKneeOrJoint ? 'Stiffness / Stambha' : 'Dull aching (Bheda)';
+  const clinicalProfile = getClinicalProfile(selectedBodyRegion || '');
+  const defaultCharacter = clinicalProfile.defaultPainCharacter || 'Dull aching (Bheda)';
 
   const currentSymptom: SocratesSymptom = symptoms[0] || {
     site: selectedBodyRegion || '',

@@ -14,7 +14,7 @@ import { PharmacopoeiaFTSService } from '../src/services/pharmacopoeiaFTS.servic
 import { PhysiologicalPlausibilityService } from '../src/services/physiologicalPlausibility.service';
 import { BSAAuditService } from '../src/services/bsaAudit.service';
 
-export function runSOTAClinicalVisionEngineTests(): void {
+export function runSOTAClinicalVisionEngineTests(): { passed: number; total: number } {
   console.log('\n========================================================================');
   console.log('⚡ BATTERY 21: SOTA SOVEREIGN EDGE VISION & CLINICAL INTELLIGENCE');
   console.log('   Testing FTS5 Trigram Pharmacopoeia, 40 Analytes & BSA §63 Cryptographic Moat');
@@ -288,11 +288,94 @@ TSH: 2.1 uIU/mL
   passedAssertions++;
   console.log(`  ✓ Geriatric Guardrail (Beers Criteria): Indomethacin flagged with high-risk GI/CNS alert in 74yo patient.`);
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // TEST 6: Stoichiometric Multi-Analyte Biochemical Cross-Validation
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\n[Test 6] Testing Stoichiometric Multi-Analyte Biochemical Cross-Validation...');
+
+  const comprehensiveBiochemSlip = `
+DEPARTMENT OF BIOCHEMISTRY - METABOLIC & ORGAN PANEL
+Blood Urea Nitrogen (BUN): 15.0 mg/dL
+Serum Creatinine: 11 mg/dL
+SGOT (AST): 35 U/L
+SGPT (ALT): 32 U/L
+Total Bilirubin: 1.2 mg/dL
+Direct Bilirubin: 0.3 mg/dL
+Total Protein: 7.2 g/dL
+Albumin: 4.2 g/dL
+Globulin: 3.0 g/dL
+Serum Sodium: 140 mEq/L
+Serum Chloride: 102 mEq/L
+Bicarbonate: 24 mEq/L
+`;
+
+  const stoichDoc = DocumentOCRService.processDocumentText(comprehensiveBiochemSlip);
+
+  // 1. BUN:Creatinine Stoichiometric Ratio Proof
+  const bunRatio = stoichDoc.biochemicalRatios?.find(r => r.name.includes('BUN / Creatinine'));
+  if (!bunRatio || bunRatio.ratio !== 13.6 || !bunRatio.isConcordant) {
+    throw new Error(`[BUN:Creatinine Ratio Failed] Expected ratio 13.6:1 concordant, got ${JSON.stringify(bunRatio)}`);
+  }
+  const bunProof = stoichDoc.stoichiometricValidations?.find(v => v.includes('BUN_CREATININE_STOICHIOMETRIC_CONCORDANCE'));
+  if (!bunProof) {
+    throw new Error(`[BUN Proof Missing] Expected BUN_CREATININE_STOICHIOMETRIC_CONCORDANCE proof in validations`);
+  }
+  passedAssertions++;
+  console.log(`  ✓ BUN:Creatinine Stoichiometric Proof: Ratio 13.6:1 mathematically confirms Creatinine 11 -> 1.1 mg/dL.`);
+
+  // 2. De Ritis Ratio (AST/ALT)
+  const deRitisRatio = stoichDoc.biochemicalRatios?.find(r => r.name.includes('De Ritis'));
+  if (!deRitisRatio || deRitisRatio.ratio !== 1.09 || !deRitisRatio.isConcordant) {
+    throw new Error(`[De Ritis Ratio Failed] Expected ratio 1.09:1, got ${JSON.stringify(deRitisRatio)}`);
+  }
+  passedAssertions++;
+  console.log(`  ✓ De Ritis Hepatic Ratio: SGOT/SGPT evaluated at 1.09:1 (Normal Hepatic Equilibrium).`);
+
+  // 3. Bilirubin Conservation & Transposition Detection
+  const biliCons = stoichDoc.stoichiometricValidations?.find(v => v.includes('BILIRUBIN_FRACTION_CONSERVED'));
+  if (!biliCons) {
+    throw new Error(`[Bilirubin Conservation Failed] Expected Direct Bilirubin <= Total Bilirubin validation`);
+  }
+  passedAssertions++;
+  console.log(`  ✓ Bilirubin Stoichiometry: Direct (0.3) <= Total (1.2 mg/dL) verified.`);
+
+  // 4. Protein Fraction Conservation
+  const protCons = stoichDoc.stoichiometricValidations?.find(v => v.includes('PROTEIN_FRACTIONS_CONSERVED'));
+  if (!protCons) {
+    throw new Error(`[Protein Fractions Failed] Expected Albumin (4.2) + Globulin (3.0) = Total Protein (7.2 g/dL)`);
+  }
+  passedAssertions++;
+  console.log(`  ✓ Protein Fractions: Albumin (4.2) + Globulin (3.0) = Total (7.2 g/dL) conserved.`);
+
+  // 5. Electrolyte Anion Gap
+  const anionGapRatio = stoichDoc.biochemicalRatios?.find(r => r.name.includes('Anion Gap'));
+  if (!anionGapRatio || anionGapRatio.ratio !== 14.0 || !anionGapRatio.isConcordant) {
+    throw new Error(`[Anion Gap Failed] Expected Anion Gap 14.0 mEq/L, got ${JSON.stringify(anionGapRatio)}`);
+  }
+  passedAssertions++;
+  console.log(`  ✓ Electrolyte Anion Gap: Evaluated at 14.0 mEq/L (Normal 8-16 mEq/L).`);
+
+  // 6. Test Column Inversion Safeguard
+  const invertedTableSlip = `
+LIVER FUNCTION TEST
+Total Bilirubin: 0.5 mg/dL
+Direct Bilirubin: 1.8 mg/dL
+`;
+  const invertedDoc = DocumentOCRService.processDocumentText(invertedTableSlip);
+  const transpositionWarn = invertedDoc.plausibilityWarnings?.find(w => w.includes('OPTICAL_COLUMN_TRANSPOSITION'));
+  if (!transpositionWarn) {
+    throw new Error(`[Column Inversion Guard Failed] Expected OPTICAL_COLUMN_TRANSPOSITION warning`);
+  }
+  passedAssertions++;
+  console.log(`  ✓ Optical Column Transposition Safeguard: Inverted Bilirubin table flagged immediately.`);
+
   const elapsed = (performance.now() - startTime).toFixed(2);
 
   console.log('\n------------------------------------------------------------------------');
   console.log(`✅ BATTERY 21 PASSED: All ${passedAssertions} SOTA assertions verified in ${elapsed} ms.`);
   console.log('------------------------------------------------------------------------\n');
+
+  return { passed: passedAssertions, total: passedAssertions };
 }
 
 // Direct execution when run via tsx

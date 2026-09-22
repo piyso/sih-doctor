@@ -560,7 +560,7 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
                       lineHeight: 1.3
                     }}
                   >
-                    <strong>{offlineVerification.authentic ? '● VALIDATED SOUND:' : '● TAMPER DETECTED:'}</strong>{' '}
+                    <strong>{offlineVerification.authentic ? 'VALIDATED SOUND:' : 'TAMPER DETECTED:'}</strong>{' '}
                     {offlineVerification.details}
                   </div>
                 )}

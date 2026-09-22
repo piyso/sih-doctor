@@ -695,7 +695,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #10b981;
+  background-color: var(--text-secondary);
 }
 
 .gateway-byod-btn {
@@ -954,7 +954,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background-color: #10b981;
+  background-color: var(--text-secondary);
 }
 
 .gateway-launch-badge {
@@ -999,24 +999,54 @@
   }
 }
 
-/* Statutory Print Styles */
+/* Statutory Hospital & Kiosk Print Styles */
 @media print {
+  @page {
+    margin: 8mm;
+    size: auto;
+  }
+  
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    font-size: 12px;
   }
-  .no-print, header, nav, button {
+  
+  .no-print, 
+  header, 
+  nav, 
+  button, 
+  .dynamic-island-dock, 
+  .kiosk-side-rails,
+  .kiosk-nav-rail {
     display: none !important;
   }
-  .printable-prescription {
+  
+  .printable-prescription,
+  .printable-token-slip {
     background: #ffffff !important;
     color: #000000 !important;
-    border: 2px solid #000000 !important;
+    border: 1px solid #1e293b !important;
     box-shadow: none !important;
-    padding: 20px !important;
+    padding: 16px !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+    page-break-inside: avoid;
   }
-  .printable-prescription * {
+  
+  .printable-token-slip * {
     color: #000000 !important;
     text-shadow: none !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .thermal-ticket-container {
+    width: 320px !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 12px !important;
+    border: 1px dashed #475569 !important;
+    font-family: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace !important;
   }
 }
+

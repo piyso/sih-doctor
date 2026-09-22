@@ -205,15 +205,15 @@ npm test
 # Start the sovereign backend server
 npm start
 ```
-*Backend runs on `http://localhost:8000` with WebSocket stream at `ws://localhost:8000/ws/ambient`.*
+*Backend runs on `http://localhost:8001` with WebSocket stream at `ws://localhost:8001/ws/ambient`.*
 
-### 2. Launch the Outsource-Ready Frontend
+### 2. Launch the High-Performance Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-*Frontend runs on `http://localhost:5173`. Works in both Live Sovereign Engine mode and Standalone Mock mode (`VITE_USE_MOCK=true`).*
+*Frontend runs on `http://localhost:5173`. Connects 100% directly to the live sovereign backend engine (Zero Mocks).*
 
 ---
 

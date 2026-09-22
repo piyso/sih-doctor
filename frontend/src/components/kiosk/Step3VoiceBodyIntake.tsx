@@ -19,18 +19,11 @@ import {
   Zap,
   Activity,
   Heart,
-  Bone,
-  Clock,
   Radio,
-  ChevronDown,
-  X,
   CornerUpLeft,
   Trash2,
   Undo2,
-  RotateCcw,
-  Wind,
-  Droplets,
-  Thermometer
+  Wind
 } from 'lucide-react';
 import { AudioVisualizer } from '../common/AudioVisualizer';
 import { api } from '../../services/api';
@@ -42,6 +35,7 @@ import {
   LOCUS_TO_MACRO_ZONE,
   MacroZone
 } from './AnatomicalMannequin3D';
+import { getClinicalProfile } from '../../utils/clinicalOntology';
 
 interface Step3VoiceBodyIntakeProps {
   transcript: string;
@@ -787,112 +781,14 @@ const SYSTEMIC_COMPLAINT_CATEGORIES: Record<string, { titleHi: string; titleEn: 
   }
 };
 
-const getOrganSensations = (region: string, transcript: string = ''): SensationItem[] => {
-  const text = transcript.toLowerCase();
-
-  if (region === 'Left Chest / Precordium' || region === 'Right Chest') {
-    return [
-      { key: 'crushing', label: 'भारी दबाव व जकड़न', en: 'Crushing Pressure', icon: Shield },
-      { key: 'sharp', label: 'तेज़ चुभन व टीस', en: 'Sharp Stabbing', icon: Zap },
-      { key: 'burning', label: 'सीने में जलन', en: 'Burning Heartburn', icon: Flame },
-      { key: 'throbbing', label: 'धड़कन तेज़ / बेचैनी', en: 'Palpitation Pulse', icon: HeartPulse },
-      { key: 'radiation', label: 'बाएं कंधे में खिंचाव', en: 'Arm Radiation', icon: Activity },
-      { key: 'dyspnea', label: 'सांस फूलना व घुटन', en: 'Dyspnea / Gasping', icon: Wind }
-    ];
-  }
-  if (region === 'Lungs & Respiration') {
-    return [
-      { key: 'dyspnea', label: 'सांस का कष्ट / घुटन', en: 'Breathlessness', icon: Wind },
-      { key: 'wheezing', label: 'सीटी / घरघराहट', en: 'Wheezing / Stridor', icon: Activity },
-      { key: 'cough', label: 'लगातार तेज़ खांसी', en: 'Severe Spasmodic Cough', icon: Zap },
-      { key: 'pleuritic', label: 'गहरी सांस पर टीस', en: 'Sharp Inhalation Pain', icon: Shield },
-      { key: 'congestion', label: 'छाती में भारी बलगम', en: 'Chest Congestion', icon: Droplets },
-      { key: 'burning', label: 'सांस नली में जलन', en: 'Airway Burning', icon: Flame }
-    ];
-  }
-  if (['Epigastrium', 'Umbilicus / Mid-Abdomen', 'Right Lower Quadrant (RLQ)', 'Left Lower Quadrant (LLQ)'].includes(region)) {
-    return [
-      { key: 'burning', label: 'खट्टी डकार व जलन', en: 'Acidity / Reflux Burn', icon: Flame },
-      { key: 'colic', label: 'मरोड़ व ऐंठन', en: 'Spasmodic Colic', icon: Zap },
-      { key: 'bloating', label: 'पेट फूलना व गैस', en: 'Bloating / Distension', icon: Shield },
-      { key: 'nausea', label: 'जी मिचलाना व उल्टी', en: 'Nausea & Vomiting', icon: Activity },
-      { key: 'tenderness', label: 'छूने पर असहनीय टीस', en: 'Rebound Tenderness', icon: HeartPulse },
-      { key: 'fullness', label: 'भारीपन व अपच', en: 'Heavy Indigestion', icon: Droplets }
-    ];
-  }
-  if (region === 'Pelvic / Hypogastrium') {
-    return [
-      { key: 'burning_dysuria', label: 'पेशाब में तेज़ जलन', en: 'Burning Dysuria', icon: Flame },
-      { key: 'cramps', label: 'पेडू में मरोड़ व ऐंठन', en: 'Pelvic Cramps', icon: Zap },
-      { key: 'frequency', label: 'बार-बार पेशाब की तलब', en: 'Urinary Frequency', icon: Activity },
-      { key: 'heavy_pelvis', label: 'निचले पेट में भारीपन', en: 'Lower Belly Pressure', icon: Shield },
-      { key: 'flow_cut', label: 'रुक-रुक कर पेशाब', en: 'Intermittent Flow', icon: Droplets },
-      { key: 'flank', label: 'कमर से पेडू में खिंचाव', en: 'Flank to Groin Spasm', icon: HeartPulse }
-    ];
-  }
-  if (['Head', 'Face & Sinus'].includes(region)) {
-    return [
-      { key: 'throbbing', label: 'आधासीसी धड़कती टीस', en: 'Pulsating Migraine', icon: HeartPulse },
-      { key: 'pressure', label: 'माथे में भारी दबाव', en: 'Tension Pressure', icon: Shield },
-      { key: 'vertigo', label: 'चक्कर व आंखें घूमना', en: 'Vertigo / Giddiness', icon: Activity },
-      { key: 'sinus', label: 'आंखों के पीछे भारीपन', en: 'Retro-orbital Congestion', icon: Droplets },
-      { key: 'sharp', label: 'नसों में बिजली सी टीस', en: 'Neuralgic Shock', icon: Zap },
-      { key: 'burning', label: 'आंखों में जलन', en: 'Burning Eye Strain', icon: Flame }
-    ];
-  }
-  if (['Ear', 'Neck'].includes(region)) {
-    return [
-      { key: 'odynophagia', label: 'निगलने में तेज़ दर्द', en: 'Pain on Swallowing', icon: Zap },
-      { key: 'earache', label: 'कान में तीखी टीस', en: 'Sharp Earache', icon: Shield },
-      { key: 'stiffness', label: 'गर्दन में अकड़न', en: 'Neck Stiffness', icon: Bone },
-      { key: 'tinnitus', label: 'कान में सीटी / शोर', en: 'Tinnitus Ringing', icon: Activity },
-      { key: 'burning', label: 'गले में छाले व जलन', en: 'Throat Rawness', icon: Flame },
-      { key: 'discharge', label: 'कान से भारीपन / स्राव', en: 'Ear Fullness / Fluid', icon: Droplets }
-    ];
-  }
-  if (['Left Knee', 'Right Knee', 'Lumbar Spine (Kati)', 'Cervical Spine', 'Upper Back / Thoracic', 'Left Shoulder', 'Right Shoulder', 'Left Hip', 'Right Hip', 'Left Foot', 'Right Foot', 'Sciatic Pathway / Calves', 'Sacral / Sciatica Origin'].includes(region)) {
-    return [
-      { key: 'crepitus', label: 'जोड़ों में कट-कट', en: 'Joint Crepitus / Clicking', icon: Bone },
-      { key: 'stiffness', label: 'चलने व मुड़ने में जकड़न', en: 'Walking & Flexion Stiffness', icon: Shield },
-      { key: 'morning_stiff', label: 'सुबह उठने पर अकड़न', en: 'Morning Stiffness', icon: Clock },
-      { key: 'swelling', label: 'सूजन व गर्माहट', en: 'Swelling & Warmth', icon: Droplets },
-      { key: 'strain', label: 'खिंचाव व भार में तकलीफ़', en: 'Strain & Weight Pain', icon: Zap },
-      { key: 'deep_ache', label: 'जोड़ में गहरा दर्द', en: 'Deep Joint Ache', icon: HeartPulse }
-    ];
-  }
-
-  // If no region selected, inspect transcript intent:
-  if (text.includes('बुखार') || text.includes('fever') || text.includes('ठंड') || text.includes('chills')) {
-    return [
-      { key: 'pyrexia', label: 'तेज़ तपिश व गर्माहट', en: 'Burning Pyrexia', icon: Flame },
-      { key: 'rigor', label: 'कंपकंपी व ठंड लगना', en: 'Chills & Rigors', icon: Wind },
-      { key: 'bodyache', label: 'बदन में भारी टूटन', en: 'Generalized Aching', icon: HeartPulse },
-      { key: 'heaviness', label: 'सिर व माथे में भारीपन', en: 'Heavy Head Congestion', icon: Shield },
-      { key: 'prostration', label: 'कमजोरी व शिथिलता', en: 'Prostration / Fatigue', icon: Activity },
-      { key: 'sweat', label: 'अत्यधिक पसीना व बेचैनी', en: 'Diaphoresis & Malaise', icon: Droplets }
-    ];
-  }
-
-  if (text.includes('पेट') || text.includes('acid') || text.includes('जलन') || text.includes('gas') || text.includes('vomit')) {
-    return [
-      { key: 'burning', label: 'खट्टी डकार व जलन', en: 'Acid Reflux Burn', icon: Flame },
-      { key: 'colic', label: 'पेट में मरोड़ व शूल', en: 'Colicky Spasm', icon: Zap },
-      { key: 'bloating', label: 'पेट फूलना व भारीपन', en: 'Abdominal Fullness', icon: Shield },
-      { key: 'nausea', label: 'जी मिचलाना व उल्टी', en: 'Nausea & Emesis', icon: Activity },
-      { key: 'cramping', label: 'आंतों में ऐंठन व मरोड़', en: 'Intestinal Cramps', icon: Droplets },
-      { key: 'hunger', label: 'खाली पेट तेज़ टीस', en: 'Hunger Pain / Reflux', icon: HeartPulse }
-    ];
-  }
-
-  return [
-    { key: 'crushing', label: 'भारी दबाव व जकड़न', en: 'Heavy Pressure', icon: Shield },
-    { key: 'sharp', label: 'तेज़ चुभन व टीस', en: 'Sharp / Stabbing', icon: Zap },
-    { key: 'burning', label: 'तेज़ जलन व दाह', en: 'Burning Heat', icon: Flame },
-    { key: 'throbbing', label: 'धड़कता दर्द व स्पंदन', en: 'Throbbing Pulse', icon: HeartPulse },
-    { key: 'stiffness', label: 'अकड़न व जकड़न', en: 'Stiffness & Spasm', icon: Bone },
-    { key: 'numbness', label: 'सुन्नपन व झुनझुनी', en: 'Tingling / Numb', icon: Activity }
-  ];
-};
+const UNIVERSAL_SENSATIONS: SensationItem[] = [
+  { key: 'heavy', label: 'भारी दबाव', en: 'Heavy / Dull', icon: Shield },
+  { key: 'sharp', label: 'तेज़ चुभन', en: 'Sharp / Stabbing', icon: Zap },
+  { key: 'burning', label: 'जलन / दाह', en: 'Burning', icon: Flame },
+  { key: 'throbbing', label: 'धड़कता दर्द', en: 'Throbbing', icon: HeartPulse },
+  { key: 'cramping', label: 'मरोड़ / ऐंठन', en: 'Cramping', icon: Activity },
+  { key: 'numbness', label: 'सुन्नपन / झुनझुनी', en: 'Numbness / Tingling', icon: Wind }
+];
 
 const PRIVATE_SANCTUARIES = [
   {
@@ -974,9 +870,9 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   };
 
   const SEVERITY_LEVELS = [
-    { key: 'mild', label: 'हल्की तकलीफ़', en: 'Mild', dotColor: 'bg-emerald-500' },
-    { key: 'moderate', label: 'मध्यम तकलीफ़', en: 'Moderate', dotColor: 'bg-amber-500' },
-    { key: 'severe', label: 'तीव्र / असहनीय', en: 'Severe', dotColor: 'bg-rose-500' }
+    { key: 'mild', label: 'हल्की तकलीफ़', en: 'Mild' },
+    { key: 'moderate', label: 'मध्यम तकलीफ़', en: 'Moderate' },
+    { key: 'severe', label: 'तीव्र / असहनीय', en: 'Severe' }
   ];
 
   const DURATION_CHOICES = [
@@ -998,10 +894,6 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       if (LOCUS_TO_MACRO_ZONE[regionId]) {
         setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
       }
-      // Auto-advance smoothly after 350ms so user perceives the tactile highlight on the selected organ!
-      setTimeout(() => {
-        setSubPhase('symptoms');
-      }, 350);
     }
   };
 
@@ -1147,9 +1039,18 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   // Adaptive Multi-Modal Symptom & Locus Synthesizer:
   // Combines 3D touched locus + Spoken acoustic transcript + Systemic clinical category
   const dynamicSymptomData = useMemo(() => {
-    // 1. If user selected a specific 3D body organ, use that organ's specific clinical profile
-    if (selectedBodyRegion && REGIONAL_COMPLAINTS[selectedBodyRegion]) {
-      return REGIONAL_COMPLAINTS[selectedBodyRegion];
+    // 1. If user selected a specific 3D body organ, use that organ's specific clinical profile or universal ontology
+    if (selectedBodyRegion) {
+      if (REGIONAL_COMPLAINTS[selectedBodyRegion]) {
+        return REGIONAL_COMPLAINTS[selectedBodyRegion];
+      }
+      const profile = getClinicalProfile(selectedBodyRegion, transcript);
+      return {
+        hindiName: selectedBodyRegion,
+        enName: selectedBodyRegion,
+        symptoms: profile.symptoms,
+        ayushContext: profile.srotas
+      };
     }
 
     // 2. If user spoke in the mic, detect voice intent to automatically match the best category
@@ -1184,7 +1085,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const clusterKey = LOCUS_TO_CLUSTER[selectedBodyRegion];
   const currentCluster = clusterKey ? CLUSTER_DISAMBIGUATION[clusterKey] : null;
   const congruenceMismatch = useMemo(() => evaluateCongruenceMismatch(selectedBodyRegion, transcript), [selectedBodyRegion, transcript]);
-  const activeSensations = useMemo(() => getOrganSensations(selectedBodyRegion, transcript), [selectedBodyRegion, transcript]);
+  const activeSensations = UNIVERSAL_SENSATIONS;
 
   const handleAudioGuidance = () => {
     try {
@@ -1358,14 +1259,14 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               }}
               className={`pointer-events-auto btn px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl transition-all active:scale-95 ${
                 selectedBodyRegion
-                  ? 'btn-primary hover:shadow-2xl cursor-pointer'
+                  ? 'btn-primary hover:shadow-2xl cursor-pointer ring-2 ring-primary/40'
                   : 'bg-muted text-muted-foreground/60 cursor-not-allowed border border-border/40 opacity-70'
               }`}
             >
               <span>
                 {selectedBodyRegion
                   ? `आगे बढ़ें: ${currentRegionalData.hindiName.split('(')[0].trim()}`
-                  : 'कृपया शरीर पर अंग चुनें (Select Body Part)'}
+                  : 'शरीर पर तकलीफ़ का अंग चुनें (Select Body Part)'}
               </span>
               <ArrowRight size={18} />
             </button>
@@ -1784,10 +1685,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                           : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${s.dotColor}`} />
-                        <span className="text-xs font-heading font-bold">{s.label}</span>
-                      </div>
+                      <span className="text-xs font-heading font-bold">{s.label}</span>
                       <span className="text-[9.5px] font-mono opacity-80">{s.en}</span>
                     </button>
                   ))}

@@ -118,8 +118,8 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
 
     // Automatically resolve provisional NAMASTE diagnoses
     const provisionalDiagnoses = symptoms
-      .filter((s: any) => !s.isNegated)
-      .map((s: any) => AyushEngineService.resolveDiagnosis(s.name))
+      .filter((s: any) => !s?.isNegated)
+      .map((s: any) => AyushEngineService.resolveDiagnosis(s))
       .filter(Boolean);
 
     // Pariksha clinical advisory

@@ -89,18 +89,38 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
   try {
     const { patient, symptoms, pariksha, vitals, rawTranscript, scannedDocs } = req.body;
 
-    if (!patient || !patient.name) {
-      res.status(400).json({ error: 'patient object with name is required' });
-      return;
-    }
+    const cleanName = (patient?.name && patient.name.trim().length > 0)
+      ? patient.name.trim()
+      : 'Self-Registered Patient';
+    const cleanAbha = patient?.abhaId && patient.abhaId.trim().length > 0 ? patient.abhaId.trim() : null;
 
-    const patientId = patient.id || uuidv4();
+    let patientId = patient?.id;
     const sessionId = uuidv4();
     const now = new Date().toISOString();
 
+    // Deduplicate existing patient by ABHA ID or phone to prevent duplicate UNIQUE constraint collisions
+    if (!patientId && cleanAbha) {
+      const existingByAbha: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ?`).get(cleanAbha);
+      if (existingByAbha) {
+        patientId = existingByAbha.id;
+      }
+    }
+    if (!patientId && patient?.phone) {
+      const cleanPhone = (patient.phone || '').replace(/\D/g, '');
+      if (cleanPhone.length >= 10) {
+        const existingByPhone: any = db.prepare(`SELECT id FROM patients WHERE phone_masked LIKE ?`).get(`%${cleanPhone.slice(-6)}%`);
+        if (existingByPhone) {
+          patientId = existingByPhone.id;
+        }
+      }
+    }
+    if (!patientId) {
+      patientId = uuidv4();
+    }
+
     // Redact / mask demographic data
-    const maskedAadhaar = patient.aadhaar ? SovereignNERService.maskAadhaar(patient.aadhaar) : null;
-    const maskedPhone = patient.phone ? SovereignNERService.maskPhone(patient.phone) : null;
+    const maskedAadhaar = patient?.aadhaar ? SovereignNERService.maskAadhaar(patient.aadhaar) : null;
+    const maskedPhone = patient?.phone ? SovereignNERService.maskPhone(patient.phone) : null;
 
     // Check emergency red flags
     const parserResult = ClinicalParserService.parse(rawTranscript || JSON.stringify(symptoms || []));
@@ -114,35 +134,70 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
       priority = 'HIGH_PRIORITY';
     }
 
-    // Upsert Patient
-    const insertPatient = db.prepare(`
-      INSERT INTO patients (id, abha_id, abha_address, name, age, gender, phone_masked, language, prakriti, is_pregnant, gestational_weeks, is_lactating, weight_kg, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        abha_id=excluded.abha_id,
-        prakriti=excluded.prakriti,
-        is_pregnant=excluded.is_pregnant,
-        gestational_weeks=excluded.gestational_weeks,
-        is_lactating=excluded.is_lactating,
-        weight_kg=excluded.weight_kg
-    `);
+    // Upsert Patient with safe conflict resolution
+    try {
+      const insertPatient = db.prepare(`
+        INSERT INTO patients (id, abha_id, abha_address, name, age, gender, phone_masked, language, prakriti, is_pregnant, gestational_weeks, is_lactating, weight_kg, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name=excluded.name,
+          age=excluded.age,
+          gender=excluded.gender,
+          phone_masked=COALESCE(excluded.phone_masked, patients.phone_masked),
+          language=excluded.language,
+          prakriti=excluded.prakriti,
+          is_pregnant=excluded.is_pregnant,
+          gestational_weeks=excluded.gestational_weeks,
+          is_lactating=excluded.is_lactating,
+          weight_kg=excluded.weight_kg
+      `);
 
-    insertPatient.run(
-      patientId,
-      patient.abhaId || null,
-      patient.abhaAddress || null,
-      patient.name,
-      patient.age || 40,
-      patient.gender || 'MALE',
-      maskedPhone,
-      patient.language || 'hi',
-      pariksha?.prakriti || 'Vata-Pitta',
-      patient.isPregnant ? 1 : 0,
-      patient.gestationalWeeks || null,
-      patient.isLactating ? 1 : 0,
-      patient.weightKg || null,
-      now
-    );
+      insertPatient.run(
+        patientId,
+        cleanAbha,
+        patient?.abhaAddress || null,
+        cleanName,
+        patient?.age || 40,
+        patient?.gender || 'MALE',
+        maskedPhone,
+        patient?.language || 'hi',
+        pariksha?.prakriti || 'Vata-Pitta',
+        patient?.isPregnant ? 1 : 0,
+        patient?.gestationalWeeks || null,
+        patient?.isLactating ? 1 : 0,
+        patient?.weightKg || null,
+        now
+      );
+    } catch (dupErr: any) {
+      // If abha_id exists under different UUID, update that record
+      if (dupErr.message?.includes('abha_id') && cleanAbha) {
+        const existing: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ?`).get(cleanAbha);
+        if (existing) {
+          patientId = existing.id;
+          db.prepare(`
+            UPDATE patients SET
+              name = ?, age = ?, gender = ?, phone_masked = COALESCE(?, phone_masked),
+              language = ?, prakriti = ?, is_pregnant = ?, gestational_weeks = ?,
+              is_lactating = ?, weight_kg = ?
+            WHERE id = ?
+          `).run(
+            cleanName,
+            patient?.age || 40,
+            patient?.gender || 'MALE',
+            maskedPhone,
+            patient?.language || 'hi',
+            pariksha?.prakriti || 'Vata-Pitta',
+            patient?.isPregnant ? 1 : 0,
+            patient?.gestationalWeeks || null,
+            patient?.isLactating ? 1 : 0,
+            patient?.weightKg || null,
+            patientId
+          );
+        }
+      } else {
+        throw dupErr;
+      }
+    }
 
     // Insert Session
     const insertSession = db.prepare(`
@@ -153,9 +208,9 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     insertSession.run(
       sessionId,
       patientId,
-      JSON.stringify(symptoms || parserResult.symptoms),
+      JSON.stringify(symptoms || parserResult.symptoms || []),
       JSON.stringify(pariksha || {}),
-      JSON.stringify(vitals || parserResult.vitals),
+      JSON.stringify(vitals || parserResult.vitals || {}),
       priority,
       JSON.stringify(redFlags),
       rawTranscript || '',

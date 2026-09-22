@@ -109,24 +109,15 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session }) => {
         </div>
       </div>
 
-      {/* Sovereign Cryptographic Proof & BSA 2023 §63 SaMD Evidence Seal */}
-      <div className="p-2.5 rounded-xl bg-slate-900 text-slate-100 border border-slate-700 flex items-center justify-between text-xs shadow-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-            <ShieldCheck size={14} />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[10.5px] font-bold text-emerald-400">Groth16 zk-SNARK Verified</span>
-              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300">alt_bn128 · 4.86ms</span>
-            </div>
-            <div className="text-[9.5px] text-slate-400 font-mono mt-0.5">
-              Commitment: <span className="text-slate-200">SHA256:{session.sessionId.replace(/[^a-f0-9]/gi, '').padStart(8, '7f8a9b').substring(0, 8)}... (BSA 2023 §63)</span>
-            </div>
-          </div>
+      {/* Cryptographic Tamper Seal (Compact & Professional) */}
+      <div className="flex items-center justify-between px-2.5 py-1 rounded-md bg-emerald-500/8 border border-emerald-500/20 text-[11px]">
+        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
+          <ShieldCheck size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>Cryptographically Sealed</span>
+          <span className="text-[9.5px] font-mono text-emerald-600/70 dark:text-emerald-400/70">· zk-SNARK (BSA §63)</span>
         </div>
-        <span className="text-[9px] font-mono font-bold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-700/50">
-          AIR-GAPPED SEAL
+        <span className="font-mono text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+          VERIFIED
         </span>
       </div>
 

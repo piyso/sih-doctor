@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Flame,
   CheckCircle2,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { DashavidhaPariksha, AgniType, SocratesSymptom } from '../../types/api';
 import { sovereignSound } from '../../utils/audio';
+import { getClinicalProfile } from '../../utils/clinicalOntology';
 
 interface Step5ParikshaProps {
   pariksha: DashavidhaPariksha;
@@ -36,57 +37,26 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
   onNext,
   onBack
 }) => {
-  const hasUserModified = React.useRef(false);
+  const hasUserModified = useRef(false);
 
-  // Deep Ayurvedic Clinical Diagnostic Evaluator
-  // Knee (जानु) / Joint (संधि) -> Sandhigata Vata (वात व्याधि) -> Pakwashaya Mula -> Vishamagni (विषमाग्नि)
-  const fullText = (transcript + ' ' + selectedBodyRegion + ' ' + symptoms.map(s => `${s.site} ${s.character} ${s.associations?.join(' ')}`).join(' ')).toLowerCase();
+  // Universal Srotas-Anatomy Clinical Profile Evaluator
+  const clinicalProfile = useMemo(() => {
+    return getClinicalProfile(selectedBodyRegion, transcript);
+  }, [selectedBodyRegion, transcript]);
 
-  const isJointOrVata = (
-    /knee|घुटना|जानु|leg|foot|hip|joint|जोड़|संधि|पिंडली|sprain|ligament|arthritis|गठिया|वात|spine|back|कमर|kati|sciatica|सायटिका|shoulder|कंधा/i.test(selectedBodyRegion || '') ||
-    /knee|घुटना|जानु|कट-कट|जोड़|joint|arthritis|गठिया|चलने में|वात|कब्ज|गैस|sprain|ligament|चोट|जानु संधि/i.test(fullText)
-  );
-  const isPitta = (
-    /acidity|acid|burn|जलन|खट्टी|दाह|pitta|पित्त|epigastrium|heartburn|छाती में जलन|सीने में जलन/i.test(selectedBodyRegion || '') ||
-    /जलन|acid|burn|heartburn|pitta|पित्त|खट्टी डकार|दाह/i.test(fullText)
-  );
-  const isKapha = (
-    /lung|फेफड़े|cough|खांसी|बलगम|phlegm|asthma|दमा|कफ|भारीपन|swelling/i.test(selectedBodyRegion || '') ||
-    /कफ|cough|बलगम|phlegm|भारीपन|sluggish/i.test(fullText)
-  );
-
-  // Auto-calibrate on mount or when symptom/region context changes unless patient manually customized
+  // Auto-calibrate on mount or when context updates unless patient manually customized
   useEffect(() => {
     if (hasUserModified.current) return;
 
-    let inferredAgni: AgniType = 'SAMAGNI';
-    let inferredPrakriti = 'Vata-Pitta';
-    let inferredVikriti = 'Sama';
-
-    if (isJointOrVata) {
-      // Sandhigata Vata has its origin in Pakwashaya (colon) -> causes Vishamagni (erratic appetite, gas, bloating)
-      inferredAgni = 'VISHAMAGNI';
-      inferredPrakriti = 'Vataja';
-      inferredVikriti = 'Vata Aggravation';
-    } else if (isPitta) {
-      inferredAgni = 'TIKSHNAGNI';
-      inferredPrakriti = 'Pittaja';
-      inferredVikriti = 'Pitta Aggravation';
-    } else if (isKapha) {
-      inferredAgni = 'MANDAGNI';
-      inferredPrakriti = 'Kaphaja';
-      inferredVikriti = 'Kapha Aggravation';
-    }
-
     setPariksha(prev => ({
       ...prev,
-      agni: inferredAgni,
-      prakriti: inferredPrakriti,
-      vikriti: inferredVikriti,
-      sara: prev.sara || 'Madhyama',
+      agni: clinicalProfile.defaultAgni,
+      prakriti: clinicalProfile.defaultPrakriti,
+      vikriti: clinicalProfile.defaultVikriti,
+      sara: prev.sara || clinicalProfile.defaultDhatuSara || 'Madhyama',
       satva: prev.satva || 'Pravara'
     }));
-  }, [selectedBodyRegion, transcript, symptoms]);
+  }, [clinicalProfile, setPariksha]);
 
   const handleSelectAgni = (type: AgniType) => {
     hasUserModified.current = true;
@@ -147,6 +117,19 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         </button>
       </div>
 
+      {/* 2. Causal Ayurvedic Diagnostic Context (Why gut is linked to the selected complaint) */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3 shadow-2xs">
+        <Sparkles size={18} className="text-primary shrink-0 mt-0.5" />
+        <div className="flex flex-col text-left text-xs text-muted-foreground leading-relaxed">
+          <span className="font-heading font-bold text-foreground text-xs sm:text-sm mb-0.5">
+            {language === 'en' ? 'Clinical Assessment Rationale' : 'लक्षण व पाचन का संबंध'}
+          </span>
+          <span>
+            {language === 'en' ? clinicalProfile.causalRationaleEn : clinicalProfile.causalRationaleHi}
+          </span>
+        </div>
+      </div>
+
       {/* 3. Question 1: भूख व पाचन कैसा रहता है? (Digestion & Appetite) */}
       <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 flex flex-col gap-3 shadow-xs">
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
@@ -192,11 +175,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           ].map((opt) => {
             const isSelected = pariksha.agni === opt.type;
             const Icon = opt.icon;
-            const isAutoCalibrated = isSelected && !hasUserModified.current && (
-              (opt.type === 'VISHAMAGNI' && isJointOrVata) ||
-              (opt.type === 'TIKSHNAGNI' && isPitta) ||
-              (opt.type === 'MANDAGNI' && isKapha)
-            );
+            const isAutoCalibrated = isSelected && !hasUserModified.current && opt.type === clinicalProfile.defaultAgni;
 
             return (
               <button
@@ -220,7 +199,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
                       </span>
                       {isAutoCalibrated && (
                         <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                          {isJointOrVata && opt.type === 'VISHAMAGNI' ? 'घुटने/जोड़ अनुसार चयनित' : 'स्वतः चयनित'}
+                          {language === 'en' ? 'Auto-selected' : 'लक्षणों के आधार पर चयनित'}
                         </span>
                       )}
                     </div>
@@ -291,20 +270,17 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
             {
               key: 'Pravara' as const,
               title: 'उत्तम ऊर्जा (High)',
-              sub: 'दिनभर अच्छी स्फूर्ति व ताज़गी।',
-              dot: 'bg-emerald-500'
+              sub: 'दिनभर अच्छी स्फूर्ति व ताज़गी।'
             },
             {
               key: 'Madhyama' as const,
               title: 'सामान्य ऊर्जा (Normal)',
-              sub: 'सामान्य ऊर्जा व दैनिक काम।',
-              dot: 'bg-amber-500'
+              sub: 'सामान्य ऊर्जा व दैनिक काम।'
             },
             {
               key: 'Avara' as const,
               title: 'कमजोरी (Low)',
-              sub: 'जल्दी थकान व कमजोरी महसूस होना।',
-              dot: 'bg-rose-500'
+              sub: 'जल्दी थकान व कमजोरी महसूस होना।'
             }
           ].map((lvl) => {
             const isSelected = (pariksha.sara || 'Madhyama') === lvl.key;
@@ -320,12 +296,9 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${lvl.dot}`} />
-                    <span className="font-heading font-bold text-xs sm:text-sm text-foreground">
-                      {lvl.title}
-                    </span>
-                  </div>
+                  <span className="font-heading font-bold text-xs sm:text-sm text-foreground">
+                    {lvl.title}
+                  </span>
                   {isSelected && <CheckCircle2 size={16} className="text-primary" />}
                 </div>
                 <span className="text-xs text-muted-foreground font-sans leading-relaxed">

@@ -206,6 +206,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
   };
 
   const handleCompleteIntake = async () => {
+    let finalSessionId = '';
     try {
       const res = await api.submitKioskIntake({
         patient,
@@ -215,12 +216,19 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
         rawTranscript: transcript,
         scannedDocs
       });
+      finalSessionId = res.sessionId;
       setSessionId(res.sessionId);
       if (res.redFlags) setRedFlags(res.redFlags);
     } catch (e) {
       console.error(e);
-      setSessionId('sess-' + Math.floor(Math.random() * 900 + 100));
+      finalSessionId = 'sess-' + Math.floor(Math.random() * 900 + 100);
+      setSessionId(finalSessionId);
     }
+    try {
+      if (finalSessionId) {
+        sessionStorage.setItem('selected_doctor_session', finalSessionId);
+      }
+    } catch {}
     sovereignSound.playCrystalChime();
     setCurrentStep(7);
   };
@@ -270,115 +278,30 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
     <div className="kiosk-panoramic-container">
       {/* Main Central Interaction Stage */}
       <main className="kiosk-center-stage">
-        {/* Luxury Flagship AIIA Government OPD Header */}
-        <header className="kiosk-flagship-header no-print glass rounded-2xl border border-border/80 p-3.5 sm:px-5 mb-5 shadow-xs flex items-center justify-between flex-wrap gap-3">
+        <header className="no-print rounded-2xl border border-border/80 px-4 py-2.5 mb-5 shadow-xs flex items-center justify-between gap-3 bg-card">
           <div className="flex items-center gap-3">
-            {/* Authentic National Emblem / AIIA Crest Badge */}
-            <div className="h-11 w-11 rounded-xl bg-white border border-border/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
-              <img
-                src="/ashoka-stambh-hd.png"
-                alt="State Emblem of India"
-                className="h-8 w-8 object-contain pointer-events-none select-none"
-              />
+            <div className="h-9 w-9 rounded-lg bg-white border border-border/80 p-0.5 flex items-center justify-center shrink-0">
+              <img src="/ashoka-stambh-hd.png" alt="State Emblem" className="h-7 w-7 object-contain pointer-events-none select-none" />
             </div>
             <div className="flex flex-col">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-heading font-extrabold text-sm sm:text-base tracking-tight text-foreground">
-                  ALL INDIA INSTITUTE OF AYURVEDA (AIIA)
-                </span>
-                <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                  अखिल भारतीय आयुर्वेद संस्थान
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                <span className="font-medium text-foreground">Central OPD Gateway</span>
-                <span>•</span>
-                <span className="font-mono text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-muted border border-border/70 text-foreground">
-                  Terminal 04
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Edge Node Active
-                </span>
-              </div>
+              <span className="font-heading font-extrabold text-sm tracking-tight text-foreground">AIIA · अखिल भारतीय आयुर्वेद संस्थान</span>
+              <span className="text-[11px] text-muted-foreground font-medium">OPD Kiosk</span>
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* High-Impact Emergency SOS Interlock */}
-            <button
-              type="button"
-              onClick={() => {
-                sovereignSound.playClinicalAlert();
-                onGoToDoctorDesk();
-              }}
-              className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-600 text-white text-xs font-heading font-extrabold tracking-wide shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-2 border border-rose-400/40 active:scale-95"
-            >
-              <span className="w-2 h-2 rounded-full bg-white" />
-              <AlertOctagon size={15} />
-              <span>Emergency SOS (आपातकाल)</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              sovereignSound.playClinicalAlert();
+              onGoToDoctorDesk();
+            }}
+            className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-heading font-extrabold shadow-sm cursor-pointer flex items-center gap-1.5 active:scale-95 transition-all"
+          >
+            <AlertOctagon size={14} />
+            <span>SOS</span>
+          </button>
         </header>
 
-        {/* Luxury Segmented Multi-Step Stepper with Bilingual Labels */}
-        {currentStep < 7 && (
-          <div className="mb-6 no-print">
-            <div className="p-3 rounded-2xl bg-card border border-border/70 shadow-xs mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-                    Step {currentStep} / 6
-                  </span>
-                  <span className="text-xs sm:text-sm font-heading font-bold text-foreground">
-                    {stepLabelsBilingual[currentStep - 1]?.title}
-                  </span>
-                </div>
-                <span className="font-mono text-xs font-bold text-primary">
-                  {Math.round((currentStep / 6) * 100)}%
-                </span>
-              </div>
 
-              {/* Segmented Progress Bars */}
-              <div className="grid grid-cols-6 gap-1.5">
-                {stepLabelsBilingual.map((step, idx) => {
-                  const stepNum = idx + 1;
-                  const isActive = currentStep === stepNum;
-                  const isDone = currentStep > stepNum;
-
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        sovereignSound.playDialNotch();
-                        setCurrentStep(stepNum);
-                      }}
-                      className="group flex flex-col gap-1 text-center cursor-pointer transition-all"
-                    >
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          isActive
-                            ? 'bg-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                            : isDone
-                            ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60'
-                            : 'bg-muted/70 group-hover:bg-muted'
-                        }`}
-                      />
-                      <div className="hidden sm:flex flex-col text-[11px] leading-tight mt-1 text-center">
-                        <span className={`font-semibold truncate ${isActive ? 'text-primary font-bold' : isDone ? 'text-foreground/80' : 'text-muted-foreground'}`}>
-                          {step.short}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Ephemeral Byzantine Crash Recovery Banner */}
         {savedDraft && (
@@ -490,6 +413,9 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
             pariksha={pariksha}
             vitals={vitals}
             redFlags={redFlags}
+            scannedDocs={scannedDocs}
+            transcript={transcript}
+            language={language}
             sessionId={sessionId}
             causalDagOverride={causalDagOverride}
             mlcCaseInfo={mlcCaseInfo}

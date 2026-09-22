@@ -124,6 +124,8 @@ export interface DigitizedDocument {
   plausibilityWarnings?: string[];
   fuzzyCorrections?: Array<{ original: string; corrected: string; confidence: number; category: string }>;
   vernacularPosologyDetected?: Array<{ phrase: string; meaning: string }>;
+  stoichiometricValidations?: string[];
+  biochemicalRatios?: Array<{ name: string; ratio: number; interpretation: string; isConcordant: boolean }>;
   humanReviewRequired?: boolean;
   reviewReason?: string;
   engineUsed?: 'NATIVE_EDGE_TESSERACT' | 'SOVEREIGN_WASM' | 'TEXT_STREAM';

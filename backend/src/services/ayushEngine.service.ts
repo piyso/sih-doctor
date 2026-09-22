@@ -15,8 +15,23 @@ export class AyushEngineService {
   /**
    * Resolve any clinical term or symptom string to official NAMASTE tri-coded entry
    */
-  public static resolveDiagnosis(query: string): NamasteTriCodedDiagnosis | null {
-    const lower = query.toLowerCase();
+  public static resolveDiagnosis(query: any): NamasteTriCodedDiagnosis | null {
+    if (!query) return null;
+    let queryString = '';
+    if (typeof query === 'string') {
+      queryString = query;
+    } else if (typeof query === 'object') {
+      queryString = query.name || query.character || query.site || query.complaint || query.sanskritTerm || query.term || query.rawTerm || query.standard || '';
+      if (!queryString && query.associations && Array.isArray(query.associations)) {
+        queryString = query.associations.join(' ');
+      }
+      if (!queryString) {
+        queryString = `${query.site || ''} ${query.character || ''}`.trim();
+      }
+    }
+    if (!queryString || typeof queryString !== 'string') return null;
+    const lower = queryString.toLowerCase().trim();
+    if (!lower) return null;
 
     for (const entry of this.namasteRegistry) {
       if (
@@ -27,12 +42,12 @@ export class AyushEngineService {
         (entry.sanskritTerm === 'Kaphaja Kasa' && (lower.includes('cough') || lower.includes('khansi') || lower.includes('bronchitis'))) ||
         (entry.sanskritTerm === 'Tamaka Shwasa' && (lower.includes('asthma') || lower.includes('dama') || lower.includes('shwas') || lower.includes('wheez'))) ||
         (entry.sanskritTerm === 'Amlapitta' && (lower.includes('acidity') || lower.includes('gerd') || lower.includes('heartburn') || lower.includes('dyspepsia') || lower.includes('pitta'))) ||
-        (entry.sanskritTerm === 'Sandhivata' && (lower.includes('osteoarthritis') || lower.includes('joint pain') || lower.includes('ghutne') || lower.includes('sandhivata'))) ||
+        (entry.sanskritTerm === 'Sandhivata' && (lower.includes('osteoarthritis') || lower.includes('joint') || lower.includes('knee') || lower.includes('ghutne') || lower.includes('sandhivata') || lower.includes('crepitus'))) ||
         (entry.sanskritTerm === 'Amavata' && (lower.includes('rheumatoid') || lower.includes('gathiya') || lower.includes('polyarthritis'))) ||
         (entry.sanskritTerm === 'Kaphaja Prameha' && (lower.includes('diabetes') || lower.includes('sugar') || lower.includes('prameha') || lower.includes('madhumeha'))) ||
         (entry.sanskritTerm === 'Mutrakrichhra' && (lower.includes('uti') || lower.includes('urinary') || lower.includes('dysuria') || lower.includes('peshab me jalan'))) ||
         (entry.sanskritTerm === 'Grahani Roga' && (lower.includes('ibs') || lower.includes('loose') || lower.includes('grahani') || lower.includes('dast'))) ||
-        (entry.sanskritTerm === 'Gridhrasi' && (lower.includes('sciatica') || lower.includes('lumbar') || lower.includes('radiculopathy') || lower.includes('kamar dard'))) ||
+        (entry.sanskritTerm === 'Gridhrasi' && (lower.includes('sciatica') || lower.includes('lumbar') || lower.includes('radiculopathy') || lower.includes('kamar dard') || lower.includes('back'))) ||
         (entry.sanskritTerm === 'Hridshula' && (lower.includes('angina') || lower.includes('ischemic chest pain') || lower.includes('hridshula'))) ||
         (entry.sanskritTerm === 'Hridroga' && (lower.includes('cardiac') || lower.includes('chest') || lower.includes('heart') || lower.includes('chhati'))) ||
         (entry.sanskritTerm === 'Arsha' && (lower.includes('arsha') || lower.includes('piles') || lower.includes('bawaseer') || lower.includes('hemorrhoids') || lower.includes('bawasir'))) ||

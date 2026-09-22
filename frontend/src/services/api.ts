@@ -66,7 +66,10 @@ class ApiService {
     uptimeSeconds?: number;
   }> {
     try {
-      const res = await fetch(`${BASE_URL}/health`);
+      let res = await fetch(`${BASE_URL}/api/health`).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`${BASE_URL}/health`);
+      }
       return await res.json();
     } catch (e) {
       console.error('[ApiService] Health check failed:', e);
