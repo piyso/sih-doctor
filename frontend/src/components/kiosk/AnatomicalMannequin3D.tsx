@@ -2089,11 +2089,11 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
     // 10. Render Loop with Smooth Camera Transitions & Anatomical Pulsing
     let animId: number;
-    let clock = new THREE.Clock();
+    const startTime = performance.now();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const elapsedTime = clock.getElapsedTime();
+      const elapsedTime = (performance.now() - startTime) / 1000;
 
       // Smooth Camera Interpolation
       camera.position.lerp(targetCameraPosRef.current, 0.24);
