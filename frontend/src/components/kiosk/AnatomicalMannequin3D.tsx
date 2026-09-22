@@ -1487,9 +1487,9 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(colorDef.color),
       emissive: new THREE.Color(colorDef.emissive),
-      emissiveIntensity: colorDef.emissiveIntensity,
-      roughness: 0.28,
-      metalness: 0.08,
+      emissiveIntensity: Math.min(1.0, colorDef.emissiveIntensity * 1.8),
+      roughness: 0.20,
+      metalness: 0.12,
       side: THREE.FrontSide,
       depthWrite: true,
       depthTest: true
@@ -1572,8 +1572,26 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
       if (isSelected && activeHighlightMaterial) {
         mesh.material = activeHighlightMaterial;
+        mesh.renderOrder = 1;
+      } else if (selectedRegion) {
+        // Dim non-selected meshes for contrast when a region is active
+        if (!mesh.userData._dimMat) {
+          mesh.userData._dimMat = origMaterial.clone();
+          if (mesh.userData._dimMat instanceof THREE.MeshStandardMaterial) {
+            mesh.userData._dimMat.transparent = true;
+            mesh.userData._dimMat.opacity = 0.35;
+            mesh.userData._dimMat.emissiveIntensity = 0;
+          }
+        }
+        mesh.material = mesh.userData._dimMat;
+        mesh.renderOrder = 0;
       } else {
         mesh.material = origMaterial;
+        mesh.renderOrder = 0;
+        if (mesh.userData._dimMat) {
+          mesh.userData._dimMat.dispose();
+          delete mesh.userData._dimMat;
+        }
       }
     });
 
@@ -2118,7 +2136,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       const dist = Math.hypot(e.clientX - pointerDownPositionRef.current.x, e.clientY - pointerDownPositionRef.current.y);
       isDraggingRef.current = false;
 
-      if (dist < 12) {
+      if (dist < 6) {
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
         const intersects = raycasterRef.current.intersectObjects(humanGroup.children, true);
         const topHit = getTargetHit(intersects);
