@@ -142,25 +142,33 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
         {/* Prestige Institutional Brand Header - Masterpiece Duotone */}
         <header className="gateway-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 12 }}>
-            {/* Duotone Sovereign Seal */}
+            {/* Authentic Ashok Stambh Seal */}
             <div
               style={{
-                width: isMobile ? 36 : 40,
-                height: isMobile ? 36 : 40,
-                borderRadius: 10,
-                background: '#090d16',
-                border: '1px solid #1e293b',
+                width: isMobile ? 40 : 44,
+                height: isMobile ? 40 : 44,
+                borderRadius: 12,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                flexShrink: 0,
+                padding: 4
               }}
             >
-              <svg width={isMobile ? "18" : "20"} height={isMobile ? "18" : "20"} viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9.5" stroke="#94a3b8" strokeWidth="1.25" strokeDasharray="2 2" />
-                <path d="M12 5V19M5 12H19" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="12" cy="12" r="2.5" fill="#ffffff" />
-              </svg>
+              <img
+                src="/ashoka-stambh-hd.png"
+                alt="State Emblem of India"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  pointerEvents: 'none',
+                  userSelect: 'none'
+                }}
+              />
             </div>
 
             <div>

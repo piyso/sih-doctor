@@ -222,20 +222,27 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 <div
                   style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: '50%',
-                    background: '#ecfdf5',
-                    border: '2px solid #059669',
+                    width: 54,
+                    height: 54,
+                    borderRadius: 12,
+                    background: '#ffffff',
+                    border: '1.5px solid #059669',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#059669',
-                    fontWeight: 900,
-                    fontSize: 22
+                    padding: 4,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                   }}
                 >
-                  <Stethoscope size={26} color="#059669" strokeWidth={2.2} />
+                  <img
+                    src="/ashoka-stambh-hd.png"
+                    alt="State Emblem of India"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
                 </div>
                 <div>
                   <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#475569', fontWeight: 700 }}>

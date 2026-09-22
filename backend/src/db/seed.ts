@@ -259,6 +259,150 @@ export function seedDatabase() {
     now
   );
 
+  // 7. Patient G: Lakshmi Ammal (55yo, Chennai, Tamil Nadu) - Acute Vatarakta / Gout Flare
+  insertPatient.run(
+    'pat-007',
+    '91-6789-0123-4567',
+    'lakshmi.ammal@abdm',
+    'Lakshmi Ammal',
+    55,
+    'FEMALE',
+    'XXXXXX3490',
+    'ta',
+    'Vata-Pitta',
+    0, null, 0, 66,
+    now
+  );
+  insertSession.run(
+    'sess-007',
+    'pat-007',
+    JSON.stringify([
+      { name: 'Great Toe & Ankle Pain', rawVernacular: 'kaal viral vali veekam', site: 'Right 1st MTP & Ankle', onset: '2 days', character: 'Throbbing, hot, burning and severe nocturnal aggravation', radiation: 'Dorsal Foot', associated: ['Erythema', 'Inability to bear weight'], severity: 8, isNegated: false }
+    ]),
+    JSON.stringify({
+      prakriti: 'Vata-Pitta', vikriti: 'Vata-Rakta Sannipata', sara: 'Madhyama', samhanana: 'Compact', pramana: 'Ideal', satmya: 'Ritu Satmya', sattva: 'Madhyama', aharaShakti: 'Madhyama', vyayamaShakti: 'Medium', vaya: 'Madhyama', agni: 'Tikshnagni', amaPresent: true
+    }),
+    JSON.stringify({ bp: '134/86', pulse: 84, spo2: '98%', temp: '99.0°F' }),
+    'HIGH_PRIORITY',
+    JSON.stringify(['Acute Podagra / Vatarakta flare with Serum Uric Acid 8.6 mg/dL']),
+    'Doctor, enakku kaal periya viral-le romba kodiya vali irukku, thoda kooda mudiyala, veengi sivanndhu irukku...',
+    'PENDING_DOCTOR',
+    now
+  );
+  insertDoc.run(
+    'doc-003',
+    'pat-007',
+    'LAB_REPORT',
+    'APOLLO CLINICAL DIAGNOSTICS: Serum Uric Acid: 8.6 mg/dL (HIGH, Ref: 2.4-6.0), ESR: 42 mm/1st hr (HIGH), Serum Creatinine: 0.9 mg/dL (NORMAL)',
+    JSON.stringify({ uric_acid: 8.6, esr: 42, creatinine: 0.9 }),
+    now
+  );
+
+  // 8. Patient H: Subhash Chandra Mondal (48yo, Murshidabad, West Bengal) - Chronic Amlapitta
+  insertPatient.run(
+    'pat-008',
+    '91-7890-4561-2345',
+    'subhash.mondal@abdm',
+    'Subhash Chandra Mondal',
+    48,
+    'MALE',
+    'XXXXXX5612',
+    'bn',
+    'Pitta-Kapha',
+    0, null, 0, 70,
+    now
+  );
+  insertSession.run(
+    'sess-008',
+    'pat-008',
+    JSON.stringify([
+      { name: 'Retrosternal Burning & Sour Eructations', rawVernacular: 'buk jala ebong tok dhekur', site: 'Epigastrium & Lower Chest', onset: '3 weeks', character: 'Burning aggravated post-meals', radiation: 'Throat', associated: ['Nausea', 'Loss of appetite'], severity: 6, isNegated: false }
+    ]),
+    JSON.stringify({
+      prakriti: 'Pitta-Kapha', vikriti: 'Vidagdhajirna & Amlapitta', sara: 'Madhyama', samhanana: 'Moderate', pramana: 'Ideal', satmya: 'Sarva Rasa', sattva: 'Madhyama', aharaShakti: 'Heena', vyayamaShakti: 'Medium', vaya: 'Madhyama', agni: 'Tikshnagni', amaPresent: true
+    }),
+    JSON.stringify({ bp: '124/80', pulse: 76, spo2: '99%', temp: '98.4°F' }),
+    'ROUTINE',
+    JSON.stringify([]),
+    'Doctor babu, amar buke khub jala kore, tok dhekur uthe, khabar khelei ombol hoye jaye...',
+    'PENDING_DOCTOR',
+    now
+  );
+
+  // 9. Patient I: Devi Lal Meena (38yo, Alwar, Rajasthan) - Acute Viperid Envenomation Red-Flag
+  insertPatient.run(
+    'pat-009',
+    '91-9012-3456-7890',
+    'devilal.meena@abdm',
+    'Devi Lal Meena',
+    38,
+    'MALE',
+    'XXXXXX9012',
+    'hi',
+    'Vataja',
+    0, null, 0, 68,
+    now
+  );
+  insertSession.run(
+    'sess-009',
+    'pat-009',
+    JSON.stringify([
+      { name: 'Snake Envenomation / Fang Puncture', rawVernacular: 'khet me saanp ne kaat liya', site: 'Right Dorsal Foot', onset: '45 mins ago', character: 'Excruciating local pain and rapid ascending edema', radiation: 'Right Lower Leg', associated: ['Epistaxis', 'Local Ecchymosis', 'Oliguria'], severity: 10, isNegated: false }
+    ]),
+    JSON.stringify({
+      prakriti: 'Vataja', vikriti: 'Visha Vega Prakopa (Sarpadansha)', sara: 'Avara', samhanana: 'Heena', pramana: 'Ideal', satmya: 'Oka Satmya', sattva: 'Avara', aharaShakti: 'Heena', vyayamaShakti: 'Low', vaya: 'Yuva', agni: 'Vishamagni', amaPresent: true
+    }),
+    JSON.stringify({ bp: '90/60', pulse: 128, spo2: '91%', temp: '97.8°F' }),
+    'EMERGENCY_RED_FLAG',
+    JSON.stringify([
+      'Acute Hemotoxic Snake Envenomation (Viperidae / Russell Viper Bite)',
+      'Ascending Edema with Fang Marks & Spontaneous Systemic Bleeding (Epistaxis)',
+      'Hypotension (90/60) and Tachycardia (128 bpm) — Immediate ASV + ICU Resuscitation Triggered'
+    ]),
+    'Doctor sahab khet me paani lagate waqt saanp ne kaat liya, pair me do daant ke nishan hain, behad dard aur khoon nikal raha hai...',
+    'DIVERTED_EMERGENCY',
+    now
+  );
+
+  // 10. Patient J: Geeta Rani Patel (42yo, Raipur, Chhattisgarh) - Sickle Cell Trait & Vataja Pandu
+  insertPatient.run(
+    'pat-010',
+    '91-1234-5678-9012',
+    'geeta.patel@abdm',
+    'Geeta Rani Patel',
+    42,
+    'FEMALE',
+    'XXXXXX1122',
+    'hi',
+    'Vata-Pitta',
+    0, null, 0, 50,
+    now
+  );
+  insertSession.run(
+    'sess-010',
+    'pat-010',
+    JSON.stringify([
+      { name: 'Severe Fatigue, Bodyache & Exertional Breathlessness', rawVernacular: 'behad thakan aur sharir me dard', site: 'Systemic & Long Bones', onset: '2 months', character: 'Aching deep bone pains and generalized pallor', severity: 6, isNegated: false }
+    ]),
+    JSON.stringify({
+      prakriti: 'Vata-Pitta', vikriti: 'Pandu Roga & Rasa-Rakta Dhatu Kshaya', sara: 'Avara (Asara)', samhanana: 'Heena', pramana: 'Krsha', satmya: 'Ritu Satmya', sattva: 'Madhyama', aharaShakti: 'Heena', vyayamaShakti: 'Low', vaya: 'Madhyama', agni: 'Mandagni', amaPresent: true
+    }),
+    JSON.stringify({ bp: '110/72', pulse: 88, spo2: '97%', temp: '98.6°F' }),
+    'HIGH_PRIORITY',
+    JSON.stringify(['Microcytic Hypochromic Severe Anemia (Hb 7.4 g/dL) with Sickle Cell Solubility Positive']),
+    'Doctor didi, bohot thakan lagti hai, thoda chalne par hi saans phoolti hai aur haddiyo me meetha dard rehta hai...',
+    'PENDING_DOCTOR',
+    now
+  );
+  insertDoc.run(
+    'doc-004',
+    'pat-010',
+    'LAB_REPORT',
+    'DISTRICT HOSPITAL RAIPUR HEMATOLOGY: Hemoglobin: 7.4 g/dL (LOW, Ref: 12.0-15.5), RBC: 3.1 million/mcL, Peripheral Smear: Target cells & sickled RBCs seen, Sickling Test: POSITIVE',
+    JSON.stringify({ hemoglobin: 7.4, rbc: 3.1, sickling: 'POSITIVE' }),
+    now
+  );
+
   // Seed Completed Clinical Encounters in encounters Table for Pharmacy Desk & Audit Verification
   insertEncounter.run(
     'enc-001',
@@ -319,7 +463,7 @@ export function seedDatabase() {
     now
   );
 
-  console.log('[Seed] Database successfully seeded with 6 diverse clinical patients and physical SQLite encounters.');
+  console.log('[Seed] Database successfully seeded with 10 diverse Pan-Indian clinical patients and physical SQLite encounters.');
 }
 
 if (require.main === module) {

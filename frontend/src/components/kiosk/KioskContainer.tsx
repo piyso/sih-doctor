@@ -273,9 +273,13 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
         {/* Luxury Flagship AIIA Government OPD Header */}
         <header className="kiosk-flagship-header no-print glass rounded-2xl border border-border/80 p-3.5 sm:px-5 mb-5 shadow-xs flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            {/* National Emblem / AIIA Crest Badge */}
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 shadow-xs">
-              <Stethoscope size={20} strokeWidth={2.4} />
+            {/* Authentic National Emblem / AIIA Crest Badge */}
+            <div className="h-11 w-11 rounded-xl bg-white border border-border/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/ashoka-stambh-hd.png"
+                alt="State Emblem of India"
+                className="h-8 w-8 object-contain pointer-events-none select-none"
+              />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2 flex-wrap">

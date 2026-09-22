@@ -9,10 +9,9 @@ import { ArchitectureDefenseMatrix } from './components/admin/ArchitectureDefens
 import { PharmacyDeskView } from './modules/pharmacy/PharmacyDeskView';
 import { AshaFieldView } from './modules/asha/AshaFieldView';
 import { CommandCenterView } from './modules/admin/CommandCenterView';
-import { useTheme } from './components/providers/ThemeProvider';
 import { Button } from './components/ui/button';
 import { sovereignSound } from './utils/audio';
-import { ArrowLeft, Sun, Moon, Smartphone, Database } from 'lucide-react';
+import { ArrowLeft, Smartphone } from 'lucide-react';
 
 export function App() {
   const getInitialView = (): ActiveViewMode => {
@@ -36,7 +35,7 @@ export function App() {
   const [activeView, setActiveView] = useState<ActiveViewMode>(getInitialView);
   const [isLeverModalOpen, setIsLeverModalOpen] = useState(false);
   const [isByodModalOpen, setIsByodModalOpen] = useState(false);
-  const { resolvedTheme, toggleTheme } = useTheme();
+
 
   // Dynamic pointer coordinates for Fresnel spotlight across cards
   useEffect(() => {
@@ -105,30 +104,16 @@ export function App() {
               <img
                 src="/ashoka-stambh-hd.png"
                 alt="Ashoka Stambh"
-                className="h-5 w-5 object-contain dark:invert opacity-85 shrink-0 pointer-events-none select-none"
-                style={{ height: '20px', width: '20px' }}
+                className="h-5 w-5 object-contain shrink-0 pointer-events-none select-none"
+                style={{ height: '20px', width: '20px', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.06))' }}
               />
-              <span className="font-semibold text-foreground/80">Agastya Sutra</span>
+              <span className="font-semibold text-foreground/90">Agastya Sutra</span>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[11px] font-mono font-medium shadow-2xs">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-mono font-medium shadow-2xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>LIVE SQLite WAL</span>
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleTheme}
-              title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
-              className="h-8 w-8 p-0 rounded-lg border-border/70"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="h-3.5 w-3.5 text-amber-400" />
-              ) : (
-                <Moon className="h-3.5 w-3.5 text-slate-700" />
-              )}
-            </Button>
           </div>
         </div>
       )}

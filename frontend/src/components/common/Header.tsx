@@ -8,14 +8,10 @@ import {
   VolumeX, 
   Pill, 
   Users,
-  Sun,
-  Moon,
   Smartphone,
-  ShieldCheck,
-  ChevronLeft
+  ShieldCheck
 } from 'lucide-react';
 import { sovereignSound } from '../../utils/audio';
-import { useTheme } from '../providers/ThemeProvider';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
@@ -38,7 +34,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenByodModal
 }) => {
   const [isMuted, setIsMuted] = React.useState(sovereignSound.getMuted());
-  const { resolvedTheme, toggleTheme } = useTheme();
 
   const handleTabChange = (view: ActiveViewMode) => {
     sovereignSound.playMechanicalSnap();
@@ -56,18 +51,18 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="no-print sticky top-3 z-50 mx-auto w-[calc(100%-24px)] max-w-7xl mb-5">
       <div className="glass rounded-2xl border border-border/70 px-4 py-2.5 flex items-center justify-between flex-wrap gap-3 shadow-sm transition-all duration-200">
-        {/* Left: Emblem & Institutional Breadcrumb */}
+        {/* Left: Authentic Ashok Stambh Emblem & Institutional Breadcrumb */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => handleTabChange('portal')}
             title="Return to Hospital OS Gateway (Esc)"
-            className="h-9 w-9 rounded-xl bg-foreground text-background flex items-center justify-center font-bold shadow-xs hover:scale-105 transition-transform"
+            className="h-10 w-10 rounded-xl bg-white border border-border/80 p-1 flex items-center justify-center shadow-xs hover:scale-105 transition-transform shrink-0"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="stroke-current">
-              <circle cx="12" cy="12" r="9.5" strokeWidth="1.25" strokeDasharray="2 2" opacity="0.6" />
-              <path d="M12 4.5V19.5M4.5 12H19.5" strokeWidth="1.75" strokeLinecap="round" />
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-            </svg>
+            <img
+              src="/ashoka-stambh-hd.png"
+              alt="State Emblem of India"
+              className="h-7 w-7 object-contain select-none pointer-events-none"
+            />
           </button>
 
           <div>
@@ -183,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </nav>
 
-        {/* Right: Sound, BYOD, Air-Gap Diagnostics, Theme Toggle */}
+        {/* Right: Sound, BYOD, Air-Gap Diagnostics */}
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -193,20 +188,6 @@ export const Header: React.FC<HeaderProps> = ({
             className="h-8 w-8 p-0 rounded-lg"
           >
             {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleTheme}
-            title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            className="h-8 w-8 p-0 rounded-lg border-border/70"
-          >
-            {resolvedTheme === 'dark' ? (
-              <Sun className="h-3.5 w-3.5 text-amber-400" />
-            ) : (
-              <Moon className="h-3.5 w-3.5 text-slate-700" />
-            )}
           </Button>
 
           <button
@@ -235,3 +216,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
