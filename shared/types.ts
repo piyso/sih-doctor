@@ -123,18 +123,18 @@ export interface AllopathicMedication {
   dosage: string;            // e.g. 650mg, 40mg
   route: 'Oral' | 'Topical' | 'Inhalation' | 'IV' | 'IM';
   frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS';
-  timing: 'Before Food (AC)' | 'After Food (PC)' | 'With Food' | 'Anytime';
+  timing: 'Before Food (AC)' | 'After Food (PC)' | 'With Food' | 'Anytime' | 'Bedtime (HS)' | 'Morning' | 'Night' | 'After Food' | 'Before Food';
   duration: string;           // e.g. 5 days, 1 month
   instructions?: string;
 }
 
 export interface AyushFormulation {
   formulationName: string;
-  category: 'Churna' | 'Vati/Gutika' | 'Asava/Arishta' | 'Guggulu' | 'Bhasma/Pishti' | 'Taila/Ghrita' | 'Rasayana' | 'Kwath';
+  category: 'Churna' | 'Vati/Gutika' | 'Asava/Arishta' | 'Guggulu' | 'Bhasma/Pishti' | 'Taila/Ghrita' | 'Taila' | 'Ghrita' | 'Rasayana' | 'Kwath' | 'Kashaya/Kwath' | 'Vati' | 'Arishta' | 'Bhasma' | 'Avaleha';
   dosage: string;            // e.g. 3g, 2 tablets, 15ml
-  frequency: 'OD' | 'BD' | 'TDS' | 'SOS' | 'HS';
+  frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS' | string;
   anupana: string;           // Statutory vehicle: Honey, Warm Water, Milk, Maharasnadi Kwath
-  timing: 'Prathakaal (Morning)' | 'Adhobhakta (Post-Lunch)' | 'Nishi (Bedtime)';
+  timing: 'Prathakaal (Morning)' | 'Adhobhakta (Post-Lunch)' | 'Nishi (Bedtime)' | 'Morning' | 'Night' | 'Anytime' | 'After Food' | 'Before Food';
   duration: string;
 }
 

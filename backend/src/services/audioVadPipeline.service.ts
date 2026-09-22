@@ -26,6 +26,9 @@ export interface VadEvent {
   snrDb: number;
   isVoiceActive: boolean;
   isWhisper: boolean;
+  isFanRumbleRejected?: boolean;
+  zeroCrossingRate?: number;
+  highFreqRatio?: number;
   gainCompensationDb: number;
   acousticMode: AcousticMode;
   preRollBufferedBytes?: number;
