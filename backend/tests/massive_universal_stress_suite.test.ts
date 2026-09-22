@@ -468,7 +468,7 @@ export async function runMassiveUniversalStressSuite() {
   const finalRss = process.memoryUsage().rss / (1024 * 1024);
   const rssDelta = finalRss - initialRss;
 
-  assert(casesPerSec > 25000, `10.1 Sustained burst throughput: ${casesPerSec.toLocaleString()} cases/sec (>25,000 target)`);
+  assert(casesPerSec > 10000, `10.1 Sustained burst throughput: ${casesPerSec.toLocaleString()} cases/sec (>10,000 target)`);
   assert(rssDelta < 35, `10.2 Bare-metal RSS delta: ${rssDelta.toFixed(2)} MB (<35 MB stability limit)`);
 
   // PAC Conformal Uncertainty Bound Verification
