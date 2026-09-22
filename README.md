@@ -6,6 +6,37 @@
 
 ---
 
+## ⚡ 10-Second Quick Start (Run on Any PC / Laptop)
+
+You can run the entire sovereign air-gapped system on **macOS, Windows, or Linux** with a single command or double click:
+
+### 🍎 On Mac / Linux / WSL:
+```bash
+./start.sh
+```
+*(Or simply run `npm run setup && npm start`)*
+
+### 🪟 On Windows (Command Prompt / PowerShell):
+Double-click `start.bat` or run in terminal:
+```cmd
+start.bat
+```
+
+### 🌐 Live Workstation Terminals (Open in Any Browser):
+| Workstation Terminal | Direct Access URL | Device Role |
+| :--- | :--- | :--- |
+| **🏛️ Hospital OS Gateway** | [http://localhost:5173/](http://localhost:5173/) | Master Navigation Hub (Press Keys 1–6) |
+| **🖥️ Patient MediKiosk** | [http://localhost:5173/?mode=kiosk](http://localhost:5173/?mode=kiosk) | 32" Vernacular Touchscreen Intake |
+| **🩺 Doctor Clinical Cockpit** | [http://localhost:5173/?mode=doctor](http://localhost:5173/?mode=doctor) | Ambient Scribe & Dual-Pharmacology Prescriber |
+| **💊 Dispensary Pharmacy POS** | [http://localhost:5173/?mode=pharmacy](http://localhost:5173/?mode=pharmacy) | Optical Barcode Gate & Sound-Alike Interlock |
+| **📱 Frontline ASHA Field App** | [http://localhost:5173/?mode=asha](http://localhost:5173/?mode=asha) | Offline 1.8s Merkle DAG Rural Sync |
+| **📊 Command & Outbreak NOC** | [http://localhost:5173/?mode=admin](http://localhost:5173/?mode=admin) | Real-time Triage Heatmap & IDSP Radar |
+| **🛡️ System Defense Matrix** | [http://localhost:5173/?mode=matrix](http://localhost:5173/?mode=matrix) | Groth16 zk-SNARK & Zero Cloud Egress Audit |
+
+> **📲 Mobile Phone & Tablet Access:** When connected to the same Wi-Fi or mobile hotspot, simply open `http://<YOUR_LAN_IP>:5173/` on any smartphone or tablet to test live mobile responsiveness!
+
+---
+
 ## 🏆 Executive Summary & Innovation Paradigm
 
 High-density government hospital Outpatient Departments (OPDs) in India (such as AIIA New Delhi, AIIMS, and Safdarjung) face overwhelming patient volumes. A single physician routinely sees **120 to 180 patients per 4-hour shift**—leaving barely **90 seconds to 2 minutes per patient**.
