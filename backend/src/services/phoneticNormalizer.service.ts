@@ -13,6 +13,47 @@ export interface ClinicalPhoneticMapping {
 }
 
 export const CLINICAL_PHONETIC_DICTIONARY: ClinicalPhoneticMapping[] = [
+  // Devanagari Hindi Primary Clinical Mappings
+  { raw: 'सीने में दर्द', canonical: 'Substernal Chest Pain', category: 'symptom' },
+  { raw: 'छाती में दर्द', canonical: 'Substernal Chest Pain', category: 'symptom' },
+  { raw: 'सीने में भारीपन', canonical: 'Substernal Crushing Pressure', category: 'symptom' },
+  { raw: 'छाती में भारीपन', canonical: 'Substernal Crushing Pressure', category: 'symptom' },
+  { raw: 'सीने में दबाव', canonical: 'Substernal Crushing Pressure', category: 'symptom' },
+  { raw: 'पसीना आ रहा', canonical: 'Diaphoresis', category: 'symptom' },
+  { raw: 'बहुत पसीना', canonical: 'Marked Diaphoresis', category: 'symptom' },
+  { raw: 'सांस फूल रही', canonical: 'Dyspnea / Breathlessness', category: 'symptom' },
+  { raw: 'सांस लेने में तकलीफ', canonical: 'Dyspnea / Breathlessness', category: 'symptom' },
+  { raw: 'सांस लेने में दिक्कत', canonical: 'Dyspnea / Breathlessness', category: 'symptom' },
+  { raw: 'धड़कन तेज', canonical: 'Tachycardia / Palpitations', category: 'symptom' },
+  { raw: 'बाएं हाथ में दर्द', canonical: 'Left Arm Radiation Pain', category: 'symptom' },
+  { raw: 'बाईं बांह में दर्द', canonical: 'Left Arm Radiation Pain', category: 'symptom' },
+  { raw: 'तेज बुखार', canonical: 'High Grade Fever / Teekshna Jwara', category: 'symptom' },
+  { raw: 'बुखार', canonical: 'Fever', category: 'symptom' },
+  { raw: 'सिर दर्द', canonical: 'Headache', category: 'symptom' },
+  { raw: 'सिर में दर्द', canonical: 'Headache', category: 'symptom' },
+  { raw: 'सर दर्द', canonical: 'Headache', category: 'symptom' },
+  { raw: 'पेट में दर्द', canonical: 'Abdominal Pain / Udarashoola', category: 'symptom' },
+  { raw: 'पेट दर्द', canonical: 'Abdominal Pain / Udarashoola', category: 'symptom' },
+  { raw: 'ऊपरी पेट में दर्द', canonical: 'Epigastric Pain / Amlapitta (Upper Abdomen)', category: 'symptom' },
+  { raw: 'निचले पेट में दर्द', canonical: 'Lower Abdominal / Pelvic Pain (Hypogastrium)', category: 'symptom' },
+  { raw: 'पेट में मरोड़', canonical: 'Abdominal Colic / Shoola', category: 'symptom' },
+  { raw: 'पेट में जलन', canonical: 'Amlapitta / Epigastric Pyrosis', category: 'symptom' },
+  { raw: 'खट्टी डकार', canonical: 'Acid Eructation / Amlodgara', category: 'symptom' },
+  { raw: 'घुटने में दर्द', canonical: 'Knee Joint Pain', category: 'symptom' },
+  { raw: 'घुटनों में दर्द', canonical: 'Knee Joint Pain', category: 'symptom' },
+  { raw: 'घुटने में कट-कट', canonical: 'Janu Sandhi Crepitus', category: 'symptom' },
+  { raw: 'घुटनों में कट-कट', canonical: 'Janu Sandhi Crepitus', category: 'symptom' },
+  { raw: 'कमर दर्द', canonical: 'Kati Shoola / Low Back Pain', category: 'symptom' },
+  { raw: 'कमर में दर्द', canonical: 'Kati Shoola / Low Back Pain', category: 'symptom' },
+  { raw: 'जोड़ों में दर्द', canonical: 'Joint Pain / Arthralgia', category: 'symptom' },
+  { raw: 'सुबह जकड़न', canonical: 'Morning Stiffness (Sandhi Stambha)', category: 'symptom' },
+  { raw: 'पेशाब में जलन', canonical: 'Dysuria / Burning Micturition', category: 'symptom' },
+  { raw: 'उल्टी', canonical: 'Vomiting', category: 'symptom' },
+  { raw: 'चक्कर', canonical: 'Vertigo / Giddiness', category: 'symptom' },
+  { raw: 'खांसी', canonical: 'Cough', category: 'symptom' },
+  { raw: 'बलगम', canonical: 'Productive Cough / Kaphaja Kasa', category: 'symptom' },
+  { raw: 'कमजोरी', canonical: 'General Weakness / Asthenia', category: 'symptom' },
+
   // Chest & Cardiac (Hindi, Hinglish, Bhojpuri, Awadhi, Haryanvi)
   { raw: 'chaati me bojh', canonical: 'Substernal Crushing Pressure', category: 'symptom' },
   { raw: 'seene me dard', canonical: 'Substernal Chest Pain', category: 'symptom' },
@@ -357,22 +398,22 @@ export class PhoneticNormalizerService {
   private static regexPattern: RegExp;
   private static initialized: boolean = false;
 
-  // Multi-Lingual Anatomical Loci Root Regular Expressions
-  private static readonly ANAT_THORAX = /\b(ch[a|h]ati|seene|seena|sina|kareja|kaleja|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus)\b/i;
-  private static readonly ANAT_LEFT_ARM = /\b(baaye\s*haath|baya\s*hath|baaye\s*baahu|baam\s*haat|dava\s*hat|edama\s*cheyyi|idathu\s*kai|khabbe\s*hath|khowur\s*atha)\b/i;
-  private static readonly ANAT_KNEE_JOINT = /\b(ghutn[ae]|janu|muttukal|mokaalu|jod[o]?|sandhi)\b/i;
-  private static readonly ANAT_LUMBAR_SPINE = /\b(kamar|peeth|kati|nadumu|kodum)\b/i;
-  private static readonly ANAT_ABDOMEN = /\b(pet|pait|paat|paet|udar|koshtha|vayiru|potte|kadupu|hotte|vayar|pedu|nabhi)\b/i;
-  private static readonly ANAT_HEAD = /\b(sir|sar|matha|kapaal|thala|tala)\b/i;
+  // Multi-Lingual Anatomical Loci Root Regular Expressions (Latin + Devanagari Hindi + Indic)
+  private static readonly ANAT_THORAX = /(?:ch[a|h]ati|seene|seena|sina|kareja|kaleja|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|नेन्जु|गुंडे|हिया)/i;
+  private static readonly ANAT_LEFT_ARM = /(?:baaye\s*haath|baya\s*hath|baaye\s*baahu|baam\s*haat|dava\s*hat|edama\s*cheyyi|idathu\s*kai|khabbe\s*hath|khowur\s*atha|बायां\s*हाथ|बाएं\s*हाथ|बाईं\s*बांह|बायां\s*हाथ|डावा\s*हात)/i;
+  private static readonly ANAT_KNEE_JOINT = /(?:ghutn[ae]|janu|muttukal|mokaalu|jod[o]?|sandhi|घुटना|घुटने|घुटनों|जानु|जोड़|जोड़ों|संधि)/i;
+  private static readonly ANAT_LUMBAR_SPINE = /(?:kamar|peeth|kati|nadumu|kodum|कमर|पीठ|कटि|रीढ़)/i;
+  private static readonly ANAT_ABDOMEN = /(?:pet|pait|paat|paet|udar|koshtha|vayiru|potte|kadupu|hotte|vayar|pedu|nabhi|पेट|आमाशय|उदर|पेड़ू|नाभि|कोठा)/i;
+  private static readonly ANAT_HEAD = /(?:sir|sar|matha|kapaal|thala|tala|सिर|सर|माथा|कपाल|मस्तक)/i;
 
-  // Multi-Lingual Pathological Sensation Root Regular Expressions
-  private static readonly SENS_CRUSHING = /\b(bojh|bhari|bhaari|chaap|dabav|baram|wazan|saap|kediya|crushing|pressure|ghana|ghano)\b/i;
-  private static readonly SENS_PAIN = /\b(dard|peeda|vedana|byatha|noppi|vali|novu|peer|daag|bikh|kasak|jatana|pain|dukh|dukhne)\b/i;
-  private static readonly SENS_CREPITUS = /\b(cut\s*cut|kat\s*kat|char\s*char|crepitus|crackling|clicking)\b/i;
-  private static readonly SENS_STIFFNESS = /\b(akad|akdan|stambha|stiff|jam)\b/i;
-  private static readonly SENS_BURNING = /\b(jalan|jalna|daaha|daha|erichal|manta|acid|burn)\b/i;
-  private static readonly SENS_DIAPHORESIS = /\b(pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|sweat)\b/i;
-  private static readonly SENS_DYSPNEA = /\b(saans\s*phool|swasa|dum\s*phool|shaas\s*koshto|moochu\s*thinaral|aadakapovadam)\b/i;
+  // Multi-Lingual Pathological Sensation Root Regular Expressions (Latin + Devanagari Hindi + Indic)
+  private static readonly SENS_CRUSHING = /(?:bojh|bhari|bhaari|chaap|dabav|baram|wazan|saap|kediya|crushing|pressure|ghana|ghano|भारीपन|बोझ|दबाव|भारी|कड़क|दबना)/i;
+  private static readonly SENS_PAIN = /(?:dard|peeda|vedana|byatha|noppi|vali|novu|peer|daag|bikh|kasak|jatana|pain|dukh|dukhne|दर्द|पीड़ा|वेदना|दुखना|टीस|कसक|शूल)/i;
+  private static readonly SENS_CREPITUS = /(?:cut\s*cut|kat\s*kat|char\s*char|crepitus|crackling|clicking|कट-कट|कट\s*कट|चर-चर|खट-खट)/i;
+  private static readonly SENS_STIFFNESS = /(?:akad|akdan|stambha|stiff|jam|अकड़न|जकड़न|स्तम्भ|जाम)/i;
+  private static readonly SENS_BURNING = /(?:jalan|jalna|daaha|daha|erichal|manta|acid|burn|जलन|दाह|सुलगना|एसिड)/i;
+  private static readonly SENS_DIAPHORESIS = /(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|sweat|पसीना|पसीने|घाम)/i;
+  private static readonly SENS_DYSPNEA = /(?:saans\s*phool|swasa|dum\s*phool|shaas\s*koshto|moochu\s*thinaral|aadakapovadam|सांस\s*फूल|दम\s*फूल|सांस\s*लेने\s*में\s*तकलीफ|सांस\s*चढ़ना)/i;
 
   private static initialize(): void {
     if (this.initialized) return;
@@ -438,7 +479,7 @@ export class PhoneticNormalizerService {
 
     // 6. Lumbar Spine + Pain -> Kati Shoola / Low Back Pain (unless radicular / sciatica pattern)
     if (this.ANAT_LUMBAR_SPINE.test(text) && this.SENS_PAIN.test(text)) {
-      const isSciatica = /\b(kamar\s*se\s*pair|pair\s*tak|radiation|gridhrasi|sciatica|nas\s*kheench)\b/i.test(text);
+      const isSciatica = /(?:kamar\s*se\s*pair|pair\s*tak|radiation|gridhrasi|sciatica|nas\s*kheench|कमर\s*से\s*पैर|नस\s*खिंच)/i.test(text);
       if (!isSciatica) {
         text = text.replace(
           new RegExp(`(${this.ANAT_LUMBAR_SPINE.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_LUMBAR_SPINE.source})`, 'gi'),
@@ -458,24 +499,24 @@ export class PhoneticNormalizerService {
     // 8. Diaphoresis & Dyspnea Standalone Roots
     if (this.SENS_DIAPHORESIS.test(text)) {
       text = text.replace(
-        new RegExp(`\\b(?:bahut|khup|adhika|intense|severe|chhoot\\s*raha)?\\s*${this.SENS_DIAPHORESIS.source}\\s*(?:aa\\s*raha|chhoot\\s*raha|yet\\s*ahe|pattestunnayi|kottuthu)?\\b`, 'gi'),
+        new RegExp(`(?:bahut|khup|adhika|intense|severe|chhoot\\s*raha|बहुत|तेज)?\\s*${this.SENS_DIAPHORESIS.source}\\s*(?:aa\\s*raha|chhoot\\s*raha|yet\\s*ahe|pattestunnayi|kottuthu|आ\\s*रहा|छूट\\s*रहा)?`, 'gi'),
         'Marked Diaphoresis'
       );
     }
 
     if (this.SENS_DYSPNEA.test(text)) {
       text = text.replace(
-        new RegExp(`\\b${this.SENS_DYSPNEA.source}\\b`, 'gi'),
+        new RegExp(`${this.SENS_DYSPNEA.source}`, 'gi'),
         'Dyspnea / Breathlessness'
       );
     }
 
     // 9. Common Indian Brand Posology Stemming (e.g., Crocin-650, Dolo-650, Calpol-500)
-    text = text.replace(/\b(crocin|calpol|dolo|pacimol|pyragesic)(?:[-\s]?\d+)?\b/gi, 'Paracetamol');
-    text = text.replace(/\b(augmentin|moxclav|augpen)(?:[-\s]?\d+)?\b/gi, 'Amoxicillin + Clavulanic Acid');
-    text = text.replace(/\b(pan-?d|pantocid-?d)\b/gi, 'Pantoprazole + Domperidone');
-    text = text.replace(/\b(ecosprin|ecospirin|disprin)(?:[-\s]?\d+)?\b/gi, 'Aspirin');
-    text = text.replace(/\b(glycomet|glyciphage)(?:[-\s]?\d+)?\b/gi, 'Metformin');
+    text = text.replace(/\b(crocin|calpol|dolo|pacimol|pyragesic|डोलो|क्रोसिन|कैलपोल)(?:[-\s]?\d+)?\b/gi, 'Paracetamol');
+    text = text.replace(/\b(augmentin|moxclav|augpen|ऑगमेंटिन)(?:[-\s]?\d+)?\b/gi, 'Amoxicillin + Clavulanic Acid');
+    text = text.replace(/\b(pan-?d|pantocid-?d|पैन-डी|पैन डी)\b/gi, 'Pantoprazole + Domperidone');
+    text = text.replace(/\b(ecosprin|ecospirin|disprin|इकोस्प्रिन|डिस्प्रिन)(?:[-\s]?\d+)?\b/gi, 'Aspirin');
+    text = text.replace(/\b(glycomet|glyciphage|ग्लाइकोमेट)(?:[-\s]?\d+)?\b/gi, 'Metformin');
 
     return text;
   }

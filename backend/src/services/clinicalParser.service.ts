@@ -67,8 +67,105 @@ export interface ExtractedClinicalRecord {
 }
 
 export class ClinicalParserService {
-  // Multilingual Symptom Lexicon (Hinglish + English)
+  // Multilingual Symptom Lexicon (Hinglish + English + Devanagari Hindi + Indic)
   private static symptomMap: Record<string, { standard: string; defaultSite?: string }> = {
+    // 1. Devanagari Hindi Clinical Symptoms
+    'बुखार': { standard: 'Fever', defaultSite: 'Systemic' },
+    'तेज़ बुखार': { standard: 'Fever', defaultSite: 'Systemic' },
+    'तेज बुखार': { standard: 'Fever', defaultSite: 'Systemic' },
+    'ताप': { standard: 'Fever', defaultSite: 'Systemic' },
+    'ज्वर': { standard: 'Fever', defaultSite: 'Systemic' },
+    'कंपकंपी': { standard: 'Fever with Chills', defaultSite: 'Systemic' },
+    'ठंड लगकर बुखार': { standard: 'Fever with Chills', defaultSite: 'Systemic' },
+    'सीने में दर्द': { standard: 'Chest Pain', defaultSite: 'Substernal' },
+    'छाती में दर्द': { standard: 'Chest Pain', defaultSite: 'Substernal' },
+    'सीने में भारीपन': { standard: 'Substernal Crushing Pressure', defaultSite: 'Substernal' },
+    'छाती में भारीपन': { standard: 'Substernal Crushing Pressure', defaultSite: 'Substernal' },
+    'सीने में दबाव': { standard: 'Substernal Crushing Pressure', defaultSite: 'Substernal' },
+    'सीने में जलन': { standard: 'Heartburn / Acidity / Dyspepsia', defaultSite: 'Retrosternal / Epigastrium' },
+    'छाती में जलन': { standard: 'Heartburn / Acidity / Dyspepsia', defaultSite: 'Retrosternal / Epigastrium' },
+    'दिल में दर्द': { standard: 'Chest Pain', defaultSite: 'Precordium' },
+    'हृदय शूल': { standard: 'Chest Pain', defaultSite: 'Precordium' },
+    'धड़कन तेज़': { standard: 'Palpitations / Anxiety', defaultSite: 'Precordium' },
+    'घबराहट': { standard: 'Palpitations / Anxiety', defaultSite: 'Precordium' },
+    'पसीना आना': { standard: 'Diaphoresis', defaultSite: 'General' },
+    'बहुत पसीना': { standard: 'Marked Diaphoresis', defaultSite: 'General' },
+    'ठंडा पसीना': { standard: 'Cold Diaphoresis', defaultSite: 'General' },
+    'सिर दर्द': { standard: 'Headache', defaultSite: 'Head' },
+    'सिर में दर्द': { standard: 'Headache', defaultSite: 'Head' },
+    'सर दर्द': { standard: 'Headache', defaultSite: 'Head' },
+    'सर में दर्द': { standard: 'Headache', defaultSite: 'Head' },
+    'आधे सिर में दर्द': { standard: 'Migraine / Ardhavabhedaka', defaultSite: 'Head / Unilateral' },
+    'माइग्रेन': { standard: 'Migraine / Ardhavabhedaka', defaultSite: 'Head' },
+    'चक्कर आना': { standard: 'Vertigo / Giddiness', defaultSite: 'Head' },
+    'चक्कर': { standard: 'Vertigo / Giddiness', defaultSite: 'Head' },
+    'माथा घूमना': { standard: 'Vertigo / Giddiness', defaultSite: 'Head' },
+    'खांसी': { standard: 'Cough', defaultSite: 'Respiratory tract' },
+    'सूखी खांसी': { standard: 'Dry Cough', defaultSite: 'Throat / Bronchi' },
+    'बलगम': { standard: 'Productive Cough', defaultSite: 'Chest' },
+    'बलगम वाली खांसी': { standard: 'Productive Cough', defaultSite: 'Chest' },
+    'सांस फूलना': { standard: 'Dyspnea / Shortness of Breath', defaultSite: 'Chest / Lungs' },
+    'सांस लेने में तकलीफ': { standard: 'Dyspnea / Shortness of Breath', defaultSite: 'Chest / Lungs' },
+    'सांस लेने में दिक्कत': { standard: 'Dyspnea / Shortness of Breath', defaultSite: 'Chest / Lungs' },
+    'दम फूलना': { standard: 'Dyspnea', defaultSite: 'Chest / Lungs' },
+    'सीटी जैसी आवाज': { standard: 'Wheezing / Stridor', defaultSite: 'Chest / Bronchi' },
+    'गले में दर्द': { standard: 'Sore Throat', defaultSite: 'Pharynx' },
+    'गले में खराश': { standard: 'Pharyngeal Irritation / Kantharoga', defaultSite: 'Pharynx' },
+    'गले में जलन': { standard: 'Pharyngitis', defaultSite: 'Throat' },
+    'पेट में दर्द': { standard: 'Abdominal Pain', defaultSite: 'Abdomen' },
+    'पेट दर्द': { standard: 'Abdominal Pain', defaultSite: 'Abdomen' },
+    'ऊपरी पेट में दर्द': { standard: 'Upper Abdominal Pain / Gastric Dyspepsia', defaultSite: 'Epigastrium' },
+    'ऊपरी पेट': { standard: 'Upper Abdominal Pain / Gastric Dyspepsia', defaultSite: 'Epigastrium' },
+    'निचले पेट में दर्द': { standard: 'Lower Abdominal / Pelvic Pain', defaultSite: 'Pelvic / Hypogastrium' },
+    'निचला पेट': { standard: 'Lower Abdominal / Pelvic Pain', defaultSite: 'Pelvic / Hypogastrium' },
+    'पेट में मरोड़': { standard: 'Abdominal Colic / Shoola', defaultSite: 'Umbilicus / Mid-Abdomen' },
+    'मरोड़': { standard: 'Abdominal Colic / Shoola', defaultSite: 'Umbilicus / Mid-Abdomen' },
+    'पेट में जलन': { standard: 'Heartburn / Acidity / Dyspepsia', defaultSite: 'Retrosternal / Epigastrium' },
+    'खट्टी डकार': { standard: 'Acid Eructation / Amlodgara', defaultSite: 'Epigastrium' },
+    'एसिडिटी': { standard: 'Heartburn / Acidity / GERD', defaultSite: 'Epigastrium' },
+    'गैस': { standard: 'Flatulence / Aanaha', defaultSite: 'Abdomen' },
+    'पेट फूलना': { standard: 'Abdominal Distension / Aanaha', defaultSite: 'Abdomen' },
+    'अफारा': { standard: 'Abdominal Flatulence / Aanaha', defaultSite: 'Abdomen' },
+    'उल्टी': { standard: 'Vomiting', defaultSite: 'GI' },
+    'जी मिचलाना': { standard: 'Nausea / Hrillasa', defaultSite: 'GI' },
+    'दस्त': { standard: 'Diarrhea', defaultSite: 'GI' },
+    'पेट खराब': { standard: 'Gastrointestinal Disturbance', defaultSite: 'Abdomen' },
+    'कब्ज': { standard: 'Constipation', defaultSite: 'Lower GI' },
+    'कब्जियत': { standard: 'Constipation', defaultSite: 'Lower GI' },
+    'बवासीर': { standard: 'Hemorrhoids / Arsha', defaultSite: 'Anorectal' },
+    'मलाशय से खून': { standard: 'Hematochezia / Rectal Bleeding', defaultSite: 'Anorectal' },
+    'कमर दर्द': { standard: 'Lower Back Pain', defaultSite: 'Lumbar Spine' },
+    'कमर में दर्द': { standard: 'Lower Back Pain', defaultSite: 'Lumbar Spine' },
+    'पीठ दर्द': { standard: 'Lower Back Pain', defaultSite: 'Lumbar Spine' },
+    'घुटने में दर्द': { standard: 'Knee Joint Pain', defaultSite: 'Knees' },
+    'घुटनों में दर्द': { standard: 'Knee Joint Pain', defaultSite: 'Knees' },
+    'घुटने में कट-कट': { standard: 'Janu Sandhi Crepitus', defaultSite: 'Knees' },
+    'घुटनों में कट-कट': { standard: 'Janu Sandhi Crepitus', defaultSite: 'Knees' },
+    'जोड़ों में दर्द': { standard: 'Joint Pain / Arthralgia', defaultSite: 'Joints' },
+    'जोड़ों में सूजन': { standard: 'Joint Inflammation / Sandhishotha', defaultSite: 'Joints' },
+    'जकड़न': { standard: 'Morning Stiffness / Stambha', defaultSite: 'Joints' },
+    'अकड़न': { standard: 'Morning Stiffness / Stambha', defaultSite: 'Joints' },
+    'नस खिंचना': { standard: 'Sciatica / Neuralgia', defaultSite: 'Lumbosacral / Lower Limb' },
+    'सायटिका': { standard: 'Sciatica / Gridhrasi', defaultSite: 'Lower Extremity' },
+    'पिंडली में ऐंठन': { standard: 'Calf Muscle Cramps / Pindikodveshtana', defaultSite: 'Calf / Lower Extremity' },
+    'पेशाब में जलन': { standard: 'Dysuria / Burning Micturition', defaultSite: 'Urethra' },
+    'पेशाब रुक कर आना': { standard: 'Urinary Retention / Mutrakrichra', defaultSite: 'Urethra' },
+    'बार-बार पेशाब आना': { standard: 'Polyuria / Prabhutamutrata', defaultSite: 'Urethra' },
+    'पथरी का दर्द': { standard: 'Renal Calculi Colic / Ashmari', defaultSite: 'Left Lower Quadrant (LLQ)' },
+    'गुर्दे में दर्द': { standard: 'Renal Calculi Colic / Ashmari', defaultSite: 'Left Lower Quadrant (LLQ)' },
+    'कमजोरी': { standard: 'General Weakness / Asthenia', defaultSite: 'General' },
+    'थकान': { standard: 'General Weakness / Asthenia', defaultSite: 'General' },
+    'सुस्ती': { standard: 'Lethargy / Tandra', defaultSite: 'General' },
+    'भूख न लगना': { standard: 'Anorexia / Loss of Appetite', defaultSite: 'Systemic' },
+    'भूख कम लगना': { standard: 'Anorexia / Loss of Appetite', defaultSite: 'Systemic' },
+    'नींद न आना': { standard: 'Insomnia / Anidra', defaultSite: 'Psychoneurological' },
+    'अनिद्रा': { standard: 'Insomnia / Anidra', defaultSite: 'Psychoneurological' },
+    'खुजली': { standard: 'Pruritus / Itching', defaultSite: 'Skin' },
+    'दाने': { standard: 'Skin Eruptions', defaultSite: 'Skin' },
+    'चकत्ते': { standard: 'Dermatitis / Rash', defaultSite: 'Skin' },
+    'बदन दर्द': { standard: 'Generalized Bodyache / Angamarda', defaultSite: 'General' },
+
+    // 2. Hinglish & Latin Clinical Lexicon
     'bukhar': { standard: 'Fever' },
     'fever': { standard: 'Fever' },
     'taap': { standard: 'Fever' },
@@ -340,8 +437,8 @@ export class ClinicalParserService {
 
     // 1. Symptoms Extraction with Negation and Duration
     const symptoms: SocratesSymptom[] = [];
-    const durationRegex = /(\d+)\s*(din|days?|hafte|weeks?|mahine|months?|saal|years?)/gi;
-    const negationRegex = /\b(nahi|na|naahi|nhi|nai|no|not|denies|without|none)\b/i;
+    const durationRegex = /(\d+|[०-९]+|ek|do|teen|chaar|paanch|chhe|saat|aath|nau|das|एक|दो|तीन|चार|पांच|पाँच|छह|सात|आठ|नौ|दस)\s*(?:se|say|keliye|tak|se\s*hai|से)?\s*(din|days?|hafte|hafto|weeks?|mahine|mahino|months?|saal|years?|ghante|hours?|दिन|दिनों|हफ्ते|हफ़्ते|सप्ताह|महीने|महीनों|साल|वर्ष|घंटे|घंटों)/gi;
+    const negationRegex = /(?:nahi|na|naahi|nhi|nai|no|not|denies|without|none|नहीं|नही|ना|नाही|न|बिल्कुल\s*नहीं|कोई\s*नहीं)/i;
 
     for (const [key, meta] of Object.entries(this.symptomMap)) {
       let searchPos = 0;
@@ -393,12 +490,21 @@ export class ClinicalParserService {
         durationRegex.lastIndex = 0;
         const durMatch = durationRegex.exec(windowText);
         if (durMatch && bestDurationStr === 'Unspecified') {
-          const num = durMatch[1];
+          let num = durMatch[1];
+          // Map Hindi word numerals to digits
+          const numMap: Record<string, string> = {
+            'ek': '1', 'do': '2', 'teen': '3', 'chaar': '4', 'paanch': '5', 'chhe': '6', 'saat': '7', 'aath': '8', 'nau': '9', 'das': '10',
+            'एक': '1', 'दो': '2', 'तीन': '3', 'चार': '4', 'पांच': '5', 'पाँच': '5', 'छह': '6', 'सात': '7', 'आठ': '8', 'नौ': '9', 'दस': '10',
+            '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+          };
+          if (numMap[num]) num = numMap[num];
+
           const unit = durMatch[2].toLowerCase();
-          if (unit.startsWith('din') || unit.startsWith('day')) bestDurationStr = `${num} days`;
-          else if (unit.startsWith('haft') || unit.startsWith('week')) bestDurationStr = `${num} weeks`;
-          else if (unit.startsWith('mahin') || unit.startsWith('month')) bestDurationStr = `${num} months`;
-          else if (unit.startsWith('saal') || unit.startsWith('year')) bestDurationStr = `${num} years`;
+          if (unit.startsWith('din') || unit.startsWith('day') || unit.includes('दिन')) bestDurationStr = `${num} days`;
+          else if (unit.startsWith('haft') || unit.startsWith('week') || unit.includes('हफ्ते') || unit.includes('सप्ताह')) bestDurationStr = `${num} weeks`;
+          else if (unit.startsWith('mahin') || unit.startsWith('month') || unit.includes('महीने')) bestDurationStr = `${num} months`;
+          else if (unit.startsWith('saal') || unit.startsWith('year') || unit.includes('साल') || unit.includes('वर्ष')) bestDurationStr = `${num} years`;
+          else if (unit.startsWith('ghant') || unit.startsWith('hour') || unit.includes('घंटे')) bestDurationStr = `${num} hours`;
         }
       }
 
@@ -427,18 +533,18 @@ export class ClinicalParserService {
       }
     }
 
-    // 2. Vitals Extraction
+    // 2. Vitals Extraction (Bilingual English + Devanagari Hindi)
     const vitals: Record<string, any> = {};
-    const bpMatch = text.match(/\bBP\s*(?:is|hai|:)?\s*(\d{2,3}\/\d{2,3})\b/i) || text.match(/\b(\d{2,3}\/\d{2,3})\s*mm\s*hg\b/i);
+    const bpMatch = text.match(/(?:BP|बीपी|रक्तचाप)\s*(?:is|hai|:|=|है)?\s*(\d{2,3}\/\d{2,3})/i) || text.match(/(\d{2,3}\/\d{2,3})\s*(?:mm\s*hg|एमएम\s*एचजी)/i);
     if (bpMatch) vitals.bp = bpMatch[1];
 
-    const pulseMatch = text.match(/\b(?:pulse|heart rate|HR)\s*(?:is|hai|:)?\s*(\d{2,3})\b/i);
+    const pulseMatch = text.match(/(?:pulse|heart rate|HR|पल्स|धड़कन|नाड़ी)\s*(?:is|hai|:|=|है)?\s*(\d{2,3})/i);
     if (pulseMatch) vitals.pulse = parseInt(pulseMatch[1], 10);
 
-    const spo2Match = text.match(/\b(?:SpO2|saturation)\s*(?:is|hai|:)?\s*(\d{2,3})%?\b/i);
+    const spo2Match = text.match(/(?:SpO2|saturation|ऑक्सीजन|सैटुरेशन)\s*(?:is|hai|:|=|है)?\s*(\d{2,3})%?/i);
     if (spo2Match) vitals.spo2 = `${spo2Match[1]}%`;
 
-    const tempMatch = text.match(/\b(?:temp|temperature|fever)\s*(?:is|hai|:)?\s*(\d{2,3}(?:\.\d)?)\s*(?:F|C|degrees)?\b/i);
+    const tempMatch = text.match(/(?:temp|temperature|fever|तापमान|बुखार)\s*(?:is|hai|:|=|है)?\s*(\d{2,3}(?:\.\d)?)\s*(?:F|C|degrees|डिग्री)?/i);
     if (tempMatch) vitals.temp = `${tempMatch[1]}°F`;
 
     // 3. Past Comorbidities
