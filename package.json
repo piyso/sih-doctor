@@ -12,6 +12,8 @@
     "build": "npm run build --prefix backend && npm run build --prefix frontend",
     "test": "npm test --prefix backend",
     "test:benchmark": "npm run benchmark:efficiency --prefix backend",
+    "deploy:vercel": "bash scripts/deploy_vercel.sh",
+    "deploy:tunnel": "bash scripts/live_cloud_tunnel.sh",
     "clean": "rm -rf node_modules backend/node_modules frontend/node_modules"
   },
   "keywords": [
