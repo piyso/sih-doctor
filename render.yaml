@@ -22,7 +22,12 @@ services:
     env: static
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: frontend/dist
-    region: singapore
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: sih-doctor-backend
+          property: host
     routes:
       - type: rewrite
         source: /*
