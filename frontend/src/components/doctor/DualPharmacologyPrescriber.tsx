@@ -446,7 +446,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
 
             {allopathicMeds.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 12, color: '#94a3b8', border: '1px dashed #cbd5e1', borderRadius: 8 }}>
-                No allopathic drugs added. Click presets above.
+                No allopathic medications prescribed. Add from formulary above or scribe.
               </div>
             )}
           </div>
@@ -543,7 +543,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
 
             {ayushFormulations.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 12, color: '#94a3b8', border: '1px dashed #cbd5e1', borderRadius: 8 }}>
-                No AYUSH formulations added. Click presets above.
+                No AYUSH formulations prescribed. Add from formulary above or scribe.
               </div>
             )}
           </div>

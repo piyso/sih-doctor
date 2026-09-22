@@ -9,9 +9,16 @@ interface PreIntakePanelProps {
 export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session }) => {
   if (!session) {
     return (
-      <div className="physical-card p-8 text-center flex flex-col items-center justify-center gap-3">
-        <User size={28} className="text-muted-foreground/40" />
-        <span className="text-xs text-muted-foreground font-medium">Select a patient from the queue to view clinical intake.</span>
+      <div className="physical-card p-10 text-center flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground/60">
+          <User size={24} />
+        </div>
+        <div>
+          <h4 className="text-xs font-heading font-bold text-foreground mb-1">No Active Consultation</h4>
+          <p className="text-[11px] text-muted-foreground max-w-xs leading-relaxed">
+            Select a patient from the queue or register a walk-in at the touch MediKiosk to display clinical anamnesis and vital signs.
+          </p>
+        </div>
       </div>
     );
   }

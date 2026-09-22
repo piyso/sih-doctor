@@ -168,11 +168,21 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
           );
         })}
 
-        {filtered.length === 0 && (
+        {queue.length === 0 ? (
+          <div className="text-center py-12 px-3 text-muted-foreground flex flex-col items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
+              <User size={18} />
+            </div>
+            <span className="text-xs font-heading font-bold text-foreground mb-1">Queue Clear (0 Patients)</span>
+            <p className="text-[11px] text-muted-foreground max-w-[200px] leading-relaxed">
+              Waiting for real-time patient registration from Citizen MediKiosk or Frontline ASHA tablet.
+            </p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-xs font-medium">
             No patients match filter criteria.
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

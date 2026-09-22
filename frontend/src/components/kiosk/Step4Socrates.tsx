@@ -36,6 +36,23 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
     severityScore: 0
   };
 
+  // Seamless bi-directional synchronization from Step 3 3D Mannequin & Voice Intake
+  React.useEffect(() => {
+    if (symptoms.length === 0 && selectedBodyRegion) {
+      setSymptoms([{
+        site: selectedBodyRegion,
+        onset: '',
+        character: 'Dull aching (Bheda)',
+        radiation: '',
+        associations: [],
+        timing: '',
+        exacerbatingFactors: [],
+        relievingFactors: [],
+        severityScore: 0
+      }]);
+    }
+  }, [selectedBodyRegion, symptoms.length, setSymptoms]);
+
   const updateCurrentSymptom = (field: keyof SocratesSymptom, value: any) => {
     const updated = { ...currentSymptom, [field]: value };
     setSymptoms([updated]);

@@ -70,13 +70,6 @@ app.use('/api/abdm', abdmRouter);
 app.use('/api/security', securityRouter);
 app.use('/api/asha', ashaRouter);
 
-// Auto-seed if database is unseeded
-const patientCount = db.prepare('SELECT count(*) as count FROM patients').get() as { count: number };
-if (patientCount.count === 0) {
-  console.log('[Init] Database is empty. Seeding initial test data...');
-  seedDatabase();
-}
-
 // HTTP Server
 const server = http.createServer(app);
 

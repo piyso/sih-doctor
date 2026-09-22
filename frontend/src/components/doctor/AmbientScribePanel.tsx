@@ -523,62 +523,6 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
 
         {/* Input & Acoustic Mode Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {/* Real Mic vs Simulated */}
-          <div
-            style={{
-              display: 'flex',
-              background: '#f1f5f9',
-              borderRadius: 20,
-              border: '1px solid #e2e8f0',
-              padding: 2
-            }}
-          >
-            <button
-              onClick={() => handleModeChange('real_mic')}
-              disabled={isListening}
-              style={{
-                background: inputMode === 'real_mic' ? '#ffffff' : 'transparent',
-                color: inputMode === 'real_mic' ? '#0f172a' : '#64748b',
-                border: 'none',
-                padding: '4px 10px',
-                borderRadius: 16,
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: isListening ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                boxShadow: inputMode === 'real_mic' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-              }}
-              title="Speak live into your physical microphone"
-            >
-              <Mic size={12} color={inputMode === 'real_mic' ? '#16a34a' : '#64748b'} />
-              <span>Real Mic</span>
-            </button>
-            <button
-              onClick={() => handleModeChange('simulated')}
-              disabled={isListening}
-              style={{
-                background: inputMode === 'simulated' ? '#ffffff' : 'transparent',
-                color: inputMode === 'simulated' ? '#0f172a' : '#64748b',
-                border: 'none',
-                padding: '4px 10px',
-                borderRadius: 16,
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: isListening ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                boxShadow: inputMode === 'simulated' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-              }}
-              title="Stream autonomous pre-recorded bilingual OPD encounter"
-            >
-              <Radio size={12} color={inputMode === 'simulated' ? '#0f172a' : '#64748b'} />
-              <span>Simulated</span>
-            </button>
-          </div>
-
           {/* Acoustic Sensitivity Selector */}
           <select
             value={acousticMode}
@@ -600,27 +544,25 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
             <option value="standard">🏢 Standard Desk (+6dB)</option>
           </select>
 
-          {inputMode === 'real_mic' && (
-            <select
-              value={micLanguage}
-              onChange={(e) => {
-                sovereignSound('notch');
-                setMicLanguage(e.target.value as any);
-              }}
-              disabled={isListening}
-              style={{
-                padding: '4px 8px',
-                fontSize: 11,
-                borderRadius: 6,
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                color: '#0f172a'
-              }}
-            >
-              <option value="hi-IN">Hindi / Hinglish (hi-IN)</option>
-              <option value="en-IN">Indian English (en-IN)</option>
-            </select>
-          )}
+          <select
+            value={micLanguage}
+            onChange={(e) => {
+              sovereignSound('notch');
+              setMicLanguage(e.target.value as any);
+            }}
+            disabled={isListening}
+            style={{
+              padding: '4px 8px',
+              fontSize: 11,
+              borderRadius: 6,
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              color: '#0f172a'
+            }}
+          >
+            <option value="hi-IN">Hindi / Hinglish (hi-IN)</option>
+            <option value="en-IN">Indian English (en-IN)</option>
+          </select>
 
           <button
             onClick={toggleListening}
@@ -630,12 +572,12 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
             {isListening ? (
               <>
                 <Square size={13} />
-                <span>Stop Listening</span>
+                <span>Stop Mic</span>
               </>
             ) : (
               <>
                 <Mic size={13} />
-                <span>{inputMode === 'real_mic' ? 'Start Mic' : 'Start Stream'}</span>
+                <span>Start Live Mic</span>
               </>
             )}
           </button>
@@ -731,56 +673,9 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
       {/* Wave Visualizer */}
       <AudioVisualizer isRecording={isListening} color="#0f172a" />
 
-      {/* Quick Scenario Triggers */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b' }}>Quick Test Cases:</span>
-        <button
-          onClick={() => injectQuickSimulation('knee_osteo')}
-          style={{
-            fontSize: 10.5,
-            padding: '3px 8px',
-            background: '#f1f5f9',
-            border: '1px solid #cbd5e1',
-            borderRadius: 6,
-            cursor: 'pointer',
-            color: '#0f172a',
-            fontWeight: 600
-          }}
-        >
-          Knee Osteoarthritis (Whisper)
-        </button>
-        <button
-          onClick={() => injectQuickSimulation('chest_ami')}
-          style={{
-            fontSize: 10.5,
-            padding: '3px 8px',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 6,
-            cursor: 'pointer',
-            color: '#991b1b',
-            fontWeight: 600
-          }}
-        >
-          Acute Coronary AMI (Emergency)
-        </button>
-        <button
-          onClick={() => injectQuickSimulation('gastritis')}
-          style={{
-            fontSize: 10.5,
-            padding: '3px 8px',
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: 6,
-            cursor: 'pointer',
-            color: '#166534',
-            fontWeight: 600
-          }}
-        >
-          Amlapitta / Gastritis
-        </button>
-
-        {transcriptLines.length > 0 && (
+      {/* Transcript Controls */}
+      {transcriptLines.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
           <button
             onClick={() => {
               sovereignSound('notch');
@@ -794,16 +689,14 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
               border: '1px solid #cbd5e1',
               borderRadius: 6,
               cursor: 'pointer',
-              color: '#64748b',
-              fontWeight: 600,
-              marginLeft: 'auto'
+              color: '#64748b'
             }}
             title="Clear transcript"
           >
-            Clear Transcript
+            Clear Live Transcript
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Transcript Box */}
       <div
@@ -829,7 +722,7 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
               Far-Field Ambient Consultation Scribe Active
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 4 }}>
-              Click &quot;Start Mic&quot; or select a quick test case above to see real-time acoustic scribing.
+              Click &quot;Start Live Mic&quot; and speak into your room microphone to begin live acoustic consultation transcription.
             </div>
             <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 6 }}>
               • High-pass rumble filter active • Soft-knee whisper compressor • 500ms pre-roll zero-drop buffer

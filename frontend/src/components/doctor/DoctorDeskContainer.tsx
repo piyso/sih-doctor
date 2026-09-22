@@ -24,8 +24,15 @@ export const DoctorDeskContainer: React.FC = () => {
   const loadQueue = async () => {
     const q = await api.getQueue();
     setQueue(q);
-    if (q.length > 0 && !selectedSessionId) {
-      handleSelectPatient(q[0]);
+    if (q.length > 0) {
+      if (!selectedSessionId || !q.some(item => item.sessionId === selectedSessionId)) {
+        handleSelectPatient(q[0]);
+      }
+    } else {
+      setSelectedSessionId(null);
+      setCurrentSession(null);
+      setAllopathicMeds([]);
+      setAyushFormulations([]);
     }
   };
 
