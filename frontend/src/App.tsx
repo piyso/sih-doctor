@@ -47,7 +47,7 @@ export function App() {
     return () => window.removeEventListener('pointermove', handlePointerMove);
   }, []);
 
-  // Global Pro Shortcuts: Esc to Portal, 1-6 for Direct Terminal Launching
+  // Global Pro Shortcuts: Esc to Portal, 1-6 on Portal (or Alt+1-6 globally)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -61,23 +61,18 @@ export function App() {
 
       if (e.key === 'Escape') {
         launch('portal');
-      } else if (e.key === '1') {
-        launch('kiosk');
-      } else if (e.key === '2') {
-        launch('doctor');
-      } else if (e.key === '3') {
-        launch('pharmacy');
-      } else if (e.key === '4') {
-        launch('asha');
-      } else if (e.key === '5') {
-        launch('admin');
-      } else if (e.key === '6') {
-        launch('matrix');
+      } else if (activeView === 'portal' || e.altKey) {
+        if (e.key === '1') launch('kiosk');
+        else if (e.key === '2') launch('doctor');
+        else if (e.key === '3') launch('pharmacy');
+        else if (e.key === '4') launch('asha');
+        else if (e.key === '5') launch('admin');
+        else if (e.key === '6') launch('matrix');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeView]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
