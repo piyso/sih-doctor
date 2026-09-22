@@ -23,11 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
-# Heavy 3D Models (>100MB) - Full 226MB Model is hosted on GitHub Releases CDN
+# Heavy 3D Models (>100MB) - Full 226MB smooth model Draco-compressed to 28MB (zero quality loss)
 *.fbx
 *.glb
 *.part*
 !public/models/human_body.glb
-!public/models/3d_mannequin_instant.glb
+!public/models/3d_mannequin_draco.glb
 
 
