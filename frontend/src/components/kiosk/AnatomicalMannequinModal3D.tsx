@@ -141,16 +141,24 @@ export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProp
 
   const handleSelectMicroLocus = (locus: MicroLocusItem) => {
     try { sovereignSound.playHotspotPulse(); } catch {}
-    onSelectRegion(locus.id);
-    setSelectedSubKey(locus.subKey);
-    setExternalCamTarget({
-      yaw: locus.optimalView.yaw,
-      pitch: locus.optimalView.pitch || 0
-    });
-    if (locus.isPosterior) {
-      setViewMode('back');
-    } else {
+    if (selectedRegion === locus.id) {
+      onSelectRegion('');
+      setSelectedSubKey('');
+      setMacroZone('full');
+      setExternalCamTarget({ yaw: 0, pitch: 0 });
       setViewMode('front');
+    } else {
+      onSelectRegion(locus.id);
+      setSelectedSubKey(locus.subKey);
+      setExternalCamTarget({
+        yaw: locus.optimalView.yaw,
+        pitch: locus.optimalView.pitch || 0
+      });
+      if (locus.isPosterior) {
+        setViewMode('back');
+      } else {
+        setViewMode('front');
+      }
     }
   };
 
@@ -343,8 +351,13 @@ export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProp
             selectedRegion={selectedRegion}
             onSelectRegion={(reg: string) => {
               onSelectRegion(reg);
-              const matched = MICRO_LOCI_CATALOG.find(m => m.id === reg);
-              if (matched) setSelectedSubKey(matched.subKey);
+              if (!reg) {
+                setSelectedSubKey('');
+                setMacroZone('full');
+              } else {
+                const matched = MICRO_LOCI_CATALOG.find(m => m.id === reg);
+                if (matched) setSelectedSubKey(matched.subKey);
+              }
             }}
             viewMode={viewMode}
             onViewModeChange={(mode) => setViewMode(mode)}

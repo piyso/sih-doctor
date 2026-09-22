@@ -2092,7 +2092,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
             setHoveredMeshInfo({
               name: topHit.object.name || hoverRegion,
               regionId: hoverRegion,
-              hindiName: matchedLocus ? `${matchedLocus.hindiLabel} (${matchedLocus.label})` : hoverRegion,
+              hindiName: matchedLocus ? matchedLocus.hindiLabel : hoverRegion,
               system: 'muscular',
               marma: matchedLocus?.ayushMarma || '',
               isLeft: localHit.x > 0.025,

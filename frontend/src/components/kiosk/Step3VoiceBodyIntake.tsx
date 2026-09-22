@@ -11,19 +11,26 @@ import {
   EyeOff,
   CheckCircle2,
   Shield,
-  Layers,
-  Box,
-  Target,
   HeartPulse,
-  Maximize2,
-  Sliders,
-  User,
+  ArrowRight,
+  ArrowLeft,
+  Edit3,
+  Flame,
+  Zap,
   Activity,
   Heart,
   Bone,
-  Search,
+  Clock,
+  Radio,
+  ChevronDown,
   X,
-  ArrowRight
+  CornerUpLeft,
+  Trash2,
+  Undo2,
+  RotateCcw,
+  Wind,
+  Droplets,
+  Thermometer
 } from 'lucide-react';
 import { AudioVisualizer } from '../common/AudioVisualizer';
 import { api } from '../../services/api';
@@ -35,7 +42,6 @@ import {
   LOCUS_TO_MACRO_ZONE,
   MacroZone
 } from './AnatomicalMannequin3D';
-import { AnatomicalMannequinModal3D } from './AnatomicalMannequinModal3D';
 
 interface Step3VoiceBodyIntakeProps {
   transcript: string;
@@ -50,202 +56,296 @@ interface Step3VoiceBodyIntakeProps {
 interface CongruenceRecommendation {
   suggestedLocusId: string;
   suggestedLocusHindi: string;
+  suggestedLocusEn: string;
   reasonHindi: string;
   reasonEn: string;
   triggerPhrase: string;
   isEmergency?: boolean;
+  priorityLevel: 'CRITICAL_CARDIAC' | 'RESPIRATORY_EMERGENCY' | 'ACUTE_SURGICAL' | 'NEURO_CRITICAL' | 'ORGAN_REDIRECT';
+  ayushMarmaAlert?: string;
 }
 
-// Patent-Grade Semantic Symptom-Locus Congruence Cross-Validator
+// Infallible Multi-Tiered Semantic Symptom-Locus Congruence Cross-Validator
 const evaluateCongruenceMismatch = (
   selectedRegion: string,
   transcriptText: string
 ): CongruenceRecommendation | null => {
-  if (!selectedRegion || !transcriptText) return null;
+  if (!transcriptText) return null;
   const text = transcriptText.toLowerCase();
 
-  // 1. CARDIAC vs PULMONARY / RESPIRATORY / ACIDITY
+  // Regional Negation Check (e.g. "no chest pain", "seene me koi dard nahi")
+  const hasChestNegation = (
+    /(?:no|denies|without|zero|negative\s*for)\s*(?:chest|precordial|retrosternal)\s*(?:pain|pressure|discomfort|heaviness)/i.test(text) ||
+    /(?:chest|precordial|retrosternal)\s*(?:pain|pressure|discomfort|tightness)\s*(?:absent|negative|none|nil|not\s*present|nahi)/i.test(text) ||
+    /(?:seena|seenas|chhati|seene|chaati)[^.!?:\n,]*(?:kono|koi|kisi|kah)?\s*(?:dard|bojh|peeda|soor|dikkat|takleef|pareshaani)[^.!?:\n,]*(?:naikhe|nahi|naahi|nhi|nai|nathi|ledu|illa|illai|nei)/i.test(text) ||
+    /(?:nenjil|gunde|ede)[^.!?:\n,]*(?:vali|noppi|novu)[^.!?:\n,]*(?:illai|ledu|illa)/i.test(text)
+  );
+
+  // =========================================================================
+  // PRIORITY 0: UNIVERSAL CARDIAC / ANGINA / MYOCARDIAL ISCHEMIA OVERRIDE
+  // (Zero tolerance for missed cardiac events regardless of somatic locus)
+  // =========================================================================
+  if (selectedRegion !== 'Left Chest / Precordium' && selectedRegion !== 'Right Chest' && !hasChestNegation) {
+    const universalCardiacKeywords = [
+      'chest pain', 'pain in chest', 'chest heaviness', 'chest pressure', 'chest burning', 'chest tightness',
+      'heart attack', 'heart pain', 'heart me dard', 'angina', 'precordial', 'crushing chest', 'palpitations',
+      'seene me dard', 'chhati me dard', 'chaati me dard', 'dil me dard', 'seene me bojh', 'seene me jalan',
+      'seene me dabaav', 'seene me dabav', 'chhati me jalan', 'chhati me bojh', 'sine me dard', 'chati me dard',
+      'dil doob', 'dil ghabra', 'सीने में दर्द', 'छाती में दर्द', 'सीने में भारीपन', 'छाती में भारीपन',
+      'दिल में दर्द', 'हार्ट में दर्द', 'सीने में जलन', 'सीने में जकड़न', 'हृदय शूल', 'धड़कन तेज़',
+      'घबराहट के साथ सीना', 'सीने में दबाव', 'पसीने के साथ सीने में', 'हार्ट अटैक'
+    ];
+    const matchedCardiac = universalCardiacKeywords.find(k => text.includes(k));
+    if (matchedCardiac) {
+      const selectedHindi = REGIONAL_COMPLAINTS[selectedRegion]?.hindiName || selectedRegion || 'चुना हुआ अंग';
+      const selectedEn = REGIONAL_COMPLAINTS[selectedRegion]?.enName || selectedRegion || 'Selected Organ';
+      return {
+        suggestedLocusId: 'Left Chest / Precordium',
+        suggestedLocusHindi: 'बायां सीना / हृदय (Heart & Precordium)',
+        suggestedLocusEn: 'Left Chest & Heart',
+        reasonHindi: `आपातकालीन चेतावनी: आपने 3D मॉडल पर '${selectedHindi}' चुना है, लेकिन आवाज़ में सीने/हृदय के दर्द ('${matchedCardiac}') का उल्लेख है!`,
+        reasonEn: `Cardiac Emergency Alert: 3D model locus is '${selectedEn}', but spoken voice indicates acute chest/cardiac pain ('${matchedCardiac}').`,
+        triggerPhrase: matchedCardiac,
+        isEmergency: true,
+        priorityLevel: 'CRITICAL_CARDIAC',
+        ayushMarmaAlert: 'Hridaya Marma · Sadhyo Pranahara Sthana'
+      };
+    }
+  }
+
+  // =========================================================================
+  // PRIORITY 1: UNIVERSAL RESPIRATORY DISTRESS / STRIDOR / HEMOPTYSIS
+  // =========================================================================
+  if (selectedRegion !== 'Lungs & Respiration' && selectedRegion !== 'Left Chest / Precordium') {
+    const universalRespiratoryKeywords = [
+      'shortness of breath', 'breathlessness', 'cannot breathe', 'asthma', 'wheezing',
+      'coughing blood', 'hemoptysis', 'stridor', 'saans phool', 'dam phool', 'dam ghut',
+      'seeti jaisi awaz', 'balgam me khoon', 'saans lene me takleef', 'सांस फूलना',
+      'दम फूलना', 'दम घुटना', 'दमा', 'खांसी में खून', 'सीटी जैसी आवाज़', 'घरघराहट',
+      'सांस लेने में भारी कष्ट'
+    ];
+    const matchedResp = universalRespiratoryKeywords.find(k => text.includes(k));
+    if (matchedResp) {
+      return {
+        suggestedLocusId: 'Lungs & Respiration',
+        suggestedLocusHindi: 'फेफड़े व सांस (Lungs & Respiration)',
+        suggestedLocusEn: 'Lungs & Respiration',
+        reasonHindi: `श्वसन चेतावनी: विवरण में सांस फूलने/फेफड़ों के कष्ट ('${matchedResp}') का उल्लेख है। क्या आप फेफड़े व श्वसन विभाग चुनना चाहते हैं?`,
+        reasonEn: `Respiratory Distress Alert: Dyspnea/respiratory signs detected ('${matchedResp}').`,
+        triggerPhrase: matchedResp,
+        isEmergency: true,
+        priorityLevel: 'RESPIRATORY_EMERGENCY',
+        ayushMarmaAlert: 'Pranavaha Srotas · Phupphusa Shula'
+      };
+    }
+  }
+
+  // =========================================================================
+  // PRIORITY 2: CONTEXTUAL CHEST SUB-DIFFERENTIATION (When Left Chest Selected)
+  // =========================================================================
   if (selectedRegion === 'Left Chest / Precordium') {
-    // Pulmonary keywords
     const pulmonaryKeywords = ['खांसी', 'cough', 'दमा', 'asthma', 'बलगम', 'phlegm', 'सीटी', 'wheezing', 'जुकाम', 'cold', 'सांस फूल'];
     const matchedPulmonary = pulmonaryKeywords.find(k => text.includes(k));
     if (matchedPulmonary) {
       return {
         suggestedLocusId: 'Lungs & Respiration',
         suggestedLocusHindi: 'फेफड़े व सांस (Lungs & Respiration)',
-        reasonHindi: `आपके विवरण में '${matchedPulmonary}' का उल्लेख है, जो फेफड़ों से संबंधित प्रतीत होता है।`,
+        suggestedLocusEn: 'Lungs & Respiration',
+        reasonHindi: `विवरण में '${matchedPulmonary}' का उल्लेख है — क्या तकलीफ़ फेफड़ों से संबंधित है?`,
         reasonEn: `Respiratory symptom detected ('${matchedPulmonary}').`,
-        triggerPhrase: matchedPulmonary
+        triggerPhrase: matchedPulmonary,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
 
-    // Acidity / GERD keywords
-    const acidityKeywords = ['खट्टी डकार', 'acidity', 'एसिडिटी', 'जलन', 'heartburn', 'अम्लपित्त', 'गैस', 'खाना खाने के बाद', 'खाली पेट'];
+    const acidityKeywords = ['खट्टी डकार', 'acidity', 'एसिडिटी', 'heartburn', 'अम्लपित्त', 'गैस', 'खाना खाने के बाद', 'खाली पेट'];
     const matchedAcidity = acidityKeywords.find(k => text.includes(k));
     if (matchedAcidity) {
       return {
         suggestedLocusId: 'Epigastrium',
-        suggestedLocusHindi: 'सीने में जलन / एसिडिटी (Epigastrium)',
+        suggestedLocusHindi: 'ऊपरी पेट / अम्लपित्त (Epigastrium)',
+        suggestedLocusEn: 'Upper Stomach & Epigastrium',
         reasonHindi: `विवरण में '${matchedAcidity}' का उल्लेख है — क्या यह एसिडिटी/अम्लपित्त की जलन है?`,
         reasonEn: `Reflux/acidity symptom detected ('${matchedAcidity}').`,
-        triggerPhrase: matchedAcidity
+        triggerPhrase: matchedAcidity,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
   }
 
-  // 2. CRANIAL vs EAR vs THROAT vs SINUS vs CERVICAL
-  if (selectedRegion === 'Head') {
-    // Ear check
-    const earKeywords = ['कान', 'ear', 'कनपटी', 'टीस', 'बहना', 'कम सुनाई', 'tinnitus'];
-    const matchedEar = earKeywords.find(k => text.includes(k));
-    if (matchedEar) {
-      return {
-        suggestedLocusId: 'Ear',
-        suggestedLocusHindi: 'कान (Ear & Hearing)',
-        reasonHindi: `विवरण में '${matchedEar}' का उल्लेख है — क्या मुख्य तकलीफ़ कान में है?`,
-        reasonEn: `Ear symptom detected ('${matchedEar}').`,
-        triggerPhrase: matchedEar
-      };
-    }
+  // =========================================================================
+  // PRIORITY 3: UNIVERSAL ACUTE ABDOMEN / APPENDICITIS / RENAL COLIC / PELVIC
+  // =========================================================================
+  const isAbdominalRegion = [
+    'Epigastrium', 'Umbilicus / Mid-Abdomen', 'Right Lower Quadrant (RLQ)',
+    'Left Lower Quadrant (LLQ)', 'Pelvic / Hypogastrium'
+  ].includes(selectedRegion);
 
-    // Throat check
-    const throatKeywords = ['गला', 'throat', 'खराश', 'निगलने', 'टॉन्सिल', 'आवाज़ बैठना', 'थाइरॉइड'];
-    const matchedThroat = throatKeywords.find(k => text.includes(k));
-    if (matchedThroat) {
-      return {
-        suggestedLocusId: 'Neck',
-        suggestedLocusHindi: 'गला / गर्दन (Throat & Larynx)',
-        reasonHindi: `विवरण में '${matchedThroat}' का उल्लेख है — क्या तकलीफ़ गले में है?`,
-        reasonEn: `Throat symptom detected ('${matchedThroat}').`,
-        triggerPhrase: matchedThroat
-      };
-    }
-
-    // Sinus check
-    const sinusKeywords = ['साइनस', 'sinus', 'चेहरा', 'गाल', 'आँखों में जलन', 'नाक बंद', 'छींक'];
-    const matchedSinus = sinusKeywords.find(k => text.includes(k));
-    if (matchedSinus) {
-      return {
-        suggestedLocusId: 'Face & Sinus',
-        suggestedLocusHindi: 'चेहरा व आँखें (Face & Sinuses)',
-        reasonHindi: `विवरण में '${matchedSinus}' का उल्लेख है — क्या यह साइनस का भारीपन है?`,
-        reasonEn: `Sinus/facial congestion detected ('${matchedSinus}').`,
-        triggerPhrase: matchedSinus
-      };
-    }
-
-    // Cervical check
-    const cervicalKeywords = ['गर्दन अकड़', 'गर्दन घुमाने', 'cervical', 'गर्दन में दर्द'];
-    const matchedCervical = cervicalKeywords.find(k => text.includes(k));
-    if (matchedCervical) {
-      return {
-        suggestedLocusId: 'Cervical Spine',
-        suggestedLocusHindi: 'गर्दन की नसें (Cervical Spine)',
-        reasonHindi: `विवरण में गर्दन की जकड़न का उल्लेख है — क्या यह सर्वाइकल है?`,
-        reasonEn: `Cervical radiculopathy detected ('${matchedCervical}').`,
-        triggerPhrase: matchedCervical
-      };
-    }
-  }
-
-  // 3. ABDOMEN (EPIGASTRIUM / UMBILICUS) vs CARDIAC INFERIOR WALL MI vs RLQ vs LLQ vs PELVIS
-  if (selectedRegion === 'Epigastrium' || selectedRegion === 'Umbilicus / Mid-Abdomen') {
-    // Atypical Cardiac Angina (Inferior Wall MI Rule)
-    const cardiacAnginaKeywords = ['सीना', 'छाती', 'बायां कंधा', 'पसीना', 'घबराहट', 'chest', 'sweat', 'left arm', 'जबड़े', 'jaw', 'दिल डूबना'];
-    const matchedCardiac = cardiacAnginaKeywords.find(k => text.includes(k));
-    if (matchedCardiac) {
-      return {
-        suggestedLocusId: 'Left Chest / Precordium',
-        suggestedLocusHindi: 'बायां सीना / हृदय (Cardiac Precordium)',
-        reasonHindi: `ध्यान दें: पेट के ऊपरी दर्द के साथ '${matchedCardiac}' का होना हृदय शूल (Cardiac Angina / Inferior MI) का संकेत हो सकता है।`,
-        reasonEn: `Cardiac radiation warning ('${matchedCardiac}').`,
-        triggerPhrase: matchedCardiac,
-        isEmergency: true
-      };
-    }
-
-    // RLQ / Appendix Check
-    const rlqKeywords = ['दाहिने तरफ नीचे', 'दायां निचला', 'right lower', 'अपेंडिक्स', 'appendix', 'दाएं पेट', 'mcburney'];
+  if (!isAbdominalRegion) {
+    // 3A. Appendicitis / Right Lower Quadrant
+    const rlqKeywords = ['दाहिने तरफ नीचे', 'दायां निचला', 'right lower', 'अपेंडिक्स', 'appendix', 'दाएं पेट', 'mcburney', 'daye pet'];
     const matchedRlq = rlqKeywords.find(k => text.includes(k));
     if (matchedRlq) {
       return {
         suggestedLocusId: 'Right Lower Quadrant (RLQ)',
-        suggestedLocusHindi: 'दायां निचला पेट (RLQ / Appendix)',
-        reasonHindi: `दाहिने निचले पेट का दर्द अपेंडिक्स (Appendix · उण्डुक शूल) से संबंधित हो सकता है।`,
-        reasonEn: `Right lower quadrant signs detected ('${matchedRlq}').`,
+        suggestedLocusHindi: 'दायां निचला पेट (Appendix)',
+        suggestedLocusEn: 'Right Lower Abdomen (Appendix)',
+        reasonHindi: `दाहिने निचले पेट का दर्द अपेंडिक्स का संकेत हो सकता है ('${matchedRlq}')।`,
+        reasonEn: `Right lower quadrant appendicitis signs detected ('${matchedRlq}').`,
         triggerPhrase: matchedRlq,
-        isEmergency: true
+        isEmergency: true,
+        priorityLevel: 'ACUTE_SURGICAL',
+        ayushMarmaAlert: 'Unduka Sthana · Acute Surgical Locus'
       };
     }
 
-    // LLQ / Left Kidney Stone / Colic Check
-    const llqKeywords = ['बाएं पेट', 'बायां निचला', 'left lower', 'पथरी', 'गुर्दा', 'kidney stone', 'कमर से आगे'];
+    // 3B. Kidney Stone / Left Lower Quadrant
+    const llqKeywords = ['बाएं पेट', 'बायां निचला', 'left lower', 'पथरी', 'गुर्दा', 'kidney stone', 'कमर से आगे', 'baye pet'];
     const matchedLlq = llqKeywords.find(k => text.includes(k));
     if (matchedLlq) {
       return {
         suggestedLocusId: 'Left Lower Quadrant (LLQ)',
         suggestedLocusHindi: 'बायां निचला पेट / गुर्दा (LLQ)',
-        reasonHindi: `बाएं तरफ का दर्द वृक्क / गुर्दे की पथरी (Left Renal Colic) से संबंधित प्रतीत होता है।`,
+        suggestedLocusEn: 'Left Lower Abdomen (Kidney)',
+        reasonHindi: `बाएं तरफ का दर्द गुर्दे की पथरी ('${matchedLlq}') की ओर संकेत करता है।`,
         reasonEn: `Left lower quadrant renal colic detected ('${matchedLlq}').`,
-        triggerPhrase: matchedLlq
+        triggerPhrase: matchedLlq,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
 
-    // Pelvic / Lower Abdomen / Bladder / UTI Check
+    // 3C. Pelvic / UTI
     const pelvicKeywords = ['निचला पेट', 'निचले पेट', 'नीचे का पेट', 'पेशाब में जलन', 'पेशाब रुक', 'पेडू', 'मासिक धर्म', 'period', 'bladder', 'uti', 'dysuria', 'lower belly', 'pelvic'];
     const matchedPelvic = pelvicKeywords.find(k => text.includes(k));
     if (matchedPelvic) {
       return {
         suggestedLocusId: 'Pelvic / Hypogastrium',
-        suggestedLocusHindi: 'निचला पेट / पेडू (Pelvis & Bladder)',
+        suggestedLocusHindi: 'निचला पेट / पेडू (Pelvis)',
+        suggestedLocusEn: 'Lower Belly & Pelvis',
         reasonHindi: `विवरण में '${matchedPelvic}' का उल्लेख है — क्या तकलीफ़ निचले पेट / पेडू में है?`,
         reasonEn: `Pelvic / Lower abdominal symptoms detected ('${matchedPelvic}').`,
-        triggerPhrase: matchedPelvic
+        triggerPhrase: matchedPelvic,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
-  }
 
-  // 3b. LOWER ABDOMEN / PELVIS / RLQ / LLQ vs UPPER ABDOMEN
-  if (selectedRegion === 'Pelvic / Hypogastrium' || selectedRegion === 'Right Lower Quadrant (RLQ)' || selectedRegion === 'Left Lower Quadrant (LLQ)') {
-    const upperAbdomenKeywords = ['ऊपरी पेट', 'ऊपर का पेट', 'सीने के नीचे', 'अम्लपित्त', 'खट्टी डकार', 'आमाशय', 'epigastrium', 'upper stomach', 'acidity', 'gastritis'];
-    const matchedUpper = upperAbdomenKeywords.find(k => text.includes(k));
-    if (matchedUpper) {
+    // 3D. General Abdominal / Epigastric Colic
+    const generalAbdomenKeywords = [
+      'pet me dard', 'stomach pain', 'belly ache', 'paat dard', 'pet dard', 'pait me dard',
+      'pet kharab', 'pet me marod', 'khatti dakar', 'पेट में दर्द', 'पेट दर्द', 'ऊपरी पेट',
+      'खट्टी डकार', 'अम्लपित्त', 'आमाशय'
+    ];
+    const matchedAbdomen = generalAbdomenKeywords.find(k => text.includes(k));
+    if (matchedAbdomen) {
       return {
         suggestedLocusId: 'Epigastrium',
-        suggestedLocusHindi: 'ऊपरी पेट / अम्लपित्त (Epigastrium)',
-        reasonHindi: `विवरण में '${matchedUpper}' का उल्लेख है — क्या तकलीफ़ ऊपरी पेट / आमाशय में है?`,
-        reasonEn: `Upper abdominal / epigastric symptom detected ('${matchedUpper}').`,
-        triggerPhrase: matchedUpper
+        suggestedLocusHindi: 'ऊपरी पेट (आमाशय)',
+        suggestedLocusEn: 'Upper Stomach & Epigastrium',
+        reasonHindi: `विवरण में पेट दर्द ('${matchedAbdomen}') का उल्लेख है। क्या आप पेट/आमाशय चुनना चाहते हैं?`,
+        reasonEn: `Abdominal pain detected ('${matchedAbdomen}').`,
+        triggerPhrase: matchedAbdomen,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
   }
 
-  // 4. SHOULDER vs CERVICAL SPINE vs CARDIAC
-  if (selectedRegion === 'Left Shoulder' || selectedRegion === 'Right Shoulder') {
-    const cervicalKeywords = ['गर्दन', 'cervical', 'गर्दन घुमाने', 'सिर के पीछे'];
-    const matchedCervical = cervicalKeywords.find(k => text.includes(k));
-    if (matchedCervical) {
+  // =========================================================================
+  // PRIORITY 4: CRANIAL / ENT / CERVICAL DIVERGENCE
+  // =========================================================================
+  if (selectedRegion !== 'Head' && selectedRegion !== 'Face & Sinus' && selectedRegion !== 'Ear' && selectedRegion !== 'Neck' && selectedRegion !== 'Cervical Spine') {
+    const headKeywords = ['सिर में दर्द', 'headache', 'माइग्रेन', 'migraine', 'चक्कर', 'vertigo', 'sir dard', 'sar dard', 'matha ghum'];
+    const matchedHead = headKeywords.find(k => text.includes(k));
+    if (matchedHead) {
       return {
-        suggestedLocusId: 'Cervical Spine',
-        suggestedLocusHindi: 'गर्दन की रीढ़ (Cervical Spine)',
-        reasonHindi: `कंधे के साथ '${matchedCervical}' का उल्लेख है — क्या दर्द गर्दन से उतर रहा है (Cervical Radiculopathy)?`,
-        reasonEn: `Cervical origin detected ('${matchedCervical}').`,
-        triggerPhrase: matchedCervical
+        suggestedLocusId: 'Head',
+        suggestedLocusHindi: 'सिर व माथा (Head & Cranium)',
+        suggestedLocusEn: 'Head & Cranium',
+        reasonHindi: `विवरण में सिर दर्द/चक्कर ('${matchedHead}') का उल्लेख है। क्या मुख्य तकलीफ़ सिर में है?`,
+        reasonEn: `Cranial / headache symptoms detected ('${matchedHead}').`,
+        triggerPhrase: matchedHead,
+        priorityLevel: 'ORGAN_REDIRECT'
+      };
+    }
+
+    const earKeywords = ['कान में दर्द', 'ear pain', 'earache', 'कम सुनाई', 'tinnitus', 'कान बह'];
+    const matchedEar = earKeywords.find(k => text.includes(k));
+    if (matchedEar) {
+      return {
+        suggestedLocusId: 'Ear',
+        suggestedLocusHindi: 'कान (Ear & Hearing)',
+        suggestedLocusEn: 'Ear & Hearing',
+        reasonHindi: `विवरण में कान के दर्द ('${matchedEar}') का उल्लेख है।`,
+        reasonEn: `Ear symptom detected ('${matchedEar}').`,
+        triggerPhrase: matchedEar,
+        priorityLevel: 'ORGAN_REDIRECT'
+      };
+    }
+
+    const throatKeywords = ['गले में दर्द', 'गले में खराश', 'throat pain', 'sore throat', 'निगलने में दर्द', 'टॉन्सिल'];
+    const matchedThroat = throatKeywords.find(k => text.includes(k));
+    if (matchedThroat) {
+      return {
+        suggestedLocusId: 'Neck',
+        suggestedLocusHindi: 'गला व गर्दन (Throat & Neck)',
+        suggestedLocusEn: 'Throat & Neck',
+        reasonHindi: `विवरण में गले की खराश/दर्द ('${matchedThroat}') का उल्लेख है।`,
+        reasonEn: `Throat symptom detected ('${matchedThroat}').`,
+        triggerPhrase: matchedThroat,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
   }
 
-  // 5. SPINE vs SCIATICA
-  if (selectedRegion === 'Lumbar Spine (Kati)' || selectedRegion === 'Upper Back / Thoracic' || selectedRegion === 'Sacral / Sciatica Origin') {
-    const sciaticaKeywords = ['पैर में दर्द', 'पिंडली', 'तलवे', 'नस दब', 'बिजली जैसी', 'sciatica', 'झनझनाहट', 'पैर सुन्न'];
+  // =========================================================================
+  // PRIORITY 5: SPINE & SCIATICA DIVERGENCE
+  // =========================================================================
+  const isSpineRegion = ['Lumbar Spine (Kati)', 'Upper Back / Thoracic', 'Cervical Spine', 'Sacral / Sciatica Origin', 'Sciatic Pathway / Calves'].includes(selectedRegion);
+  if (!isSpineRegion) {
+    const sciaticaKeywords = ['सायटिका', 'sciatica', 'कमर से पैर तक', 'नस दब', 'बिजली जैसी टीस', 'kamar se pair tak'];
     const matchedSciatica = sciaticaKeywords.find(k => text.includes(k));
     if (matchedSciatica) {
       return {
         suggestedLocusId: 'Sciatic Pathway / Calves',
-        suggestedLocusHindi: 'पिंडलियाँ व पैर (Sciatic Pathway)',
-        reasonHindi: `कमर से पैर में उतरता दर्द सायटिका (Gridhrasi Marma) की ओर संकेत करता है।`,
+        suggestedLocusHindi: 'पिंडलियाँ व पैर (Sciatica)',
+        suggestedLocusEn: 'Calves & Sciatica Pathway',
+        reasonHindi: `कमर से पैर में उतरता दर्द सायटिका ('${matchedSciatica}') का संकेत है।`,
         reasonEn: `Sciatic pathway radiculopathy detected ('${matchedSciatica}').`,
-        triggerPhrase: matchedSciatica
+        triggerPhrase: matchedSciatica,
+        priorityLevel: 'ORGAN_REDIRECT'
+      };
+    }
+
+    const backKeywords = ['कमर में दर्द', 'कमर दर्द', 'back pain', 'lumbago', 'स्लिप डिस्क', 'kamar me dard', 'kamar dard'];
+    const matchedBack = backKeywords.find(k => text.includes(k));
+    if (matchedBack) {
+      return {
+        suggestedLocusId: 'Lumbar Spine (Kati)',
+        suggestedLocusHindi: 'निचली कमर (कटि)',
+        suggestedLocusEn: 'Lower Back & Lumbar',
+        reasonHindi: `विवरण में कमर दर्द ('${matchedBack}') का उल्लेख है। क्या मुख्य तकलीफ़ कमर में है?`,
+        reasonEn: `Lower back pain detected ('${matchedBack}').`,
+        triggerPhrase: matchedBack,
+        priorityLevel: 'ORGAN_REDIRECT'
+      };
+    }
+  }
+
+  // =========================================================================
+  // PRIORITY 6: KNEE & EXTREMITY JOINTS DIVERGENCE
+  // =========================================================================
+  const isJointRegion = ['Left Knee', 'Right Knee', 'Left Foot', 'Right Foot', 'Left Shoulder', 'Right Shoulder', 'Left Arm', 'Right Arm', 'Left Hand', 'Right Hand'].includes(selectedRegion);
+  if (!isJointRegion) {
+    const kneeKeywords = ['घुटने में दर्द', 'घुटने की कटोरी', 'knee pain', 'ghutne me dard', 'ghutna dard', 'कट-कट'];
+    const matchedKnee = kneeKeywords.find(k => text.includes(k));
+    if (matchedKnee) {
+      return {
+        suggestedLocusId: 'Left Knee',
+        suggestedLocusHindi: 'बायां घुटना (Knee Joint)',
+        suggestedLocusEn: 'Left Knee Joint',
+        reasonHindi: `विवरण में घुटने के दर्द ('${matchedKnee}') का उल्लेख है। क्या मुख्य तकलीफ़ घुटने में है?`,
+        reasonEn: `Knee arthralgia detected ('${matchedKnee}').`,
+        triggerPhrase: matchedKnee,
+        priorityLevel: 'ORGAN_REDIRECT'
       };
     }
   }
@@ -253,166 +353,464 @@ const evaluateCongruenceMismatch = (
   return null;
 };
 
-const REGIONAL_COMPLAINTS: Record<string, { symptoms: string[]; ayushContext: string }> = {
+interface SymptomItem {
+  hi: string;
+  en: string;
+  isEmergency?: boolean;
+}
+
+interface SensationItem {
+  key: string;
+  label: string;
+  en: string;
+  icon: any;
+}
+
+const REGIONAL_COMPLAINTS: Record<string, { symptoms: SymptomItem[]; ayushContext: string; hindiName: string; enName: string }> = {
   'Head': {
-    symptoms: ['सिर में तेज़ दर्द (Severe Headache)', 'आधासीसी दर्द (Migraine)', 'चक्कर व उल्टी (Vertigo & Bhrama)', 'सिर में भारीपन (Tension Headache)'],
-    ayushContext: 'Shira Sthana · Adhipati & Sthapani Marma · Vata-Pitta'
+    hindiName: 'सिर व माथा',
+    enName: 'Head & Cranium',
+    symptoms: [
+      { hi: 'सिर में तेज़ दर्द व भारीपन', en: 'Severe Headache & Heaviness' },
+      { hi: 'आधासीसी धड़कती टीस', en: 'Throbbing Migraine' },
+      { hi: 'चक्कर आना व जी मिचलाना', en: 'Vertigo & Nausea' },
+      { hi: 'तनाव व माथे में जकड़न', en: 'Tension & Forehead Tightness' }
+    ],
+    ayushContext: 'Shira Sthana · Adhipati & Sthapani Marma'
   },
   'Face & Sinus': {
-    symptoms: ['माथे व आँखों के पीछे भारी दबाव (Sinus Pressure / Shiroroga)', 'नाक बंद व सिर में भारीपन (Nasal Congestion / Pratishyaya)', 'आँखों में जलन व लालिमा (Eye Strain / Netra Roga)', 'चेहरे की नसों में बिजली जैसी टीस (Trigeminal Neuralgia)'],
-    ayushContext: 'Netra & Nasa Sthana · Sthapani Marma · Alochaka Pitta'
+    hindiName: 'चेहरा व आँखें',
+    enName: 'Face & Sinus',
+    symptoms: [
+      { hi: 'माथे व आँखों के पीछे दबाव', en: 'Sinus Congestion & Pressure' },
+      { hi: 'नाक बंद व भारीपन', en: 'Nasal Blockage & Heavy Head' },
+      { hi: 'आँखों में जलन व लालिमा', en: 'Eye Strain & Redness' },
+      { hi: 'चेहरे की नसों में तीखी टीस', en: 'Facial Neuralgia Pain' }
+    ],
+    ayushContext: 'Netra & Nasa Sthana · Sthapani Marma'
   },
   'Ear': {
-    symptoms: ['कान में असहनीय टीस या दर्द (Severe Earache / Karna Shula)', 'कान से पानी या मवाद आना (Ear Discharge / Karnasrava)', 'कान में सीटी या घंटी बजना (Tinnitus / Karnanada)', 'कम सुनाई देना या भारीपन (Hearing Fullness / Badhirya)'],
-    ayushContext: 'Karna Sthana · Vata-Kapha Sthana · Shabdavaha Srotas'
+    hindiName: 'कान',
+    enName: 'Ear & Hearing',
+    symptoms: [
+      { hi: 'कान में तेज़ तीखी टीस', en: 'Severe Sharp Earache' },
+      { hi: 'कान से पानी या मवाद बहना', en: 'Ear Discharge / Fluid' },
+      { hi: 'कान में सीटी बजना व शोर', en: 'Tinnitus / Ringing' },
+      { hi: 'कम सुनाई देना व भारीपन', en: 'Hearing Fullness / Loss' }
+    ],
+    ayushContext: 'Karna Sthana · Shabdavaha Srotas'
   },
   'Neck': {
-    symptoms: ['निगलने में तेज़ दर्द (Dysphagia)', 'गले में खराश व सूजन (Sore Throat)', 'गर्दन में अकड़न (Neck Stiffness / Manya Stambha)', 'थायरॉइड व टॉन्सिल सूजन (Gala Roga)'],
-    ayushContext: 'Kantha & Griva Sthana · Udana Vata · Manya Marma'
+    hindiName: 'गला व गर्दन',
+    enName: 'Throat & Neck',
+    symptoms: [
+      { hi: 'निगलने में तेज़ दर्द व रुकावट', en: 'Pain on Swallowing' },
+      { hi: 'गले में खराश व सूखापन', en: 'Sore Throat & Rawness' },
+      { hi: 'गर्दन घुमाने में भारी अकड़न', en: 'Neck Stiffness / Spasm' },
+      { hi: 'थायरॉइड व टॉन्सिल सूजन', en: 'Tonsil / Thyroid Swelling' }
+    ],
+    ayushContext: 'Kantha & Griva Sthana · Manya Marma'
   },
   'Left Chest / Precordium': {
-    symptoms: ['सीने में भारी दबाव व बेचैनी (Crushing Retrosternal Pain)', 'बाएं कंधे व बांह में खिंचाव (Radiating to Left Arm)', 'अत्यधिक पसीना व घबराहट (Diaphoresis)', 'सांस फूलना व दिल डूबना (Dyspnea & Palpitations)'],
-    ayushContext: 'Hridaya Sthana · Sadhyo Pranahara Marma · Prana Vata / Avalambaka Kapha'
+    hindiName: 'बायां सीना (हृदय)',
+    enName: 'Left Chest & Heart',
+    symptoms: [
+      { hi: 'सीने में भारी दबाव व बेचैनी', en: 'Crushing Chest Pressure', isEmergency: true },
+      { hi: 'बाएं कंधे व बांह में खिंचाव', en: 'Left Arm & Shoulder Pain', isEmergency: true },
+      { hi: 'अत्यधिक पसीना व घबराहट', en: 'Diaphoresis & Palpitations', isEmergency: true },
+      { hi: 'सांस फूलना व सीने में जकड़न', en: 'Shortness of Breath', isEmergency: true }
+    ],
+    ayushContext: 'Hridaya Sthana · Sadhyo Pranahara Marma'
   },
   'Right Chest': {
-    symptoms: ['सांस लेने पर तेज़ चुभन (Pleuritic Stabbing Pain)', 'लगातार तेज़ खांसी व कफ (Persistent Cough / Kasa)', 'खांसी में खून (Hemoptysis - Red Flag)', 'घरघराहट व सांस का कष्ट (Wheezing / Shwasa)'],
-    ayushContext: 'Phupphusa Sthana · Stanarohita Marma · Udana Vata / Kledaka Kapha'
+    hindiName: 'दायां सीना',
+    enName: 'Right Thorax',
+    symptoms: [
+      { hi: 'सांस लेने पर तेज़ चुभन', en: 'Sharp Inhalation Catch' },
+      { hi: 'लगातार तेज़ सूखी खांसी', en: 'Persistent Spasmodic Cough' },
+      { hi: 'खांसी में खून आना', en: 'Hemoptysis (Alert)', isEmergency: true },
+      { hi: 'घरघराहट व सांस का कष्ट', en: 'Wheezing & Respiratory Distress' }
+    ],
+    ayushContext: 'Phupphusa Sthana · Stanarohita Marma'
   },
   'Lungs & Respiration': {
-    symptoms: ['सांस फूलना व सीटी की आवाज़ (Dyspnea & Wheezing / Shwasa)', 'लगातार सूखी या बलगम वाली खांसी (Chronic Cough / Kasa)', 'सीने में जकड़न व घुटन (Chest Tightness / Kaphaja Avarana)', 'गहरी सांस लेने पर दर्द (Deep Inhalation Pain)'],
-    ayushContext: 'Pranavaha Srotas · Phupphusa & Uras · Udana & Prana Vata'
+    hindiName: 'फेफड़े व सांस',
+    enName: 'Lungs & Respiration',
+    symptoms: [
+      { hi: 'सांस फूलना व सीटी की आवाज़', en: 'Severe Dyspnea & Wheezing', isEmergency: true },
+      { hi: 'लगातार खांसी व भारी बलगम', en: 'Chronic Productive Cough' },
+      { hi: 'सीने में जकड़न व घुटन', en: 'Chest Tightness & Suffocation', isEmergency: true },
+      { hi: 'गहरी सांस लेने पर पसलियों में दर्द', en: 'Deep Breath Rib Pain' }
+    ],
+    ayushContext: 'Pranavaha Srotas · Phupphusa & Uras'
   },
   'Left Shoulder': {
-    symptoms: ['कंधा उठाने में असहनीय दर्द (Rotator Cuff Impingement)', 'हाथ पीछे न घूमना / जकड़न (Frozen Shoulder / Apabahuka)', 'कंधे में रात को तेज़ टीस (Nocturnal Shoulder Ache)', 'कंधे में सुन्नपन व कमजोरी (Shoulder Weakness)'],
-    ayushContext: 'Vama Amsa Sandhi · Amsaphalaka Marma · Vataja Apabahuka'
+    hindiName: 'बायां कंधा',
+    enName: 'Left Shoulder',
+    symptoms: [
+      { hi: 'कंधा उठाने में असहनीय दर्द', en: 'Shoulder Elevation Pain' },
+      { hi: 'हाथ पीछे न घूमना व भारी जकड़न', en: 'Frozen Shoulder Stiffness' },
+      { hi: 'रात में कंधे में तेज़ टीस', en: 'Night Shoulder Ache' },
+      { hi: 'कंधे की मांसपेशी में कमजोरी', en: 'Shoulder Muscle Weakness' }
+    ],
+    ayushContext: 'Vama Amsa Sandhi · Amsaphalaka Marma'
   },
   'Right Shoulder': {
-    symptoms: ['दाहिना कंधा उठाने में दर्द (Right Impingement)', 'कंधे में भारी जकड़न (Frozen Shoulder / Apabahuka)', 'मांसपेशी में खिंचाव व सूजन (Supraspinatus Tendinitis)', 'कंधे की हड्डी में कट-कट (Subacromial Crepitus)'],
-    ayushContext: 'Dakshina Amsa Sandhi · Amsaphalaka Marma · Vataja Apabahuka'
+    hindiName: 'दायां कंधा',
+    enName: 'Right Shoulder',
+    symptoms: [
+      { hi: 'दाहिना कंधा उठाने में दर्द', en: 'Right Shoulder Pain' },
+      { hi: 'कंधे में भारी जकड़न', en: 'Frozen Shoulder Stiffness' },
+      { hi: 'मांसपेशी में तेज़ खिंचाव', en: 'Deltoid Muscle Strain' },
+      { hi: 'कंधे के जोड़ में कट-कट', en: 'Joint Crepitus / Clicking' }
+    ],
+    ayushContext: 'Dakshina Amsa Sandhi · Amsaphalaka Marma'
   },
   'Left Arm': {
-    symptoms: ['सीने से आता हुआ बांह का दर्द (Referred Cardiac Pain)', 'हाथ व उंगलियों में सुन्नपन (Numbness & Tingling)', 'कोहनी में दर्द (Cubital Tunnel / Tennis Elbow)', 'कलाई में कमजोरी (Grip Weakness)'],
-    ayushContext: 'Vama Bahu · Amsa & Kakshadhara Marma · Vataja Apabahuka'
+    hindiName: 'बायीं बांह व कोहनी',
+    enName: 'Left Arm & Elbow',
+    symptoms: [
+      { hi: 'सीने से आता हुआ बांह का दर्द', en: 'Referred Radicular Arm Pain' },
+      { hi: 'हाथ व उंगलियों में सुन्नपन', en: 'Numbness & Tingling' },
+      { hi: 'कोहनी में तेज़ दर्द', en: 'Tennis / Golfer Elbow Pain' },
+      { hi: 'कलाई की पकड़ में कमजोरी', en: 'Weak Hand Grip' }
+    ],
+    ayushContext: 'Vama Bahu · Kurpara Marma'
   },
   'Right Arm': {
-    symptoms: ['कोहनी व कंधे में दर्द (Tennis Elbow / Tendinitis)', 'कलाई व उंगलियों में झुनझुनी (Carpal Tunnel Paresthesia)', 'बांह में सूजन व भारीपन (Arm Swelling)', 'हाथ का कांपना (Rest Tremors / Kampavata)'],
-    ayushContext: 'Dakshina Bahu · Kurpara & Indrabasti Marma'
+    hindiName: 'दायीं बांह व कोहनी',
+    enName: 'Right Arm & Elbow',
+    symptoms: [
+      { hi: 'कोहनी व बांह में दर्द', en: 'Right Elbow & Arm Pain' },
+      { hi: 'कलाई व उंगलियों में झुनझुनी', en: 'Hand & Finger Tingling' },
+      { hi: 'बांह में सूजन व भारीपन', en: 'Arm Swelling & Heaviness' },
+      { hi: 'हाथ का कांपना व कंपन', en: 'Hand Tremors' }
+    ],
+    ayushContext: 'Dakshina Bahu · Kurpara Marma'
   },
   'Left Hand': {
-    symptoms: ['कलाई व उंगलियों में दर्द (Wrist Arthritis)', 'हाथ सुन्न होना व झुनझुनी (Left Hand Numbness)', 'हथेली में जलन (Palmar Burning / Kara Daha)', 'पकड़ में कमजोरी (Weak Grip)'],
-    ayushContext: 'Vama Manibandha & Talahridaya Marma · Vata Sthana'
+    hindiName: 'बायां हाथ व कलाई',
+    enName: 'Left Hand & Wrist',
+    symptoms: [
+      { hi: 'कलाई व उंगलियों के जोड़ों में दर्द', en: 'Wrist & Finger Arthritis' },
+      { hi: 'हाथ सुन्न होना व झुनझुनी', en: 'Palmar Numbness / CTS' },
+      { hi: 'हथेली में तेज़ जलन व दाह', en: 'Burning Soles & Palms' },
+      { hi: 'उंगलियों में सुबह की अकड़न', en: 'Morning Finger Stiffness' }
+    ],
+    ayushContext: 'Vama Manibandha & Talahridaya'
   },
   'Right Hand': {
-    symptoms: ['कलाई व उंगलियों में दर्द (Right Wrist Pain)', 'कार्पल टनल सिंड्रोम (Carpal Tunnel Numbness)', 'हाथ का कांपना (Hand Tremors)', 'उंगलियों में सुबह की जकड़न (Finger Stiffness)'],
-    ayushContext: 'Dakshina Manibandha & Talahridaya Marma · Vata Sthana'
+    hindiName: 'दायां हाथ व कलाई',
+    enName: 'Right Hand & Wrist',
+    symptoms: [
+      { hi: 'कलाई व उंगलियों में दर्द', en: 'Right Wrist Pain' },
+      { hi: 'हाथ में सुन्नपन व चींटी चलना', en: 'Hand Paresthesia' },
+      { hi: 'हाथ का अनियंत्रित कांपना', en: 'Resting Hand Tremors' },
+      { hi: 'उंगलियों के पोरों में सूजन', en: 'Finger Joint Swelling' }
+    ],
+    ayushContext: 'Dakshina Manibandha & Talahridaya'
   },
   'Epigastrium': {
-    symptoms: ['खट्टी डकार व सीने में जलन (Severe GERD / Amlapitta)', 'पेट के ऊपरी हिस्से में दर्द (Peptic Ulcer Pain)', 'जी मिचलाना व उल्टी (Nausea & Chhardi)', 'पेट का फूलना व अफारा (Bloating & Anaha)', 'खाली पेट दर्द व खट्टा पानी आना (Hyperacidity)'],
-    ayushContext: 'Amashaya & Agni Sthana · Pachaka Pitta / Samana Vata'
+    hindiName: 'ऊपरी पेट (आमाशय)',
+    enName: 'Upper Stomach & Epigastrium',
+    symptoms: [
+      { hi: 'खट्टी डकार व सीने में जलन', en: 'Severe Acid Reflux / GERD' },
+      { hi: 'पेट के ऊपरी हिस्से में दर्द', en: 'Upper Stomach / Epigastric Pain' },
+      { hi: 'जी मिचलाना व उल्टी', en: 'Nausea & Vomiting' },
+      { hi: 'पेट का फूलना व भारी अफारा', en: 'Bloating & Gaseous Distension' }
+    ],
+    ayushContext: 'Amashaya & Agni Sthana · Pachaka Pitta'
   },
   'Umbilicus / Mid-Abdomen': {
-    symptoms: ['नाभि के आसपास मरोड़ व गैस (Umbilical Colic / Shula)', 'पेट फूलना व गुड़गुड़ाहट (Bloating / Antrakujana)', 'दस्त या बार-बार शौच जाना (Loose Stools / Grahani)', 'नाभि खिसकना या खिंचाव (Nabhi Spasm / Samana Vata)', 'पेट में भारीपन व अपच (Indigestion / Ajirna)'],
-    ayushContext: 'Nabhi Marma (Sira Marma) · Samana Vata & Pachaka Pitta'
+    hindiName: 'मध्य पेट (नाभि)',
+    enName: 'Mid-Abdomen & Navel',
+    symptoms: [
+      { hi: 'नाभि के आसपास मरोड़ व गैस', en: 'Umbilical Colic & Cramps' },
+      { hi: 'पेट फूलना व गुड़गुड़ाहट', en: 'Borborygmi & Bloating' },
+      { hi: 'दस्त या बार-बार पतला शौच', en: 'Loose Motions / Diarrhea' },
+      { hi: 'पेट में भारीपन व अपच', en: 'Indigestion & Heaviness' }
+    ],
+    ayushContext: 'Nabhi Marma · Samana Vata'
   },
   'Right Lower Quadrant (RLQ)': {
-    symptoms: ['नाभि से दाएं नीचे तेज़ दर्द (Appendicitis Colic)', 'हल्का छूने पर असहनीय दर्द (McBurney Rebound Tenderness)', 'बुखार व उल्टी के साथ पेट दर्द (Fever with Colic)', 'चलने या खांसने पर दाएं पेट में चुभन (Peritoneal Sign)'],
-    ayushContext: 'Unduka Sthana · Pitta-Vata Vidradhi · Acute Surgical Locus'
+    hindiName: 'दायां निचला पेट (अपेंडिक्स)',
+    enName: 'Right Lower Abdomen (Appendix)',
+    symptoms: [
+      { hi: 'नाभि से दाएं नीचे असहनीय दर्द', en: 'Acute Appendicitis Pain', isEmergency: true },
+      { hi: 'दाएं पेट को छूने पर तेज़ टीस', en: 'Rebound Tenderness', isEmergency: true },
+      { hi: 'बुखार व उल्टी के साथ पेट दर्द', en: 'Fever & Colic', isEmergency: true },
+      { hi: 'चलने व पैर उठाने पर दाएं पेट में दर्द', en: 'Psoas Sign Walking Pain' }
+    ],
+    ayushContext: 'Unduka Sthana · Acute Surgical Locus'
   },
   'Left Lower Quadrant (LLQ)': {
-    symptoms: ['बाएं निचले पेट में तेज़ चुभन (Left Iliac Fossa Pain)', 'गुर्दे की पथरी का दर्द (Left Renal Colic / Vrikka Ashmari)', 'कमर से पेट में उतरता दर्द (Flank Radiation)', 'पेट में सूजन व मरोड़ (Diverticulitis / Spastic Colon)'],
-    ayushContext: 'Vama Kukundara & Pakvashaya Sthana · Apana Vata · Vrikka Ashmari'
+    hindiName: 'बायां निचला पेट (गुर्दा)',
+    enName: 'Left Lower Abdomen (Kidney)',
+    symptoms: [
+      { hi: 'बाएं निचले पेट में तेज़ चुभन', en: 'Left Lower Abdominal Pain' },
+      { hi: 'गुर्दे की पथरी का असहनीय दर्द', en: 'Renal Calculi Colic Pain' },
+      { hi: 'कमर से पेट में उतरता दर्द', en: 'Flank to Groin Radiation' },
+      { hi: 'पेट में मरोड़ व कब्ज़', en: 'Colonic Spasm & Constipation' }
+    ],
+    ayushContext: 'Vama Kukundara · Vrikka Ashmari'
   },
   'Pelvic / Hypogastrium': {
-    symptoms: ['पेशाब में तेज़ जलन (Dysuria / Mutrakrichhra)', 'बार-बार पेशाब आना (Urinary Frequency)', 'पेल्विक में खिंचाव व ऐंठन (Pelvic Spasm)', 'कमर से नीचे तक पथरी का दर्द (Renal Calculi / Ashmari)', 'मासिक धर्म में असहनीय दर्द (Dysmenorrhea / Kashtartava)'],
-    ayushContext: 'Basti Sthana · Sadhyo Pranahara Marma · Apana Vata'
+    hindiName: 'निचला पेट व पेडू',
+    enName: 'Lower Belly & Pelvis',
+    symptoms: [
+      { hi: 'पेशाब में तेज़ जलन व रुकावट', en: 'Severe Dysuria / Burning UTI' },
+      { hi: 'बार-बार पेशाब की तीव्र तलब', en: 'Urinary Urgency & Frequency' },
+      { hi: 'पेल्विक में खिंचाव व ऐंठन', en: 'Pelvic Cramps & Spasm' },
+      { hi: 'मासिक धर्म में असहनीय दर्द', en: 'Dysmenorrhea / Period Pain' }
+    ],
+    ayushContext: 'Basti Sthana · Sadhyo Pranahara Marma'
   },
   'Left Hip': {
-    symptoms: ['बाएं कूल्हे में जकड़न (Left Hip Joint Stiffness)', 'जांघ की मांसपेशी में खिंचाव (Adductor Strain)', 'चलने पर कूल्हे में लंगड़ाहट (Antalgic Gait)', 'कूल्हे की हड्डी में दर्द (Asthi Majja Gata Vata)'],
-    ayushContext: 'Vama Nitamba Sandhi · Urvi & Lohitaksha Marma'
+    hindiName: 'बायां कूल्हा व जांघ',
+    enName: 'Left Hip & Thigh',
+    symptoms: [
+      { hi: 'बाएं कूल्हे में जकड़न व दर्द', en: 'Hip Joint Stiffness & Pain' },
+      { hi: 'जांघ की मांसपेशी में खिंचाव', en: 'Groin & Thigh Muscle Strain' },
+      { hi: 'चलने पर लंगड़ाहट व दर्द', en: 'Antalgic Limp on Walking' },
+      { hi: 'कूल्हे के जोड़ में कट-कट', en: 'Hip Joint Crepitus' }
+    ],
+    ayushContext: 'Vama Nitamba Sandhi · Urvi Marma'
   },
   'Right Hip': {
-    symptoms: ['दाहिने कूल्हे में दर्द (Right Hip Osteoarthritis)', 'उठने-बैठने में अकड़न (Morning Hip Stiffness)', 'जांघ के आगे तक दर्द (Femoral Radiation)', 'कूल्हे में कट-कट की आवाज़ (Hip Crepitus)'],
-    ayushContext: 'Dakshina Nitamba Sandhi · Urvi & Lohitaksha Marma'
+    hindiName: 'दायां कूल्हा व जांघ',
+    enName: 'Right Hip & Thigh',
+    symptoms: [
+      { hi: 'दाहिने कूल्हे में दर्द व जकड़न', en: 'Right Hip Pain & Stiffness' },
+      { hi: 'उठने-बैठने में कूल्हे में अकड़न', en: 'Morning Hip Stiffness' },
+      { hi: 'जांघ के आगे तक उतरता दर्द', en: 'Anterior Thigh Radiation' },
+      { hi: 'कूल्हे में भारीपन', en: 'Hip Joint Heaviness' }
+    ],
+    ayushContext: 'Dakshina Nitamba Sandhi · Urvi Marma'
   },
   'Left Knee': {
-    symptoms: ['बाएं घुटने में कट-कट की आवाज़ (Left Knee Crepitus)', 'घुटने में सूजन व दर्द (Osteoarthritis / Sandhivata)', 'सुबह उठने पर 30 मिनट तक अकड़न (Morning Stambha)', 'सीढ़ियाँ चढ़ने में कठिनाई (Patellofemoral Pain)'],
-    ayushContext: 'Vama Janu Sandhi Marma · Shleshaka Kapha Kshaya / Vata Vriddhi'
+    hindiName: 'बायां घुटना',
+    enName: 'Left Knee Joint',
+    symptoms: [
+      { hi: 'घुटने में कट-कट की आवाज़', en: 'Knee Crepitus / Clicking' },
+      { hi: 'घुटने में सूजन व दर्द', en: 'Knee Swelling & Effusion' },
+      { hi: 'सुबह उठने पर भारी अकड़न', en: 'Morning Joint Stiffness' },
+      { hi: 'सीढ़ियाँ चढ़ने-उतरने में कठिनाई', en: 'Difficulty on Stairs' }
+    ],
+    ayushContext: 'Vama Janu Sandhi Marma · Sandhivata'
   },
   'Right Knee': {
-    symptoms: ['दाहिने घुटने में कट-कट की आवाज़ (Right Knee Crepitus)', 'घुटने की कटोरी में दर्द (Patellar Tendinitis)', 'चलने पर घुटने का मुड़ना (Joint Instability)', 'घुटने में सूजन व भारीपन (Knee Effusion / Sandhishotha)'],
-    ayushContext: 'Dakshina Janu Sandhi Marma · Sandhigata Vata'
+    hindiName: 'दायां घुटना',
+    enName: 'Right Knee Joint',
+    symptoms: [
+      { hi: 'दाहिने घुटने में कट-कट की आवाज़', en: 'Knee Crepitus / Clicking' },
+      { hi: 'घुटने की कटोरी में दर्द', en: 'Patellofemoral Pain' },
+      { hi: 'चलने पर घुटने का लचकना', en: 'Joint Instability / Giving Way' },
+      { hi: 'घुटने में सूजन व गर्माहट', en: 'Knee Swelling & Warmth' }
+    ],
+    ayushContext: 'Dakshina Janu Sandhi Marma · Sandhivata'
   },
   'Left Leg': {
-    symptoms: ['बायीं नली की हड्डी में दर्द (Left Shin Pain)', 'पिंडली में सूजन व भारीपन (Leg Edema / Shotha)', 'चलने पर पिंडली में जकड़न (Intermittent Claudication)', 'पैर में रात को दर्द (Restless Leg Syndrome)'],
-    ayushContext: 'Vama Jangha Sthana · Gulpha Sannikrishta'
+    hindiName: 'बायीं पिंडली',
+    enName: 'Left Shin & Calf',
+    symptoms: [
+      { hi: 'नली की हड्डी में दर्द', en: 'Shin Bone / Tibial Pain' },
+      { hi: 'पिंडली में सूजन व भारीपन', en: 'Calf Swelling & Heaviness' },
+      { hi: 'चलने पर पिंडली में जकड़न', en: 'Intermittent Claudication' },
+      { hi: 'पैर में रात को तेज़ ऐंठन', en: 'Nocturnal Calf Cramps' }
+    ],
+    ayushContext: 'Vama Jangha Sthana'
   },
   'Right Leg': {
-    symptoms: ['दाहिनी नली की हड्डी में दर्द (Right Shin Pain)', 'पिंडली की नसें फूलना (Varicose Veins / Siraja Granthi)', 'पिंडली में अकड़न (Calf Tightness)', 'पैर में भारीपन व थकान (Heavy Leg Syndrome)'],
-    ayushContext: 'Dakshina Jangha Sthana · Siraja Granthi'
+    hindiName: 'दायीं पिंडली',
+    enName: 'Right Shin & Calf',
+    symptoms: [
+      { hi: 'दाहिनी नली की हड्डी में दर्द', en: 'Right Shin Bone Pain' },
+      { hi: 'पिंडली की नसें फूलना', en: 'Varicose Vein Engorgement' },
+      { hi: 'पिंडली में बांटे व अकड़न', en: 'Calf Muscle Cramps' },
+      { hi: 'पैर में भारीपन व थकान', en: 'Heavy Leg Fatigue' }
+    ],
+    ayushContext: 'Dakshina Jangha Sthana'
   },
   'Left Foot': {
-    symptoms: ['बाएं पैर के तलवे में सुबह तेज़ चुभन (Plantar Fasciitis / Vatarakta)', 'टखने में सूजन व मोच (Ankle Sprain / Gulpha Sandhishotha)', 'एड़ी में हड्डी बढ़ना व दर्द (Calcaneal Spur / Vatakantaka)', 'तलवों में तेज़ जलन (Burning Feet / Pada Daha)'],
-    ayushContext: 'Vama Gulpha & Talahridaya Marma · Vata-Pitta Sthana · Pada Shula'
+    hindiName: 'बायां पैर व तलवा',
+    enName: 'Left Foot & Ankle',
+    symptoms: [
+      { hi: 'सुबह पैर रखते ही एड़ी में चुभन', en: 'Plantar Fasciitis Heel Pain' },
+      { hi: 'टखने में सूजन व मोच', en: 'Ankle Sprain & Edema' },
+      { hi: 'एड़ी की हड्डी में चुभता दर्द', en: 'Calcaneal Spur Ache' },
+      { hi: 'तलवों में तेज़ जलन व दाह', en: 'Burning Feet Syndrome' }
+    ],
+    ayushContext: 'Vama Gulpha & Talahridaya'
   },
   'Right Foot': {
-    symptoms: ['दाहिने पैर के तलवे में दर्द (Right Plantar Fasciitis)', 'दाहिने टखने में सूजन व दर्द (Ankle Arthritis / Sandhivata)', 'उंगलियों में सुन्नपन या झुनझुनी (Peripheral Neuropathy)', 'एड़ी में चुभता दर्द (Heel Spur / Vatakantaka)'],
-    ayushContext: 'Dakshina Gulpha & Talahridaya Marma · Pada Daha'
+    hindiName: 'दायां पैर व तलवा',
+    enName: 'Right Foot & Ankle',
+    symptoms: [
+      { hi: 'दाहिने पैर के तलवे में दर्द', en: 'Foot Sole Pain' },
+      { hi: 'टखने में सूजन व चलने में दर्द', en: 'Ankle Swelling & Pain' },
+      { hi: 'उंगलियों में सुन्नपन या झुनझुनी', en: 'Toes Numbness & Tingling' },
+      { hi: 'एड़ी व पंजे में दर्द', en: 'Heel & Forefoot Ache' }
+    ],
+    ayushContext: 'Dakshina Gulpha & Talahridaya'
   },
   'Cervical Spine': {
-    symptoms: ['गर्दन व सिर के पिछले भाग में दर्द (Cervical Spondylosis)', 'गर्दन घुमाने में चक्कर आना (Cervical Vertigo)', 'हाथों तक जाता हुआ दर्द (Cervical Radiculopathy)', 'कंधों व गर्दन में लगातार अकड़न (Manya Stambha)'],
-    ayushContext: 'Griva Sthana · Krikanthika Marma · Manya Stambha'
+    hindiName: 'गर्दन की रीढ़ (सर्वाइकल)',
+    enName: 'Cervical Spine',
+    symptoms: [
+      { hi: 'गर्दन व सिर के पीछे तेज़ दर्द', en: 'Cervical Neck & Occipital Pain' },
+      { hi: 'गर्दन घुमाने में चक्कर आना', en: 'Cervicogenic Vertigo' },
+      { hi: 'हाथों तक उतरता करंट जैसा दर्द', en: 'Cervical Radiculopathy' },
+      { hi: 'गर्दन व कंधों में भारी जकड़न', en: 'Trapezius Muscle Spasm' }
+    ],
+    ayushContext: 'Griva Sthana · Manya Stambha'
   },
   'Upper Back / Thoracic': {
-    symptoms: ['कंधों के बीच में भारी खिंचाव (Interscapular Spasm)', 'पीठ में अकड़न व दर्द (Thoracic Spine Strain / Prishtha Shula)', 'बैठने पर पीठ में थकावट (Postural Fatigue)'],
-    ayushContext: 'Prishtha Sthana · Amsaphalaka Marma'
+    hindiName: 'ऊपरी पीठ व रीढ़',
+    enName: 'Upper Back & Thoracic',
+    symptoms: [
+      { hi: 'कंधों के बीच में भारी खिंचाव', en: 'Interscapular Strain' },
+      { hi: 'पीठ में अकड़न व रीढ़ में दर्द', en: 'Thoracic Spine Ache' },
+      { hi: 'बैठने पर पीठ में थकावट', en: 'Postural Back Fatigue' },
+      { hi: 'सांस लेने पर पीठ में खिंचाव', en: 'Thoracic Breathing Catch' }
+    ],
+    ayushContext: 'Prishtha Sthana · Amsaphalaka'
   },
   'Lumbar Spine (Kati)': {
-    symptoms: ['कमर से पैर तक तेज़ खिंचाव (Sciatica / Gridhrasi)', 'झुकने या वजन उठाने पर तेज़ दर्द (Acute Disc Prolapse / Katisula)', 'सुबह उठते ही कमर में जकड़न (Ankylosing Stiffness)', 'बैठने या खड़े होने में कमर में सुई जैसी चुभन (Lumbago)'],
-    ayushContext: 'Kati Sthana · Katikataruna Marma · Vataja Gridhrasi'
+    hindiName: 'निचली कमर (कटि)',
+    enName: 'Lower Back & Lumbar',
+    symptoms: [
+      { hi: 'कमर से पैर तक तेज़ खिंचाव', en: 'Sciatica / Lumbar Radiculopathy' },
+      { hi: 'झुकने या उठने पर असहनीय दर्द', en: 'Disc Herniation / Lumbago' },
+      { hi: 'सुबह उठते ही कमर में जकड़न', en: 'Morning Lumbar Stiffness' },
+      { hi: 'बैठने या खड़े होने में चुभन', en: 'Low Back Postural Pain' }
+    ],
+    ayushContext: 'Kati Sthana · Katikataruna Marma'
   },
   'Sacral / Sciatica Origin': {
-    symptoms: ['नितंब में गहरा चुभता दर्द (Piriformis Spasm)', 'बैठने पर नितंब से पैर में दर्द (Sciatica Nerve Root Compression)', 'नितंब की नस में खिंचाव (Gluteal Trigger Point)'],
-    ayushContext: 'Sphik & Nitamba Marma · Gridhrasi Kandara'
+    hindiName: 'त्रिक व नितंब (सायटिका)',
+    enName: 'Sacral & Sciatica',
+    symptoms: [
+      { hi: 'नितंब में गहरा चुभता दर्द', en: 'Piriformis / Gluteal Pain' },
+      { hi: 'बैठने पर पैर में करंट जैसा दर्द', en: 'Sciatic Nerve Shock' },
+      { hi: 'त्रिक भाग में भारी जकड़न', en: 'Sacroiliac Joint Stiffness' },
+      { hi: 'नितंब की नस में खिंचाव', en: 'Sciatica Origin Spasm' }
+    ],
+    ayushContext: 'Sphik & Nitamba Marma'
   },
   'Sciatic Pathway / Calves': {
-    symptoms: ['रात में पिंडलियों में तेज़ ऐंठन (Nocturnal Calf Cramps / Pindikodveshtana)', 'पैरों के तलवों में तेज़ जलन (Burning Feet / Pada Daha)', 'टखनों में सूजन व भारीपन (Ankle Edema)', 'कमर से एड़ी तक करंट जैसा दर्द (Shooting Sciatic Pain)'],
-    ayushContext: 'Jangha Sthana · Indrabasti Marma · Pada Daha'
+    hindiName: 'पिंडलियाँ व पैर',
+    enName: 'Calves & Sciatica Pathway',
+    symptoms: [
+      { hi: 'रात में पिंडलियों में तेज़ ऐंठन', en: 'Night Calf Cramps' },
+      { hi: 'पैरों के तलवों में तेज़ जलन', en: 'Burning Soles & Paresthesia' },
+      { hi: 'टखनों में सूजन व भारीपन', en: 'Ankle Edema & Heaviness' },
+      { hi: 'कमर से एड़ी तक खिंचाव', en: 'Shooting Leg Pain' }
+    ],
+    ayushContext: 'Jangha Sthana · Indrabasti'
   }
 };
 
-const PAIN_SENSATIONS = [
-  { key: 'crushing', label: 'भारी दबाव / घुटन', en: 'Crushing', color: '#f43f5e' },
-  { key: 'sharp', label: 'तीव्र चुभन', en: 'Sharp / Stabbing', color: '#0284c7' },
-  { key: 'burning', label: 'तेज़ जलन / दाह', en: 'Burning', color: '#ea580c' },
-  { key: 'throbbing', label: 'धड़कता दर्द', en: 'Throbbing', color: '#8b5cf6' },
-  { key: 'stiffness', label: 'अकड़न / जकड़न', en: 'Stiffness', color: '#10b981' },
-  { key: 'numbness', label: 'सुन्नपन / झुनझुनी', en: 'Numbness', color: '#06b6d4' }
-];
+const getOrganSensations = (region: string): SensationItem[] => {
+  if (region === 'Left Chest / Precordium' || region === 'Right Chest') {
+    return [
+      { key: 'crushing', label: 'भारी दबाव व जकड़न', en: 'Crushing Pressure', icon: Shield },
+      { key: 'sharp', label: 'तेज़ चुभन व टीस', en: 'Sharp Stabbing', icon: Zap },
+      { key: 'burning', label: 'सीने में जलन', en: 'Burning Heartburn', icon: Flame },
+      { key: 'throbbing', label: 'धड़कन तेज़ / बेचैनी', en: 'Palpitation Pulse', icon: HeartPulse },
+      { key: 'radiation', label: 'बाएं कंधे में खिंचाव', en: 'Arm Radiation', icon: Activity },
+      { key: 'dyspnea', label: 'सांस फूलना व घुटन', en: 'Dyspnea / Gasping', icon: Wind }
+    ];
+  }
+  if (region === 'Lungs & Respiration') {
+    return [
+      { key: 'dyspnea', label: 'सांस का कष्ट / घुटन', en: 'Breathlessness', icon: Wind },
+      { key: 'wheezing', label: 'सीटी / घरघराहट', en: 'Wheezing / Stridor', icon: Activity },
+      { key: 'cough', label: 'लगातार तेज़ खांसी', en: 'Severe Spasmodic Cough', icon: Zap },
+      { key: 'pleuritic', label: 'गहरी सांस पर टीस', en: 'Sharp Inhalation Pain', icon: Shield },
+      { key: 'congestion', label: 'छाती में भारी बलगम', en: 'Chest Congestion', icon: Droplets },
+      { key: 'burning', label: 'सांस नली में जलन', en: 'Airway Burning', icon: Flame }
+    ];
+  }
+  if (['Epigastrium', 'Umbilicus / Mid-Abdomen', 'Right Lower Quadrant (RLQ)', 'Left Lower Quadrant (LLQ)'].includes(region)) {
+    return [
+      { key: 'burning', label: 'खट्टी डकार व जलन', en: 'Acidity / Reflux Burn', icon: Flame },
+      { key: 'colic', label: 'मरोड़ व ऐंठन', en: 'Spasmodic Colic', icon: Zap },
+      { key: 'bloating', label: 'पेट फूलना व गैस', en: 'Bloating / Distension', icon: Shield },
+      { key: 'nausea', label: 'जी मिचलाना व उल्टी', en: 'Nausea & Vomiting', icon: Activity },
+      { key: 'tenderness', label: 'छूने पर असहनीय टीस', en: 'Rebound Tenderness', icon: HeartPulse },
+      { key: 'fullness', label: 'भारीपन व अपच', en: 'Heavy Indigestion', icon: Droplets }
+    ];
+  }
+  if (region === 'Pelvic / Hypogastrium') {
+    return [
+      { key: 'burning_dysuria', label: 'पेशाब में तेज़ जलन', en: 'Burning Dysuria', icon: Flame },
+      { key: 'cramps', label: 'पेडू में मरोड़ व ऐंठन', en: 'Pelvic Cramps', icon: Zap },
+      { key: 'frequency', label: 'बार-बार पेशाब की तलब', en: 'Urinary Frequency', icon: Activity },
+      { key: 'heavy_pelvis', label: 'निचले पेट में भारीपन', en: 'Lower Belly Pressure', icon: Shield },
+      { key: 'flow_cut', label: 'रुक-रुक कर पेशाब', en: 'Intermittent Flow', icon: Droplets },
+      { key: 'flank', label: 'कमर से पेडू में खिंचाव', en: 'Flank to Groin Spasm', icon: HeartPulse }
+    ];
+  }
+  if (['Head', 'Face & Sinus'].includes(region)) {
+    return [
+      { key: 'throbbing', label: 'आधासीसी धड़कती टीस', en: 'Pulsating Migraine', icon: HeartPulse },
+      { key: 'pressure', label: 'माथे में भारी दबाव', en: 'Tension Pressure', icon: Shield },
+      { key: 'vertigo', label: 'चक्कर व आंखें घूमना', en: 'Vertigo / Giddiness', icon: Activity },
+      { key: 'sinus', label: 'आंखों के पीछे भारीपन', en: 'Retro-orbital Congestion', icon: Droplets },
+      { key: 'sharp', label: 'नसों में बिजली सी टीस', en: 'Neuralgic Shock', icon: Zap },
+      { key: 'burning', label: 'आंखों में जलन', en: 'Burning Eye Strain', icon: Flame }
+    ];
+  }
+  if (['Ear', 'Neck'].includes(region)) {
+    return [
+      { key: 'odynophagia', label: 'निगलने में तेज़ दर्द', en: 'Pain on Swallowing', icon: Zap },
+      { key: 'earache', label: 'कान में तीखी टीस', en: 'Sharp Earache', icon: Shield },
+      { key: 'stiffness', label: 'गर्दन में अकड़न', en: 'Neck Stiffness', icon: Bone },
+      { key: 'tinnitus', label: 'कान में सीटी / शोर', en: 'Tinnitus Ringing', icon: Activity },
+      { key: 'burning', label: 'गले में छाले व जलन', en: 'Throat Rawness', icon: Flame },
+      { key: 'discharge', label: 'कान से भारीपन / स्राव', en: 'Ear Fullness / Fluid', icon: Droplets }
+    ];
+  }
+  if (['Left Knee', 'Right Knee', 'Lumbar Spine (Kati)', 'Cervical Spine', 'Upper Back / Thoracic', 'Left Shoulder', 'Right Shoulder', 'Left Hip', 'Right Hip', 'Left Foot', 'Right Foot', 'Sciatic Pathway / Calves', 'Sacral / Sciatica Origin'].includes(region)) {
+    return [
+      { key: 'crepitus', label: 'जोड़ों में कट-कट', en: 'Joint Crepitus / Clicking', icon: Bone },
+      { key: 'stiffness', label: 'सुबह उठने पर अकड़न', en: 'Morning Stiffness', icon: Shield },
+      { key: 'sciatica', label: 'करंट जैसा खिंचाव', en: 'Shooting Nerve Pain', icon: Zap },
+      { key: 'swelling', label: 'सूजन व गर्माहट', en: 'Swelling & Warmth', icon: Droplets },
+      { key: 'deep_ache', label: 'हड्डी में गहरा दर्द', en: 'Deep Bone Ache', icon: HeartPulse },
+      { key: 'numbness', label: 'सुन्नपन व झुनझुनी', en: 'Numbness / Tingling', icon: Activity }
+    ];
+  }
+  return [
+    { key: 'crushing', label: 'भारी दबाव व जकड़न', en: 'Heavy Pressure', icon: Shield },
+    { key: 'sharp', label: 'तेज़ चुभन व टीस', en: 'Sharp / Stabbing', icon: Zap },
+    { key: 'burning', label: 'तेज़ जलन व दाह', en: 'Burning Heat', icon: Flame },
+    { key: 'throbbing', label: 'धड़कता दर्द', en: 'Throbbing Pulse', icon: HeartPulse },
+    { key: 'stiffness', label: 'अकड़न व जकड़न', en: 'Stiffness', icon: Bone },
+    { key: 'numbness', label: 'सुन्नपन व झुनझुनी', en: 'Tingling / Numb', icon: Activity }
+  ];
+};
 
 const PRIVATE_SANCTUARIES = [
   {
     id: 'urology_repro',
     title: 'मूत्र एवं प्रजनन स्वास्थ्य',
-    enTitle: 'Urology & Reproductive Health',
-    symptoms: ['पेशाब में तेज़ जलन या रुकावट (Dysuria)', 'बार-बार पेशाब आना (Urinary Frequency)', 'असामान्य स्राव या खुजली (Intimate Discharge / Pradara)', 'मासिक धर्म में असहनीय दर्द (Dysmenorrhea)']
+    symptoms: ['पेशाब में तेज़ जलन या रुकावट', 'बार-बार पेशाब आना', 'असामान्य स्राव या खुजली', 'मासिक धर्म में असहनीय दर्द']
   },
   {
     id: 'anorectal',
-    title: 'गुदा एवं आंत्र विकार (अर्श / भगंदर)',
-    enTitle: 'Anorectal / Piles / Fissures',
-    symptoms: ['शौच के समय रक्तस्राव (Painless/Painful Bleeding)', 'बवासीर / मस्से या सूजन (Piles / Hemorrhoidal Masses)', 'गुदा में असहनीय जलन या दरार (Anal Fissure / Parikartika)']
+    title: 'गुदा एवं आंत्र विकार (अर्श / बवासीर)',
+    symptoms: ['शौच के समय रक्तस्राव', 'बवासीर / मस्से या सूजन', 'गुदा में असहनीय जलन या चीरा']
   },
   {
     id: 'mental_health',
-    title: 'मानसिक स्वास्थ्य, तनाव व अनिद्रा',
-    enTitle: 'Mental Well-being & Anxiety',
-    symptoms: ['अत्यधिक घबराहट, चिंता व पैनिक (Severe Anxiety / Chittodvega)', 'गहरी उदासी व अकेलापन (Clinical Depression / Vishada)', 'लगातार अनिद्रा व बेचैनी (Severe Insomnia / Anidra)']
+    title: 'मानसिक स्वास्थ्य व अनिद्रा',
+    symptoms: ['अत्यधिक घबराहट व चिंता', 'गहरी उदासी व अकेलापन', 'लगातार अनिद्रा व बेचैनी']
   },
   {
     id: 'intimate_skin',
-    title: 'संवेदनशील त्वचा व व्यक्तिगत विकार',
-    enTitle: 'Intimate Dermatology',
-    symptoms: ['संवेदनशील अंगों पर चकत्ते या छाले (Intimate Rashes)', 'पुरानी खुजली व संक्रमण (Fungal Dermatophytosis / Dadru)']
+    title: 'त्वचा व गुप्त विकार',
+    symptoms: ['संवेदनशील अंगों पर चकत्ते या छाले', 'पुरानी खुजली व संक्रमण']
   }
 ];
 
@@ -421,29 +819,60 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   setTranscript,
   selectedBodyRegion,
   setSelectedBodyRegion,
-  onExtractedSymptoms
+  onExtractedSymptoms,
+  onNext,
+  onBack
 }) => {
+  // Pure 2-Phase Flow: 'body' (Phase 3.0: 100% Fullscreen 3D Mannequin) -> 'symptoms' (Phase 3.1: Sovereign Voice & Symptoms Studio)
+  const [subPhase, setSubPhase] = useState<'body' | 'symptoms'>('body');
+
   const [isRecording, setIsRecording] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [parseSuccess, setParseSuccess] = useState(false);
   type SupportedSpeechLang = 'hi-IN' | 'en-IN' | 'mr-IN' | 'bn-IN' | 'ta-IN' | 'te-IN' | 'gu-IN' | 'kn-IN' | 'pa-IN' | 'ml-IN';
   const [mannequinView, setMannequinView] = useState<'front' | 'back'>('front');
-  const [displayEngine, setDisplayEngine] = useState<'3d' | '2d'>('3d');
-  const [layoutMode, setLayoutMode] = useState<'hero' | 'split'>('hero');
   const [activeMacroZone, setActiveMacroZone] = useState<MacroZone>('full');
   const [micLanguage, setMicLanguage] = useState<SupportedSpeechLang>('hi-IN');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [isPeekActive, setIsPeekActive] = useState(false);
-  const [is3DModalOpen, setIs3DModalOpen] = useState(false);
   const [micErrorMessage, setMicErrorMessage] = useState<string | null>(null);
-  const [showAllRegions, setShowAllRegions] = useState(false);
   const [severity, setSeverity] = useState<'mild' | 'moderate' | 'severe'>('moderate');
   const [duration, setDuration] = useState<'today' | '2-3days' | '1week' | 'chronic'>('2-3days');
+  const [isManualEditing, setIsManualEditing] = useState(false);
+  const [manualTextDraft, setManualTextDraft] = useState('');
+
+  const handleClearTranscript = () => {
+    try { sovereignSound.playMechanicalSnap(); } catch {}
+    setTranscript('');
+    setParseSuccess(false);
+    onExtractedSymptoms([], {}, []);
+  };
+
+  const handleUndoLastClause = () => {
+    try { sovereignSound.playMechanicalSnap(); } catch {}
+    if (!transcript) return;
+    const parts = transcript.split(/।|\.|\n/).map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      parts.pop();
+      const updated = parts.join('। ');
+      setTranscript(updated);
+      triggerClinicalParse(updated);
+    } else {
+      handleClearTranscript();
+    }
+  };
+
+  const handleSaveManualEdit = () => {
+    try { sovereignSound.playMechanicalSnap(); } catch {}
+    setTranscript(manualTextDraft);
+    setIsManualEditing(false);
+    triggerClinicalParse(manualTextDraft);
+  };
 
   const SEVERITY_LEVELS = [
-    { key: 'mild', label: 'हल्का दर्द', en: 'Mild', color: 'emerald' },
-    { key: 'moderate', label: 'मध्यम दर्द', en: 'Moderate', color: 'amber' },
-    { key: 'severe', label: 'असहनीय / तीव्र', en: 'Severe', color: 'rose' }
+    { key: 'mild', label: 'हल्की तकलीफ़', en: 'Mild', dotColor: 'bg-emerald-500' },
+    { key: 'moderate', label: 'मध्यम तकलीफ़', en: 'Moderate', dotColor: 'bg-amber-500' },
+    { key: 'severe', label: 'तीव्र / असहनीय', en: 'Severe', dotColor: 'bg-rose-500' }
   ];
 
   const DURATION_CHOICES = [
@@ -453,106 +882,64 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     { key: 'chronic', label: '1 महीना+', en: 'Chronic' }
   ];
 
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const MACRO_ZONE_TABS: Array<{ id: MacroZone; label: string; en: string }> = [
-    { id: 'full', label: 'संपूर्ण शरीर', en: 'Full Body' },
-    { id: 'head', label: 'सिर व चेहरा', en: 'Head & Neck' },
-    { id: 'chest', label: 'सीना व हृदय', en: 'Chest & Lungs' },
-    { id: 'abdomen', label: 'पेट व पेडू', en: 'Abdomen & Pelvis' },
-    { id: 'spine', label: 'रीढ़ व पीठ', en: 'Spine & Back' },
-    { id: 'arms', label: 'हाथ व बांह', en: 'Arms & Hands' },
-    { id: 'legs', label: 'पैर व जोड़', en: 'Legs & Feet' }
-  ];
-
-  const getZoneIcon = (zone: MacroZone) => {
-    switch (zone) {
-      case 'full': return <User size={13} className="shrink-0 text-primary" />;
-      case 'head': return <Activity size={13} className="shrink-0 text-primary" />;
-      case 'chest': return <Heart size={13} className="shrink-0 text-rose-500" />;
-      case 'abdomen':
-      case 'torso': return <Layers size={13} className="shrink-0 text-primary" />;
-      case 'spine': return <Bone size={13} className="shrink-0 text-primary" />;
-      case 'arms': return <Activity size={13} className="shrink-0 text-primary" />;
-      case 'legs':
-      case 'lower': return <Activity size={13} className="shrink-0 text-primary" />;
-      default: return <User size={13} className="shrink-0 text-muted-foreground" />;
-    }
-  };
-
   const recognitionRef = useRef<any>(null);
-
-  const samplePrompts = [
-    {
-      type: 'emergency',
-      title: 'सीने में भारी दबाव व पसीना (हृदय शूल)',
-      text: '2 महीने से सीने में बहुत तेज़ गैस चढ़ रही है, जो बाएं कंधे और जबड़े तक जा रही है, बहुत पसीना और भारी दबाव आ रहा है। बीपी 165/102 है।',
-      region: 'Left Chest / Precordium',
-      borderAccent: '#f43f5e'
-    },
-    {
-      type: 'emergency',
-      title: 'सिर पर चोट व रक्तस्राव (मेडिको-लीगल)',
-      text: 'सिर में गहरा घाव है और बहुत खून बह रहा है, चक्कर और बेहोशी आ रही है।',
-      region: 'Head',
-      borderAccent: '#e11d48'
-    },
-    {
-      type: 'emergency',
-      title: 'खांसी में खून व तेज़ बुखार (फेफड़े)',
-      text: '3 हफ्ते से लगातार तेज़ खांसी के साथ बलगम में खून आ रहा है, रात में तेज़ पसीना और वज़न तेज़ी से घट रहा है।',
-      region: 'Neck',
-      borderAccent: '#d97706'
-    },
-    {
-      type: 'backpain',
-      title: 'कटिशूल / साइटिका (Lumbar Spine)',
-      text: 'कमर के निचले हिस्से में तेज़ दर्द है जो सीधे दाहिने पैर की उंगली तक खिंच रहा है, झुकने पर दर्द असहनीय हो जाता है।',
-      region: 'Lumbar Spine (Kati)',
-      borderAccent: '#8b5cf6'
-    },
-    {
-      type: 'arthritis',
-      title: 'संधिवात (Bilateral Knee Joints)',
-      text: 'दोनों घुटनों में 6 महीने से दर्द है, कट-कट की आवाज़ आती है, सुबह उठने पर 25 मिनट तक बहुत जकड़न रहती है।',
-      region: 'Left Knee',
-      borderAccent: '#06b6d4'
-    }
-  ];
-
-  const handleSelectSample = async (sample: typeof samplePrompts[0]) => {
-    try { sovereignSound.playMechanicalSnap(); } catch {}
-    setTranscript(sample.text);
-    setSelectedBodyRegion(sample.region);
-    await triggerClinicalParse(sample.text);
-  };
 
   const handleRegionClick = (regionId: string) => {
     try { sovereignSound.playHotspotPulse(); } catch {}
-    setSelectedBodyRegion(regionId);
-    if (LOCUS_TO_MACRO_ZONE[regionId]) {
-      setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
+    if (selectedBodyRegion === regionId || regionId === '') {
+      setSelectedBodyRegion('');
+      setActiveMacroZone('full');
+    } else {
+      setSelectedBodyRegion(regionId);
+      if (LOCUS_TO_MACRO_ZONE[regionId]) {
+        setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
+      }
     }
   };
 
-  const handleAddSymptom = (symptomText: string) => {
+  const handleSwitchWithComorbidity = (newLocusId: string) => {
+    try {
+      if (congruenceMismatch?.isEmergency) {
+        sovereignSound.playClinicalAlert();
+      } else {
+        sovereignSound.playMechanicalSnap();
+      }
+    } catch {}
+
+    // If patient had previously chosen another organ (e.g., Left Knee / Epigastrium), retain it as a secondary complaint note
+    if (selectedBodyRegion && selectedBodyRegion !== newLocusId) {
+      const priorHindi = REGIONAL_COMPLAINTS[selectedBodyRegion]?.hindiName || selectedBodyRegion;
+      const priorEn = REGIONAL_COMPLAINTS[selectedBodyRegion]?.enName || selectedBodyRegion;
+      const addition = `[सह-लक्षण / 3D स्पर्श: ${priorHindi} (${priorEn})]`;
+      if (!transcript.includes(addition)) {
+        const updated = transcript ? `${transcript} ${addition}` : addition;
+        setTranscript(updated);
+        triggerClinicalParse(updated);
+      }
+    }
+
+    handleRegionClick(newLocusId);
+  };
+
+  const handleAddSymptom = (sym: SymptomItem | string) => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
+    const symHi = typeof sym === 'string' ? sym : sym.hi;
+    const symEn = typeof sym === 'string' ? '' : sym.en;
     const sevObj = SEVERITY_LEVELS.find(s => s.key === severity);
     const durObj = DURATION_CHOICES.find(d => d.key === duration);
-    const formatted = symptomText.includes('(') && symptomText.includes(':')
-      ? symptomText
-      : `${selectedBodyRegion || 'प्रभावित अंग'}: ${symptomText} (${sevObj?.label || ''}, ${durObj?.label || ''})`;
+    const organName = currentRegionalData.hindiName.split('(')[0].trim();
+    const formatted = `${organName}: ${symHi}${symEn ? ` [${symEn}]` : ''} (${sevObj?.label || ''}, ${durObj?.label || ''})`;
     const newTranscript = transcript ? `${transcript}। ${formatted}` : formatted;
     setTranscript(newTranscript);
     triggerClinicalParse(newTranscript);
   };
 
-  const handleAddSensation = (sensation: typeof PAIN_SENSATIONS[0]) => {
+  const handleAddSensation = (sensation: { key: string; label: string; en: string; icon: any }) => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
     const sevObj = SEVERITY_LEVELS.find(s => s.key === severity);
     const durObj = DURATION_CHOICES.find(d => d.key === duration);
-    const regionName = selectedBodyRegion ? selectedBodyRegion.split('/')[0].trim() : 'प्रभावित अंग';
-    const textToAdd = `${regionName} में ${sensation.label} (${sevObj?.label || ''}, ${durObj?.label || ''})`;
+    const organName = currentRegionalData.hindiName.split('(')[0].trim();
+    const textToAdd = `${organName} में ${sensation.label} [${sensation.en}] (${sevObj?.label || ''}, ${durObj?.label || ''})`;
     const newTranscript = transcript ? `${transcript}। ${textToAdd}` : textToAdd;
     setTranscript(newTranscript);
     triggerClinicalParse(newTranscript);
@@ -649,748 +1036,571 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     }
   };
 
-  // Complete Master Categorized Anatomical Loci
-  const ALL_ANATOMICAL_LOCI = [
-    // 1. HEAD & NECK
-    { id: 'Head', zone: 'head', label: 'माथा / ललाट (Forehead)', sub: 'Sthapani Marma, migraine, tension', keywords: ['सिर', 'माथा', 'ललाट', 'head', 'forehead', 'migraine', 'सिरदर्द'] },
-    { id: 'Face & Sinus', zone: 'head', label: 'चेहरा व आँखें (Eyes & Sinus)', sub: 'Sinuses, facial pain, eye ache', keywords: ['चेहरा', 'आँख', 'आंख', 'साइनस', 'गाल', 'face', 'eye', 'sinus'] },
-    { id: 'Ear', zone: 'head', label: 'कान (Ear Ache & Tinnitus)', sub: 'Vidhura Marma, otitis, hearing', keywords: ['कान', 'ear', 'टीस', 'बहना', 'hearing', 'tinnitus'] },
-    { id: 'Neck', zone: 'head', label: 'गला व थाइरॉइड (Throat & Larynx)', sub: 'Manya Marma, sore throat, tonsil', keywords: ['गला', 'कंठ', 'थाइरॉइड', 'टॉन्सिल', 'throat', 'neck', 'खराश'] },
-    { id: 'Cervical Spine', zone: 'head', label: 'गर्दन की नसें (Cervical Spine)', sub: 'Krikātika, cervical radiculopathy', keywords: ['गर्दन', 'cervical', 'ग्रीवा', 'सर्वाइकल', 'जकड़न', 'nape'] },
-
-    // 2. CHEST & THORAX
-    { id: 'Left Chest / Precordium', zone: 'chest', label: 'बायां सीना / दिल (Heart)', sub: 'Hridaya Marma, cardiac angina', isEmergency: true, keywords: ['दिल', 'हृदय', 'सीना', 'छाती', 'heart', 'chest', 'cardiac', 'बायां सीना', 'घबराहट'] },
-    { id: 'Right Chest', zone: 'chest', label: 'दायां सीना (Right Thorax)', sub: 'Stanarohita, right lung pleurisy', keywords: ['दायां सीना', 'दाहिनी छाती', 'right chest', 'thorax'] },
-    { id: 'Lungs & Respiration', zone: 'chest', label: 'फेफड़े व सांस (Lungs & Respiration)', sub: 'Pranavaha Srotas, asthma, cough', keywords: ['फेफड़े', 'सांस', 'दमा', 'खांसी', 'lungs', 'cough', 'asthma', 'श्वास'] },
-
-    // 3. ABDOMEN & VISCERA
-    { id: 'Epigastrium', zone: 'abdomen', label: 'ऊपरी पेट / आमाशय (Upper Stomach)', sub: 'Amashaya, acid gastritis, GERD', keywords: ['ऊपरी पेट', 'पेट', 'आमाशय', 'एसिडिटी', 'जलन', 'epigastrium', 'stomach', 'acidity', 'gastric'] },
-    { id: 'Umbilicus / Mid-Abdomen', zone: 'abdomen', label: 'मध्य पेट / नाभि (Navel / Colic)', sub: 'Nabhi Marma, colic, cramps, gas', keywords: ['नाभि', 'मध्य पेट', 'navel', 'umbilicus', 'मरोड़', 'bloating', 'gas'] },
-    { id: 'Pelvic / Hypogastrium', zone: 'abdomen', label: 'निचला पेट / पेडू (Lower Belly)', sub: 'Basti Marma, UTI, pelvic pain', keywords: ['निचला पेट', 'पेडू', 'पेशाब', 'pelvis', 'lower belly', 'bladder', 'uti', 'बस्ति'] },
-    { id: 'Right Lower Quadrant (RLQ)', zone: 'abdomen', label: 'दायां निचला पेट (RLQ / Appendix)', sub: 'Unduka, McBurney point tenderness', isEmergency: true, keywords: ['दायां निचला पेट', 'अपेंडिक्स', 'appendix', 'rlq', 'mcburney'] },
-    { id: 'Left Lower Quadrant (LLQ)', zone: 'abdomen', label: 'बायां निचला पेट / गुर्दा (LLQ)', sub: 'Left renal colic, flank ache', keywords: ['बायां निचला पेट', 'गुर्दा', 'पथरी', 'llq', 'kidney'] },
-
-    // 4. SPINAL AXIS & POSTERIOR BACK
-    { id: 'Upper Back / Thoracic', zone: 'spine', label: 'ऊपरी पीठ (Thoracic Spine)', sub: 'Amsaphalaka, interscapular spasm', keywords: ['ऊपरी पीठ', 'पीठ', 'कंधों के बीच', 'upper back', 'thoracic', 'scapula'] },
-    { id: 'Lumbar Spine (Kati)', zone: 'spine', label: 'निचली कमर / कटि (Low Back)', sub: 'Katikataruna, slip disc, lumbago', keywords: ['कमर', 'कटि', 'पीठ', 'लो बैक', 'lumbar', 'lumbago', 'back pain', 'स्लिप डिस्क'] },
-    { id: 'Sacral / Sciatica Origin', zone: 'spine', label: 'त्रिक / नितंब व साइटिका मूल (Sacrum)', sub: 'Nitamba Marma, piriformis ache', keywords: ['नितंब', 'सायटिका', 'त्रिक', 'sacrum', 'sciatica', 'buttock'] },
-    { id: 'Sciatic Pathway / Calves', zone: 'spine', label: 'पिंडलियाँ व उतरता दर्द (Sciatica Path)', sub: 'Indrabasti, calf cramps, shooting', keywords: ['पिंडली', 'पिंडलियां', 'calves', 'sciatica', 'पैरों में उतरता दर्द'] },
-
-    // 5. UPPER EXTREMITIES (ARMS)
-    { id: 'Left Shoulder', zone: 'arms', label: 'बायां कंधा (Left Shoulder)', sub: 'Amsa Marma, rotator cuff', keywords: ['बायां कंधा', 'कंधा', 'left shoulder', 'shoulder'] },
-    { id: 'Right Shoulder', zone: 'arms', label: 'दायां कंधा (Right Shoulder)', sub: 'Amsa Marma, frozen shoulder', keywords: ['दायां कंधा', 'कंधा', 'right shoulder'] },
-    { id: 'Left Arm', zone: 'arms', label: 'बायीं बांह व कोहनी (Left Arm & Elbow)', sub: 'Kurpara Marma, arm strain', keywords: ['बायीं बांह', 'बांह', 'कोहनी', 'left arm', 'elbow'] },
-    { id: 'Right Arm', zone: 'arms', label: 'दायीं बांह व कोहनी (Right Arm & Elbow)', sub: 'Kurpara Marma, tennis elbow', keywords: ['दायीं बांह', 'बांह', 'कोहनी', 'right arm'] },
-    { id: 'Left Hand', zone: 'arms', label: 'बायां हाथ व कलाई (Left Hand & Wrist)', sub: 'Manibandha, carpal tunnel', keywords: ['बायां हाथ', 'कलाई', 'हथेली', 'left hand', 'wrist'] },
-    { id: 'Right Hand', zone: 'arms', label: 'दायां हाथ व कलाई (Right Hand & Wrist)', sub: 'Manibandha, grip weakness', keywords: ['दायां हाथ', 'कलाई', 'हथेली', 'right hand'] },
-
-    // 6. LOWER EXTREMITIES (LEGS)
-    { id: 'Left Hip', zone: 'legs', label: 'बायां कूल्हा व जांघ (Left Hip)', sub: 'Urvi Marma, gait pain', keywords: ['बायां कूल्हा', 'कूल्हा', 'जांघ', 'left hip', 'thigh'] },
-    { id: 'Right Hip', zone: 'legs', label: 'दायां कूल्हा व जांघ (Right Hip)', sub: 'Urvi Marma, hip joint', keywords: ['दायां कूल्हा', 'कूल्हा', 'जांघ', 'right hip'] },
-    { id: 'Left Knee', zone: 'legs', label: 'बायां घुटना / जानु (Left Knee)', sub: 'Janu Marma, osteoarthritis, crepitus', keywords: ['बायां घुटना', 'घुटना', 'जानु', 'left knee', 'knee'] },
-    { id: 'Right Knee', zone: 'legs', label: 'दायां घुटना / जानु (Right Knee)', sub: 'Janu Marma, knee effusion', keywords: ['दायां घुटना', 'घुटना', 'जानु', 'right knee'] },
-    { id: 'Left Leg', zone: 'legs', label: 'बायीं पिंडली / नली की हड्डी (Left Shin)', sub: 'Jangha Sthana, shin splints', keywords: ['बायीं नली', 'पिंडली', 'left shin', 'leg'] },
-    { id: 'Right Leg', zone: 'legs', label: 'दायीं पिंडली / नली की हड्डी (Right Shin)', sub: 'Jangha Sthana, calf tightness', keywords: ['दायीं नली', 'पिंडली', 'right shin', 'leg'] },
-    { id: 'Left Foot', zone: 'legs', label: 'बायां पैर व तलवा (Left Foot & Ankle)', sub: 'Gulpha & Talahridaya, plantar fasciitis', keywords: ['बायां पैर', 'तलवा', 'टखना', 'एड़ी', 'left foot', 'ankle', 'heel'] },
-    { id: 'Right Foot', zone: 'legs', label: 'दायां पैर व तलवा (Right Foot & Ankle)', sub: 'Gulpha & Talahridaya, heel spur', keywords: ['दायां पैर', 'तलवा', 'टखना', 'एड़ी', 'right foot', 'ankle', 'heel'] }
-  ];
-
-  // Filtered Loci by MacroZone and Search Query
-  const filteredLoci = useMemo(() => {
-    let list = ALL_ANATOMICAL_LOCI;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      return list.filter(l => 
-        l.label.toLowerCase().includes(q) ||
-        l.sub.toLowerCase().includes(q) ||
-        l.id.toLowerCase().includes(q) ||
-        l.keywords.some(k => k.toLowerCase().includes(q))
-      );
-    }
-    if (activeMacroZone === 'full') {
-      return showAllRegions ? list : list.filter(l => ['Head', 'Left Chest / Precordium', 'Epigastrium', 'Pelvic / Hypogastrium', 'Lumbar Spine (Kati)', 'Left Knee', 'Left Arm', 'Right Chest'].includes(l.id));
-    }
-    return list.filter(l => l.zone === activeMacroZone);
-  }, [activeMacroZone, searchQuery, showAllRegions]);
-
   const currentRegionalData = REGIONAL_COMPLAINTS[selectedBodyRegion] || {
-    symptoms: ['असहनीय दर्द (Severe Pain)', 'सूजन व भारीपन (Swelling)', 'जलन या खिंचाव (Burning / Spasm)'],
-    ayushContext: 'Marma & Srotas Locus · Sthanika Dosha'
+    hindiName: selectedBodyRegion || 'सामान्य शरीर',
+    enName: 'Full Body Assessment',
+    symptoms: [
+      { hi: 'असहनीय तकलीफ़ व दर्द', en: 'Severe Pain & Distress' },
+      { hi: 'सूजन व भारीपन', en: 'Swelling & Heaviness' },
+      { hi: 'जलन या खिंचाव', en: 'Burning or Muscle Spasm' },
+      { hi: 'जकड़न व कमजोरी', en: 'Stiffness & Weakness' }
+    ],
+    ayushContext: 'Marma & Srotas Locus'
   };
 
   const clusterKey = LOCUS_TO_CLUSTER[selectedBodyRegion];
   const currentCluster = clusterKey ? CLUSTER_DISAMBIGUATION[clusterKey] : null;
   const congruenceMismatch = useMemo(() => evaluateCongruenceMismatch(selectedBodyRegion, transcript), [selectedBodyRegion, transcript]);
+  const activeSensations = useMemo(() => getOrganSensations(selectedBodyRegion), [selectedBodyRegion]);
+
+  const handleAudioGuidance = () => {
+    try {
+      sovereignSound.playMechanicalSnap();
+      const guidanceTexts: Record<string, string> = {
+        'hi-IN': subPhase === 'body'
+          ? 'कृपया 3D शरीर मॉडल पर अपनी तकलीफ़ का अंग छूकर बताएं, फिर आगे बढ़ें बटन दबाएं।'
+          : 'कृपया माइक दबाकर अपनी तकलीफ़ बोलें या नीचे दिए गए लक्षणों को चुनें।',
+        'en-IN': subPhase === 'body'
+          ? 'Please touch your painful organ on the 3D model, then tap continue.'
+          : 'Please tap the microphone button to speak your symptoms or tap choices below.'
+      };
+      sovereignSound.speakGuidance(guidanceTexts[micLanguage] || guidanceTexts['hi-IN']);
+    } catch {}
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 flex flex-col gap-3 selection:bg-foreground selection:text-background animate-in fade-in duration-300">
+    <div className="w-full mx-auto selection:bg-foreground selection:text-background animate-in fade-in duration-300">
       
-      {/* 1. Header & Reassuring Multilingual Voice Guidance */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pb-2 border-b border-border/60">
-        <div className="text-center sm:text-left">
-          <div className="flex items-center gap-2 justify-center sm:justify-start">
-            <h2 className="font-heading font-extrabold text-lg sm:text-xl md:text-2xl tracking-tight text-foreground">
-              कहाँ और क्या तकलीफ़ है? · Symptom &amp; Voice Intake
-            </h2>
-          </div>
-          <p className="text-xs sm:text-[13px] text-muted-foreground font-sans mt-0.5">
-            शरीर मॉडल पर छूकर बताएं या अपनी भाषा में माइक से बोलें (Touch 3D body loci or speak naturally)
-          </p>
-        </div>
-
-        {/* Top Control Bar: Audio Guidance + 3D/2D Mode + DPDP Private Mode */}
-        <div className="flex items-center gap-1.5 flex-wrap justify-center">
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                sovereignSound.playMechanicalSnap();
-                const guidanceTexts: Record<string, string> = {
-                  'hi-IN': 'कृपया 3D शरीर मॉडल में अपने दर्द का अंग चुनें या माइक का बटन दबाकर अपनी तकलीफ़ बोलें।',
-                  'en-IN': 'Please select your affected body part on the 3D model or tap the microphone to speak your symptoms.',
-                  'mr-IN': 'कृपया 3D शरीरावर तुमचा दुखणारा भाग निवडा किंवा माइक दाबून आपली लक्षणे सांगा.',
-                  'bn-IN': 'অনুগ্রহ করে 3D মডেলে ব্যথার স্থানটি নির্বাচন করুন বা মাইক চেপে আপনার समस्या বলুন।',
-                  'ta-IN': 'தயவுசெய்து 3D மாதிரியில் வலி உள்ள பகுதியைத் தேர்ந்தெடுக்கவும் அல்லது மைக் அழுத்தி உங்கள் அறிகுறிகளைப் பேசவும்.',
-                  'te-IN': 'దయచేసి 3D శరీర నమూనాలో మీ నొప్పి ఉన్న భాగాన్ని ఎంచుకోండి లేదా మైక్ నొక్కి మాట్లాడండి.',
-                  'gu-IN': 'કૃપા કરીને 3D મોડેલ પર તમારા દર્દનો ભાગ પસંદ કરો અથવા માઇક દબાવીને તમારી તકલીફ બોલો.',
-                  'kn-IN': 'ದಯವಿಟ್ಟು 3D ದೇಹದ ಮಾದರಿಯಲ್ಲಿ ನಿಮ್ಮ ನೋವಿನ ಭಾಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಮಾತನಾಡಿ.',
-                  'pa-IN': 'ਕਿਰਪਾ ਕਰਕੇ 3D ਸਰੀਰ ਮਾਡਲ ਤੇ ਆਪਣੇ ਦਰਦ ਦਾ ਅੰਗ ਚੁਣੋ ਜਾਂ ਮਾਈਕ ਦਬਾ ਕੇ ਆਪਣੀ ਤਕਲੀਫ ਬੋਲੋ।',
-                  'ml-IN': 'ദയവായി 3D മോഡലിൽ നിങ്ങളുടെ വേദനയുള്ള ഭാഗം തിരഞ്ഞെടുക്കുക അല്ലെങ്കിൽ മൈക്ക് അമർത്തി സംസാരിക്കുക.'
-                };
-                sovereignSound.speakGuidance(guidanceTexts[micLanguage] || guidanceTexts['hi-IN']);
-              } catch {}
-            }}
-            className="tactile-btn h-8 px-2.5 rounded-lg text-primary border-primary/30 text-[11px] font-semibold gap-1 cursor-pointer shadow-2xs"
-            title="Audio Guidance / आवाज़ में निर्देश"
-          >
-            <Volume2 size={13} />
-            <span>सुनें (Listen)</span>
-          </button>
-
-          {/* Layout View Switcher (Hero Canvas vs Split Workstation) */}
-          <button
-            type="button"
-            onClick={() => {
-              try { sovereignSound.playMechanicalSnap(); } catch {}
-              setLayoutMode(layoutMode === 'hero' ? 'split' : 'hero');
-            }}
-            className="tactile-btn h-8 px-2.5 rounded-lg text-foreground text-[11px] font-semibold gap-1 hidden md:inline-flex cursor-pointer"
-            title="Toggle between Full Canvas Hero View and Dual Split Workstation"
-          >
-            <Sliders size={13} className="text-primary" />
-            <span>{layoutMode === 'hero' ? 'विस्तृत दृश्य (Hero)' : 'स्प्लिट दृश्य (Split)'}</span>
-          </button>
-
-          {/* 3D WebGL vs 2D Simple Vector Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              try { sovereignSound.playMechanicalSnap(); } catch {}
-              setDisplayEngine(displayEngine === '3d' ? '2d' : '3d');
-            }}
-            className="tactile-btn h-8 px-2.5 rounded-lg text-foreground text-[11px] font-mono font-semibold gap-1 cursor-pointer"
-            title="Toggle between 3D WebGL Mannequin and 2D Vector Outline"
-          >
-            {displayEngine === '3d' ? <Box size={13} className="text-primary" /> : <Layers size={13} />}
-            <span>{displayEngine === '3d' ? '3D WebGL' : '2D Vector'}</span>
-          </button>
-
-          {/* DPDP Act 2023 Statutory Private Mode */}
-          <button
-            type="button"
-            onClick={() => {
-              try { sovereignSound.playMechanicalSnap(); } catch {}
-              setIsPrivateMode(!isPrivateMode);
-            }}
-            className={`tactile-btn h-8 px-2.5 rounded-lg text-[11px] font-semibold gap-1.5 cursor-pointer transition-all ${
-              isPrivateMode
-                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/50'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-            title="Discreet mode for sensitive clinical history (DPDP Act 2023)"
-          >
-            {isPrivateMode ? <EyeOff size={13} /> : <Shield size={13} />}
-            <span>निजी मोड</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Main Center Stage: Full-Canvas Hero or Dual-Split Interactive Workspace */}
-      <div className={`grid gap-4 items-start ${
-        layoutMode === 'split' ? 'grid-cols-1 lg:grid-cols-12' : 'grid-cols-1'
-      }`}>
-        
-        {/* Left / Center: The Majestic Human Body Canvas (Preserving 3D Model with Grand Stage) */}
-        <div className={layoutMode === 'split' ? 'lg:col-span-7 flex flex-col gap-3' : 'w-full flex flex-col gap-3'}>
+      {/* =========================================================================
+          PHASE 3.0: 100% PURE FULLSCREEN 3D ANATOMICAL BODY STAGE
+          ========================================================================= */}
+      {subPhase === 'body' && (
+        <div className="relative w-full h-[calc(100vh-210px)] min-h-[640px] rounded-3xl overflow-hidden border border-border/80 shadow-md bg-card animate-in fade-in zoom-in-95 duration-300">
           
-          <div className="physical-card p-3 sm:p-4 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
-            
-            {/* Top HUD Floating Control Bar over the Canvas */}
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/70 flex-wrap z-10">
-              
-              {/* Active Locus Display */}
-              <div className="flex items-center gap-2 min-w-0 bg-background/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-border/80 shadow-2xs">
-                <div className="flex flex-col min-w-0 text-left">
-                  <span className="text-[9.5px] font-mono text-muted-foreground uppercase tracking-wider">
-                    चयनित अंग (Active Locus)
+          {/* The Pristine 3D Mannequin Viewport (Full Cinematic Canvas) */}
+          <AnatomicalMannequin3D
+            selectedRegion={selectedBodyRegion}
+            onSelectRegion={handleRegionClick}
+            viewMode={mannequinView}
+            onViewModeChange={setMannequinView}
+            isPrivateMode={isPrivateMode}
+            activeMacroZone={activeMacroZone}
+            onMacroZoneChange={setActiveMacroZone}
+            className="w-full h-full rounded-3xl border-0"
+            showAngleControls={true}
+            hideHeaderControls={true}
+          />
+
+          {/* Top Diagnostic HUD Bar - Unified, Never Overlapping */}
+          <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between gap-3 pointer-events-auto flex-wrap">
+            {/* Left: Selected Organ Status / Instruction */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md">
+                <HeartPulse size={18} className={`shrink-0 ${selectedBodyRegion ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider font-bold">
+                    {selectedBodyRegion ? 'चयनित अंग' : 'शरीर मॉडल'}
                   </span>
-                  <span className="font-heading font-extrabold text-xs sm:text-sm text-foreground truncate">
-                    {selectedBodyRegion || 'शरीर पर अंग चुनें'}
+                  <span className="font-heading font-extrabold text-sm sm:text-base text-foreground">
+                    {selectedBodyRegion ? (
+                      <span className="text-primary">{currentRegionalData.hindiName}</span>
+                    ) : (
+                      <span className="text-muted-foreground font-medium text-xs sm:text-sm">तकलीफ़ का स्थान छुएं</span>
+                    )}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { sovereignSound.playMechanicalSnap(); } catch {}
-                    setIs3DModalOpen(true);
-                  }}
-                  className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 cursor-pointer ml-1"
-                  title="3D मॉडल में बदलें"
-                >
-                  बदलें
-                </button>
-              </div>
-
-              {/* Anterior / Posterior Tactile Flip Toggle */}
-              <div className="flex items-center p-1 rounded-xl recessed-bay gap-1 bg-muted/40">
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { sovereignSound.playMechanicalSnap(); } catch {}
-                    setMannequinView('front');
-                  }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    mannequinView === 'front'
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  सामने (Front)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { sovereignSound.playMechanicalSnap(); } catch {}
-                    setMannequinView('back');
-                  }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    mannequinView === 'back'
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  पीछे (Back)
-                </button>
-              </div>
-
-              {/* Macro Zone Zoom Quick Tabs */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
-                {MACRO_ZONE_TABS.map((tab) => (
+                {selectedBodyRegion && (
                   <button
-                    key={tab.id}
                     type="button"
-                    onClick={() => {
-                      try { sovereignSound.playMechanicalSnap(); } catch {}
-                      setActiveMacroZone(tab.id);
-                    }}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border ${
-                      activeMacroZone === tab.id
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs font-bold'
-                        : 'bg-card hover:bg-muted text-foreground border-border/80'
-                    }`}
+                    onClick={() => handleRegionClick(selectedBodyRegion)}
+                    className="ml-2 px-2 py-1 rounded-xl bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Full Body View / संपूर्ण शरीर देखें"
                   >
-                    {getZoneIcon(tab.id)}
-                    <span>{tab.label}</span>
+                    <CornerUpLeft size={12} />
+                    <span className="text-[11px]">हटाएं</span>
                   </button>
-                ))}
+                )}
+              </div>
+            </div>
+
+            {/* Right: Orientation Tag + Audio Guidance + Private Mode */}
+            <div className="flex items-center gap-2">
+              {/* Orientation Tag */}
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-card/95 backdrop-blur-md rounded-xl border border-border/80 text-xs font-mono text-foreground shadow-xs">
+                <span className="text-muted-foreground">दायां (R)</span>
+                <span className="text-border">|</span>
+                <span className="font-semibold text-foreground">बायां (L)</span>
               </div>
 
-              {/* Fullscreen 3D Precision Modal Trigger */}
+              {/* Audio Guidance */}
+              <button
+                type="button"
+                onClick={handleAudioGuidance}
+                className="tactile-btn h-9 px-3.5 rounded-xl bg-card/95 backdrop-blur-md text-primary border border-border/80 text-xs font-bold gap-1.5 shadow-sm cursor-pointer hover:bg-muted flex items-center"
+                title="Audio Guidance / निर्देश सुनें"
+              >
+                <Volume2 size={15} />
+                <span>सुनें</span>
+              </button>
+
+              {/* Private Mode */}
               <button
                 type="button"
                 onClick={() => {
                   try { sovereignSound.playMechanicalSnap(); } catch {}
-                  setIs3DModalOpen(true);
+                  setIsPrivateMode(!isPrivateMode);
                 }}
-                className="tactile-btn h-8 px-3 text-[11px] font-heading font-extrabold gap-1.5 rounded-lg text-primary border-primary/40 hover:bg-primary/10 cursor-pointer shadow-xs ml-auto bg-primary/5"
-                title="Open 3D Fullscreen Body Inspector"
+                className={`tactile-btn h-9 px-3.5 rounded-xl backdrop-blur-md text-xs font-bold gap-1.5 shadow-sm cursor-pointer transition-all border flex items-center ${
+                  isPrivateMode
+                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/50'
+                    : 'bg-card/95 text-muted-foreground hover:text-foreground border-border/80'
+                }`}
+                title="Sensitive Mode"
               >
-                <Maximize2 size={13} />
-                <span>3D मॉडल बदलें (Fullscreen)</span>
+                {isPrivateMode ? <EyeOff size={15} /> : <Shield size={15} />}
+                <span>{isPrivateMode ? 'निजी' : 'निजी'}</span>
               </button>
             </div>
-
-            {/* The Mannequin Viewport: 3D WebGL Mannequin (Grand Stage) or 2D Vector */}
-            <div className="relative w-full rounded-2xl bg-gradient-to-b from-muted/10 via-background to-muted/20 border border-border/60 overflow-hidden">
-
-              {displayEngine === '3d' ? (
-                !is3DModalOpen ? (
-                  /* Unaltered, pristine 3D Mannequin with full-height grand stage */
-                  <AnatomicalMannequin3D
-                    selectedRegion={selectedBodyRegion}
-                    onSelectRegion={handleRegionClick}
-                    viewMode={mannequinView}
-                    onViewModeChange={(mode) => setMannequinView(mode)}
-                    isPrivateMode={isPrivateMode}
-                    activeMacroZone={activeMacroZone}
-                    onMacroZoneChange={setActiveMacroZone}
-                    className="w-full h-[420px] sm:h-[480px] lg:h-[540px]"
-                  />
-                ) : (
-                  <div className="w-full h-[420px] sm:h-[480px] lg:h-[540px] flex items-center justify-center text-muted-foreground/60 text-xs font-mono">
-                    3D Fullscreen Modal Active
-                  </div>
-                )
-              ) : (
-                /* 2D Vector Mannequin with Macro Zoom & 100% Hotspot Coverage */
-                <div className="relative w-full h-[420px] sm:h-[480px] lg:h-[540px] flex flex-col items-center justify-between p-2 overflow-hidden">
-                  <svg
-                    viewBox={
-                      activeMacroZone === 'head'
-                        ? '70 16 100 100'
-                        : activeMacroZone === 'chest'
-                        ? '50 75 140 110'
-                        : activeMacroZone === 'abdomen' || activeMacroZone === 'torso'
-                        ? '45 130 150 150'
-                        : activeMacroZone === 'spine'
-                        ? '50 60 140 180'
-                        : activeMacroZone === 'arms'
-                        ? '30 80 180 180'
-                        : activeMacroZone === 'legs' || activeMacroZone === 'lower'
-                        ? '50 240 140 210'
-                        : '0 0 240 460'
-                    }
-                    className="w-full h-full max-h-[500px] select-none transition-all duration-300"
-                  >
-                    <defs>
-                      <linearGradient id="selectedZoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
-                        <stop offset="100%" stopColor="#059669" stopOpacity="0.30" />
-                      </linearGradient>
-                      <filter id="emeraldGlow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#10b981" floodOpacity="0.6" />
-                      </filter>
-                    </defs>
-
-                    {/* Anatomical Base Silhouette */}
-                    <g strokeWidth="1.4" className="transition-all duration-200">
-                      {/* Head */}
-                      <path
-                        d="M 120,24 C 104,24 94,36 94,52 C 94,68 104,80 120,80 C 136,80 146,68 146,52 C 146,36 136,24 120,24 Z"
-                        onClick={() => handleRegionClick('Head')}
-                        className="cursor-pointer transition-all duration-200 hover:fill-emerald-500/25"
-                        fill={selectedBodyRegion === 'Head' || selectedBodyRegion === 'Face & Sinus' || selectedBodyRegion === 'Ear' ? "url(#selectedZoneGrad)" : "rgba(100, 116, 139, 0.12)"}
-                        stroke={selectedBodyRegion === 'Head' || selectedBodyRegion === 'Face & Sinus' || selectedBodyRegion === 'Ear' ? "#10b981" : "rgba(100, 116, 139, 0.4)"}
-                        strokeWidth={selectedBodyRegion === 'Head' ? "2" : "1.4"}
-                        filter={selectedBodyRegion === 'Head' ? "url(#emeraldGlow)" : undefined}
-                      />
-                      {/* Neck */}
-                      <path
-                        d="M 112,80 L 112,94 L 128,94 L 128,80 Z"
-                        onClick={() => handleRegionClick(mannequinView === 'front' ? 'Neck' : 'Cervical Spine')}
-                        className="cursor-pointer transition-all duration-200 hover:fill-emerald-500/25"
-                        fill={selectedBodyRegion === 'Neck' || selectedBodyRegion === 'Cervical Spine' ? "url(#selectedZoneGrad)" : "rgba(100, 116, 139, 0.12)"}
-                        stroke={selectedBodyRegion === 'Neck' || selectedBodyRegion === 'Cervical Spine' ? "#10b981" : "rgba(100, 116, 139, 0.4)"}
-                        strokeWidth={selectedBodyRegion === 'Neck' || selectedBodyRegion === 'Cervical Spine' ? "2" : "1.4"}
-                      />
-                      {/* Torso Base Contour */}
-                      <path
-                        d="M 112,94 C 88,96 70,112 66,138 L 58,210 C 56,224 64,232 76,230 L 84,168 L 88,272 L 102,272 L 104,204 L 136,204 L 138,272 L 152,272 L 156,168 L 164,230 C 176,232 184,224 182,210 L 174,138 C 170,112 152,96 128,94 Z"
-                        className="stroke-border/70 fill-muted/20 pointer-events-none"
-                      />
-                      {/* Pelvis Base Contour */}
-                      <path
-                        d="M 88,272 C 88,300 102,316 120,316 C 138,316 152,300 152,272 Z"
-                        className="stroke-border/70 fill-muted/20 pointer-events-none"
-                      />
-                      {/* Legs Base Contour */}
-                      <path d="M 94,316 L 90,385 L 96,440 L 110,440 L 108,385 L 114,316 Z" className="stroke-border/70 fill-muted/20 pointer-events-none" />
-                      <path d="M 126,316 L 132,385 L 130,440 L 144,440 L 150,385 L 146,316 Z" className="stroke-border/70 fill-muted/20 pointer-events-none" />
-                    </g>
-
-                    {mannequinView === 'front' ? (
-                      <>
-                        {/* Left Chest (हृदय / Heart Side - Patient Left, Screen Right) */}
-                        <g onClick={() => handleRegionClick('Left Chest / Precordium')} className="cursor-pointer group">
-                          <rect
-                            x="118"
-                            y="96"
-                            width="48"
-                            height="48"
-                            rx="8"
-                            fill={selectedBodyRegion === 'Left Chest / Precordium' ? "url(#selectedZoneGrad)" : "transparent"}
-                            stroke={selectedBodyRegion === 'Left Chest / Precordium' ? "#10b981" : "transparent"}
-                            strokeWidth="1.5"
-                            className="group-hover:fill-emerald-500/20 transition-all duration-200"
-                            filter={selectedBodyRegion === 'Left Chest / Precordium' ? "url(#emeraldGlow)" : undefined}
-                          />
-                          <text x="142" y="123" textAnchor="middle" fontSize="8" fill={selectedBodyRegion === 'Left Chest / Precordium' ? "#10b981" : "currentColor"} className="text-foreground" fontWeight="bold">
-                            दिल (Heart)
-                          </text>
-                        </g>
-
-                        {/* Right Chest (दायां सीना / Right Lung) */}
-                        <g onClick={() => handleRegionClick('Right Chest')} className="cursor-pointer group">
-                          <rect
-                            x="74"
-                            y="96"
-                            width="44"
-                            height="48"
-                            rx="8"
-                            fill={selectedBodyRegion === 'Right Chest' ? "url(#selectedZoneGrad)" : "transparent"}
-                            stroke={selectedBodyRegion === 'Right Chest' ? "#10b981" : "transparent"}
-                            strokeWidth="1.5"
-                            className="group-hover:fill-emerald-500/20 transition-all duration-200"
-                            filter={selectedBodyRegion === 'Right Chest' ? "url(#emeraldGlow)" : undefined}
-                          />
-                          <text x="96" y="123" textAnchor="middle" fontSize="7.5" fill="#64748b">दायां सीना</text>
-                        </g>
-
-                        {/* Upper Abdomen / Epigastrium (ऊपरी पेट / आमाशय / Gastric Agni) */}
-                        <g onClick={() => handleRegionClick('Epigastrium')} className="cursor-pointer group">
-                          <rect
-                            x="72"
-                            y="144"
-                            width="96"
-                            height="44"
-                            rx="8"
-                            fill={selectedBodyRegion === 'Epigastrium' ? "url(#selectedZoneGrad)" : "transparent"}
-                            stroke={selectedBodyRegion === 'Epigastrium' ? "#10b981" : "transparent"}
-                            strokeWidth="1.5"
-                            className="group-hover:fill-emerald-500/20 transition-all duration-200"
-                            filter={selectedBodyRegion === 'Epigastrium' ? "url(#emeraldGlow)" : undefined}
-                          />
-                          <text x="120" y="170" textAnchor="middle" fontSize="7.5" fill={selectedBodyRegion === 'Epigastrium' ? "#10b981" : "#94a3b8"} fontWeight="bold">
-                            ऊपरी पेट (Upper)
-                          </text>
-                        </g>
-
-                        {/* Mid-Abdomen (नाभि) */}
-                        <g onClick={() => handleRegionClick('Umbilicus / Mid-Abdomen')} className="cursor-pointer group">
-                          <rect
-                            x="74"
-                            y="188"
-                            width="92"
-                            height="42"
-                            rx="8"
-                            fill={selectedBodyRegion === 'Umbilicus / Mid-Abdomen' ? "url(#selectedZoneGrad)" : "transparent"}
-                            stroke={selectedBodyRegion === 'Umbilicus / Mid-Abdomen' ? "#10b981" : "transparent"}
-                            strokeWidth="1.5"
-                            className="group-hover:fill-emerald-500/20 transition-all duration-200"
-                            filter={selectedBodyRegion === 'Umbilicus / Mid-Abdomen' ? "url(#emeraldGlow)" : undefined}
-                          />
-                          <text x="120" y="212" textAnchor="middle" fontSize="7" fill={selectedBodyRegion === 'Umbilicus / Mid-Abdomen' ? "#10b981" : "#94a3b8"}>
-                            मध्य पेट / नाभि
-                          </text>
-                        </g>
-
-                        {/* Lower Abdomen & Pelvis / Hypogastrium */}
-                        <g onClick={() => handleRegionClick('Pelvic / Hypogastrium')} className="cursor-pointer group">
-                          <rect
-                            x="74"
-                            y="270"
-                            width="92"
-                            height="46"
-                            rx="8"
-                            fill={selectedBodyRegion === 'Pelvic / Hypogastrium' ? "url(#selectedZoneGrad)" : "transparent"}
-                            stroke={selectedBodyRegion === 'Pelvic / Hypogastrium' ? "#10b981" : "transparent"}
-                            strokeWidth="1.5"
-                            className="group-hover:fill-emerald-500/20 transition-all duration-200"
-                            filter={selectedBodyRegion === 'Pelvic / Hypogastrium' ? "url(#emeraldGlow)" : undefined}
-                          />
-                          <text x="120" y="296" textAnchor="middle" fontSize="7" fill={selectedBodyRegion === 'Pelvic / Hypogastrium' ? "#10b981" : "#94a3b8"} fontWeight="bold">
-                            निचला पेट / पेडू (Lower)
-                          </text>
-                        </g>
-
-                        {/* Knees */}
-                        <g onClick={() => handleRegionClick('Right Knee')} className="cursor-pointer group">
-                          <rect x="84" y="360" width="32" height="36" rx="8" fill={selectedBodyRegion === 'Right Knee' ? "url(#selectedZoneGrad)" : "transparent"} stroke={selectedBodyRegion === 'Right Knee' ? "#10b981" : "transparent"} strokeWidth="1.5" className="group-hover:fill-emerald-500/20" />
-                        </g>
-                        <g onClick={() => handleRegionClick('Left Knee')} className="cursor-pointer group">
-                          <rect x="124" y="360" width="32" height="36" rx="8" fill={selectedBodyRegion === 'Left Knee' ? "url(#selectedZoneGrad)" : "transparent"} stroke={selectedBodyRegion === 'Left Knee' ? "#10b981" : "transparent"} strokeWidth="1.5" className="group-hover:fill-emerald-500/20" />
-                        </g>
-                      </>
-                    ) : (
-                      <>
-                        {/* Posterior Back View Regional Zones */}
-                        <g onClick={() => handleRegionClick('Cervical Spine')} className="cursor-pointer group">
-                          <rect x="100" y="70" width="40" height="30" rx="6" fill={selectedBodyRegion === 'Cervical Spine' ? "url(#selectedZoneGrad)" : "transparent"} stroke={selectedBodyRegion === 'Cervical Spine' ? "#10b981" : "transparent"} strokeWidth="1.5" className="group-hover:fill-emerald-500/20" />
-                        </g>
-                        <g onClick={() => handleRegionClick('Upper Back / Thoracic')} className="cursor-pointer group">
-                          <rect x="74" y="102" width="92" height="50" rx="8" fill={selectedBodyRegion === 'Upper Back / Thoracic' ? "url(#selectedZoneGrad)" : "transparent"} stroke={selectedBodyRegion === 'Upper Back / Thoracic' ? "#10b981" : "transparent"} strokeWidth="1.5" className="group-hover:fill-emerald-500/20" />
-                        </g>
-                        <g onClick={() => handleRegionClick('Lumbar Spine (Kati)')} className="cursor-pointer group">
-                          <rect x="76" y="154" width="88" height="48" rx="8" fill={selectedBodyRegion === 'Lumbar Spine (Kati)' ? "url(#selectedZoneGrad)" : "transparent"} stroke={selectedBodyRegion === 'Lumbar Spine (Kati)' ? "#10b981" : "transparent"} strokeWidth="1.5" className="group-hover:fill-emerald-500/20" />
-                          <text x="120" y="190" textAnchor="middle" fontSize="7.5" fill={selectedBodyRegion === 'Lumbar Spine (Kati)' ? "#10b981" : "#94a3b8"} fontWeight="bold">
-                            कमर (Lower Back)
-                          </text>
-                        </g>
-                        <g onClick={() => handleRegionClick('Sciatic Pathway / Calves')} className="cursor-pointer group">
-                          <rect x="84" y="340" width="72" height="95" rx="8" fill={selectedBodyRegion === 'Sciatic Pathway / Calves' ? "url(#selectedZoneGrad)" : "transparent"} stroke={selectedBodyRegion === 'Sciatic Pathway / Calves' ? "#10b981" : "transparent"} strokeWidth="1.5" className="group-hover:fill-emerald-500/20" />
-                        </g>
-                      </>
-                    )}
-                  </svg>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Anatomical Selector Dock (Below Mannequin Stage) */}
-            <div className="pt-2 flex flex-col gap-2">
-              {/* Search Bar & Macro Filter Tabs Header */}
-              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
-                {/* Search Input */}
-                <div className="relative w-full sm:w-80">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-muted-foreground text-xs">
-                    <Search size={13} className="text-muted-foreground" />
-                  </span>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="अंग या लक्षण खोजें (Search: पेट, कान, आंख, रीढ़...)"
-                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-background/90 border border-border/80 rounded-xl placeholder:text-muted-foreground/60 focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary font-medium"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Macro Zone Filter Strip */}
-                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-                  {MACRO_ZONE_TABS.map((tab) => {
-                    const isTabActive = activeMacroZone === tab.id && !searchQuery;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => {
-                          try { sovereignSound.playMechanicalSnap(); } catch {}
-                          setSearchQuery('');
-                          setActiveMacroZone(tab.id);
-                        }}
-                        className={`px-3 py-1.5 text-[11.5px] font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border ${
-                          isTabActive
-                            ? 'bg-primary text-primary-foreground border-primary shadow-xs font-bold'
-                            : 'bg-muted/50 hover:bg-muted text-foreground border-border/70'
-                        }`}
-                      >
-                        {getZoneIcon(tab.id)}
-                        <span>{tab.label.split('(')[0].trim()}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Dynamic Loci Cards */}
-              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-1.5 max-h-52 overflow-y-auto p-0.5">
-                {filteredLoci.map((b) => {
-                  const isSelected = selectedBodyRegion === b.id;
-
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => handleRegionClick(b.id)}
-                      className={`p-2.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 border relative group ${
-                        isSelected
-                          ? 'bg-primary border-primary text-primary-foreground font-bold shadow-xs'
-                          : b.isEmergency
-                          ? 'bg-rose-500/10 border-rose-500/30 text-foreground hover:bg-rose-500/20'
-                          : 'bg-muted/40 border-border/70 text-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        {b.isEmergency ? (
-                          <AlertTriangle size={12} className={isSelected ? 'text-white' : 'text-rose-500'} />
-                        ) : (
-                          getZoneIcon(b.zone as MacroZone)
-                        )}
-                        {b.isEmergency && !isSelected && (
-                          <span className="text-[8px] font-mono font-bold text-rose-500 bg-rose-500/10 px-1 rounded-sm border border-rose-500/30">
-                            EMERGENCY
-                          </span>
-                        )}
-                        {isSelected && <Check size={12} className="shrink-0 text-primary-foreground" />}
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold truncate block leading-tight">
-                          {b.label.split('(')[0].trim()}
-                        </span>
-                        <span className={`text-[9.5px] truncate block opacity-75 ${isSelected ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}>
-                          {b.label.includes('(') ? b.label.split('(')[1].replace(')', '') : b.id}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Right Chest Misdirection Safeguard (Heart Side Redirect) */}
-              {selectedBodyRegion === 'Right Chest' && (
-                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/40 flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
-                  <div className="flex items-center gap-2 min-w-0 text-left">
-                    <Heart size={15} className="text-rose-500 shrink-0" />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-foreground truncate">
-                        क्या आप दिल (Heart) की जांच कर रहे हैं?
-                      </span>
-                      <span className="text-[10px] text-muted-foreground truncate font-devanagari">
-                        मानव शरीर में हृदय बायीं ओर (Left Precordium) स्थित होता है
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRegionClick('Left Chest / Precordium')}
-                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs flex items-center gap-1.5"
-                  >
-                    <Heart size={12} />
-                    <span>बायां सीना चुनें</span>
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
 
-        {/* Right / Contextual Clinical Diagnostic Drawer Panel */}
-        <div className={layoutMode === 'split' ? 'lg:col-span-5 flex flex-col gap-3' : 'w-full flex flex-col gap-3'}>
-          
-          {/* Active Organ Context & Diagnostic Triage Matrix */}
-          <div className="physical-card p-3 sm:p-4 rounded-2xl flex flex-col gap-3">
-            
-            {/* Header: Organ Info & Ayush Marma Context */}
-            <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-2 flex-wrap">
-              <div className="flex items-center gap-2 min-w-0">
-                <HeartPulse size={16} className="text-rose-500 shrink-0" />
-                <div className="flex flex-col min-w-0 text-left">
-                  <span className="font-heading font-extrabold text-sm sm:text-base text-foreground truncate">
-                    {selectedBodyRegion || 'प्रभावित अंग'}
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-foreground truncate">
-                    {currentRegionalData.ayushContext}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-md border border-border/70 font-semibold">
-                <span>ACTIVE CLINICAL LOCUS</span>
-              </div>
-            </div>
-
-            {/* Patent-Grade Semantic Symptom-Locus Congruence Alert */}
-            {congruenceMismatch && (
-              <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 shadow-sm animate-in fade-in slide-in-from-top-1 ${
+          {/* Floating Emergency / Congruence Alert Overlay in Phase 3.0 (When Voice detected Divergence) */}
+          {congruenceMismatch && (
+            <div className="absolute top-20 left-4 right-4 z-30 pointer-events-auto">
+              <div className={`p-3.5 sm:p-4 rounded-2xl border backdrop-blur-md flex items-center justify-between gap-3 shadow-lg animate-in fade-in slide-in-from-top-3 duration-300 ${
                 congruenceMismatch.isEmergency
-                  ? 'bg-rose-500/15 border-rose-500/50 text-rose-800 dark:text-rose-200'
-                  : 'bg-amber-500/15 border-amber-500/50 text-amber-800 dark:text-amber-200'
+                  ? 'bg-rose-500/90 text-white border-rose-400/80 shadow-rose-950/30 ring-2 ring-rose-300/40'
+                  : 'bg-card/95 text-foreground border-amber-500/60 shadow-md'
               }`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <AlertTriangle size={16} className={`shrink-0 ${congruenceMismatch.isEmergency ? 'text-rose-500' : 'text-amber-500'}`} />
-                  <div className="flex flex-col min-w-0 text-left">
-                    <span className="font-heading font-bold text-xs truncate">
-                      सटीक अंग सुधार (Organ Cross-Check):
+                <div className="flex items-center gap-3 min-w-0 text-left">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    congruenceMismatch.isEmergency ? 'bg-white text-rose-600 animate-pulse' : 'bg-amber-500/20 text-amber-600'
+                  }`}>
+                    <HeartPulse size={22} />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider opacity-90">
+                      {congruenceMismatch.isEmergency ? '🚨 आपातकालीन विसंगति (Emergency Override)' : 'सुझाव (Recommendation)'}
                     </span>
-                    <span className="text-[11px] font-sans opacity-90 truncate">
+                    <span className="font-heading font-extrabold text-xs sm:text-sm truncate">
                       {congruenceMismatch.reasonHindi}
                     </span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleRegionClick(congruenceMismatch.suggestedLocusId)}
-                  className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer shrink-0 shadow-xs transition-all flex items-center gap-1 ${
+                  onClick={() => handleSwitchWithComorbidity(congruenceMismatch.suggestedLocusId)}
+                  className={`px-4 py-2 text-xs font-heading font-extrabold rounded-xl cursor-pointer shadow-md transition-all active:scale-95 shrink-0 flex items-center gap-1.5 ${
                     congruenceMismatch.isEmergency
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      ? 'bg-white text-rose-700 hover:bg-white/90 ring-1 ring-white/50'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
+                >
+                  <span>{congruenceMismatch.suggestedLocusHindi.split('(')[0].trim()} चुनें</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Floating Bottom Navigation Bar */}
+          <div className="absolute bottom-4 left-4 right-4 z-30 flex items-center justify-between gap-3 pointer-events-none">
+            {/* Left: Back to Step 2 */}
+            <button
+              type="button"
+              onClick={onBack}
+              className="pointer-events-auto tactile-btn px-5 py-3 rounded-2xl bg-card/95 backdrop-blur-md text-xs sm:text-sm font-bold text-muted-foreground hover:text-foreground border border-border/80 shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+            >
+              <ArrowLeft size={16} />
+              <span>पिछला (Back)</span>
+            </button>
+
+            {/* Right: Continue to Step 3.1 Symptoms & Voice Studio */}
+            <button
+              type="button"
+              onClick={() => {
+                try { sovereignSound.playMechanicalSnap(); } catch {}
+                setSubPhase('symptoms');
+              }}
+              className="pointer-events-auto btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl hover:shadow-2xl cursor-pointer transition-all active:scale-95"
+            >
+              <span>
+                {selectedBodyRegion
+                  ? `आगे बढ़ें: ${currentRegionalData.hindiName.split('(')[0].trim()}`
+                  : 'आगे बढ़ें: लक्षण बताएं ➔'}
+              </span>
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          PHASE 3.1: SOVEREIGN HAUTE LUXURY VOICE & CLINICAL SYMPTOMS STUDIO
+          ========================================================================= */}
+      {subPhase === 'symptoms' && (
+        <div className="w-full max-w-4xl mx-auto flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-3 duration-300 py-2">
+          
+          {/* 1. Flagship AIIA Clinical Header Banner */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center shrink-0 shadow-2xs">
+                <HeartPulse size={24} className="animate-pulse" />
+              </div>
+              <div className="flex flex-col min-w-0 text-left">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest font-bold">
+                  चयनित अंग • Clinical Locus
+                </span>
+                <span className="font-heading font-extrabold text-lg sm:text-xl text-foreground truncate">
+                  {currentRegionalData.hindiName}
+                </span>
+                {currentRegionalData.enName && (
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {currentRegionalData.enName} · {currentRegionalData.ayushContext}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                try { sovereignSound.playMechanicalSnap(); } catch {}
+                setSubPhase('body');
+              }}
+              className="tactile-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-primary border-primary/30 hover:bg-primary/10 flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+            >
+              <Edit3 size={14} />
+              <span>अंग बदलें (Change Organ)</span>
+            </button>
+          </div>
+
+          {/* 2. Semantic Congruence Alert (Only when mismatch detected) */}
+          {congruenceMismatch && (
+            <div className={`p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
+              congruenceMismatch.isEmergency
+                ? 'bg-rose-500/10 border-rose-500/50 text-foreground ring-2 ring-rose-500/20'
+                : 'bg-amber-500/10 border-amber-500/50 text-foreground ring-1 ring-amber-500/20'
+            }`}>
+              <div className="flex items-start gap-3.5 min-w-0 text-left">
+                <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+                  congruenceMismatch.isEmergency
+                    ? 'bg-rose-600 text-white animate-pulse'
+                    : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'
+                }`}>
+                  {congruenceMismatch.isEmergency ? <HeartPulse size={22} /> : <AlertTriangle size={20} />}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className={`text-[10.5px] font-mono font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                      congruenceMismatch.isEmergency
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                    }`}>
+                      {congruenceMismatch.isEmergency ? '🚨 आपातकालीन विसंगति (Emergency Override)' : 'चिकित्सा सुझाव (Clinical Recommendation)'}
+                    </span>
+                    {congruenceMismatch.ayushMarmaAlert && (
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
+                        • {congruenceMismatch.ayushMarmaAlert}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-heading font-bold text-sm sm:text-base text-foreground leading-snug">
+                    {congruenceMismatch.reasonHindi}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-sans mt-0.5">
+                    {congruenceMismatch.reasonEn}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchWithComorbidity(congruenceMismatch.suggestedLocusId)}
+                  className={`w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-heading font-extrabold rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                    congruenceMismatch.isEmergency
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white ring-2 ring-rose-400/40'
                       : 'bg-amber-600 hover:bg-amber-700 text-white'
                   }`}
                 >
-                  <span>बदलें</span>
-                  <ArrowRight size={12} />
+                  <span>{congruenceMismatch.suggestedLocusHindi.split('(')[0].trim()} चुनें</span>
+                  <ArrowRight size={15} />
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* 1. CLINICAL ANTI-MISCLICK DISAMBIGUATION BAR */}
-            {currentCluster && (
-              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/30 flex flex-col gap-1.5 shadow-2xs">
-                <div className="flex items-center justify-between gap-1 flex-wrap">
-                  <span className="text-xs font-heading font-extrabold text-foreground flex items-center gap-1.5">
-                    <Target size={13} className="text-primary shrink-0" />
-                    {currentCluster.promptHindi}
-                  </span>
-                  <span className="text-[9.5px] font-mono font-bold text-primary uppercase bg-primary/15 px-1.5 py-0.2 rounded">
-                    Anti-Misclick
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-0.5">
-                  {currentCluster.options.map((opt) => {
-                    const isOptSelected = selectedBodyRegion === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleRegionClick(opt.id)}
-                        className={`p-2 rounded-lg text-left transition-all cursor-pointer flex flex-col gap-0.5 border ${
-                          isOptSelected
-                            ? opt.isEmergency
-                              ? 'bg-rose-500 text-white border-rose-600 shadow-xs font-bold'
-                              : 'bg-primary text-primary-foreground border-primary shadow-xs font-bold'
-                            : 'bg-background/90 hover:bg-muted text-foreground border-border/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-bold truncate">{opt.hindiLabel}</span>
-                          {isOptSelected && <Check size={11} className="shrink-0" />}
-                        </div>
-                        <span className={`text-[9.5px] truncate font-sans ${isOptSelected ? 'opacity-90' : 'text-muted-foreground'}`}>
-                          {opt.badgeText}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+          {/* 3. Clinical Disambiguation (Clean Aesthetic Grid) */}
+          {currentCluster && (
+            <div className="p-4 rounded-2xl bg-card border border-border/80 flex flex-col gap-3 shadow-xs">
+              <span className="text-xs sm:text-sm font-heading font-bold text-foreground flex items-center gap-2">
+                <Activity size={16} className="text-primary shrink-0" />
+                <span>{currentCluster.promptHindi}</span>
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {currentCluster.options.map((opt) => {
+                  const isOptSelected = selectedBodyRegion === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleRegionClick(opt.id)}
+                      className={`p-3 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 border ${
+                        isOptSelected
+                          ? opt.isEmergency
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-xs font-bold'
+                            : 'bg-primary text-primary-foreground border-primary shadow-xs font-bold'
+                          : 'bg-muted/40 hover:bg-muted text-foreground border-border/70 font-semibold'
+                      }`}
+                    >
+                      <span className="text-xs sm:text-sm font-bold">{opt.hindiLabel}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* 2. CARDIAC REFERRED PAIN SPREAD ALERT */}
-            {selectedBodyRegion === 'Left Chest / Precordium' && (
-              <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs text-rose-700 dark:text-rose-300 font-semibold min-w-0 text-left">
-                  <AlertTriangle size={14} className="text-rose-500 shrink-0" />
-                  <span className="truncate">
-                    क्या यह दर्द बाएं कंधे या बायीं बांह में फैल रहा है? (Referred Pain)
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { sovereignSound.playMechanicalSnap(); } catch {}
-                    handleAddSymptom('बायां सीना: दर्द बाएं कंधे व बायीं बांह में फैल रहा है (Radiating to Left Arm - Cardiac Alert)');
-                  }}
-                  className="px-2.5 py-1 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg cursor-pointer shrink-0 shadow-xs"
-                >
-                  + हाँ, बांह में फैल रहा है
-                </button>
-              </div>
-            )}
-
-            {/* 3. Clinical Triage: Severity & Duration Selectors */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 rounded-xl bg-muted/30 border border-border/60">
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground mb-1 block text-left">
-                  1. दर्द की तीव्रता (Severity)
+          {/* 4. Luxury Ambient Speech Studio */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 flex flex-col gap-4 shadow-xs">
+            
+            {/* Studio Header with Clean Language Selector */}
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/70 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Radio size={18} className="text-primary" />
+                <span className="font-heading font-extrabold text-sm sm:text-base text-foreground">
+                  ध्वनि इनपुट (Speech Intake)
                 </span>
-                <div className="grid grid-cols-3 gap-1">
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">भाषा:</span>
+                <select
+                  value={micLanguage}
+                  onChange={(e) => setMicLanguage(e.target.value as any)}
+                  className="text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl border border-border bg-background text-foreground cursor-pointer shadow-2xs"
+                >
+                  <option value="hi-IN">Hindi (हिंदी)</option>
+                  <option value="en-IN">English (Indian)</option>
+                  <option value="mr-IN">Marathi (मराठी)</option>
+                  <option value="bn-IN">Bengali (বাংলা)</option>
+                  <option value="ta-IN">Tamil (தமிழ்)</option>
+                  <option value="te-IN">Telugu (తెలుగు)</option>
+                  <option value="gu-IN">Gujarati (ગુજરાતી)</option>
+                  <option value="kn-IN">Kannada (ಕನ್ನಡ)</option>
+                  <option value="pa-IN">Punjabi (ਪੰਜਾਬੀ)</option>
+                  <option value="ml-IN">Malayalam (മലയാളം)</option>
+                </select>
+
+                {parseSuccess && (
+                  <div className="flex items-center gap-1 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/30">
+                    <CheckCircle2 size={13} />
+                    <span>PARSED</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {micErrorMessage && (
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                {micErrorMessage}
+              </div>
+            )}
+
+            {/* Live Transcription Box with Error Recovery & Edit Controls */}
+            <div className="relative min-h-[105px] p-4 rounded-2xl bg-muted/30 border border-border/70 text-left flex flex-col justify-between gap-3">
+              {isPrivateMode && !isPeekActive ? (
+                <div className="absolute inset-0 z-10 backdrop-blur-md bg-background/80 rounded-2xl flex items-center justify-center p-3 text-center border border-amber-500/30">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-heading font-bold text-xs">
+                    <Lock size={14} />
+                    <span>गोपनीय दृष्टि कवच सक्रिय (Private Mode)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsPeekActive(true)}
+                    className="tactile-btn ml-3 px-3 py-1 text-xs text-foreground font-bold rounded-lg cursor-pointer"
+                  >
+                    देखें (Peek)
+                  </button>
+                </div>
+              ) : null}
+
+              {/* Main Transcript Content / Textarea Edit Mode */}
+              {isManualEditing ? (
+                <div className="flex flex-col gap-2 w-full">
+                  <textarea
+                    value={manualTextDraft}
+                    onChange={(e) => setManualTextDraft(e.target.value)}
+                    rows={3}
+                    className="w-full p-2.5 rounded-xl border border-primary/50 bg-background text-foreground text-xs sm:text-sm font-sans focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="लक्षण टाइप करें या सुधारें..."
+                    autoFocus
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsManualEditing(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted cursor-pointer"
+                    >
+                      रद्द करें (Cancel)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveManualEdit}
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+                    >
+                      सहेजें (Save)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {transcript ? (
+                    <p className="font-sans text-sm sm:text-base font-medium text-foreground leading-relaxed pr-2">
+                      "{transcript}"
+                    </p>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-muted-foreground font-sans">
+                      बोलें: अपनी बीमारी, कहाँ दर्द है, कब से है (उदा: सीने में भारीपन व घबराहट हो रही है)...
+                    </p>
+                  )}
+
+                  {/* Correction & Recovery Action Bar */}
+                  {transcript && (
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50 flex-wrap">
+                      <span className="text-[10px] font-mono text-muted-foreground font-semibold">
+                        गलत शब्द या लक्षण? (Speech Error Recovery):
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleUndoLastClause}
+                          className="px-2.5 py-1 rounded-lg bg-muted/80 hover:bg-muted text-foreground text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border border-border/70"
+                          title="Undo Last Entry / पिछला लक्षण हटाएं"
+                        >
+                          <Undo2 size={12} className="text-primary" />
+                          <span>पिछला हटाएं (Undo)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try { sovereignSound.playMechanicalSnap(); } catch {}
+                            setManualTextDraft(transcript);
+                            setIsManualEditing(true);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-muted/80 hover:bg-muted text-foreground text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border border-border/70"
+                          title="Edit Transcript Manually / सुधारें"
+                        >
+                          <Edit3 size={12} className="text-primary" />
+                          <span>सुधारें (Edit)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearTranscript}
+                          className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border border-rose-500/30"
+                          title="Clear Everything / सब साफ करें"
+                        >
+                          <Trash2 size={12} />
+                          <span>साफ करें (Clear)</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Live Audio Waveform */}
+            <div>
+              <AudioVisualizer isRecording={isRecording} color="#0284c7" height={28} />
+            </div>
+
+            {/* Tactile Voice Hero Button */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={toggleRecording}
+                className={`w-full sm:w-auto min-w-[220px] py-3.5 px-8 text-sm sm:text-base font-heading font-bold rounded-2xl flex items-center justify-center gap-2.5 cursor-pointer transition-all shadow-md active:scale-95 ${
+                  isRecording
+                    ? 'bg-rose-600 text-white ring-4 ring-rose-400/30 animate-pulse'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/95'
+                }`}
+              >
+                {isRecording ? (
+                  <>
+                    <MicOff size={20} />
+                    <span>बोलना रोकें (Stop Recording)</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic size={20} />
+                    <span>बोलें (Tap to Speak)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 5. Precision Triage Matrix: Symptoms, Severity, Duration, Sensation */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 flex flex-col gap-5 shadow-xs">
+            
+            {/* Quick 1-Tap Symptom Chips */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground text-left">
+                    1. सामान्य लक्षण चुनें (Clinical Symptoms)
+                  </span>
+                </div>
+                <span className="text-xs font-heading font-extrabold text-primary bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20">
+                  {currentRegionalData.hindiName.split('(')[0].trim()}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {currentRegionalData.symptoms.map((sym, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAddSymptom(sym)}
+                    className={`p-3.5 rounded-2xl text-left border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs active:scale-98 group ${
+                      sym.isEmergency
+                        ? 'bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50'
+                        : 'bg-muted/40 hover:bg-primary/10 border-border/70 hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-heading font-bold text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors">
+                          {sym.hi}
+                        </span>
+                        {sym.isEmergency && (
+                          <span className="text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-rose-600 text-white uppercase shrink-0">
+                            आपातकाल
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10.5px] font-mono text-muted-foreground truncate mt-0.5">
+                        {sym.en}
+                      </span>
+                    </div>
+                    <div className="h-7 w-7 rounded-xl bg-background/80 border border-border/80 flex items-center justify-center shrink-0 text-primary font-bold text-base group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all shadow-2xs">
+                      +
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Severity & Duration Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border/60">
+              
+              {/* Severity Segmented Toggle */}
+              <div>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground mb-2.5 block text-left">
+                  2. तकलीफ़ की तीव्रता (Severity Level)
+                </span>
+                <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-muted/40 border border-border/70">
                   {SEVERITY_LEVELS.map((s) => (
                     <button
                       key={s.key}
@@ -1399,23 +1609,28 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                         try { sovereignSound.playMechanicalSnap(); } catch {}
                         setSeverity(s.key as any);
                       }}
-                      className={`py-1.5 px-1 rounded-lg text-xs font-semibold text-center cursor-pointer transition-all ${
+                      className={`py-2 px-2 rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-0.5 ${
                         severity === s.key
-                          ? 'bg-foreground text-background shadow-xs font-bold'
-                          : 'bg-background/80 hover:bg-muted text-foreground border border-border/60'
+                          ? 'bg-card text-foreground shadow-sm border border-border'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
                       }`}
                     >
-                      <span className="truncate block text-[11px]">{s.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${s.dotColor}`} />
+                        <span className="text-xs font-heading font-bold">{s.label}</span>
+                      </div>
+                      <span className="text-[9.5px] font-mono opacity-80">{s.en}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* Duration Capsule Tabs */}
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground mb-1 block text-left">
-                  2. कब से है? (Duration)
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground mb-2.5 block text-left">
+                  3. कब से तकलीफ़ है? (Duration)
                 </span>
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-muted/40 border border-border/70">
                   {DURATION_CHOICES.map((d) => (
                     <button
                       key={d.key}
@@ -1424,62 +1639,57 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                         try { sovereignSound.playMechanicalSnap(); } catch {}
                         setDuration(d.key as any);
                       }}
-                      className={`py-1.5 px-0.5 rounded-lg text-xs font-semibold text-center cursor-pointer transition-all ${
+                      className={`py-2 px-1 rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-0.5 ${
                         duration === d.key
-                          ? 'bg-foreground text-background shadow-xs font-bold'
-                          : 'bg-background/80 hover:bg-muted text-foreground border border-border/60'
+                          ? 'bg-card text-foreground shadow-sm border border-border'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
                       }`}
                     >
-                      <span className="truncate block text-[10px]">{d.label}</span>
+                      <span className="text-xs font-heading font-bold truncate">{d.label}</span>
+                      <span className="text-[9.5px] font-mono opacity-80 truncate">{d.en}</span>
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* 4. Instant 1-Tap Clinical Complaint Chips */}
-            <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block text-left">
-                3. सामान्य लक्षण चुनें (Tap to Add Symptoms)
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {currentRegionalData.symptoms.map((sym, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleAddSymptom(sym)}
-                    className="tactile-btn px-2.5 py-1.5 rounded-xl text-xs font-sans text-foreground/90 border-border/70 hover:border-primary/50 hover:bg-primary/10 transition-all cursor-pointer text-left"
-                  >
-                    <span>+ {sym}</span>
-                  </button>
-                ))}
+            {/* Organ-Adaptive Symptom Character & Sensation */}
+            <div className="pt-4 border-t border-border/60">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground block text-left">
+                  4. लक्षण का स्वभाव व अनुभूति (Symptom Character & Sensation)
+                </span>
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  {currentRegionalData.enName}
+                </span>
               </div>
-            </div>
-
-            {/* 5. 6-Tier Tactile Pain Sensation Matrix */}
-            <div className="pt-2 border-t border-border/50">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block mb-1.5 text-left">
-                4. दर्द की प्रकृति (Pain Character)
-              </span>
-              <div className="grid grid-cols-3 xs:grid-cols-6 gap-1">
-                {PAIN_SENSATIONS.map((sens) => (
-                  <button
-                    key={sens.key}
-                    type="button"
-                    onClick={() => handleAddSensation(sens)}
-                    className="p-1.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/70 text-center cursor-pointer transition-all active:scale-95"
-                  >
-                    <div className="text-[11px] font-semibold text-foreground truncate">{sens.label}</div>
-                    <div className="text-[9px] font-mono text-muted-foreground">{sens.en}</div>
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                {activeSensations.map((sens) => {
+                  const Icon = sens.icon;
+                  return (
+                    <button
+                      key={sens.key}
+                      type="button"
+                      onClick={() => handleAddSensation(sens)}
+                      className="p-3 rounded-2xl border border-border/70 bg-muted/40 hover:bg-primary/10 hover:border-primary/40 text-center cursor-pointer transition-all active:scale-95 shadow-2xs flex flex-col items-center justify-center gap-1 group"
+                    >
+                      <Icon size={18} className="text-primary shrink-0 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-heading font-bold text-foreground truncate w-full text-center group-hover:text-primary transition-colors">
+                        {sens.label}
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground truncate w-full text-center">
+                        {sens.en}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* If Private Mode is Active, Show Confidential Sanctuaries */}
+          {/* Confidential Private Sanctuaries (When Private Mode Active) */}
           {isPrivateMode && (
-            <div className="physical-card p-3 sm:p-4 rounded-2xl border-amber-500/40 bg-amber-500/5 flex flex-col gap-2.5 animate-in fade-in">
+            <div className="p-5 rounded-3xl border border-amber-500/40 bg-amber-500/5 flex flex-col gap-3 animate-in fade-in">
               <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 pb-2">
                 <div className="flex items-center gap-2">
                   <Shield size={16} className="text-amber-500" />
@@ -1487,28 +1697,25 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                     निजी मोड : गोपनीय स्वास्थ्य श्रेणियाँ
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-                  <VolumeX size={11} />
+                <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-500/30">
+                  <VolumeX size={12} />
                   <span>Acoustic Mute Active</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PRIVATE_SANCTUARIES.map((sanct) => (
-                  <div key={sanct.id} className="recessed-bay p-2.5 rounded-xl flex flex-col gap-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-500" />
-                      <span className="font-heading font-bold text-xs text-foreground">
-                        {sanct.title}
-                      </span>
-                    </div>
+                  <div key={sanct.id} className="p-3.5 rounded-2xl flex flex-col gap-1.5 bg-background/90 border border-amber-500/20">
+                    <span className="font-heading font-bold text-xs text-foreground">
+                      {sanct.title}
+                    </span>
                     <div className="flex flex-col gap-1">
                       {sanct.symptoms.map((psym, pidx) => (
                         <button
                           key={pidx}
                           type="button"
                           onClick={() => handleAddSymptom(psym)}
-                          className="text-left text-[11px] text-foreground/80 hover:text-primary hover:underline py-0.5 cursor-pointer truncate"
+                          className="text-left text-xs text-foreground/80 hover:text-primary hover:underline py-0.5 cursor-pointer truncate font-medium"
                         >
                           + {psym}
                         </button>
@@ -1519,173 +1726,35 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* 3. Persistent Smart Voice Scribe & Real-Time Hopfield Studio */}
-      <div className="physical-card p-3 sm:p-4 rounded-2xl flex flex-col gap-3">
-        {/* Studio Header */}
-        <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/70 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-1.5">
-              <Mic size={16} className="text-primary" />
-              <span>ध्वनि इनपुट (Speech-to-Clinical Studio)</span>
-            </span>
-            <select
-              value={micLanguage}
-              onChange={(e) => setMicLanguage(e.target.value as any)}
-              className="text-xs px-2.5 py-1 rounded-lg border border-border bg-background text-foreground cursor-pointer font-medium shadow-2xs"
-            >
-              <option value="hi-IN">Hindi (हिंदी)</option>
-              <option value="en-IN">English (Indian)</option>
-              <option value="mr-IN">Marathi (मराठी)</option>
-              <option value="bn-IN">Bengali (বাংলা)</option>
-              <option value="ta-IN">Tamil (தமிழ்)</option>
-              <option value="te-IN">Telugu (తెలుగు)</option>
-              <option value="gu-IN">Gujarati (ગુજરાતી)</option>
-              <option value="kn-IN">Kannada (ಕನ್ನಡ)</option>
-              <option value="pa-IN">Punjabi (ਪੰਜਾਬੀ)</option>
-              <option value="ml-IN">Malayalam (മലയാളം)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {parseSuccess && (
-              <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 animate-in fade-in">
-                <CheckCircle2 size={13} />
-                <span>HOPFIELD PARSED</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {micErrorMessage && (
-          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
-            {micErrorMessage}
-          </div>
-        )}
-
-        {/* Live Scribe Box (With Privacy Veil in Private Mode) */}
-        <div className="relative min-h-[90px] p-3 rounded-xl recessed-bay">
-          {isPrivateMode && !isPeekActive ? (
-            <div className="absolute inset-0 z-10 backdrop-blur-md bg-background/60 rounded-xl flex flex-col items-center justify-center p-3 text-center border border-amber-500/30">
-              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-heading font-bold text-xs mb-1">
-                <Lock size={13} />
-                <span>गोपनीय दृष्टि कवच सक्रिय (Privacy Veil Active)</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mb-1.5">
-                कतार में खड़े अन्य लोग आपकी चिकित्सा जानकारी नहीं देख सकते।
-              </p>
-              <button
-                type="button"
-                onClick={() => setIsPeekActive(true)}
-                className="tactile-btn px-2.5 py-1 text-xs text-foreground font-medium rounded-lg flex items-center gap-1 cursor-pointer"
-              >
-                <Eye size={12} />
-                <span>कुछ देर देखें (Peek)</span>
-              </button>
-            </div>
-          ) : null}
-
-          {isPrivateMode && isPeekActive && (
-            <div className="absolute top-2 right-2 z-20">
-              <button
-                type="button"
-                onClick={() => setIsPeekActive(false)}
-                className="tactile-btn px-2 py-0.5 text-[10px] text-foreground rounded flex items-center gap-1 cursor-pointer"
-              >
-                <EyeOff size={11} />
-                <span>Hide</span>
-              </button>
-            </div>
-          )}
-
-          {transcript ? (
-            <p className="font-sans text-sm text-foreground leading-relaxed">
-              {transcript}
-            </p>
-          ) : (
-            <p className="text-xs sm:text-sm text-muted-foreground/70 font-sans">
-              बोलें या अंग चुनें: अपनी बीमारी, कहाँ दर्द हो रहा है, कब से है (उदा: सीने में भारीपन, घुटने में दर्द)...
-            </p>
-          )}
-        </div>
-
-        {/* Minimal Audio Waveform Visualizer */}
-        <div>
-          <AudioVisualizer isRecording={isRecording} color="#0284c7" height={28} />
-        </div>
-
-        {/* Microphone Action Control Buttons & Clinical Quick Triggers */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-border/70">
-          
-          {/* Quick Clinical Emergency Evaluator Presets */}
-          <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
-            <span className="text-[10px] font-mono font-bold uppercase text-muted-foreground mr-1 hidden md:inline">
-              Quick Test Presets:
-            </span>
-            {samplePrompts.slice(0, 3).map((s, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSelectSample(s)}
-                className="tactile-btn px-2.5 py-1 text-[11px] font-sans text-foreground rounded-lg cursor-pointer border-border/70"
-                style={{ borderLeftColor: s.borderAccent, borderLeftWidth: 3 }}
-              >
-                <span>{s.title.split('(')[0].trim()}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Bottom Step 3.1 Action Navigation */}
+          <div className="flex items-center justify-between gap-4 pt-3 border-t border-border/70">
             <button
               type="button"
-              onClick={toggleRecording}
-              className={`tactile-btn flex-1 sm:flex-initial py-2 px-4 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                isRecording
-                  ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400'
-                  : 'tactile-btn-primary'
-              }`}
+              onClick={() => {
+                try { sovereignSound.playMechanicalSnap(); } catch {}
+                setSubPhase('body');
+              }}
+              className="tactile-btn px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground border border-border/80 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
             >
-              {isRecording ? (
-                <>
-                  <MicOff size={16} />
-                  <span>रिकॉर्डिंग रोकें (Stop Mic)</span>
-                </>
-              ) : (
-                <>
-                  <Mic size={16} />
-                  <span>बोलें (Push to Talk)</span>
-                </>
-              )}
+              <ArrowLeft size={16} />
+              <span>3D मॉडल पर वापस जाएं (Back to 3D)</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
                 try { sovereignSound.playMechanicalSnap(); } catch {}
-                triggerClinicalParse(transcript);
+                onNext();
               }}
-              disabled={isParsing || !transcript.trim()}
-              className="tactile-btn py-2 px-4 text-xs sm:text-sm font-semibold text-foreground rounded-xl cursor-pointer disabled:opacity-50 shadow-2xs"
+              className="btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl hover:shadow-2xl cursor-pointer transition-all active:scale-95"
             >
-              {isParsing ? 'विश्लेषण...' : 'Parse Clinical'}
+              <span>आगे बढ़ें: लक्षण विश्लेषण (Next: SOCRATES Analysis)</span>
+              <ArrowRight size={18} />
             </button>
           </div>
         </div>
-      </div>
-
-      {/* 3D Anatomical Modal: Dedicated Fullscreen Experience on Demand */}
-      <AnatomicalMannequinModal3D
-        isOpen={is3DModalOpen}
-        onClose={() => setIs3DModalOpen(false)}
-        selectedRegion={selectedBodyRegion}
-        onSelectRegion={handleRegionClick}
-        isPrivateMode={isPrivateMode}
-        onTogglePrivateMode={() => setIsPrivateMode(!isPrivateMode)}
-        micLanguage={micLanguage}
-        onSkipToVoice={() => setIs3DModalOpen(false)}
-      />
+      )}
     </div>
   );
 };
