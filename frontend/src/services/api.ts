@@ -26,12 +26,9 @@ const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
 const hostname = isBrowser && window.location.hostname ? window.location.hostname : 'localhost';
 const port = isBrowser ? window.location.port : '';
 
-// Development detection: Vite dev server runs on 5173 or 3000
-const isDev = isBrowser && (port === '5173' || port === '3000' || (hostname === 'localhost' && port !== '80' && port !== ''));
-
-// Production (Coolify / Nginx / Docker / Custom Domain) routes /api and /ws through reverse proxy
-export const BASE_URL = import.meta.env.VITE_API_URL || (isDev ? `http://${hostname}:8001` : (isBrowser ? `${protocol}//${window.location.host}` : 'http://localhost:8001'));
-export const WS_URL = import.meta.env.VITE_WS_URL || (isDev ? `ws://${hostname}:8001/ws/ambient` : (isBrowser ? `${wsProtocol}//${window.location.host}/ws/ambient` : 'ws://localhost:8001/ws/ambient'));
+// Universal Origin: Uses Vite Proxy or reverse proxy for seamless Zero-CORS & Zero-Mixed-Content operation
+export const BASE_URL = import.meta.env.VITE_API_URL || (isBrowser ? `${protocol}//${window.location.host}` : 'http://localhost:8001');
+export const WS_URL = import.meta.env.VITE_WS_URL || (isBrowser ? `${wsProtocol}//${window.location.host}/ws/ambient` : 'ws://localhost:8001/ws/ambient');
 
 class ApiService {
   /**
