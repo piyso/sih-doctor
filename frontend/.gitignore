@@ -28,4 +28,6 @@ dist-ssr
 *.glb
 *.part*
 !public/models/human_body.glb
+!public/models/3d_mannequin_instant.glb
+
 

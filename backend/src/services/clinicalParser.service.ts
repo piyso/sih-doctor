@@ -796,12 +796,12 @@ export class ClinicalParserService {
       /(?:seenas)[^.!?:\n,]*(?:chhu\s*na)[^.!?:\n,]*(?:dard)/i.test(lower)
     );
 
-    // Acute Coronary Syndrome: pan-Indian regional chest + pain/pressure + radiation/diaphoresis
-    const chestTerms = '(?:ch[a|h]ati|seene|seena|chest|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus)';
-    const painTerms = '(?:dard|peeda|vedana|shula|shool|byatha|bojh|pressure|heavy|kheench|dukh|noppi|vali|novu|peer|daag|bikh|jatana)';
-    const leftTerms = '(?:baaye|baayan|baam|dava|khabb[ae]|ult[ae]|left|edama|idathu|edagade|khowur|vama)';
-    const diaphoresisTerms = '(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|bemaru|sweat|sveda|svedadhikya)';
-    const armTerms = '(?:haath|arm|hand|bahu|bhuja|hatat|kai|kayyil|cheyyi|atha)';
+    // Acute Coronary Syndrome: pan-Indian regional chest + pain/pressure + radiation/diaphoresis (Latin + Devanagari)
+    const chestTerms = '(?:ch[a|h]ati|seene|seena|chest|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|चेस्ट)';
+    const painTerms = '(?:dard|peeda|vedana|shula|shool|byatha|bojh|pressure|heavy|kheench|dukh|noppi|vali|novu|peer|daag|bikh|jatana|दर्द|पीड़ा|वेदना|भारीपन|दबाव|बोझ|जकड़न|शूल)';
+    const leftTerms = '(?:baaye|baayan|baam|dava|khabb[ae]|ult[ae]|left|edama|idathu|edagade|khowur|vama|बाएं|बायां|बाईं|डावा|लेफ्ट)';
+    const diaphoresisTerms = '(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|bemaru|sweat|sveda|svedadhikya|पसीना|पसीने|घाम)';
+    const armTerms = '(?:haath|arm|hand|bahu|bhuja|hatat|kai|kayyil|cheyyi|atha|हाथ|बांह|भुजा)';
     const isAcsPattern = new RegExp(
       `${chestTerms}[^.!?:\n,]*${painTerms}|` +
       `chest\\s*pain|` +
@@ -822,9 +822,9 @@ export class ClinicalParserService {
 
     // Exertional Angina / Ischemic Equivalence (Exertional retrosternal discomfort/dyspnea relieved by rest)
     const isExertionalAngina = (
-      /(?:chalne\s*par|exertion|sidhi\s*chadhne|walking).*(?:seene|chest|chhati|pet\s*ke\s*upar|epigastric).*(?:gas|jalan|dard|bojh|pressure|dam\s*phool|saans\s*phool)/i.test(lower) ||
-      /(?:chalne\s*par|exertion|sidhi\s*chadhne|walking).*(?:seene|chest|chhati|dam\s*phool|saans\s*phool)/i.test(rawLower) ||
-      /(?:chalne\s*par|exertion).*(?:dam\s*phool|dyspnea|shortness)/i.test(lower) ||
+      /(?:chalne\s*par|exertion|sidhi\s*chadhne|walking|चलने\s*पर|सीढ़ी\s*चढ़ने).*(?:seene|chest|chhati|pet\s*ke\s*upar|epigastric|सीने|छाती).*(?:gas|jalan|dard|bojh|pressure|dam\s*phool|saans\s*phool|दर्द|भारीपन|दबाव|सांस\s*फूल)/i.test(lower) ||
+      /(?:chalne\s*par|exertion|sidhi\s*chadhne|walking|चलने\s*पर).*(?:seene|chest|chhati|dam\s*phool|saans\s*phool|सीने|छाती|सांस\s*फूल)/i.test(rawLower) ||
+      /(?:chalne\s*par|exertion|चलने\s*पर).*(?:dam\s*phool|dyspnea|shortness|सांस\s*फूल)/i.test(lower) ||
       /(?:exertional\s*angina|angina\s*equivalent)/i.test(lower)
     );
     if (isExertionalAngina && !hasRegionalChestNegation) {
@@ -844,7 +844,7 @@ export class ClinicalParserService {
       isDecompensatedShock ||
       (hrTelemetry !== null && (hrTelemetry < 50 || hrTelemetry > 150)) ||
       (sbpTelemetry !== null && sbpTelemetry < 85) ||
-      (/(sugar|diabetic|diabetes)/i.test(lower) && /(thanda\s*pasina|cold\s*sweat|diaphoresis|bahut\s*jyada\s*ghabrahat)/i.test(lower) && sbpTelemetry !== null && sbpTelemetry < 95)
+      (/(sugar|diabetic|diabetes|शुगर|मधुमेह)/i.test(lower) && /(thanda\s*pasina|cold\s*sweat|diaphoresis|bahut\s*jyada\s*ghabrahat|ठंडा\s*पसीना|बहुत\s*घबराहट)/i.test(lower) && sbpTelemetry !== null && sbpTelemetry < 95)
     );
     if (isHemodynamicEmergency) {
       isEmergencyRedFlag = true;
@@ -854,8 +854,8 @@ export class ClinicalParserService {
     // Hypertensive Emergency with Acute Target Organ Damage / Aortic Dissection / Encephalopathy
     const isHypertensiveEmergency = (
       (sbpTelemetry !== null && (sbpTelemetry >= 180 || (dbpTelemetry !== null && dbpTelemetry >= 120)) &&
-      /(sar\s*fat|andhera|dhadkan|ulti|vomit|blur|vision|encephalopathy|headache|seene|peeth|back|chest|ghutan|choke|talwar|cheer)/i.test(lower)) ||
-      (text.match(/\bBP\s*2\d{2}\/\d{2,3}\b/i) && /(sar\s*fat|andhera|ulti|vomit|seene|peeth)/i.test(lower))
+      /(sar\s*fat|andhera|dhadkan|ulti|vomit|blur|vision|encephalopathy|headache|seene|peeth|back|chest|ghutan|choke|talwar|cheer|सिर\s*दर्द|उल्टी|सीने|पीठ|अंधेरा)/i.test(lower)) ||
+      (text.match(/\bBP\s*2\d{2}\/\d{2,3}\b/i) && /(sar\s*fat|andhera|ulti|vomit|seene|peeth|सिर\s*दर्द|उल्टी)/i.test(lower))
     );
     if (isHypertensiveEmergency) {
       isEmergencyRedFlag = true;
@@ -863,20 +863,20 @@ export class ClinicalParserService {
     }
 
     // Respiratory distress: hypoxia, SpO2 < 90, gasping
-    const isRespPattern = (/(saans\s*(?:phool|ghut|nahi\s*aa\s*rahi)|severe\s*breathlessness|gasping|tachypnea)/i.test(lower) && (!vitals.spo2 || parseInt(vitals.spo2) < 92)) || (vitals.spo2 && parseInt(vitals.spo2) < 90);
+    const isRespPattern = (/(saans\s*(?:phool|ghut|nahi\s*aa\s*rahi)|severe\s*breathlessness|gasping|tachypnea|सांस\s*(?:फूल|घुट|नहीं\s*आ\s*रही)|दम\s*घुट)/i.test(lower) && (!vitals.spo2 || parseInt(vitals.spo2) < 92)) || (vitals.spo2 && parseInt(vitals.spo2) < 90);
     if (isRespPattern) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Severe Hypoxemic Respiratory Distress (SpO2 < 90%)');
     }
 
     // Stroke / CVA / Pakshaghata (FAST Protocol across Pan-Indian Vernaculars)
-    const hasFacialDroop = /(muh\s*(?:tedh|tedha|binga|ghum)|tond\s*vakaad|mukh\s*beke|mukhdo\s*tedho|facial\s*droop|mouth\s*droop)/i.test(lower);
-    const hasSpeechDifficulty = /(bolne\s*me\s*ladkhadahat|slurred\s*speech|speech\s*slurred|aawaaz\s*(?:naahi|nahi|fas|ladkhad|ruk|chali)|baat\s*(?:samajh\s*nahi|nahi\s*nikal)|kotha\s*bolte\s*parchhe\s*na|bolyo\s*naahi\s*jaave|bolta\s*yet\s*nahi)/i.test(lower);
-    const hasMotorDeficit = /(haath\s*(?:kamzor|bejaan|sunn|obosh)|haath.*(?:kaam\s*na|moving|chalat|gir|bejaan)|daayein\s*(?:aang|taraf)|daahina\s*haath|ek\s*taraf.*(?:lakwa|kamzor|sunn|anga\s*gir)|anga\s*gir|pakshaghata|hemiparesis)/i.test(lower);
+    const hasFacialDroop = /(muh\s*(?:tedh|tedha|binga|ghum)|tond\s*vakaad|mukh\s*beke|mukhdo\s*tedho|facial\s*droop|mouth\s*droop|मुंह\s*टेढ़ा|चेहरा\s*टेढ़ा)/i.test(lower);
+    const hasSpeechDifficulty = /(bolne\s*me\s*ladkhadahat|slurred\s*speech|speech\s*slurred|aawaaz\s*(?:naahi|nahi|fas|ladkhad|ruk|chali)|baat\s*(?:samajh\s*nahi|nahi\s*nikal)|kotha\s*bolte\s*parchhe\s*na|bolyo\s*naahi\s*jaave|bolta\s*yet\s*nahi|बोलने\s*में\s*लड़खड़ाहट|आवाज\s*(?:नहीं|रुक|चली))/i.test(lower);
+    const hasMotorDeficit = /(haath\s*(?:kamzor|bejaan|sunn|obosh)|haath.*(?:kaam\s*na|moving|chalat|gir|bejaan)|daayein\s*(?:aang|taraf)|daahina\s*haath|ek\s*taraf.*(?:lakwa|kamzor|sunn|anga\s*gir)|anga\s*gir|pakshaghata|hemiparesis|हाथ\s*(?:कमजोर|बेजान|सुन्न)|एक\s*तरफ\s*(?:लकवा|कमजोर)|पक्षाघात)/i.test(lower);
     const isStrokePattern = (
       (hasFacialDroop && (hasSpeechDifficulty || hasMotorDeficit)) ||
       (hasSpeechDifficulty && hasMotorDeficit) ||
-      /(bolne\s*me\s*ladkhadahat|slurred\s*speech|facial\s*droop|haath\s*kamzor|ek\s*taraf\s*ka\s*lakwa|pakshaghata|hemiparesis)/i.test(lower)
+      /(bolne\s*me\s*ladkhadahat|slurred\s*speech|facial\s*droop|haath\s*kamzor|ek\s*taraf\s*ka\s*lakwa|pakshaghata|hemiparesis|बोलने\s*में\s*लड़खड़ाहट|एक\s*तरफ\s*का\s*लकवा|पक्षाघात)/i.test(lower)
     );
     if (isStrokePattern) {
       isEmergencyRedFlag = true;
@@ -884,22 +884,22 @@ export class ClinicalParserService {
     }
 
     // Snake Envenomation (Neurotoxic / Hemotoxic Snakebite)
-    const isSnakePattern = /(saanp|snake\s*bite|sarpa\s*damsha|fang\s*marks|ptosis.*saanp|saanp\s*ne\s*kaat|bite\s*by\s*snake)/i.test(lower);
-    const hasSnakeNegation = /(?:saanp|snake|sarpa\s*damsha)[^.!?:\n,]*(?:nahi|naahi|nhi|nai|no|not|na\s*ahe|naahi|illai)/i.test(lower);
+    const isSnakePattern = /(saanp|snake\s*bite|sarpa\s*damsha|fang\s*marks|ptosis.*saanp|saanp\s*ne\s*kaat|bite\s*by\s*snake|सांप\s*ने\s*काट|सर्पदंश|सांप\s*काटना)/i.test(lower);
+    const hasSnakeNegation = /(?:saanp|snake|sarpa\s*damsha|सांप)[^.!?:\n,]*(?:nahi|naahi|nhi|nai|no|not|na\s*ahe|naahi|illai|नहीं|ना)/i.test(lower);
     if (isSnakePattern && !hasSnakeNegation) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Acute Snake Envenomation (Suspected Neurotoxic/Hemotoxic Bite)');
     }
 
     // Organophosphate / Pesticide Poisoning
-    const isPoisonPattern = /(keetnashak|pesticide|organophosphate|salivation|pinpoint\s*pupils|visha\s*peena|dawai\s*pi\s*liya|poisoning)/i.test(lower);
+    const isPoisonPattern = /(keetnashak|pesticide|organophosphate|salivation|pinpoint\s*pupils|visha\s*peena|dawai\s*pi\s*liya|poisoning|कीटनाशक|जहर|दवाई\s*पी\s*ली)/i.test(lower);
     if (isPoisonPattern) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Acute Organophosphate / Pesticide Poisoning');
     }
 
     // Pediatric Airway Stridor / Severe Cyanosis
-    const isPediatricStridor = /(bacha|baccha|child|infant|pediatric).*(saans\s*nahi|stridor|honth\s*neele|cyanosis|seeti\s*jaisi)/i.test(lower);
+    const isPediatricStridor = /(bacha|baccha|child|infant|pediatric|बच्चा|शिशु).*(saans\s*nahi|stridor|honth\s*neele|cyanosis|seeti\s*jaisi|सांस\s*नहीं|होठ\s*नीले)/i.test(lower);
     if (isPediatricStridor) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Pediatric Stridor / Severe Upper Airway Obstruction');

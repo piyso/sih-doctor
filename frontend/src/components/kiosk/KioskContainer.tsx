@@ -359,6 +359,10 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
             setTranscript={setTranscript}
             selectedBodyRegion={selectedBodyRegion}
             setSelectedBodyRegion={setSelectedBodyRegion}
+            symptoms={symptoms}
+            vitals={vitals}
+            redFlags={redFlags}
+            language={language}
             onExtractedSymptoms={handleExtractedSymptoms}
             onNext={() => setCurrentStep(4)}
             onBack={() => setCurrentStep(2)}

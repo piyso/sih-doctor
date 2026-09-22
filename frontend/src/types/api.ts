@@ -9,6 +9,7 @@ export type AgniType = 'SAMAGNI' | 'VISHAMAGNI' | 'TIKSHNAGNI' | 'MANDAGNI';
 
 export interface SocratesSymptom {
   name?: string;
+  symptom_name?: string;
   site: string;
   onset: string;
   character: string;
@@ -18,15 +19,23 @@ export interface SocratesSymptom {
   exacerbatingFactors: string[];
   relievingFactors: string[];
   severityScore: number; // 1 - 10
+  intensity?: number;
+  location?: string;
+  duration?: string;
   durationDays?: number;
   isNegated?: boolean;
 }
 
 export interface VitalsData {
   bp?: string;
+  bp_sys?: number;
+  bp_dia?: number;
   pulse?: number;
+  pulse_bpm?: number;
   spo2?: string;
+  spo2_pct?: number;
   temp?: string;
+  temperature_f?: number;
   respiratoryRate?: number;
   bloodSugar?: number;
 }

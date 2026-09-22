@@ -63,14 +63,24 @@ app.get(['/health', '/api/health'], (_req, res) => {
   });
 });
 
-// High-Speed CORS-Enabled 3D Anatomical Model Streaming Endpoint (2,178 Meshes)
+import { Readable } from 'stream';
+
+// High-Speed CORS-Enabled 3D Anatomical Model Streaming Endpoint (1,751 Clean Meshes)
 app.get('/api/models/anatomical-smooth', async (req, res) => {
-  const localModelPath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', '3d_mannequin_smooth.glb');
-  if (fs.existsSync(localModelPath)) {
+  const localSmoothPath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', '3d_mannequin_smooth.glb');
+  const localInstantPath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', '3d_mannequin_instant.glb');
+
+  if (fs.existsSync(localSmoothPath)) {
     res.setHeader('Content-Type', 'model/gltf-binary');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    return res.sendFile(localModelPath);
+    return res.sendFile(localSmoothPath);
+  }
+  if (fs.existsSync(localInstantPath)) {
+    res.setHeader('Content-Type', 'model/gltf-binary');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(localInstantPath);
   }
 
   const cdnUrl = 'https://github.com/piyso/sih-doctor/releases/download/v1.0.0-assets/3d_mannequin_smooth.glb';
@@ -82,17 +92,29 @@ app.get('/api/models/anatomical-smooth', async (req, res) => {
     const response = await fetch(cdnUrl, { headers: fetchHeaders });
     res.status(response.status);
     response.headers.forEach((val, key) => {
-      if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
+      const lowerKey = key.toLowerCase();
+      if (!['content-encoding', 'transfer-encoding', 'connection'].includes(lowerKey)) {
         res.setHeader(key, val);
       }
     });
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    const arrayBuffer = await response.arrayBuffer();
-    res.send(Buffer.from(arrayBuffer));
+
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as any);
+      nodeStream.on('error', (err) => {
+        console.error('[Stream Error in 3D Model Proxy]:', err);
+        if (!res.headersSent) res.status(500).end();
+      });
+      nodeStream.pipe(res);
+    } else {
+      res.status(500).json({ error: 'No response body received from CDN' });
+    }
   } catch (err) {
     console.error('Error streaming 3D model:', err);
-    res.status(500).json({ error: 'Failed to stream 3D model' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to stream 3D model' });
+    }
   }
 });
 
@@ -115,6 +137,15 @@ const wss = new WebSocketServer({ server, path: '/ws/ambient' });
 wss.on('connection', (ws: WebSocket) => {
   console.log('[WebSocket] Doctor Ambient Scribe & VAD client connected');
   const vadPipeline = new AudioVadPipelineService(16000, -36);
+  let activeSimulationInterval: NodeJS.Timeout | null = null;
+
+  const cleanup = () => {
+    if (activeSimulationInterval) {
+      clearInterval(activeSimulationInterval);
+      activeSimulationInterval = null;
+    }
+    vadPipeline.removeAllListeners();
+  };
 
   vadPipeline.on('vad', (event) => {
     if (ws.readyState === WebSocket.OPEN) {
@@ -137,21 +168,28 @@ wss.on('connection', (ws: WebSocket) => {
 
         if (payload.type === 'SET_ACOUSTIC_MODE' && payload.mode) {
           vadPipeline.setAcousticMode(payload.mode, payload.thresholdDb);
-          ws.send(JSON.stringify({
-            type: 'ACOUSTIC_MODE_UPDATED',
-            mode: payload.mode,
-            metrics: vadPipeline.getAcousticMetrics()
-          }));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'ACOUSTIC_MODE_UPDATED',
+              mode: payload.mode,
+              metrics: vadPipeline.getAcousticMetrics()
+            }));
+          }
         } else if (payload.type === 'TRANSCRIPT_CHUNK' && payload.text) {
           const normalized = PhoneticNormalizerService.normalize(payload.text);
           const parsed = ClinicalParserService.parse(normalized, payload.patientId);
 
-          ws.send(JSON.stringify({
-            type: 'EXTRACTED_STATE',
-            data: parsed,
-            normalized
-          }));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'EXTRACTED_STATE',
+              data: parsed,
+              normalized
+            }));
+          }
         } else if (payload.type === 'SIMULATE_STREAM') {
+          if (activeSimulationInterval) {
+            clearInterval(activeSimulationInterval);
+          }
           // Stream simulated conversational turns
           const dialogue = [
             { speaker: 'Doctor', text: 'नमस्ते रमेश जी, बताइए क्या परेशानी हो रही है? (Namaste, what brings you in today?)', timestamp: '10:16:02' },
@@ -162,7 +200,7 @@ wss.on('connection', (ws: WebSocket) => {
           ];
 
           let idx = 0;
-          const interval = setInterval(() => {
+          activeSimulationInterval = setInterval(() => {
             if (idx < dialogue.length && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({
                 type: 'AMBIENT_LINE',
@@ -170,7 +208,10 @@ wss.on('connection', (ws: WebSocket) => {
               }));
               idx++;
             } else {
-              clearInterval(interval);
+              if (activeSimulationInterval) {
+                clearInterval(activeSimulationInterval);
+                activeSimulationInterval = null;
+              }
             }
           }, 2000);
         }
@@ -182,8 +223,14 @@ wss.on('connection', (ws: WebSocket) => {
     }
   });
 
+  ws.on('error', (err) => {
+    console.warn('[WebSocket] Ambient Scribe socket warning:', err);
+    cleanup();
+  });
+
   ws.on('close', () => {
     console.log('[WebSocket] Ambient Scribe client disconnected');
+    cleanup();
   });
 });
 

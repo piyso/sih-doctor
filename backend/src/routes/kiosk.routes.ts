@@ -35,19 +35,21 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
     const extracted = ClinicalParserService.parse(normalizedText, patientId, abhaId);
 
     // 3. Hopfield Modern Attractor Recall
-    // Build 10-D indicator vector from extracted symptoms
+    // Build 10-D indicator vector from extracted symptoms + normalized text
     const featureVector = new Array(10).fill(0);
     const lower = normalizedText.toLowerCase();
-    if (lower.includes('chest') || lower.includes('substernal') || lower.includes('cardiac')) featureVector[0] = 1.0;
-    if (lower.includes('left arm') || lower.includes('arm radiation')) featureVector[1] = 1.0;
-    if (lower.includes('diaphoresis') || lower.includes('sweat') || lower.includes('pasina')) featureVector[2] = 1.0;
-    if (lower.includes('crepitus') || lower.includes('cut cut') || lower.includes('knee')) featureVector[3] = 1.0;
-    if (lower.includes('morning stiffness') || lower.includes('stambha')) featureVector[4] = 1.0;
-    if (lower.includes('fever') || lower.includes('jwara') || (extracted.vitals?.temp && parseFloat(extracted.vitals.temp) > 100)) featureVector[5] = 1.0;
-    if (lower.includes('cough') || lower.includes('kasa') || lower.includes('balgam')) featureVector[6] = 1.0;
-    if (lower.includes('polyuria') || lower.includes('thirst') || lower.includes('urine')) featureVector[7] = 1.0;
-    if (lower.includes('burning feet') || lower.includes('daha')) featureVector[8] = 1.0;
-    if (lower.includes('joint swelling') || lower.includes('shotha')) featureVector[9] = 1.0;
+    const symNames = (extracted.symptoms || []).map(s => (s.name || '').toLowerCase() + ' ' + (s.site || '').toLowerCase()).join(' ');
+
+    if (lower.includes('chest') || lower.includes('substernal') || lower.includes('cardiac') || lower.includes('सीने') || lower.includes('छाती') || symNames.includes('chest')) featureVector[0] = 1.0;
+    if (lower.includes('left arm') || lower.includes('arm radiation') || lower.includes('बाएं हाथ') || lower.includes('बाईं बांह') || symNames.includes('arm')) featureVector[1] = 1.0;
+    if (lower.includes('diaphoresis') || lower.includes('sweat') || lower.includes('pasina') || lower.includes('पसीना') || symNames.includes('diaphoresis')) featureVector[2] = 1.0;
+    if (lower.includes('crepitus') || lower.includes('cut cut') || lower.includes('knee') || lower.includes('घुटना') || lower.includes('कट-कट') || symNames.includes('knee') || symNames.includes('crepitus')) featureVector[3] = 1.0;
+    if (lower.includes('morning stiffness') || lower.includes('stambha') || lower.includes('जकड़न') || lower.includes('अकड़न') || symNames.includes('stiffness')) featureVector[4] = 1.0;
+    if (lower.includes('fever') || lower.includes('jwara') || lower.includes('बुखार') || symNames.includes('fever') || (extracted.vitals?.temp && parseFloat(extracted.vitals.temp) > 100)) featureVector[5] = 1.0;
+    if (lower.includes('cough') || lower.includes('kasa') || lower.includes('balgam') || lower.includes('खांसी') || lower.includes('बलगम') || symNames.includes('cough')) featureVector[6] = 1.0;
+    if (lower.includes('polyuria') || lower.includes('thirst') || lower.includes('urine') || lower.includes('पेशाब') || lower.includes('प्यास') || symNames.includes('urine')) featureVector[7] = 1.0;
+    if (lower.includes('burning feet') || lower.includes('daha') || lower.includes('जलन') || symNames.includes('burning')) featureVector[8] = 1.0;
+    if (lower.includes('joint swelling') || lower.includes('shotha') || lower.includes('जोड़ों में सूजन') || symNames.includes('joint')) featureVector[9] = 1.0;
 
     const hopfieldRecall = HopfieldAssociativeService.recallAttractor(featureVector);
 

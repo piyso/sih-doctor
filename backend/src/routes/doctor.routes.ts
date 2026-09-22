@@ -14,6 +14,16 @@ import { ConsultationRecord } from '../shared/types';
 
 export const doctorRouter = Router();
 
+function safeJsonParse<T>(raw: any, fallback: T): T {
+  if (!raw) return fallback;
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * GET /api/doctor/queue
  * Retrieve live hospital OPD queue ordered by triage priority: EMERGENCY > HIGH > ROUTINE
@@ -51,8 +61,8 @@ doctorRouter.get('/queue', (_req: Request, res: Response): void => {
       weightKg: r.weight_kg || undefined,
       triagePriority: r.triage_priority,
       status: r.status,
-      redFlags: JSON.parse(r.red_flag_triggers || '[]'),
-      vitals: JSON.parse(r.vitals_json || '{}'),
+      redFlags: safeJsonParse(r.red_flag_triggers, []),
+      vitals: safeJsonParse(r.vitals_json, {}),
       registeredAt: r.created_at
     }));
 
@@ -93,7 +103,7 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
     `).all(sessionRow.patient_id);
 
     const documents = docRows.map(d => {
-      const meta = JSON.parse(d.metadata_json || '{}');
+      const meta: any = safeJsonParse(d.metadata_json, {});
       return {
         documentId: d.id,
         documentType: d.document_type,
@@ -105,16 +115,16 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
       };
     });
 
-    const symptoms = JSON.parse(sessionRow.symptoms_json || '[]');
-    const pariksha = JSON.parse(sessionRow.pariksha_json || '{}');
-    const vitals = JSON.parse(sessionRow.vitals_json || '{}');
-    const redFlags = JSON.parse(sessionRow.red_flag_triggers || '[]');
+    const symptoms: any[] = safeJsonParse(sessionRow.symptoms_json, []);
+    const pariksha: any = safeJsonParse(sessionRow.pariksha_json, {});
+    const vitals: any = safeJsonParse(sessionRow.vitals_json, {});
+    const redFlags: any[] = safeJsonParse(sessionRow.red_flag_triggers, []);
 
     // Check if encounter was already completed in encounters table
     const encounterRow: any = db.prepare(`
       SELECT * FROM encounters WHERE session_id = ? ORDER BY created_at DESC LIMIT 1
     `).get(sessionRow.id);
-    const existingEncounter = encounterRow ? JSON.parse(encounterRow.case_sheet_json || '{}') : null;
+    const existingEncounter: any = encounterRow ? safeJsonParse(encounterRow.case_sheet_json, null) : null;
 
     // Automatically resolve provisional NAMASTE diagnoses
     const provisionalDiagnoses = symptoms
@@ -180,7 +190,7 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], (_req: Request, res: Respon
     `).all();
 
     const queue = rows.map((r, idx) => {
-      const sheet = JSON.parse(r.case_sheet_json || '{}');
+      const sheet: any = safeJsonParse(r.case_sheet_json, {});
       return {
         id: r.id,
         prescriptionToken: `KY-${100 + idx + 1}`,
@@ -311,7 +321,7 @@ doctorRouter.get('/telemetry', (_req: Request, res: Response): void => {
     const encounters = db.prepare(`SELECT * FROM encounters`).all() as any[];
     for (const enc of encounters) {
       try {
-        const sheet = JSON.parse(enc.clinical_sheet_json || '{}');
+        const sheet: any = safeJsonParse(enc.clinical_sheet_json || enc.case_sheet_json, {});
         const conflictAlerts = sheet.conflictAlerts || [];
         for (const alert of conflictAlerts) {
           if (alert.severity === 'CRITICAL_LETHAL' || alert.severity === 'CRITICAL_CONTRAINDICATION') {

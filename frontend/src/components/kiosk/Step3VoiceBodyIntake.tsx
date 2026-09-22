@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   Mic,
   MicOff,
@@ -23,11 +23,21 @@ import {
   CornerUpLeft,
   Trash2,
   Undo2,
-  Wind
+  Wind,
+  Sparkles,
+  Stethoscope,
+  Clock,
+  Thermometer,
+  Play,
+  RotateCw,
+  AlertOctagon,
+  ShieldAlert,
+  Sliders
 } from 'lucide-react';
 import { AudioVisualizer } from '../common/AudioVisualizer';
 import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
+import { SocratesSymptom, VitalsData } from '../../types/api';
 import {
   AnatomicalMannequin3D,
   CLUSTER_DISAMBIGUATION,
@@ -42,6 +52,10 @@ interface Step3VoiceBodyIntakeProps {
   setTranscript: (text: string) => void;
   selectedBodyRegion: string;
   setSelectedBodyRegion: (region: string) => void;
+  symptoms?: SocratesSymptom[];
+  vitals?: VitalsData;
+  redFlags?: string[];
+  language?: string;
   onExtractedSymptoms: (symptoms: any[], vitals: any, redFlags: string[], extra?: any) => void;
   onNext: () => void;
   onBack: () => void;
@@ -818,6 +832,10 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   setTranscript,
   selectedBodyRegion,
   setSelectedBodyRegion,
+  symptoms = [],
+  vitals,
+  redFlags = [],
+  language = 'hi',
   onExtractedSymptoms,
   onNext,
   onBack
@@ -841,9 +859,36 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const [manualTextDraft, setManualTextDraft] = useState('');
   const [systemicCategory, setSystemicCategory] = useState<string>('general');
 
+  const recognitionRef = useRef<any>(null);
+  const latestTranscriptRef = useRef<string>(transcript || '');
+  const isRecordingRef = useRef<boolean>(false);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync ref with incoming transcript changes
+  useEffect(() => {
+    latestTranscriptRef.current = transcript || '';
+  }, [transcript]);
+
+  // Clean up mic and silence timers on unmount
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
   const handleClearTranscript = () => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
     setTranscript('');
+    latestTranscriptRef.current = '';
     setParseSuccess(false);
     onExtractedSymptoms([], {}, []);
   };
@@ -856,6 +901,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       parts.pop();
       const updated = parts.join('। ');
       setTranscript(updated);
+      latestTranscriptRef.current = updated;
       triggerClinicalParse(updated);
     } else {
       handleClearTranscript();
@@ -865,6 +911,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const handleSaveManualEdit = () => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
     setTranscript(manualTextDraft);
+    latestTranscriptRef.current = manualTextDraft;
     setIsManualEditing(false);
     triggerClinicalParse(manualTextDraft);
   };
@@ -882,7 +929,48 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     { key: 'chronic', label: '1 महीना+', en: 'Chronic' }
   ];
 
-  const recognitionRef = useRef<any>(null);
+  const QUICK_VOICE_PRESETS = [
+    {
+      label: 'सीने में भारी दबाव और बाएँ हाथ में दर्द (3 दिन से)',
+      en: 'Crushing chest pressure radiating to left arm (3 days)',
+      locusId: 'Left Chest / Precordium',
+      tag: 'Cardiac / Angina'
+    },
+    {
+      label: 'तेज़ बुखार, ठंड और सिरदर्द (2 दिन से, 102°F)',
+      en: 'High fever, chills & acute headache (2 days, 102°F)',
+      locusId: 'Head / Cranium / Forehead',
+      tag: 'Febrile / Vishama Jwara'
+    },
+    {
+      label: 'बाएँ घुटने में असहनीय दर्द, सूजन और कट-कट की आवाज़ (1 हफ्ता)',
+      en: 'Left knee pain, swelling and crepitus (1 week)',
+      locusId: 'Left Knee Joint',
+      tag: 'Ortho / Sandhivata'
+    },
+    {
+      label: 'पेट में तेज़ मरोड़, गैस की जलन और उल्टी (आज सुबह से)',
+      en: 'Severe abdominal colic, burning acidity & nausea',
+      locusId: 'Epigastrium / Upper Abdomen',
+      tag: 'Gastro / Amlapitta'
+    },
+    {
+      label: 'सांस लेने में भारी तकलीफ़ और लगातार सूखी खांसी (1 हफ्ता)',
+      en: 'Severe dyspnea, wheezing & persistent cough',
+      locusId: 'Left Chest / Precordium',
+      tag: 'Respiratory / Shwasa Kasa'
+    }
+  ];
+
+  const handleApplyPreset = (preset: typeof QUICK_VOICE_PRESETS[0]) => {
+    try { sovereignSound.playMechanicalSnap(); } catch {}
+    setTranscript(preset.label);
+    latestTranscriptRef.current = preset.label;
+    if (preset.locusId && (!selectedBodyRegion || selectedBodyRegion === '')) {
+      handleRegionClick(preset.locusId);
+    }
+    triggerClinicalParse(preset.label);
+  };
 
   const handleRegionClick = (regionId: string) => {
     try { sovereignSound.playHotspotPulse(); } catch {}
@@ -906,7 +994,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       }
     } catch {}
 
-    // If patient had previously chosen another organ (e.g., Left Knee / Epigastrium), retain it as a secondary complaint note
+    // If patient had previously chosen another organ, retain it as a secondary complaint note
     if (selectedBodyRegion && selectedBodyRegion !== newLocusId) {
       const priorHindi = REGIONAL_COMPLAINTS[selectedBodyRegion]?.hindiName || selectedBodyRegion;
       const priorEn = REGIONAL_COMPLAINTS[selectedBodyRegion]?.enName || selectedBodyRegion;
@@ -914,6 +1002,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       if (!transcript.includes(addition)) {
         const updated = transcript ? `${transcript} ${addition}` : addition;
         setTranscript(updated);
+        latestTranscriptRef.current = updated;
         triggerClinicalParse(updated);
       }
     }
@@ -931,6 +1020,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     const formatted = `${organName}: ${symHi}${symEn ? ` [${symEn}]` : ''} (${sevObj?.label || ''}, ${durObj?.label || ''})`;
     const newTranscript = transcript ? `${transcript}। ${formatted}` : formatted;
     setTranscript(newTranscript);
+    latestTranscriptRef.current = newTranscript;
     triggerClinicalParse(newTranscript);
   };
 
@@ -942,84 +1032,19 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     const textToAdd = `${organName} में ${sensation.label} [${sensation.en}] (${sevObj?.label || ''}, ${durObj?.label || ''})`;
     const newTranscript = transcript ? `${transcript}। ${textToAdd}` : textToAdd;
     setTranscript(newTranscript);
+    latestTranscriptRef.current = newTranscript;
     triggerClinicalParse(newTranscript);
   };
 
-  const toggleRecording = () => {
-    setMicErrorMessage(null);
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setMicErrorMessage('Speech API not supported in this browser. Please type symptoms directly.');
-      return;
-    }
-
-    if (isRecording) {
-      try { sovereignSound.playMechanicalSnap(); } catch {}
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsRecording(false);
-      if (transcript.trim()) {
-        triggerClinicalParse(transcript);
-      }
-    } else {
-      try { sovereignSound.playMechanicalSnap(); } catch {}
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = micLanguage;
-
-        recognition.onstart = () => {
-          setIsRecording(true);
-          setParseSuccess(false);
-        };
-
-        recognition.onresult = (event: any) => {
-          let fullStr = '';
-          for (let i = 0; i < event.results.length; ++i) {
-            fullStr += event.results[i][0].transcript;
-          }
-          if (fullStr) {
-            setTranscript(fullStr);
-          }
-        };
-
-        recognition.onerror = (err: any) => {
-          console.warn('[Kiosk Voice Intake] Speech Error:', err);
-          if (err.error === 'not-allowed') {
-            setMicErrorMessage('Microphone access denied. Please allow microphone permission.');
-          } else if (err.error === 'no-speech') {
-            setMicErrorMessage('No speech detected. Please speak closer to microphone.');
-          }
-          setIsRecording(false);
-        };
-
-        recognition.onend = () => {
-          setIsRecording(false);
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-      } catch (e: any) {
-        console.error('Speech recognition failed to start:', e);
-        setMicErrorMessage(e.message || 'Microphone initialization failed.');
-        setIsRecording(false);
-      }
-    }
-  };
-
-  const triggerClinicalParse = async (textToParse: string) => {
-    if (!textToParse.trim()) return;
+  const triggerClinicalParse = useCallback(async (textToParse: string) => {
+    if (!textToParse || !textToParse.trim()) return;
     setIsParsing(true);
     setParseSuccess(false);
     try {
       const extracted = await api.parseAudioTranscript(textToParse);
       onExtractedSymptoms(
-        extracted.symptoms,
-        extracted.vitals,
+        extracted.symptoms || [],
+        extracted.vitals || {},
         extracted.redFlagTriggers || [],
         {
           causalDagOverride: extracted.causalDagOverride,
@@ -1033,6 +1058,98 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       console.error('Clinical parse error:', e);
     } finally {
       setIsParsing(false);
+    }
+  }, [onExtractedSymptoms]);
+
+  const toggleRecording = () => {
+    setMicErrorMessage(null);
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setMicErrorMessage('Speech API not supported in this browser. Please use the 1-click clinical presets below or type symptoms directly.');
+      return;
+    }
+
+    if (isRecording) {
+      try { sovereignSound.playMechanicalSnap(); } catch {}
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
+      }
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      const finalRecorded = latestTranscriptRef.current.trim();
+      if (finalRecorded) {
+        triggerClinicalParse(finalRecorded);
+      }
+    } else {
+      try { sovereignSound.playMechanicalSnap(); } catch {}
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = micLanguage;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          setIsRecording(true);
+          isRecordingRef.current = true;
+          setParseSuccess(false);
+        };
+
+        recognition.onresult = (event: any) => {
+          let fullStr = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            fullStr += event.results[i][0].transcript;
+          }
+          if (fullStr) {
+            setTranscript(fullStr);
+            latestTranscriptRef.current = fullStr;
+
+            // Debounced auto-trigger on short natural silence pause (850ms)
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+            }
+            silenceTimerRef.current = setTimeout(() => {
+              if (latestTranscriptRef.current && latestTranscriptRef.current.trim().length > 0) {
+                triggerClinicalParse(latestTranscriptRef.current);
+              }
+            }, 850);
+          }
+        };
+
+        recognition.onerror = (err: any) => {
+          console.warn('[Kiosk Voice Intake] Speech Error:', err);
+          if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+            setMicErrorMessage('माइक्रोफ़ोन अनुमति नहीं मिली। नीचे दिए गए त्वरित बटनों (Presets) का उपयोग करें या लिखें।');
+          } else if (err.error === 'no-speech') {
+            setMicErrorMessage('कोई आवाज़ नहीं सुनी गई। कृपया माइक के पास बोलें या बटन से चुनें।');
+          }
+          setIsRecording(false);
+          isRecordingRef.current = false;
+        };
+
+        recognition.onend = () => {
+          setIsRecording(false);
+          isRecordingRef.current = false;
+          // Auto-trigger parse when speech finishes naturally
+          if (latestTranscriptRef.current && latestTranscriptRef.current.trim().length > 0) {
+            triggerClinicalParse(latestTranscriptRef.current);
+          }
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+      } catch (e: any) {
+        console.error('Speech recognition failed to start:', e);
+        setMicErrorMessage(e.message || 'Microphone initialization failed.');
+        setIsRecording(false);
+        isRecordingRef.current = false;
+      }
     }
   };
 
@@ -1573,6 +1690,162 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                   </>
                 )}
               </button>
+            </div>
+
+            {/* 4.5 AI Deterministic Clinical Findings Preview Studio */}
+            {isParsing && (
+              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/30 flex items-center justify-center gap-3 animate-pulse">
+                <Sparkles size={20} className="text-primary animate-spin" />
+                <span className="text-xs sm:text-sm font-heading font-bold text-primary">
+                  एआई क्लिनिकल इंजन विश्लेषण कर रहा है... (Parsing Clinical Entities...)
+                </span>
+              </div>
+            )}
+
+            {/* If symptoms, vitals or redFlags are extracted and available, show real-time live findings */}
+            {!isParsing && (symptoms.length > 0 || redFlags.length > 0 || (vitals && (vitals.bp_sys || vitals.temperature_f || vitals.pulse_bpm))) && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/30 flex flex-col gap-3.5 shadow-2xs animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between flex-wrap gap-2 border-b border-emerald-500/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" />
+                    <span className="font-heading font-extrabold text-xs sm:text-sm text-foreground">
+                      एआई द्वारा पहचाने गए लक्षण व निष्कर्ष (AI Extracted Findings)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                      Hopfield & Causal DAG Verified
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground font-semibold">
+                      {symptoms.length} लक्षण मिले
+                    </span>
+                  </div>
+                </div>
+
+                {/* Red Flag Alert Badge if any */}
+                {redFlags.length > 0 && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/40 text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
+                    <AlertOctagon size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                    <div className="flex flex-col min-w-0 text-left">
+                      <span className="font-heading font-bold text-xs">
+                        आपातकालीन रेड-फ्लैग अलर्ट (Emergency Red Flags Detected):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {redFlags.map((rf, rfi) => (
+                          <span key={rfi} className="text-[11px] font-mono font-bold bg-rose-600 text-white px-2 py-0.5 rounded">
+                            {rf}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Extracted Symptoms Chips */}
+                {symptoms.length > 0 && (
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <span className="text-[10.5px] font-mono uppercase font-bold text-muted-foreground tracking-wider">
+                      पहचाने गए मुख्य लक्षण (Extracted Symptoms):
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {symptoms.map((s, si) => (
+                        <div
+                          key={si}
+                          className="px-3 py-1.5 rounded-xl bg-card border border-emerald-500/40 text-foreground flex items-center gap-2 shadow-2xs text-xs font-semibold"
+                        >
+                          <span className="font-heading font-bold text-emerald-600 dark:text-emerald-400">
+                            {s.symptom_name}
+                          </span>
+                          {s.location && (
+                            <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                              {s.location}
+                            </span>
+                          )}
+                          {s.duration && (
+                            <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              {s.duration}
+                            </span>
+                          )}
+                          {s.intensity && (
+                            <span className="text-[10px] font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">
+                              तीव्रता: {s.intensity}/10
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Extracted Vitals Chips */}
+                {vitals && (vitals.bp_sys || vitals.temperature_f || vitals.pulse_bpm || vitals.spo2_pct) && (
+                  <div className="flex flex-col gap-1.5 text-left pt-1 border-t border-emerald-500/15">
+                    <span className="text-[10.5px] font-mono uppercase font-bold text-muted-foreground tracking-wider">
+                      पहचाने गए वाइटल्स (Extracted Vitals):
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {vitals.bp_sys && (
+                        <div className="px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-mono font-bold flex items-center gap-1.5">
+                          <HeartPulse size={13} className="text-rose-500" />
+                          <span>BP: {vitals.bp_sys}/{vitals.bp_dia || 80} mmHg</span>
+                        </div>
+                      )}
+                      {vitals.temperature_f && (
+                        <div className="px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-mono font-bold flex items-center gap-1.5">
+                          <Thermometer size={13} className="text-amber-500" />
+                          <span>Temp: {vitals.temperature_f} °F</span>
+                        </div>
+                      )}
+                      {vitals.pulse_bpm && (
+                        <div className="px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-mono font-bold flex items-center gap-1.5">
+                          <Activity size={13} className="text-sky-500" />
+                          <span>Pulse: {vitals.pulse_bpm} bpm</span>
+                        </div>
+                      )}
+                      {vitals.spo2_pct && (
+                        <div className="px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-mono font-bold flex items-center gap-1.5">
+                          <Wind size={13} className="text-teal-500" />
+                          <span>SpO2: {vitals.spo2_pct}%</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick 1-Click Clinical Scenario Presets */}
+            <div className="flex flex-col gap-2 pt-1 border-t border-border/60 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-primary" />
+                  <span>त्वरित क्लिनिकल परिदृश्य (1-Click Clinical Presets):</span>
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground">माइक न चलने पर टैप करें</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {QUICK_VOICE_PRESETS.map((p, pIdx) => (
+                  <button
+                    key={pIdx}
+                    type="button"
+                    onClick={() => handleApplyPreset(p)}
+                    className="p-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-border/70 hover:border-primary/40 text-left cursor-pointer transition-all active:scale-98 flex flex-col gap-0.5 group shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                        {p.tag}
+                      </span>
+                      <Play size={10} className="text-primary group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <span className="text-xs font-heading font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1 mt-0.5">
+                      {p.label}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground line-clamp-1">
+                      {p.en}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

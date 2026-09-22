@@ -1979,15 +1979,22 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
     const fallbackDirect = () => {
       gltfLoader.load(
-        '/models/3d_mannequin_smooth.glb',
+        '/models/3d_mannequin_instant.glb',
         (gltf) => { setupLoadedInternalModel(gltf.scene); },
         (xhr) => { if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100)); },
         () => {
           gltfLoader.load(
-            '/models/human_body.glb',
-            (gltfFallback) => { setupLoadedInternalModel(gltfFallback.scene); },
-            undefined,
-            () => { setModelLoaded(true); setLoadingProgress(100); }
+            '/models/3d_mannequin_smooth.glb',
+            (gltfSmooth) => { setupLoadedInternalModel(gltfSmooth.scene); },
+            (xhr) => { if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100)); },
+            () => {
+              gltfLoader.load(
+                '/models/human_body.glb',
+                (gltfFallback) => { setupLoadedInternalModel(gltfFallback.scene); },
+                undefined,
+                () => { setModelLoaded(true); setLoadingProgress(100); }
+              );
+            }
           );
         }
       );
@@ -1996,7 +2003,8 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     // Fast streaming fetch with multiple CORS-safe endpoints, HTML guardrails & byte-level progress reporting
     const fetchFromCDN = async () => {
       const candidates = [
-        '/api/models/anatomical-smooth',
+        '/models/3d_mannequin_instant.glb',
+        '/models/3d_mannequin_smooth.glb',
         `${BASE_URL}/api/models/anatomical-smooth`,
         CDN_RELEASE_URL
       ];
@@ -2009,7 +2017,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           if (contentType.includes('text/html')) continue; // Skip HTML rewrites/errors
 
           const reader = response.body?.getReader();
-          const contentLength = +(response.headers.get('Content-Length') || '226694516');
+          const contentLength = +(response.headers.get('Content-Length') || '75422400');
 
           if (!reader) {
             const buf = await response.arrayBuffer();
@@ -2054,25 +2062,14 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     };
 
 
-    // Main loader entrypoint: Cache -> Localhost direct -> CDN live stream -> Fail-safe
+    // Main loader entrypoint: Cache -> Multi-tier High-Speed Stream -> Fail-safe
     loadFromIndexedDB()
       .then((cached) => {
-        if (cached && cached.byteLength > 1000000) {
+        if (cached && cached.byteLength > 10000000) {
           parseAndMount(cached);
           return;
         }
-
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (isLocal) {
-          gltfLoader.load(
-            '/models/3d_mannequin_smooth.glb',
-            (gltf) => { setupLoadedInternalModel(gltf.scene); },
-            (xhr) => { if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100)); },
-            () => { fetchFromCDN().catch(fallbackDirect); }
-          );
-        } else {
-          fetchFromCDN().catch(fallbackDirect);
-        }
+        fetchFromCDN().catch(fallbackDirect);
       })
       .catch(() => {
         fetchFromCDN().catch(fallbackDirect);
