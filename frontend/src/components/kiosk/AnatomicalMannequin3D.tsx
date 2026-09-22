@@ -1825,10 +1825,16 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
             return;
           }
 
-          // Ensure smooth vertex normals on every mesh geometry
+          // Ensure smooth vertex normals and complete bounding volumes for raycasting on every mesh geometry
+          // Critical for Draco-decoded geometry: WASM decoder doesn't pre-compute bounding volumes
           if (child.geometry) {
             child.geometry.computeVertexNormals();
             child.geometry.computeBoundingBox();
+            child.geometry.computeBoundingSphere();
+            // Ensure Draco-decoded non-indexed geometry still has proper draw range
+            if (!child.geometry.index && child.geometry.attributes.position) {
+              child.geometry.setDrawRange(0, child.geometry.attributes.position.count);
+            }
           }
 
           const record = getMeshMetadata(child.name);
@@ -2258,6 +2264,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
+      dracoLoader.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
