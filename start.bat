@@ -50,6 +50,16 @@ echo   [OK] All package dependencies are ready.
 REM 3. Display Access URLs
 echo.
 echo [3/4] Initializing Air-Gapped Hospital OS Terminals...
+
+set WIN_IP=127.0.0.1
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
+    for /f "tokens=1" %%b in ("%%a") do (
+        set WIN_IP=%%b
+        goto :ip_found
+    )
+)
+:ip_found
+
 echo.
 echo ==============================================================================
 echo   HOSPITAL OS READY FOR LIVE DEMONSTRATION
@@ -63,6 +73,7 @@ echo   5. Frontline ASHA Field App:  http://localhost:5173/?mode=asha
 echo   6. Command ^& Outbreak NOC:    http://localhost:5173/?mode=admin
 echo   7. System Defense Matrix:     http://localhost:5173/?mode=matrix
 echo.
+echo   Mobile Phone / Tablet Link:   http://%WIN_IP%:5173/
 echo ==============================================================================
 echo   Tip: Open any browser (Chrome, Edge, Brave, Firefox) and navigate to:
 echo        http://localhost:5173/

@@ -33,7 +33,7 @@ start.bat
 | **📊 Command & Outbreak NOC** | [http://localhost:5173/?mode=admin](http://localhost:5173/?mode=admin) | Real-time Triage Heatmap & IDSP Radar |
 | **🛡️ System Defense Matrix** | [http://localhost:5173/?mode=matrix](http://localhost:5173/?mode=matrix) | Groth16 zk-SNARK & Zero Cloud Egress Audit |
 
-> **📲 Mobile Phone & Tablet Access:** When connected to the same Wi-Fi or mobile hotspot, simply open `http://<YOUR_LAN_IP>:5173/` on any smartphone or tablet to test live mobile responsiveness!
+> **📲 Mobile Phone & Tablet Access:** Connect your phone to the same Wi-Fi as your computer. Look at your computer's terminal screen—it prints the exact link to type on your phone!
 
 ---
 
