@@ -26,9 +26,33 @@ const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
 const hostname = isBrowser && window.location.hostname ? window.location.hostname : 'localhost';
 const port = isBrowser ? window.location.port : '';
 
-// Universal Origin: Uses Vite Proxy or reverse proxy for seamless Zero-CORS & Zero-Mixed-Content operation
-export const BASE_URL = import.meta.env.VITE_API_URL || (isBrowser ? `${protocol}//${window.location.host}` : 'http://localhost:8001');
-export const WS_URL = import.meta.env.VITE_WS_URL || (isBrowser ? `${wsProtocol}//${window.location.host}/ws/ambient` : 'ws://localhost:8001/ws/ambient');
+// Intelligent Cloud & Local Backend Auto-Discovery
+const getAutoApiUrl = (): string => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (!isBrowser) return 'http://localhost:8001';
+
+  // Auto-route Vercel static edge frontend to live Render backend
+  if (hostname.endsWith('.vercel.app') || hostname.includes('github.io') || hostname.includes('netlify.app')) {
+    return 'https://sih-doctor-backend.onrender.com';
+  }
+
+  // Local development / LAN / Reverse Proxy
+  return `${protocol}//${window.location.host}`;
+};
+
+const getAutoWsUrl = (): string => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  if (!isBrowser) return 'ws://localhost:8001/ws/ambient';
+
+  if (hostname.endsWith('.vercel.app') || hostname.includes('github.io') || hostname.includes('netlify.app')) {
+    return 'wss://sih-doctor-backend.onrender.com/ws/ambient';
+  }
+
+  return `${wsProtocol}//${window.location.host}/ws/ambient`;
+};
+
+export const BASE_URL = getAutoApiUrl();
+export const WS_URL = getAutoWsUrl();
 
 class ApiService {
   /**
