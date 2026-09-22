@@ -16,10 +16,6 @@ services:
         value: "*"
       - key: DB_PATH
         value: /app/data/hospital.db
-    disk:
-      name: hospital-data
-      mountPath: /app/data
-      sizeGB: 1
 
   - type: web
     name: sih-doctor-frontend
@@ -31,3 +27,4 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
