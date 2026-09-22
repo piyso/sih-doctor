@@ -164,7 +164,7 @@ export async function runMassiveUniversalStressSuite() {
 
     const cond = bundle.entry.find((e: any) => e.resource.resourceType === 'Condition')?.resource;
     assert(!!cond, `2.1 Condition generated for NAMASTE ${item.aCode}`);
-    const codings = cond.code.coding;
+    const codings = cond!.code.coding;
     const hasNamaste = codings.some((c: any) => c.system === 'https://namstp.ayush.gov.in' && c.code === item.aCode);
     const hasIcd10 = codings.some((c: any) => c.system === 'http://hl7.org/fhir/sid/icd-10' && c.code === item.icd10);
     const hasSnomed = codings.some((c: any) => c.system === 'http://snomed.info/sct' && c.code === item.snomed);
@@ -392,7 +392,7 @@ export async function runMassiveUniversalStressSuite() {
   assert(bundle.entry[0].resource.resourceType === 'Composition', '7.3 Invariant 1: First entry is Composition');
   const comp = bundle.entry[0].resource;
   const pat = bundle.entry.find((e: any) => e.resource.resourceType === 'Patient');
-  assert(comp.subject.reference === pat.fullUrl, '7.4 Invariant 2: Composition.subject equals Patient.fullUrl');
+  assert(!!pat && comp.subject.reference === pat.fullUrl, '7.4 Invariant 2: Composition.subject equals Patient.fullUrl');
 
   // Acyclic Reference Integrity
   const allFullUrls = bundle.entry.map((e: any) => e.fullUrl);
@@ -416,7 +416,7 @@ export async function runMassiveUniversalStressSuite() {
   // Multi-Coordinate Perturbation Attack
   const sample = ZkProofService.getSampleProof();
   const tamperedCoord = JSON.parse(JSON.stringify(sample.proof));
-  tamperedCoord.pi_b[0][0] = (BigInt(tamperedCoord.pi_b[0][0]) + 1n).toString();
+  tamperedCoord.pi_b[0][0] = (BigInt(tamperedCoord.pi_b[0][0]) + BigInt(1)).toString();
   const coordAttack = await ZkProofService.verifyProof(tamperedCoord);
   assert(coordAttack.isValid === false, '8.3 Elliptic curve coordinate attack rejected');
 

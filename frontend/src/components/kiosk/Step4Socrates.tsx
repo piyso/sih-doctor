@@ -9,6 +9,7 @@ interface Step4SocratesProps {
   vitals: VitalsData;
   setVitals: React.Dispatch<React.SetStateAction<VitalsData>>;
   redFlags: string[];
+  selectedBodyRegion?: string;
   onNext: () => void;
   onBack: () => void;
 }
@@ -19,19 +20,20 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   vitals,
   setVitals,
   redFlags,
+  selectedBodyRegion,
   onNext,
   onBack
 }) => {
-  const currentSymptom = symptoms[0] || {
-    site: 'Substernal Precordium',
-    onset: '3 hours ago',
-    character: 'Crushing heaviness',
-    radiation: 'Left arm and shoulder',
-    associations: ['Cold sweating', 'Breathlessness'],
-    timing: 'Continuous',
-    exacerbatingFactors: ['Exertion'],
-    relievingFactors: ['Rest'],
-    severityScore: 9
+  const currentSymptom: SocratesSymptom = symptoms[0] || {
+    site: selectedBodyRegion || '',
+    onset: '',
+    character: 'Dull aching (Bheda)',
+    radiation: '',
+    associations: [],
+    timing: '',
+    exacerbatingFactors: [],
+    relievingFactors: [],
+    severityScore: 0
   };
 
   const updateCurrentSymptom = (field: keyof SocratesSymptom, value: any) => {
@@ -46,7 +48,8 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
 
   const severityColor =
     currentSymptom.severityScore >= 8 ? '#f43f5e' :
-    currentSymptom.severityScore >= 5 ? '#f59e0b' : '#10b981';
+    currentSymptom.severityScore >= 5 ? '#f59e0b' :
+    currentSymptom.severityScore > 0 ? '#10b981' : '#64748b';
 
   const WongBakerFace: React.FC<{ score: number; isSelected: boolean }> = ({ score, isSelected }) => {
     const strokeColor =
@@ -151,14 +154,18 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
         </div>
       )}
 
-      {/* Code-Red Precordial Intercept */}
-      {currentSymptom.severityScore >= 8 && (
+      {/* Code-Red Emergency Intercept */}
+      {currentSymptom.severityScore >= 8 && currentSymptom.site && (
         <div className="p-3.5 sm:p-4 rounded-2xl bg-rose-500/15 border border-rose-500/50 mb-4 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
             <HeartPulse size={20} className="text-rose-600 dark:text-rose-400 shrink-0" />
             <div>
               <div className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-200">
-                EMERGENCY CODE-RED INTERCEPT: Suspected Acute Coronary Syndrome
+                {/chest|precordium|heart|सीने|हृदय/i.test(currentSymptom.site)
+                  ? 'EMERGENCY CODE-RED INTERCEPT: Suspected Acute Coronary Syndrome'
+                  : /head|brain|cervical|सिर|मस्तिष्क/i.test(currentSymptom.site)
+                  ? 'EMERGENCY CODE-RED INTERCEPT: Acute Neurological / Stroke Event'
+                  : 'EMERGENCY TRIAGE INTERCEPT: Severe Acuity Level 2 Event'}
               </div>
               <div className="text-[11px] text-rose-600 dark:text-rose-300">
                 Severity {currentSymptom.severityScore}/10 at {currentSymptom.site} → Route to Room 01 (Resuscitation Bay)
@@ -198,9 +205,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
             </label>
             <input
               type="text"
-              value={currentSymptom.site}
+              value={currentSymptom.site || ''}
               onChange={(e) => updateCurrentSymptom('site', e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+              placeholder="e.g. Left Knee, Precordium, Epigastrium, Head..."
+              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 placeholder:text-muted-foreground/40"
             />
           </div>
 
@@ -209,18 +217,19 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
               Character (दर्द कैसा महसूस होता है)
             </label>
             <select
-              value={currentSymptom.character}
+              value={currentSymptom.character || 'Dull aching (Bheda)'}
               onChange={(e) => {
                 sovereignSound.playDialNotch();
                 updateCurrentSymptom('character', e.target.value);
               }}
               className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 cursor-pointer"
             >
-              <option value="Crushing heaviness">भारी दबाव / कुचलने जैसा (Crushing / Heavy Pressure)</option>
-              <option value="Sharp pricking (Toda)">तीखा चुभने वाला (Sharp Needle-like / Toda)</option>
               <option value="Dull aching (Bheda)">मीठा-मीठा धीमा दर्द (Dull Aching / Bheda)</option>
+              <option value="Sharp pricking (Toda)">तीखा चुभने वाला (Sharp Needle-like / Toda)</option>
+              <option value="Crushing heaviness">भारी दबाव / कुचलने जैसा (Crushing / Heavy Pressure)</option>
               <option value="Burning sensation (Daha)">तेज़ जलन (Burning Sensation / Daha)</option>
               <option value="Throbbing / Pulsatile">धड़कने वाला दर्द (Throbbing / Pulsatile)</option>
+              <option value="Stiffness / Stambha">जकड़न / अकड़न (Stiffness / Stambha)</option>
             </select>
           </div>
 
@@ -230,10 +239,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
             </label>
             <input
               type="text"
-              value={currentSymptom.radiation}
+              value={currentSymptom.radiation || ''}
               onChange={(e) => updateCurrentSymptom('radiation', e.target.value)}
-              placeholder="e.g. Left arm, shoulder, jaw"
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+              placeholder="e.g. Left arm, neck, groin, down the leg (or None)"
+              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 placeholder:text-muted-foreground/40"
             />
           </div>
 
@@ -243,10 +252,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
             </label>
             <input
               type="text"
-              value={currentSymptom.onset}
+              value={currentSymptom.onset || ''}
               onChange={(e) => updateCurrentSymptom('onset', e.target.value)}
-              placeholder="e.g. 3 hours ago during brisk walking"
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+              placeholder="e.g. 2 weeks, 3 days, sudden onset..."
+              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 placeholder:text-muted-foreground/40"
             />
           </div>
         </div>
@@ -269,16 +278,16 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                 <span style={{ color: severityColor }} className="text-base sm:text-lg font-mono font-extrabold">
                   {currentSymptom.severityScore} / 10
                   <span className="text-xs font-sans font-semibold ml-1.5 opacity-90">
-                    {currentSymptom.severityScore >= 8 ? '(Severe)' : currentSymptom.severityScore >= 5 ? '(Moderate)' : '(Mild)'}
+                    {currentSymptom.severityScore >= 8 ? '(Severe)' : currentSymptom.severityScore >= 5 ? '(Moderate)' : currentSymptom.severityScore > 0 ? '(Mild)' : '(No Pain)'}
                   </span>
                 </span>
               </div>
 
               <input
                 type="range"
-                min="1"
+                min="0"
                 max="10"
-                value={currentSymptom.severityScore}
+                value={currentSymptom.severityScore || 0}
                 onChange={(e) => handleSliderChange(parseInt(e.target.value, 10))}
                 className="w-full cursor-pointer h-1.5 rounded-lg mb-2"
                 style={{ accentColor: severityColor }}
@@ -289,14 +298,14 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                 {painFaces.map((f) => (
                   <div
                     key={f.score}
-                    onClick={() => handleSliderChange(f.score === 0 ? 1 : f.score)}
+                    onClick={() => handleSliderChange(f.score)}
                     className={`cursor-pointer p-1.5 rounded-lg transition-all ${
                       currentSymptom.severityScore === f.score
                         ? 'bg-background shadow-xs border border-border ring-1 ring-sky-500/40'
                         : 'hover:bg-muted/40'
                     }`}
                   >
-                    <WongBakerFace score={f.score} isSelected={currentSymptom.severityScore === f.score || (f.score === 0 && currentSymptom.severityScore === 1)} />
+                    <WongBakerFace score={f.score} isSelected={currentSymptom.severityScore === f.score} />
                     <div className="text-[9px] font-mono text-muted-foreground mt-0.5">{f.score}</div>
                     <div className="text-[8.5px] font-semibold text-foreground/80 leading-tight">{f.label}</div>
                   </div>
@@ -314,9 +323,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                 </div>
                 <input
                   type="text"
-                  value={vitals.bp}
+                  value={vitals.bp || ''}
+                  placeholder="120/80"
                   onChange={(e) => setVitals({ ...vitals, bp: e.target.value })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5"
+                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5 placeholder:text-muted-foreground/30"
                 />
                 <div className="text-[9.5px] text-muted-foreground font-mono">mmHg</div>
               </div>
@@ -329,9 +339,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                 </div>
                 <input
                   type="number"
-                  value={vitals.pulse}
+                  value={vitals.pulse && vitals.pulse > 0 ? vitals.pulse : ''}
+                  placeholder="72"
                   onChange={(e) => setVitals({ ...vitals, pulse: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5"
+                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5 placeholder:text-muted-foreground/30"
                 />
                 <div className="text-[9.5px] text-muted-foreground font-mono">BPM</div>
               </div>
@@ -344,9 +355,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                 </div>
                 <input
                   type="text"
-                  value={vitals.spo2}
+                  value={vitals.spo2 || ''}
+                  placeholder="98%"
                   onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5"
+                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5 placeholder:text-muted-foreground/30"
                 />
                 <div className="text-[9.5px] text-muted-foreground font-mono">% O2</div>
               </div>
@@ -359,9 +371,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                 </div>
                 <input
                   type="text"
-                  value={vitals.temp}
+                  value={vitals.temp || ''}
+                  placeholder="98.6°F"
                   onChange={(e) => setVitals({ ...vitals, temp: e.target.value })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-none mt-0.5"
+                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-none mt-0.5 placeholder:text-muted-foreground/30"
                 />
                 <div className="text-[9.5px] text-muted-foreground font-mono">°F</div>
               </div>
@@ -371,11 +384,25 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
             {(() => {
               const pulseNum = Number(vitals.pulse) || 0;
               const sbp = parseInt((vitals.bp || '').split('/')[0], 10) || 0;
-              const spo2Num = parseInt((vitals.spo2 || '').replace('%', ''), 10) || 100;
+              const spo2Num = parseInt((vitals.spo2 || '').replace('%', ''), 10) || 0;
               const isSeverePain = currentSymptom.severityScore >= 8;
-              const isLowPain = currentSymptom.severityScore <= 3;
-              const hasAutonomicInstability = pulseNum > 105 || pulseNum < 50 || sbp > 150 || sbp < 90 || spo2Num < 92;
-              const isHighPainNormalVitals = isSeverePain && pulseNum >= 60 && pulseNum <= 80 && sbp >= 110 && sbp <= 128 && spo2Num >= 98;
+              const isModeratePain = currentSymptom.severityScore >= 4;
+              const isLowPain = currentSymptom.severityScore <= 3 && currentSymptom.severityScore > 0;
+              const hasVitalsRecorded = pulseNum > 0 || sbp > 0 || spo2Num > 0;
+
+              if (!hasVitalsRecorded && currentSymptom.severityScore === 0) {
+                return (
+                  <div className="mt-3 p-2.5 rounded-xl bg-card border border-border/80 flex items-center gap-2 shadow-2xs">
+                    <ShieldCheck size={14} className="text-muted-foreground shrink-0" />
+                    <span className="text-[11px] text-muted-foreground font-medium">
+                      वाइटल्स एवं दर्द पैमाना प्रविष्टि की प्रतीक्षा है (Awaiting Biometric &amp; Pain Matrix Entry) · ESI Level 4 (Routine)
+                    </span>
+                  </div>
+                );
+              }
+
+              const hasAutonomicInstability = pulseNum > 105 || (pulseNum > 0 && pulseNum < 50) || sbp > 150 || (sbp > 0 && sbp < 90) || (spo2Num > 0 && spo2Num < 92);
+              const isHighPainNormalVitals = isSeverePain && pulseNum >= 60 && pulseNum <= 80 && sbp >= 110 && sbp <= 128 && (spo2Num >= 98 || spo2Num === 0);
               const isLowPainSevereInstability = isLowPain && hasAutonomicInstability;
 
               if (isHighPainNormalVitals) {
@@ -383,7 +410,7 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                   <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
                     <ShieldAlert size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
                     <div className="text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
-                      <strong>बायोमेट्रिक संतुलन अंशांकन:</strong> वाइटल्स पूर्णतः स्थिर हैं (HR {pulseNum}, SpO2 {spo2Num}%). क्लिनिकल ट्राइएज संतुलित किया जाएगा।
+                      <strong>बायोमेट्रिक संतुलन अंशांकन:</strong> वाइटल्स स्थिर हैं (HR {pulseNum || 'Norm'}, SpO2 {spo2Num || 'Norm'}%). क्लिनिकल ट्राइएज संतुलित किया जाएगा।
                     </div>
                   </div>
                 );
@@ -394,17 +421,19 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
                   <div className="mt-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2">
                     <AlertOctagon size={15} className="text-rose-600 dark:text-rose-400 shrink-0" />
                     <div className="text-[11px] text-rose-700 dark:text-rose-300 leading-snug">
-                      <strong>मौन फिजियोलॉजिकल गिरावट:</strong> कम दर्द के बावजूद वाइटल्स में विचलन है (HR {pulseNum}, BP {vitals.bp}). आपातकालीन ट्राइएज सक्रिय है।
+                      <strong>मौन फिजियोलॉजिकल विचलन:</strong> कम दर्द के बावजूद वाइटल्स में विचलन है (HR {pulseNum}, BP {vitals.bp}). आपातकालीन ट्राइएज सक्रिय है।
                     </div>
                   </div>
                 );
               }
 
+              const esiLevel = isSeverePain ? '2 (Emergent)' : isModeratePain ? '3 (Urgent)' : '4 (Standard)';
+
               return (
                 <div className="mt-3 p-2 rounded-xl bg-card border border-border/80 flex items-center gap-2 shadow-2xs">
                   <ShieldCheck size={14} className="text-primary shrink-0" />
                   <span className="text-[11px] text-foreground font-semibold">
-                    वाइटल्स एवं लक्षण सुसंगत (Biometric Telemetry Concordant) · ESI Level {isSeverePain ? '2 (Emergent)' : '3 (Urgent)'}
+                    वाइटल्स एवं लक्षण सुसंगत (Biometric Telemetry Concordant) · ESI Level {esiLevel}
                   </span>
                 </div>
               );

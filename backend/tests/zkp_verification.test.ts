@@ -37,13 +37,13 @@ export async function runZkpBenchmark(iterations: number = 20) {
 
   // 2. Adversarial Test 1: Tampered Public Signal (1-Bit Flip)
   const tamperedSignal = [...publicSignals];
-  tamperedSignal[0] = (BigInt(tamperedSignal[0]) + 1n).toString();
+  tamperedSignal[0] = (BigInt(tamperedSignal[0]) + BigInt(1)).toString();
   const resTampered = await ZkProofService.verifyProof(proof, tamperedSignal);
   const tamperedCaught = !resTampered.isValid;
 
   // 3. Adversarial Test 2: Perturbed Proof Coordinate (Ax modified)
   const tamperedProof = JSON.parse(JSON.stringify(proof));
-  tamperedProof.pi_a[0] = (BigInt(tamperedProof.pi_a[0]) + 1n).toString();
+  tamperedProof.pi_a[0] = (BigInt(tamperedProof.pi_a[0]) + BigInt(1)).toString();
   const resPerturbed = await ZkProofService.verifyProof(tamperedProof, publicSignals);
   const perturbedCaught = !resPerturbed.isValid;
 

@@ -44,7 +44,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
   });
 
   const [transcript, setTranscript] = useState('');
-  const [selectedBodyRegion, setSelectedBodyRegion] = useState('Left Chest / Precordium');
+  const [selectedBodyRegion, setSelectedBodyRegion] = useState('');
 
   const [symptoms, setSymptoms] = useState<SocratesSymptom[]>([]);
 
@@ -449,6 +449,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
             vitals={vitals}
             setVitals={setVitals}
             redFlags={redFlags}
+            selectedBodyRegion={selectedBodyRegion}
             onNext={() => setCurrentStep(5)}
             onBack={() => setCurrentStep(3)}
           />
