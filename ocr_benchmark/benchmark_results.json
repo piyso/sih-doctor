@@ -1,0 +1,139 @@
+{
+  "timestamp": "2026-09-20 21:02:13",
+  "hardware": {
+    "platform": "darwin",
+    "tesseract_binary": "/opt/homebrew/bin/tesseract",
+    "initial_rss_mb": 86.97,
+    "final_rss_mb": 168.19,
+    "rss_delta_mb": 81.22,
+    "total_wall_time_s": 22.56
+  },
+  "battery_1_iiit_h": {
+    "battery": "IIIT-H Indic HW Words (Hindi)",
+    "sample_count": 100,
+    "mean_cer": 0.8550753968253967,
+    "mean_wer": 1.33,
+    "exact_accuracy_pct": 2.0,
+    "latency_p50_ms": 78.55058349741739,
+    "latency_p90_ms": 104.90621280114283,
+    "latency_p95_ms": 114.51288334974379,
+    "latency_p99_ms": 174.216193247849,
+    "mean_latency_ms": 83.58633921016008,
+    "throughput_wps": 11.9636774316161,
+    "sample_diffs": [
+      {
+        "sample_id": 1,
+        "ground_truth": "अनाथों",
+        "prediction": "अनार्श'",
+        "cer": 0.6667,
+        "exact_match": false,
+        "latency_ms": 284.7
+      },
+      {
+        "sample_id": 2,
+        "ground_truth": "बसर",
+        "prediction": "ली,",
+        "cer": 1.0,
+        "exact_match": false,
+        "latency_ms": 85.28
+      },
+      {
+        "sample_id": 3,
+        "ground_truth": "मुझमें",
+        "prediction": "_ झहुझ्यओं",
+        "cer": 1.1667,
+        "exact_match": false,
+        "latency_ms": 108.75
+      },
+      {
+        "sample_id": 4,
+        "ground_truth": "एटीएमों",
+        "prediction": "लि ाओ",
+        "cer": 1.0,
+        "exact_match": false,
+        "latency_ms": 154.67
+      },
+      {
+        "sample_id": 5,
+        "ground_truth": "अश्लील",
+        "prediction": "| अ्यारवीले",
+        "cer": 1.3333,
+        "exact_match": false,
+        "latency_ms": 143.62
+      },
+      {
+        "sample_id": 6,
+        "ground_truth": "निभा",
+        "prediction": "“फ्,",
+        "cer": 1.0,
+        "exact_match": false,
+        "latency_ms": 98.71
+      },
+      {
+        "sample_id": 7,
+        "ground_truth": "लाइटें",
+        "prediction": "गा,",
+        "cer": 0.8333,
+        "exact_match": false,
+        "latency_ms": 105.89
+      },
+      {
+        "sample_id": 8,
+        "ground_truth": "कठघरे",
+        "prediction": "|",
+        "cer": 1.0,
+        "exact_match": false,
+        "latency_ms": 102.61
+      },
+      {
+        "sample_id": 9,
+        "ground_truth": "ट्यूब",
+        "prediction": "ही",
+        "cer": 1.0,
+        "exact_match": false,
+        "latency_ms": 94.57
+      },
+      {
+        "sample_id": 10,
+        "ground_truth": "तासीर",
+        "prediction": "पक",
+        "cer": 1.0,
+        "exact_match": false,
+        "latency_ms": 93.91
+      }
+    ]
+  },
+  "battery_2_pmjay_hospital_claims": [
+    {
+      "document": "000982__INVESTIGATION.pdf (Page 7)",
+      "type": "LAB_REPORT",
+      "ocr_latency_ms": 2044.68,
+      "raw_hb_token": "Hemogions 6201",
+      "recovered_hb": 6.2,
+      "recovered_wbc": 12418,
+      "recovered_platelets": 14080,
+      "ground_truth_severe_anemia": 1,
+      "model_severe_anemia_verdict": 1,
+      "verdict_concordance": true
+    },
+    {
+      "document": "000981__NOTES8.jpg",
+      "type": "CLINICAL_DOCTOR_ORDER",
+      "ocr_latency_ms": 510.75,
+      "header_identified": true,
+      "devanagari_tokens_found": 8
+    },
+    {
+      "document": "000840__CMJAY_TR_CMJAY_2025_R3_2026031110037177__DC_JESMINA_DARLONG_14.pdf",
+      "type": "ENTERIC_FEVER_DOC",
+      "ocr_latency_ms": 2576.18,
+      "characters_extracted": 1420
+    }
+  ],
+  "battery_3_clinical_safeguards": {
+    "pharma_fuzzy_recall_pct": 100.0,
+    "pharma_eval_latency_ms": 0.14,
+    "hindi_posology_accuracy_pct": 100.0,
+    "dropped_decimal_recovery_precision_pct": 100.0
+  }
+}

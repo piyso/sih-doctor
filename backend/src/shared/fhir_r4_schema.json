@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ABDM FHIR R4 OPD Consultation Document Bundle Schema",
+  "type": "object",
+  "required": ["resourceType", "id", "meta", "identifier", "type", "timestamp", "entry"],
+  "properties": {
+    "resourceType": {
+      "type": "string",
+      "enum": ["Bundle"]
+    },
+    "id": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "required": ["profile"],
+      "properties": {
+        "profile": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "identifier": {
+      "type": "object",
+      "required": ["system", "value"],
+      "properties": {
+        "system": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    },
+    "type": {
+      "type": "string",
+      "enum": ["document"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entry": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["fullUrl", "resource"],
+        "properties": {
+          "fullUrl": { "type": "string" },
+          "resource": {
+            "type": "object",
+            "required": ["resourceType", "id"],
+            "properties": {
+              "resourceType": {
+                "type": "string",
+                "enum": [
+                  "Composition",
+                  "Patient",
+                  "Encounter",
+                  "Practitioner",
+                  "Organization",
+                  "Condition",
+                  "MedicationRequest",
+                  "Observation",
+                  "Binary"
+                ]
+              },
+              "id": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Heavy 3D Models (>100MB) - Full 226MB smooth model Draco-compressed to 28MB (zero quality loss)
+*.fbx
+*.glb
+*.part*
+!public/models/human_body.glb
+!public/models/3d_mannequin_draco.glb
+
+

@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-09-20 20:03:02",
+  "total_runtime_seconds": 19.31,
+  "battery_1_iiit_h_expanded": {
+    "samples": 100,
+    "mean_cer": 0.8551,
+    "mean_wer": 1.33,
+    "exact_acc": 2.0,
+    "p50_ms": 64.96,
+    "p95_ms": 90.51,
+    "mean_ms": 67.57,
+    "top_confusions": [
+      [
+        "\u0930",
+        24
+      ],
+      [
+        "\u0924",
+        23
+      ],
+      [
+        "\u0938",
+        21
+      ],
+      [
+        "\u0928",
+        20
+      ],
+      [
+        "\u093e",
+        20
+      ],
+      [
+        "\u0902",
+        16
+      ]
+    ]
+  },
+  "battery_2_preprocessing_ablation": {
+    "RAW": 84.85,
+    "OTSU_BINARIZATION": 96.34,
+    "SHIROREKHA_MORPHOLOGICAL_BRIDGE": 96.5,
+    "SAUVOLA_LOCAL_ADAPTIVE": 88.36
+  },
+  "battery_3_nha_claims_all_packages": [
+    {
+      "package": "MG064A (Gastroenterology)",
+      "doc_type": "Dot-Matrix CBC Lab Report",
+      "filename": "000982__INVESTIGATION.pdf (Page 7)",
+      "raw_token": "Hemogions 6201",
+      "restored_analyte": "Hemoglobin 6.2 g/dL",
+      "clinical_alarm": "Severe Anemia (< 7.0 g/dL)",
+      "gt_concordance": true,
+      "latency_ms": 1707.9
+    },
+    {
+      "package": "MG006A (Enteric Fever)",
+      "doc_type": "Lab Investigation Sheet",
+      "filename": "000835__Investigation_Jesmina_darlong_12.pdf",
+      "characters_extracted": 720,
+      "widal_or_febrile_marker_detected": true,
+      "urine_routine_detected": false,
+      "latency_ms": 1186.75
+    },
+    {
+      "package": "SG039C (Surgical GI / Lap Chole)",
+      "doc_type": "Liver Function Test (LFT)",
+      "filename": "000303__LFT.jpg",
+      "bilirubin_extracted": "Detected in Table",
+      "sgpt_extracted": "ALT 25",
+      "latency_ms": 1116.95
+    },
+    {
+      "package": "SB039A (Surgical Ortho)",
+      "doc_type": "Hospital Discharge Certificate",
+      "filename": "000713__pravakar_naik_DIS.pdf",
+      "discharge_header_found": true,
+      "surgical_context_found": false,
+      "characters_extracted": 594,
+      "latency_ms": 916.59
+    }
+  ],
+  "battery_4_pharmacopoeia_noise_stress": {
+    "total_cases": 20,
+    "recovered": 20,
+    "recall_pct": 100.0,
+    "mean_latency_ms": 0.201
+  },
+  "battery_5_plausibility_40_analytes": {
+    "total_vectors": 10,
+    "passed": 10,
+    "precision_pct": 100.0
+  }
+}

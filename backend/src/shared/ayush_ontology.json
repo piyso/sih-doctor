@@ -1,0 +1,370 @@
+{
+  "version": "2026.1",
+  "authority": "All India Institute of Ayurveda (AIIA) & Ministry of Ayush, Govt. of India",
+  "namasteEntries": [
+    {
+      "aCode": "AYU-JWA-001",
+      "sanskritTerm": "Vataja Jwara",
+      "englishEquivalent": "Acute Pyrexia / Viral Fever with Chills & Bodyache",
+      "system": "Ayurveda",
+      "icd10DualCode": "R50.9",
+      "snomedConceptId": "386661006",
+      "icmrStandardWorkflowId": "ICMR-STW-INF-001",
+      "classicalFormulations": ["Mahasudarshan Vati", "Amritarishta", "Tribhuvan Kirti Ras", "Giloy Ghanvati"],
+      "recommendedAnupana": "Warm Water (Ushnodaka)"
+    },
+    {
+      "aCode": "AYU-KAS-002",
+      "sanskritTerm": "Kaphaja Kasa",
+      "englishEquivalent": "Productive Cough / Acute Bronchitis",
+      "system": "Ayurveda",
+      "icd10DualCode": "J20.9",
+      "snomedConceptId": "49727002",
+      "icmrStandardWorkflowId": "ICMR-STW-RES-004",
+      "classicalFormulations": ["Sitopaladi Churna", "Vasavaleha", "Kanthakari Avaleha", "Talisadi Churna"],
+      "recommendedAnupana": "Madhu (Honey)"
+    },
+    {
+      "aCode": "AYU-AML-001",
+      "sanskritTerm": "Amlapitta",
+      "englishEquivalent": "Non-Ulcer Dyspepsia / Gastroesophageal Reflux (GERD)",
+      "system": "Ayurveda",
+      "icd10DualCode": "K21.9",
+      "snomedConceptId": "235595009",
+      "icmrStandardWorkflowId": "ICMR-STW-GAS-002",
+      "classicalFormulations": ["Avipattikar Churna", "Sutashekhar Ras", "Kamadudha Ras", "Shankha Bhasma"],
+      "recommendedAnupana": "Cold Water or Cow's Milk"
+    },
+    {
+      "aCode": "AYU-SAN-005",
+      "sanskritTerm": "Sandhivata",
+      "englishEquivalent": "Osteoarthritis / Degenerative Joint Disease",
+      "system": "Ayurveda",
+      "icd10DualCode": "M17.9",
+      "snomedConceptId": "399269003",
+      "icmrStandardWorkflowId": "ICMR-STW-MSK-001",
+      "classicalFormulations": ["Yograj Guggulu", "Dashmoolarishta", "Mahanarayan Taila", "Shallaki Vati"],
+      "recommendedAnupana": "Maharasnadi Kwath or Warm Water"
+    },
+    {
+      "aCode": "AYU-PRA-001",
+      "sanskritTerm": "Kaphaja Prameha",
+      "englishEquivalent": "Type 2 Diabetes Mellitus with Metabolic Syndrome",
+      "system": "Ayurveda",
+      "icd10DualCode": "E11.9",
+      "snomedConceptId": "44054006",
+      "icmrStandardWorkflowId": "ICMR-STW-END-001",
+      "classicalFormulations": ["Chandraprabha Vati", "Mehari Churna", "Vasant Kusumakar Ras", "Nisha Amalaki"],
+      "recommendedAnupana": "Lukewarm Water or Amla Juice"
+    },
+    {
+      "aCode": "AYU-MUT-003",
+      "sanskritTerm": "Mutrakrichhra",
+      "englishEquivalent": "Urinary Tract Infection / Acute Dysuria",
+      "system": "Ayurveda",
+      "icd10DualCode": "N39.0",
+      "snomedConceptId": "68566005",
+      "icmrStandardWorkflowId": "ICMR-STW-NEP-003",
+      "classicalFormulations": ["Gokshuradi Guggulu", "Chandraprabha Vati", "Punarnavasava", "Trinapanchamool Kwath"],
+      "recommendedAnupana": "Coconut Water or Barley Water"
+    },
+    {
+      "aCode": "AYU-GRA-001",
+      "sanskritTerm": "Grahani Roga",
+      "englishEquivalent": "Irritable Bowel Syndrome / Malabsorption Syndrome",
+      "system": "Ayurveda",
+      "icd10DualCode": "K58.9",
+      "snomedConceptId": "10743008",
+      "icmrStandardWorkflowId": "ICMR-STW-GAS-005",
+      "classicalFormulations": ["Kutajarishta", "Bilwadi Churna", "Gangadhar Churna", "Takrarishta"],
+      "recommendedAnupana": "Fresh Buttermilk (Takra)"
+    },
+    {
+      "aCode": "AYU-VAT-008",
+      "sanskritTerm": "Gridhrasi",
+      "englishEquivalent": "Sciatica / Lumbar Radiculopathy",
+      "system": "Ayurveda",
+      "icd10DualCode": "M54.3",
+      "snomedConceptId": "279039007",
+      "icmrStandardWorkflowId": "ICMR-STW-NEU-002",
+      "classicalFormulations": ["Trayodashang Guggulu", "Rasnasaptak Kwath", "Sameera Pannaga Ras", "Balarishta"],
+      "recommendedAnupana": "Warm Water or Castor Oil mixed with Milk"
+    },
+    {
+      "aCode": "AYU-HRI-002",
+      "sanskritTerm": "Hridroga",
+      "englishEquivalent": "Cardiovascular Disease / Ischemic Heart Disease",
+      "system": "Ayurveda",
+      "icd10DualCode": "I25.9",
+      "snomedConceptId": "53741008",
+      "icmrStandardWorkflowId": "ICMR-STW-CAR-001",
+      "classicalFormulations": ["Arjunarishta", "Prabhakar Vati", "Hridyarnava Ras", "Arjuna Ksheerapaka"],
+      "recommendedAnupana": "Cow's Milk or Warm Water"
+    },
+    {
+      "aCode": "AYU-TVA-004",
+      "sanskritTerm": "Kushtha / Vicharchika",
+      "englishEquivalent": "Eczema / Dermatitis / Chronic Skin Lesions",
+      "system": "Ayurveda",
+      "icd10DualCode": "L30.9",
+      "snomedConceptId": "43116000",
+      "icmrStandardWorkflowId": "ICMR-STW-DER-002",
+      "classicalFormulations": ["Khadirarishta", "Kaishore Guggulu", "Mahatiktaka Ghrita", "Gandhak Rasayana"],
+      "recommendedAnupana": "Khadira Kwath or Warm Water"
+    },
+    {
+      "aCode": "AYU-SHW-001",
+      "sanskritTerm": "Tamaka Shwasa",
+      "englishEquivalent": "Bronchial Asthma / Acute Bronchospasm",
+      "system": "Ayurveda",
+      "icd10DualCode": "J45.9",
+      "snomedConceptId": "195967001",
+      "icmrStandardWorkflowId": "ICMR-STW-RES-001",
+      "classicalFormulations": ["Shwaskuthar Ras", "Somlata Churna", "Kanakasava", "Talisadi Churna"],
+      "recommendedAnupana": "Warm Water or Madhu (Honey)"
+    },
+    {
+      "aCode": "AYU-PAK-001",
+      "sanskritTerm": "Pakshaghata",
+      "englishEquivalent": "Cerebrovascular Accident / Hemiplegia / Stroke",
+      "system": "Ayurveda",
+      "icd10DualCode": "I64",
+      "snomedConceptId": "230690007",
+      "icmrStandardWorkflowId": "ICMR-STW-NEU-001",
+      "classicalFormulations": ["Ekangaveer Ras", "Brihat Vata Chintamani Ras", "Mahamash Taila", "Ashwagandharishta"],
+      "recommendedAnupana": "Warm Milk or Dashmoola Kwath"
+    },
+    {
+      "aCode": "AYU-ARS-001",
+      "sanskritTerm": "Arsha",
+      "englishEquivalent": "Hemorrhoids / Piles",
+      "system": "Ayurveda",
+      "icd10DualCode": "K64.9",
+      "snomedConceptId": "73529008",
+      "icmrStandardWorkflowId": "ICMR-STW-GAS-008",
+      "classicalFormulations": ["Arshoghni Vati", "Triphala Guggulu", "Abhayarishta", "Kankayan Vati"],
+      "recommendedAnupana": "Warm Water or Takra (Buttermilk)"
+    },
+    {
+      "aCode": "AYU-AMA-001",
+      "sanskritTerm": "Amavata",
+      "englishEquivalent": "Rheumatoid Arthritis / Inflammatory Polyarthritis",
+      "system": "Ayurveda",
+      "icd10DualCode": "M06.9",
+      "snomedConceptId": "69896004",
+      "icmrStandardWorkflowId": "ICMR-STW-MSK-003",
+      "classicalFormulations": ["Simhanada Guggulu", "Amavatari Ras", "Rasna Saptak Kwath", "Shunthi Churna"],
+      "recommendedAnupana": "Warm Water with Ginger"
+    },
+    {
+      "aCode": "AYU-HRI-001",
+      "sanskritTerm": "Hridshula",
+      "englishEquivalent": "Angina Pectoris / Ischemic Chest Pain",
+      "system": "Ayurveda",
+      "icd10DualCode": "I20.9",
+      "snomedConceptId": "29857009",
+      "icmrStandardWorkflowId": "ICMR-STW-CAR-002",
+      "classicalFormulations": ["Prabhakar Vati", "Hridyarnava Ras", "Arjunarishta", "Akik Pishti"],
+      "recommendedAnupana": "Warm Cow's Milk"
+    },
+    {
+      "aCode": "AYU-VRS-001",
+      "sanskritTerm": "Vrikkashotha",
+      "englishEquivalent": "Glomerulonephritis / Acute Nephritic Syndrome",
+      "system": "Ayurveda",
+      "icd10DualCode": "N05",
+      "snomedConceptId": "36171008",
+      "icmrStandardWorkflowId": "ICMR-STW-NEP-001",
+      "classicalFormulations": ["Punarnavadi Kwath", "Gokshuradi Guggulu", "Chandraprabha Vati", "Trinapanchamool Kwath"],
+      "recommendedAnupana": "Barley Water or Lukewarm Water"
+    },
+    {
+      "aCode": "AYU-UNM-001",
+      "sanskritTerm": "Unmada",
+      "englishEquivalent": "Schizophrenia Spectrum / Acute Psychosis / Delirium",
+      "system": "Ayurveda",
+      "icd10DualCode": "F20.9",
+      "snomedConceptId": "191489008",
+      "icmrStandardWorkflowId": "ICMR-STW-PSY-001",
+      "classicalFormulations": ["Brahmi Ghrita", "Saraswatarishta", "Manasamitra Vati", "Kalyanaka Ghrita"],
+      "recommendedAnupana": "Warm Cow's Milk or Honey"
+    },
+    {
+      "aCode": "AYU-APA-001",
+      "sanskritTerm": "Apasmara",
+      "englishEquivalent": "Epilepsy / Recurrent Seizure Disorder",
+      "system": "Ayurveda",
+      "icd10DualCode": "G40.9",
+      "snomedConceptId": "84757009",
+      "icmrStandardWorkflowId": "ICMR-STW-NEU-003",
+      "classicalFormulations": ["Saraswatarishta", "Smritisagar Ras", "Panchagavya Ghrita", "Brahmi Vati"],
+      "recommendedAnupana": "Warm Milk"
+    },
+    {
+      "aCode": "AYU-KLA-001",
+      "sanskritTerm": "Klaibya",
+      "englishEquivalent": "Erectile Dysfunction / Male Sexual Weakness",
+      "system": "Ayurveda",
+      "icd10DualCode": "F52.2",
+      "snomedConceptId": "8609008",
+      "icmrStandardWorkflowId": "ICMR-STW-URO-002",
+      "classicalFormulations": ["Ashwagandhadi Lehyam", "Makaradhwaja", "Shilajit Vati", "Vanari Kalpa"],
+      "recommendedAnupana": "Warm Cow's Milk with Mishri"
+    },
+    {
+      "aCode": "AYU-GRA-002",
+      "sanskritTerm": "Bhagandara",
+      "englishEquivalent": "Fistula-in-Ano / Perianal Fistula",
+      "system": "Ayurveda",
+      "icd10DualCode": "K60.3",
+      "snomedConceptId": "65853000",
+      "icmrStandardWorkflowId": "ICMR-STW-SUR-004",
+      "classicalFormulations": ["Triphala Guggulu", "Khadirarishta", "Gandhak Rasayana", "Jatyadi Taila"],
+      "recommendedAnupana": "Warm Water or Takra"
+    }
+  ],
+  "dashavidhaParikshaFactors": [
+    {
+      "factor": "Prakriti",
+      "description": "Genotypic baseline constitutional doshic balance",
+      "options": ["Vataja", "Pittaja", "Kaphaja", "Vata-Pittaja", "Pitta-Kaphaja", "Vata-Kaphaja", "Sannipataja"]
+    },
+    {
+      "factor": "Vikriti",
+      "description": "Pathological doshic deviation from baseline",
+      "options": ["Vata Vriddhi", "Pitta Vriddhi", "Kapha Vriddhi", "Dwandwaja Vriddhi", "Sannipataja"]
+    },
+    {
+      "factor": "Sara",
+      "description": "Tissue quality / excellence of the 7 Dhatus",
+      "options": ["Pravara (Superior)", "Madhyama (Medium)", "Avara (Inferior)"]
+    },
+    {
+      "factor": "Samhanana",
+      "description": "Physical compactness and skeletal symmetry",
+      "options": ["Susamhata (Compact)", "Madhyama (Moderate)", "Heena (Feeble)"]
+    },
+    {
+      "factor": "Pramana",
+      "description": "Body proportions and anthropometric indices",
+      "options": ["Yathokta (Ideal)", "Atibrhat (Obese)", "Atikrsha (Emaciated)"]
+    },
+    {
+      "factor": "Satmya",
+      "description": "Habituation and adaptability to food, season and medicine",
+      "options": ["Oka Satmya", "Desha Satmya", "Ritu Satmya", "Sarva Rasa Satmya"]
+    },
+    {
+      "factor": "Sattva",
+      "description": "Mental resilience and psychological endurance",
+      "options": ["Pravara (High Mental Strength)", "Madhyama (Moderate)", "Avara (Low/Anxious)"]
+    },
+    {
+      "factor": "Ahara Shakti",
+      "description": "Capacity for ingestion (Abhyavaharana) and digestion (Jarana)",
+      "options": ["Uttama (Excellent)", "Madhyama (Moderate)", "Heena (Poor)"]
+    },
+    {
+      "factor": "Vyayama Shakti",
+      "description": "Physical stamina and exercise tolerance capacity",
+      "options": ["Uttama (High)", "Madhyama (Moderate)", "Heena (Low)"]
+    },
+    {
+      "factor": "Vaya",
+      "description": "Chronological age category",
+      "options": ["Balya (0-16 yrs)", "Madhyama (16-60 yrs)", "Jirna (60+ yrs)"]
+    }
+  ],
+  "agniClassifications": [
+    {
+      "agni": "Mandagni",
+      "predominance": "Kapha",
+      "features": "Slow digestion, heaviness after food, cold body, excessive salivation, low appetite",
+      "contraindications": ["Heavy Bhasmas (Swarna/Rajat)", "Ghrits/Oils without prior Deepana", "Cold Anupana"]
+    },
+    {
+      "agni": "Tikshnagni",
+      "predominance": "Pitta",
+      "features": "Rapid digestion, intense hunger, heartburn, thirst, burning sensation in epigastrium",
+      "contraindications": ["Pungent/Hot herbs (Trikatu, Bhallataka)", "Excessive Ushna virya formulations"]
+    },
+    {
+      "agni": "Vishamagni",
+      "predominance": "Vata",
+      "features": "Fluctuating digestion, flatulence, irregular bowel habits, dry skin",
+      "contraindications": ["Dry, rough foods", "Cold liquids", "Fasting"]
+    },
+    {
+      "agni": "Samagni",
+      "predominance": "Equilibrated Tridosha",
+      "features": "Normal digestion in 3-4 hours, clear evacuation, good energy and immunity",
+      "contraindications": []
+    }
+  ],
+  "classicalFormulations": [
+    {
+      "name": "Sitopaladi Churna",
+      "category": "Churna",
+      "standardDosage": "3g",
+      "standardFrequency": "BD",
+      "statutoryAnupana": "Madhu (Honey) and Ghrita",
+      "indications": ["Kasa", "Shwasa", "Jwara", "Mandagni"]
+    },
+    {
+      "name": "Yograj Guggulu",
+      "category": "Guggulu",
+      "standardDosage": "2 tablets (500mg each)",
+      "standardFrequency": "BD",
+      "statutoryAnupana": "Maharasnadi Kwath or Warm Water",
+      "indications": ["Sandhivata", "Amavata", "Vatarakta"]
+    },
+    {
+      "name": "Chandraprabha Vati",
+      "category": "Vati/Gutika",
+      "standardDosage": "2 tablets (500mg each)",
+      "standardFrequency": "BD",
+      "statutoryAnupana": "Lukewarm Water or Milk",
+      "indications": ["Prameha", "Mutrakrichhra", "Ashmari"]
+    },
+    {
+      "name": "Avipattikar Churna",
+      "category": "Churna",
+      "standardDosage": "3-5g",
+      "standardFrequency": "BD",
+      "statutoryAnupana": "Cold Water or Coconut Water",
+      "indications": ["Amlapitta", "Vibandha", "Agnimandya"]
+    },
+    {
+      "name": "Mahasudarshan Vati",
+      "category": "Vati/Gutika",
+      "standardDosage": "2 tablets",
+      "standardFrequency": "TDS",
+      "statutoryAnupana": "Warm Water",
+      "indications": ["Sarva Jwara", "Vishamajwara", "Yakrit Pliha Roga"]
+    },
+    {
+      "name": "Dashmoolarishta",
+      "category": "Asava/Arishta",
+      "standardDosage": "20ml",
+      "standardFrequency": "BD",
+      "statutoryAnupana": "Equal volume of Warm Water",
+      "indications": ["Vatavyadhi", "Sootika Roga", "Kasa", "Dourbalya"]
+    },
+    {
+      "name": "Triphala Churna",
+      "category": "Churna",
+      "standardDosage": "3-6g",
+      "standardFrequency": "HS",
+      "statutoryAnupana": "Warm Water at Bedtime",
+      "indications": ["Vibandha", "Netra Roga", "Prameha"]
+    },
+    {
+      "name": "Ashwagandha Churna",
+      "category": "Churna",
+      "standardDosage": "3g",
+      "standardFrequency": "BD",
+      "statutoryAnupana": "Warm Cow's Milk with Mishri",
+      "indications": ["Klaibya", "Kshaya", "Dourbalya", "Vataroga"]
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# Environment and Secrets
+.env.local
+.env.*.local
+
+# Databases & Runtime Data
+backend/data/*.db-shm
+backend/data/*.db-wal
+data/*.db-shm
+data/*.db-wal
+
+# OS & Editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+
+# Proprietary 3D Anatomical Assets & CAD Models (Protected IP - Not for Public Distribution)
+*.fbx
+*.glb
+*.gltf
+*.obj
+*.bin
+*.part*
+frontend/public/models/
+frontend/public/models/*
+
+# Private Documentation and Internal Specifications
+.private_docs/
+private_docs/
+dev doc/
+frontend/blueprints/
+
+# Ignore document formats and presentations
+*.docx
+*.pdf
+*.pptx
+
+# Ignore all markdown files except root README.md
+*.md
+!/README.md
+
+# Presentations, Pitch Decks, and Dossier Previews
+*_deck_source.html
+*dossier_source.html
+deck_assets/
+*dossier_previews/
+*_deck_previews/
+

@@ -1,0 +1,40 @@
+PROPRIETARY AND CONFIDENTIAL INTELLECTUAL PROPERTY NOTICE
+ALL RIGHTS RESERVED (C) 2026 PIYUSH KUMAR & NATIONAL HEALTH MISSION (MP) / AIIA
+
+1. PROPRIETARY TECHNOLOGY & PATENT RIGHTS:
+This software, including but not limited to the source code, algorithmic architectures,
+Bayesian Truth Engine, Groth16 zero-knowledge state-verification circuits, 3D anatomical
+assets, coordinate mapping data, and diagnostic reasoning models, contains confidential
+and proprietary trade secrets protected under:
+   - The Patents Act, 1970 (Government of India)
+   - The Copyright Act, 1957 (Government of India)
+   - The Digital Personal Data Protection Act, 2023
+   - International Intellectual Property Treaties (WIPO, Berne Convention, TRIPS)
+
+2. LIMITED EVALUATION LICENSE:
+Access to this repository is granted strictly and exclusively for technical evaluation,
+statutory audit, and official hackathon jury review for the:
+   MPOnline Idea & Innovation Hackathon 2026
+   (Portal: https://innovate.mponline.gov.in/notices)
+   in conjunction with the Department of Public Health and Medical Education,
+   Government of Madhya Pradesh, and the All India Institute of Ayurveda (AIIA).
+
+3. STRICT PROHIBITIONS:
+Under no circumstances may any portion of this repository, source code, data dictionaries,
+3D anatomical models, or documentation be:
+   a. Copied, cloned, mirrored, fork-distributed, or sub-licensed to third parties;
+   b. Decompiled, reverse-engineered, or disassembled;
+   c. Used for commercial deployment or integration without a formal bilateral
+      technology transfer agreement;
+   d. Used to train, fine-tune, or benchmark any external commercial machine-learning
+      models, large language models (LLMs), or generative AI agents.
+
+4. 3D ANATOMICAL ASSETS & TRADEMARK RESTRICTION:
+All 3D anatomical mannequin meshes, physiological spatial coordinate mappings, and
+Ayush Marma point locational datasets are protected proprietary assets. Unauthorized
+extraction, reproduction, or re-hosting of these binary assets is strictly prohibited
+and subject to immediate injunctive relief and civil/criminal statutory damages.
+
+For formal licensing inquiries or public sector healthcare deployment requests:
+Contact: Principal Healthcare Innovations Office / Government of Madhya Pradesh
+Portal: https://innovate.mponline.gov.in/notices
