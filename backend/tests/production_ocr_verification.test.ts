@@ -13,7 +13,7 @@ import { FuzzyClinicalMatcherService } from '../src/services/fuzzyClinicalMatche
 import { PhysiologicalPlausibilityService } from '../src/services/physiologicalPlausibility.service';
 import { NativeImageOCRService } from '../src/services/nativeImageOCR.service';
 
-export function runProductionOCRVerificationTests(): void {
+export function runProductionOCRVerificationTests(): { passed: number; total: number; durationMs: number; isPassed: boolean } {
   console.log('\n========================================================================');
   console.log('[RUN] BATTERY 20: PRODUCTION-GRADE OCR & NEURAL VISION INTELLIGENCE');
   console.log('   Testing Levenshtein Autocorrection, Plausibility & Hindi Posology');
