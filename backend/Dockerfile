@@ -17,6 +17,7 @@ COPY tests ./tests
 
 # Compile TypeScript and copy static data
 RUN npm run build
+RUN npm prune --omit=dev
 
 # ------------------------------------------------------------------------------
 # Production Runner Image (Minimal attack surface & air-gapped readiness)
@@ -36,10 +37,9 @@ RUN apk add --no-cache \
     tesseract-ocr-data-eng \
     tesseract-ocr-data-osd
 
-COPY package*.json ./
-RUN npm ci --omit=dev
-
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY package*.json ./
 COPY src/data ./src/data
 COPY src/data ./dist/data
 
