@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sih-doctor-backend
+    name: hospitalos-doctor-backend
     env: docker
     dockerfilePath: backend/Dockerfile
     dockerContext: backend
@@ -18,7 +18,7 @@ services:
         value: /app/data/hospital.db
 
   - type: web
-    name: sih-doctor-frontend
+    name: hospitalos-doctor-frontend
     env: static
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: frontend/dist
@@ -26,7 +26,7 @@ services:
       - key: VITE_API_URL
         fromService:
           type: web
-          name: sih-doctor-backend
+          name: hospitalos-doctor-backend
           property: host
     routes:
       - type: rewrite

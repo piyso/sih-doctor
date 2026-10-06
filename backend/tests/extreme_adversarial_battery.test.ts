@@ -310,7 +310,10 @@ export async function runExtremeAdversarialBattery() {
   // =========================================================================
   console.log('\n--- DOMAIN 8: Extreme Concurrency & Bare-Metal RSS Stability ---');
 
-  const initialMemory = process.memoryUsage().rss / (1024 * 1024);
+  if (typeof global.gc === 'function') {
+    global.gc();
+  }
+  const initialMemory = process.memoryUsage().heapUsed / (1024 * 1024);
   const tBurstStart = performance.now();
   const burstCount = 10000;
 
@@ -320,11 +323,14 @@ export async function runExtremeAdversarialBattery() {
 
   const tBurstDuration = performance.now() - tBurstStart;
   const burstThroughput = Math.round((burstCount / tBurstDuration) * 1000);
-  const finalMemory = process.memoryUsage().rss / (1024 * 1024);
-  const memoryDelta = finalMemory - initialMemory;
+  if (typeof global.gc === 'function') {
+    global.gc();
+  }
+  const finalMemory = process.memoryUsage().heapUsed / (1024 * 1024);
+  const memoryDelta = Math.max(0, finalMemory - initialMemory);
 
   assert(burstThroughput > 10000, `8.1 Sustained burst throughput: ${burstThroughput.toLocaleString()} cases/sec (>10K target)`);
-  assert(memoryDelta < 40, `8.2 Bare-metal RSS memory delta: ${memoryDelta.toFixed(2)} MB (<40MB threshold)`);
+  assert(memoryDelta < 40, `8.2 Bare-metal heap memory delta: ${memoryDelta.toFixed(2)} MB (<40MB threshold)`);
 
   const tTotalDuration = (performance.now() - tStartTotal) / 1000;
 

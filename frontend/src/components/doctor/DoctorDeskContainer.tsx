@@ -16,10 +16,12 @@ export const DoctorDeskContainer: React.FC = () => {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState<SessionDetail | null>(null);
   const [isRxModalOpen, setIsRxModalOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'queue' | 'intake' | 'workspace'>('workspace');
+  const [mobileTab, setMobileTab] = useState<'queue' | 'intake' | 'workspace'>('queue');
 
   const [allopathicMeds, setAllopathicMeds] = useState<AllopathicMedication[]>([]);
   const [ayushFormulations, setAyushFormulations] = useState<AyushFormulation[]>([]);
+
+  const [finalizedNotice, setFinalizedNotice] = useState<string | null>(null);
 
   const loadQueue = async () => {
     const q = await api.getQueue();
@@ -30,12 +32,12 @@ export const DoctorDeskContainer: React.FC = () => {
         const target = q.find(item => item.sessionId === handoffSessionId);
         if (target) {
           sessionStorage.removeItem('selected_doctor_session');
-          handleSelectPatient(target);
+          handleSelectPatient(target, true);
           return;
         }
       }
       if (!selectedSessionId || !q.some(item => item.sessionId === selectedSessionId)) {
-        handleSelectPatient(q[0]);
+        handleSelectPatient(q[0], false);
       }
     } else {
       setSelectedSessionId(null);
@@ -45,11 +47,13 @@ export const DoctorDeskContainer: React.FC = () => {
     }
   };
 
-  const handleSelectPatient = async (item: PatientQueueItem) => {
+  const handleSelectPatient = async (item: PatientQueueItem, isExplicitUserClick = false) => {
     setSelectedSessionId(item.sessionId);
     const detail = await api.getSessionDetail(item.sessionId);
     setCurrentSession(detail);
-    setMobileTab('intake'); // Auto-switch to intake & vitals on mobile screens
+    if (isExplicitUserClick && typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      setMobileTab('intake');
+    }
 
     // Load real prescriptions: from existing finalized SQLite encounter or scanned prior documents
     if (detail?.existingEncounter) {
@@ -81,6 +85,17 @@ export const DoctorDeskContainer: React.FC = () => {
 
   useEffect(() => {
     loadQueue();
+    const interval = setInterval(loadQueue, 3500);
+    const handleSync = () => loadQueue();
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('kiosk_patient_registered', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('kiosk_patient_registered', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   const handleNextPatient = () => {
@@ -182,6 +197,27 @@ export const DoctorDeskContainer: React.FC = () => {
         />
       )}
 
+      {/* Persistent Prescription Finalization Confirmation Banner */}
+      {finalizedNotice && (
+        <div className="no-print p-4 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/50 mb-4 shadow-sm flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+              <Sparkles size={16} />
+            </div>
+            <span className="font-heading font-bold text-xs sm:text-sm text-foreground">
+              {finalizedNotice}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFinalizedNotice(null)}
+            className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2 py-1 rounded-lg hover:bg-muted"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Dedicated Doctor Chamber Bar - Sovereign Clean */}
       <div 
         className="no-print glass rounded-2xl border border-border/70 p-3.5 sm:px-5 mb-5 shadow-xs flex items-center justify-between flex-wrap gap-3"
@@ -273,7 +309,7 @@ export const DoctorDeskContainer: React.FC = () => {
           <PatientQueueList
             queue={queue}
             selectedSessionId={selectedSessionId}
-            onSelectPatient={handleSelectPatient}
+            onSelectPatient={(item) => handleSelectPatient(item, true)}
             onRefresh={loadQueue}
           />
         </div>
@@ -396,6 +432,8 @@ export const DoctorDeskContainer: React.FC = () => {
         ayushFormulations={ayushFormulations}
         onFinalize={() => {
           setIsRxModalOpen(false);
+          setFinalizedNotice(`✓ पर्ची सफलतापूर्वक प्रमाणित एवं प्रेषित (Prescription finalized for ${currentSession?.patientName || 'Patient'} • Transmitted to Hospital Dispensary POS & ABDM Gateway)`);
+          setTimeout(() => setFinalizedNotice(null), 9000);
           loadQueue();
         }}
       />

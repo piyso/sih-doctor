@@ -232,7 +232,7 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
     }
 
     // 5. Prasuti Tantra & Stri Roga (Obstetrics & Gynecology)
-    if (isObstetricGyne || complaintText.includes('menstrual') || complaintText.includes('pregnancy') || complaintText.includes('pelvic') || complaintText.includes('discharge')) {
+    if (isObstetricGyne || /(?:menstrual|pregnancy|pelvic|discharge|मासिक|गर्भवती|गरोदर|गर्भ|கர்ப்ப|மாதவிடாய்|గర్భ|రక్తస్రావం)/i.test(complaintText)) {
       return {
         deptCode: 'PRAS',
         deptNameEn: 'Prasuti Tantra & Stri Roga (Obstetrics & Women’s Health)',
@@ -254,7 +254,7 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
     }
 
     // 6. Shalya Tantra (Surgery, Anorectal, Ksharasutra, Wounds, Fractures)
-    if (complaintText.includes('piles') || complaintText.includes('fistula') || complaintText.includes('wound') || complaintText.includes('cut') || complaintText.includes('fracture') || complaintText.includes('bleeding')) {
+    if (/(?:piles|fistula|wound|cut|fracture|bleeding|बवासीर|भगन्दर|घाव|चोट|मोच|रक्त|मूळव्याध|জখম|காயம்|எலும்பு\s*முறிவு|గాయం|ఎముక\s*విరగ)/i.test(complaintText)) {
       return {
         deptCode: 'SHAL',
         deptNameEn: 'Shalya Tantra (General Surgery & Ksharasutra)',
@@ -276,7 +276,7 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
     }
 
     // 7. Shalakya Tantra (Ophthalmology, ENT, Dental, Head/Neck)
-    if (complaintText.includes('eye') || complaintText.includes('vision') || complaintText.includes('ear') || complaintText.includes('throat') || complaintText.includes('dental') || complaintText.includes('tooth') || complaintText.includes('nose')) {
+    if (/(?:eye|vision|ear|throat|dental|tooth|nose|आंख|कान|गला|दांत|नाक|डोळे|घसा|दात|চোখ|কান|গলা|দাঁত|கண்|காது|தொண்டை|பல்|மூக்கு|కన్ను|చెవి|గొంతు|పన్ను|ముక్కు)/i.test(complaintText)) {
       return {
         deptCode: 'SHLK',
         deptNameEn: 'Shalakya Tantra (Ophthalmology & ENT)',
@@ -298,7 +298,7 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
     }
 
     // 8. Panchakarma & Neurological / Musculoskeletal / Joint Rehabilitation
-    if (complaintText.includes('knee') || complaintText.includes('joint') || complaintText.includes('arthritis') || complaintText.includes('back') || complaintText.includes('sciatica') || complaintText.includes('paralysis') || complaintText.includes('stiffness')) {
+    if (/(?:knee|joint|arthritis|back|sciatica|paralysis|stiffness|घुटना|जोड़|कमर|गठिया|सायटिका|लकवा|अकड़न|सांधे|मणका|हड्डी|গাঁট|কোমর|পিঠ|বাত|மூட்டு|முதுகு|இடுப்பு|வாத|కీళ్లు|నడుము|వెన్ను|వాత)/i.test(complaintText)) {
       return {
         deptCode: 'PKRM',
         deptNameEn: 'Panchakarma & Neurological Rehabilitation',
@@ -1044,6 +1044,7 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
               if (sessionId) {
                 try {
                   sessionStorage.setItem('selected_doctor_session', sessionId);
+                  window.dispatchEvent(new CustomEvent('kiosk_patient_registered'));
                 } catch {}
               }
               sovereignSound.playMechanicalSnap();

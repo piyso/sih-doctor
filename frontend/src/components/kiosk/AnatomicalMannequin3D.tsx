@@ -1708,6 +1708,12 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     renderer.toneMappingExposure = 1.05;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
+    renderer.domElement.style.touchAction = 'none';
+    renderer.domElement.style.userSelect = 'none';
+    renderer.domElement.style.webkitUserSelect = 'none';
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
@@ -2187,7 +2193,8 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       const dist = Math.hypot(e.clientX - pointerDownPositionRef.current.x, e.clientY - pointerDownPositionRef.current.y);
       isDraggingRef.current = false;
 
-      if (dist < 6) {
+      // Relaxed tap threshold (18px) to reliably capture trackpad taps and touchscreen fingers
+      if (dist < 18) {
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
         const intersects = raycasterRef.current.intersectObjects(humanGroup.children, true);
         const topHit = getTargetHit(intersects);
@@ -2212,25 +2219,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         if (localHit) {
           const hitRegion = classifyHitToRegion(localHit);
 
-          // 1. Toggle Off / Full Body Reset if clicking the SAME part that is already selected
-          if (selectedRegionRef.current === hitRegion) {
-            try { sovereignSound.playMechanicalSnap(); } catch {}
-            if (onMacroZoneChangeRef.current) {
-              onMacroZoneChangeRef.current('full');
-            } else {
-              setInternalMacroZone('full');
-            }
-            targetCameraPosRef.current.set(0, 0.15, 4.3);
-            targetCameraLookAtRef.current.set(0, 0.15, 0);
-            if (cameraRef.current) {
-              cameraRef.current.fov = 40;
-              cameraRef.current.updateProjectionMatrix();
-            }
-            onSelectRegionRef.current('');
-            return;
-          }
-
-          // 2. Select new part & drill-down into macro zone
+          // Always select and focus the tapped region
           const targetZone = LOCUS_TO_MACRO_ZONE[hitRegion] || 'full';
           if (targetZone !== 'full') {
             if (onMacroZoneChangeRef.current) onMacroZoneChangeRef.current(targetZone);
@@ -2243,10 +2232,15 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       }
     };
 
+    const handlePointerCancel = () => {
+      isDraggingRef.current = false;
+    };
+
     const domEl = renderer.domElement;
     domEl.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
+    domEl.addEventListener('pointercancel', handlePointerCancel);
 
     // 10. Render Loop with Smooth Camera Transitions & Anatomical Pulsing
     let animId: number;
@@ -2329,6 +2323,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     return () => {
       cancelAnimationFrame(animId);
       domEl.removeEventListener('pointerdown', handlePointerDown);
+      domEl.removeEventListener('pointercancel', handlePointerCancel);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('resize', handleResize);

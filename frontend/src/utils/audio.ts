@@ -379,15 +379,37 @@ class SovereignAudioEngine {
   // 9. VOICE GUIDANCE & ACCESSIBILITY (TEXT-TO-SPEECH FOR RURAL PATIENTS)
   // Zero Cloud Egress · Local Browser Native Synthesis
   // ==========================================================================
-  speakGuidance(text: string, lang: 'hi-IN' | 'en-IN' | 'mr-IN' | 'ta-IN' = 'hi-IN') {
+  speakGuidance(text: string, lang: string = 'en-IN') {
     if (this.isMuted) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     try {
       window.speechSynthesis.cancel();
+      const bcp47 = lang === 'hi' ? 'hi-IN' :
+                    lang === 'en' ? 'en-IN' :
+                    lang === 'mr' ? 'mr-IN' :
+                    lang === 'bn' ? 'bn-IN' :
+                    lang === 'ta' ? 'ta-IN' :
+                    lang === 'te' ? 'te-IN' :
+                    lang === 'gu' ? 'gu-IN' :
+                    lang === 'kn' ? 'kn-IN' :
+                    lang === 'pa' ? 'pa-IN' :
+                    lang === 'ml' ? 'ml-IN' : lang;
+
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang;
-      utterance.rate = 0.92; // Deliberate, clear cadence for rural/elderly understanding
-      utterance.pitch = 1.0;
+      utterance.lang = bcp47;
+      utterance.rate = 0.96;
+      utterance.pitch = 1.02;
+
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        const langPrefix = bcp47.split('-')[0].toLowerCase();
+        const candidate = voices.find(v => v.lang.toLowerCase() === bcp47.toLowerCase()) ||
+                          voices.find(v => v.lang.toLowerCase().startsWith(langPrefix));
+        if (candidate) {
+          utterance.voice = candidate;
+        }
+      }
+
       window.speechSynthesis.speak(utterance);
     } catch (err) {
       console.warn('Speech synthesis guidance error:', err);
@@ -451,7 +473,7 @@ export interface SovereignAudioCallable {
   playHotspotPulse(): void;
   playEmergencyCodeRed(): void;
   createFormantGatedProcessor(stream: MediaStream, onEnergyUpdate?: (metrics: { rms: number; nearFieldRatio: number; speechDetected: boolean }) => void): { cleanStream: MediaStream; disconnect: () => void };
-  speakGuidance(text: string, lang?: 'hi-IN' | 'en-IN' | 'mr-IN' | 'ta-IN'): void;
+  speakGuidance(text: string, lang?: string): void;
   stopSpeech(): void;
   toggleMute(): boolean;
   setMuted(muted: boolean): void;

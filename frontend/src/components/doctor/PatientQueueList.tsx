@@ -169,14 +169,26 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
         })}
 
         {queue.length === 0 ? (
-          <div className="text-center py-12 px-3 text-muted-foreground flex flex-col items-center justify-center">
+          <div className="text-center py-10 px-3 text-muted-foreground flex flex-col items-center justify-center">
             <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
               <User size={18} />
             </div>
             <span className="text-xs font-heading font-bold text-foreground mb-1">Queue Clear (0 Patients)</span>
-            <p className="text-[11px] text-muted-foreground max-w-[200px] leading-relaxed">
+            <p className="text-[11px] text-muted-foreground max-w-[220px] leading-relaxed mb-3">
               Waiting for real-time patient registration from Citizen MediKiosk or Frontline ASHA tablet.
             </p>
+            <button
+              type="button"
+              onClick={async () => {
+                sovereignSound.playMechanicalSnap();
+                const { api } = await import('../../services/api');
+                await api.seedDatabase();
+                onRefresh();
+              }}
+              className="tactile-btn px-3 py-1.5 rounded-xl text-xs font-heading font-bold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+            >
+              Load SQLite Clinical Cohort
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-xs font-medium">

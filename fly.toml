@@ -1,6 +1,6 @@
 # Fly.io Configuration for AIIA Sovereign MediKiosk Backend
-# App Name: sih-doctor-backend
-app = "sih-doctor-backend"
+# App Name: hospitalos-doctor-backend
+app = "hospitalos-doctor-backend"
 primary_region = "bom" # Mumbai, India (Lowest Latency for Indian OPD)
 
 [build]

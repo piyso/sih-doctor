@@ -34,7 +34,7 @@ const getAutoApiUrl = (): string => {
 
   // Auto-route Vercel static edge frontend to live Render backend
   if (hostname.endsWith('.vercel.app') || hostname.includes('github.io') || hostname.includes('netlify.app')) {
-    return 'https://sih-doctor-backend.onrender.com';
+    return 'https://hospitalos-doctor-backend.onrender.com';
   }
 
   // Local development / LAN / Reverse Proxy
@@ -46,7 +46,7 @@ const getAutoWsUrl = (): string => {
   if (!isBrowser) return 'ws://localhost:8001/ws/ambient';
 
   if (hostname.endsWith('.vercel.app') || hostname.includes('github.io') || hostname.includes('netlify.app')) {
-    return 'wss://sih-doctor-backend.onrender.com/ws/ambient';
+    return 'wss://hospitalos-doctor-backend.onrender.com/ws/ambient';
   }
 
   return `${wsProtocol}//${window.location.host}/ws/ambient`;
@@ -101,6 +101,19 @@ class ApiService {
     } catch (e) {
       console.error('[ApiService] Failed to fetch live queue from backend:', e);
       return [];
+    }
+  }
+
+  /**
+   * Seed / Reset live clinical cohort in SQLite WAL database
+   */
+  public async seedDatabase(): Promise<boolean> {
+    try {
+      const res = await fetch(`${BASE_URL}/api/doctor/seed`, { method: 'POST' });
+      return res.ok;
+    } catch (e) {
+      console.error('[ApiService] Seed database request failed:', e);
+      return false;
     }
   }
 
@@ -210,6 +223,14 @@ class ApiService {
       };
     }
 
+    // Clean foreign transliterated noise and normalize truncated starts
+    let cleanText = transcript
+      .replace(/(?:आई\s*एम\s*वेरी\s*मच|i\s*am\s*very\s*much|im\s*very\s*much|very\s*much)/gi, ' ')
+      .replace(/^\s*(?:रे|re)\s+(हाथ|hath|haath|बांह|bah|पेट|pet|सिर|sir|कमर|kamar)/i, 'मेरे $1')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleanText) cleanText = transcript.trim();
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000); // 4-second network timeout
@@ -217,7 +238,7 @@ class ApiService {
       const res = await fetch(`${BASE_URL}/api/kiosk/parse-audio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, patientId }),
+        body: JSON.stringify({ transcript: cleanText, patientId }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -344,19 +365,149 @@ class ApiService {
    * Dual-Pharmacology Causal DAG & Bayesian Truth Engine Evaluation
    */
   public async checkContraindications(
-    allopathic: { name: string }[],
-    ayush: { classicalName: string }[]
+    allopathic: any[],
+    ayush: any[]
   ): Promise<ConflictAlert[]> {
-    const res = await fetch(`${BASE_URL}/api/contraindications/evaluate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        allopathic: allopathic.map(a => ({ name: a.name, dosage: 'standard', route: 'ORAL', frequency: 'OD', durationDays: 30 })),
-        ayush: ayush.map(a => ({ classicalName: a.classicalName, dosageForm: 'Vati', dose: '1', anupana: 'Water', frequency: 'OD', durationDays: 30 }))
-      })
-    });
-    const data = await res.json();
-    return data.alerts || [];
+    try {
+      const res = await fetch(`${BASE_URL}/api/contraindications/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          allopathic: allopathic.map(a => ({
+            name: a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : ''),
+            dosage: a?.dosage || 'standard',
+            route: a?.route || 'ORAL',
+            frequency: a?.frequency || 'OD',
+            durationDays: a?.durationDays || 30
+          })),
+          ayush: ayush.map(a => ({
+            classicalName: a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : ''),
+            dosageForm: a?.dosageForm || 'Vati',
+            dose: a?.dose || '1',
+            anupana: a?.anupana || 'Water',
+            frequency: a?.frequency || 'OD',
+            durationDays: a?.durationDays || 30
+          }))
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.alerts) && data.alerts.length > 0) {
+          return data.alerts;
+        }
+      }
+    } catch (err) {
+      console.warn('[ApiService] Server-side contraindication check unreachable, evaluating offline:', err);
+    }
+    return this.evaluateContraindicationsOffline(allopathic, ayush);
+  }
+
+  /**
+   * Client-Side Deterministic Interaction Evaluator (Zero-Latency Offline Fallback)
+   */
+  public evaluateContraindicationsOffline(
+    allopathic: any[] = [],
+    ayush: any[] = []
+  ): ConflictAlert[] {
+    const alerts: ConflictAlert[] = [];
+    const alloNames = allopathic.map(a => (a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : '')).toLowerCase()).filter(Boolean);
+    const ayushNames = ayush.flatMap(a => [
+      (a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : '')).toLowerCase(),
+      (a?.anupana || '').toLowerCase()
+    ]).filter(Boolean);
+
+    // 1. Digoxin + Yashtimadhu / Licorice / Mulethi
+    const hasDigoxin = alloNames.some(n => n.includes('digoxin') || n.includes('lanoxin') || n.includes('digitalis'));
+    const hasYashtimadhu = ayushNames.some(n => n.includes('yashtimadhu') || n.includes('licorice') || n.includes('mulethi') || n.includes('glycyrrhiza'));
+    if (hasDigoxin && hasYashtimadhu) {
+      alerts.push({
+        alertId: 'INT-003',
+        severity: 'CRITICAL_CONTRAINDICATION' as any,
+        itemA: 'Digoxin',
+        itemB: 'Yashtimadhu',
+        allopathicDrug: 'Digoxin',
+        ayushHerb: 'Yashtimadhu (Licorice / Mulethi)',
+        mechanism: 'Glycyrrhizin inhibits 11-beta-hydroxysteroid dehydrogenase type 2 (11-beta-HSD2), producing pseudoaldosteronism, urinary potassium wasting, and severe hypokalemia (K+ < 2.5 mEq/L), precipitating fatal Digoxin-induced ventricular arrhythmias.',
+        evidenceScore: 0.99,
+        clinicalAction: 'Absolute contraindication. Never co-prescribe Yashtimadhu/Licorice with Digoxin or potassium-wasting loop diuretics.',
+        citation: 'AIIA Pharmacovigilance Advisory / WHO Monographs on Selected Medicinal Plants',
+        clinicalConsequence: 'Severe hypokalemia triggering Digoxin cardiac toxicity and fatal ventricular fibrillation.',
+        recommendedAction: 'Discontinue Yashtimadhu immediately. Substitute with Draksharishta or Arjuna Kwatha.',
+        bayesianConfidence: 0.99,
+        counterfactualSubstitution: {
+          recommendedHerb: 'Draksharishta (AIIA Safe Alternative)',
+          explanation: 'Substituting Yashtimadhu with Draksharishta eliminates hypokalemia risk while providing cardioprotective pacification.'
+        }
+      });
+    }
+
+    // 2. Warfarin / Aspirin / Clopidogrel + Guggulu / Garlic
+    const hasAnticoag = alloNames.some(n => n.includes('warfarin') || n.includes('coumadin') || n.includes('aspirin') || n.includes('clopidogrel'));
+    const hasGuggulu = ayushNames.some(n => n.includes('guggulu') || n.includes('guggul') || n.includes('garlic') || n.includes('lashuna') || n.includes('lasuna'));
+    if (hasAnticoag && hasGuggulu) {
+      alerts.push({
+        alertId: 'INT-001',
+        severity: 'CRITICAL_CONTRAINDICATION' as any,
+        itemA: 'Warfarin',
+        itemB: 'Guggulu',
+        allopathicDrug: 'Warfarin / Antiplatelet',
+        ayushHerb: 'Guggulu (Commiphora mukul)',
+        mechanism: 'Guggulsterones inhibit platelet aggregation and potentiate Vitamin K antagonism, markedly increasing prothrombin time (INR) and risk of spontaneous catastrophic hemorrhage.',
+        evidenceScore: 0.98,
+        clinicalAction: 'Discontinue Guggulu immediately in patients on anticoagulant/antiplatelet therapy. Monitor baseline PT/INR.',
+        citation: 'BMJ Case Rep / Indian Journal of Pharmacology',
+        clinicalConsequence: 'Uncontrolled INR surge leading to internal hemorrhage or gastrointestinal bleeding.',
+        recommendedAction: 'Discontinue Guggulu. 1-Click switch to Rasnasaptaka Kwatha or Shallaki.',
+        bayesianConfidence: 0.98,
+        counterfactualSubstitution: {
+          recommendedHerb: 'Rasnasaptaka Kwatha (AIIA Safe Alternative)',
+          explanation: 'Rasnasaptaka Kwatha achieves anti-inflammatory joint relief without CYP2C9 inhibition or INR elevation.'
+        }
+      });
+    }
+
+    // 3. Metformin + Shilajit / Nisha Amalaki
+    const hasMetformin = alloNames.some(n => n.includes('metformin') || n.includes('glimepiride') || n.includes('insulin'));
+    const hasShilajit = ayushNames.some(n => n.includes('shilajit') || n.includes('karela') || n.includes('meshashringi') || n.includes('nisha amalaki'));
+    if (hasMetformin && hasShilajit) {
+      alerts.push({
+        alertId: 'INT-002',
+        severity: 'CRITICAL_CONTRAINDICATION' as any,
+        itemA: 'Metformin',
+        itemB: 'Shilajit',
+        allopathicDrug: 'Metformin',
+        ayushHerb: 'Shilajit (Asphaltum)',
+        mechanism: 'Fulvic acids and dibenzo-alpha-pyrones in Shilajit enhance peripheral glucose uptake additively with Metformin, causing sudden severe hypoglycemia (blood glucose < 40 mg/dL).',
+        evidenceScore: 0.95,
+        clinicalAction: 'Mandatory SMBG monitoring. Adjust antidiabetic dosage under strict supervision.',
+        citation: 'Journal of Ethnopharmacology',
+        clinicalConsequence: 'Profound neuroglycopenic hypoglycemia and collapse.',
+        recommendedAction: 'Space doses by 4+ hours and monitor capillary blood glucose.',
+        bayesianConfidence: 0.95
+      });
+    }
+
+    // 4. Telmisartan / ACEI + Yashtimadhu
+    const hasArb = alloNames.some(n => n.includes('telmisartan') || n.includes('amlodipine') || n.includes('losartan') || n.includes('enalapril'));
+    if (hasArb && hasYashtimadhu && !hasDigoxin) {
+      alerts.push({
+        alertId: 'INT-004',
+        severity: 'WARNING' as any,
+        itemA: 'Telmisartan',
+        itemB: 'Yashtimadhu',
+        allopathicDrug: 'Antihypertensive (ARB/ACEI)',
+        ayushHerb: 'Yashtimadhu (Licorice)',
+        mechanism: 'Renal mineralocorticoid activation by Licorice induces sodium and water retention, blunting antihypertensive efficacy.',
+        evidenceScore: 0.91,
+        clinicalAction: 'Monitor blood pressure twice daily. Restrict Mulethi consumption.',
+        citation: 'Hypertension (AHA Guidelines on Dietary Glycyrrhizin)',
+        clinicalConsequence: 'Refractory hypertension and fluid retention.',
+        recommendedAction: 'Limit Yashtimadhu dosage or switch to non-glycyrrhizin formulation.',
+        bayesianConfidence: 0.91
+      });
+    }
+
+    return alerts;
   }
 
   /**
@@ -646,20 +797,63 @@ class ApiService {
     viruddhaWarnings: any[];
     hypergraphPolypharmacy: HypergraphPolypharmacyResult;
   }> {
-    const res = await fetch(`${BASE_URL}/api/contraindications/evaluate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        allopathic: allopathic.map(a => ({ name: a.name || a.genericName, dosage: 'standard', route: 'ORAL', frequency: 'OD', durationDays: 30 })),
-        ayush: ayush.map(a => ({ classicalName: a.classicalName || a.name, dosageForm: 'Vati', dose: '1', anupana: 'Water', frequency: 'OD', durationDays: 30 }))
-      })
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch(`${BASE_URL}/api/contraindications/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          allopathic: allopathic.map(a => ({
+            name: a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : ''),
+            dosage: a?.dosage || 'standard',
+            route: a?.route || 'ORAL',
+            frequency: a?.frequency || 'OD',
+            durationDays: a?.durationDays || 30
+          })),
+          ayush: ayush.map(a => ({
+            classicalName: a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : ''),
+            dosageForm: a?.dosageForm || 'Vati',
+            dose: a?.dose || '1',
+            anupana: a?.anupana || 'Water',
+            frequency: a?.frequency || 'OD',
+            durationDays: a?.durationDays || 30
+          }))
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        let alerts = Array.isArray(data.alerts) ? data.alerts : [];
+        if (alerts.length === 0) {
+          const offlineAlerts = this.evaluateContraindicationsOffline(allopathic, ayush);
+          if (offlineAlerts.length > 0) {
+            alerts = offlineAlerts;
+          }
+        }
+        return {
+          alerts,
+          hasConflicts: alerts.length > 0 || !!data.hasConflicts,
+          viruddhaWarnings: data.viruddhaWarnings || [],
+          hypergraphPolypharmacy: data.hypergraphPolypharmacy || {
+            hypergraphConflictDetected: false,
+            participatingNodes: [],
+            synergisticInteractions: [],
+            enzymeSaturations: [],
+            cumulativeSaturationIndex: 0,
+            bayesFactorBF10: 1.0,
+            overallRiskCategory: 'NONE',
+            substitutions: []
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('[ApiService] checkContraindicationsFull failed, falling back to offline evaluator:', e);
+    }
+
+    const offlineAlerts = this.evaluateContraindicationsOffline(allopathic, ayush);
     return {
-      alerts: data.alerts || [],
-      hasConflicts: !!data.hasConflicts,
-      viruddhaWarnings: data.viruddhaWarnings || [],
-      hypergraphPolypharmacy: data.hypergraphPolypharmacy || {
+      alerts: offlineAlerts,
+      hasConflicts: offlineAlerts.length > 0,
+      viruddhaWarnings: [],
+      hypergraphPolypharmacy: {
         hypergraphConflictDetected: false,
         participatingNodes: [],
         synergisticInteractions: [],

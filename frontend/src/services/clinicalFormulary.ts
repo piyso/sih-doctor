@@ -13,7 +13,7 @@ export interface FormularyAllopathicItem {
   route: string;
   frequency: string;
   durationDays: number;
-  category: 'Cardiovascular' | 'Endocrine' | 'Analgesic' | 'Antibiotic' | 'Gastrointestinal' | 'Respiratory' | 'Neurology';
+  category: 'Cardiovascular' | 'Endocrine' | 'Analgesic' | 'Antibiotic' | 'Gastrointestinal' | 'Respiratory' | 'Neurology' | 'Custom';
 }
 
 export interface FormularyAyushItem {
@@ -25,7 +25,7 @@ export interface FormularyAyushItem {
   anupana: string;
   frequency: string;
   durationDays: number;
-  category: 'Rasayana' | 'Vati / Guggulu' | 'Churna' | 'Kwatha' | 'Asava-Arishta' | 'Bhasma / Mineral (Sch E1)';
+  category: 'Rasayana' | 'Vati / Guggulu' | 'Churna' | 'Kwatha' | 'Asava-Arishta' | 'Bhasma / Mineral (Sch E1)' | 'Classical' | 'Custom';
   isScheduleE1?: boolean;
   scheduleE1PoisonDetail?: string;
   pathya: string[];

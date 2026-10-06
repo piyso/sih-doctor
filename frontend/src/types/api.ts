@@ -79,14 +79,21 @@ export interface AyushFormulation {
 }
 
 export interface ConflictAlert {
+  alertId?: string;
+  itemA?: string;
+  itemB?: string;
   allopathicDrug: string;
   ayushHerb: string;
-  severity: 'CRITICAL_LETHAL' | 'MODERATE_MONITOR' | 'BIOAVAILABILITY_ALTERATION' | 'VIRUDDHA_AHARA';
+  severity: 'CRITICAL_LETHAL' | 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'MODERATE_MONITOR' | 'BIOAVAILABILITY_ALTERATION' | 'VIRUDDHA_AHARA';
   mechanism: string;
   clinicalConsequence: string;
+  clinicalAction?: string;
   recommendedAction: string;
   bayesianConfidence: number;
   statutoryReference?: string;
+  evidenceScore?: number;
+  citation?: string;
+  counterfactualSubstitution?: any;
 }
 
 export interface PatientRecord {

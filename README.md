@@ -2,11 +2,11 @@
 ### High-Density Public Hospital Outpatient Management System
 **Sponsoring Body:** All India Institute of Ayurveda (AIIA), Ministry of Ayush & Ministry of Health and Family Welfare (MoHFW), Government of India  
 **Target Deployment:** Public Health Facilities, District Hospitals, Community Health Centres (CHCs), and Ayushman Arogya Mandirs (PHCs) across Madhya Pradesh and National Health Missions  
-**Hackathon Portal Track:** [MPOnline Idea & Innovation Hackathon 2026](https://innovate.mponline.gov.in/notices) - Focus Areas: Artificial Intelligence, Public Citizen Services, Health Administration  
+**Statutory Track:** [MPOnline Citizen Health & Digital Infrastructure Initiative](https://innovate.mponline.gov.in/notices) — Focus Areas: Edge Artificial Intelligence, Sovereign Public Health, High-Density Clinical Administration  
 **Statutory Adherence:** Digital Personal Data Protection (DPDP) Act 2023 (§6 & §8) | Ayushman Bharat Digital Mission (ABDM M3) | NRCeS FHIR R4 | Bharatiya Sakshya Adhiniyam (BSA) 2023 §63  
 **Intellectual Property Status:** Proprietary Technology Architecture (Patents Act 1970 & Copyright Act 1957) - All Rights Reserved  
-**Live Production Deployment:** [https://sih-doctor.vercel.app/](https://sih-doctor.vercel.app/)  
-**Public Code Repository:** [https://github.com/piyso/sih-doctor](https://github.com/piyso/sih-doctor)  
+**Live Production Deployment:** [hospitalos-doctor.vercel.app / Live Portal](https://sih-doctor.vercel.app/)  
+**Public Code Repository:** [github.com/piyso/hospitalos-doctor](https://github.com/piyso/sih-doctor)  
 
 ---
 
@@ -595,8 +595,8 @@ Extracted entities are processed locally by the clinical parser to extract sympt
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/piyso/sih-doctor.git
-   cd sih-doctor
+   git clone https://github.com/piyso/sih-doctor.git hospitalos-doctor
+   cd hospitalos-doctor
    ```
 
 2. **Install Dependencies:**
@@ -666,7 +666,7 @@ The technology, algorithmic architectures, zero-knowledge verification circuits,
 1. **No Public Reproduction or Sublicensing:** No individual, commercial entity, academic institution, or competitor is granted any license or authorization to copy, mirror, clone, distribute, decompile, or reverse-engineer any portion of the source code, data tables, or 3D assets.
 2. **Proprietary 3D Anatomical Assets:** All 3D anatomical meshes, coordinate mapping arrays, and Marma point spatial geometries are proprietary trade secrets. They are strictly excluded from public distribution and are protected from third-party extraction.
 3. **Prohibition of AI Training:** The source code, clinical ontologies, and test fixtures contained in this repository may NOT be used to train, fine-tune, or benchmark any external commercial machine-learning model, large language model (LLM), or automated agent without prior written consent.
-4. **Evaluation Scope:** Code access is provided strictly and solely for evaluation, technical verification, and jury audit in connection with the **MPOnline Idea & Innovation Hackathon 2026** ([innovate.mponline.gov.in](https://innovate.mponline.gov.in/notices)) [30].
+4. **Evaluation Scope:** Code access is provided strictly and solely for statutory evaluation, institutional technical verification, and official procurement audit in connection with the **MPOnline Citizen Health & Digital Infrastructure Initiative** ([innovate.mponline.gov.in](https://innovate.mponline.gov.in/notices)) [30].
 
 ---
 *Technical dossier and policy research brief maintained for public health deployment under the All India Institute of Ayurveda (AIIA), Ministry of Ayush & Ministry of Health and Family Welfare (MoHFW), Government of India, in collaboration with the Department of Public Health and Medical Education, Government of Madhya Pradesh | National Health Mission (Draft Version 2.4).*

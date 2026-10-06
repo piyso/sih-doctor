@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # AIIA Sovereign MediKiosk & Hospital OS - Automated GitHub Push & Deploy Script
-# Repository: sih-doctor (or sih-doctor-doctor)
+# Repository: hospitalos-doctor
 # Triggers Coolify / Vercel / GitHub Actions Auto-Deploy Pipeline on Push
 # ==============================================================================
 

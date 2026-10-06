@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, AlertTriangle, Activity, AlertOctagon, HeartPuls
 import { SocratesSymptom, VitalsData } from '../../types/api';
 import { sovereignSound } from '../../utils/audio';
 import { getClinicalProfile } from '../../utils/clinicalOntology';
+import { getKioskTranslations } from '../../utils/kioskLocalization';
 
 interface Step4SocratesProps {
   symptoms: SocratesSymptom[];
@@ -11,8 +12,10 @@ interface Step4SocratesProps {
   setVitals: React.Dispatch<React.SetStateAction<VitalsData>>;
   redFlags: string[];
   selectedBodyRegion?: string;
+  language?: string;
   onNext: () => void;
   onBack: () => void;
+  onEmergencyDivert?: () => void;
 }
 
 export const Step4Socrates: React.FC<Step4SocratesProps> = ({
@@ -22,9 +25,12 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   setVitals,
   redFlags,
   selectedBodyRegion,
+  language = 'hi',
   onNext,
-  onBack
+  onBack,
+  onEmergencyDivert
 }) => {
+  const t = getKioskTranslations(language);
   const clinicalProfile = getClinicalProfile(selectedBodyRegion || '');
   const defaultCharacter = clinicalProfile.defaultPainCharacter || 'Dull aching (Bheda)';
 
@@ -140,22 +146,22 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
       {/* Clean Header */}
       <div className="text-center mb-5">
         <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">
-          दर्द व लक्षण विवरण (Pain Details)
+          {t.step4Title}
         </h2>
         <div className="flex justify-center items-center gap-3">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            दर्द की तीव्रता और फैलाव का चयन करें
+            {t.step4Subtitle}
           </p>
           <button
             type="button"
             onClick={() => {
               sovereignSound.playMechanicalSnap();
-              sovereignSound.speakGuidance('कृपया अपने दर्द का स्थान, फैलाव, और तीव्रता चुनें।');
+              sovereignSound.speakGuidance(t.step4AudioPrompt, t.bcp47);
             }}
             className="tactile-btn text-[11px] font-semibold px-2.5 py-0.5 rounded-full gap-1 text-primary border-primary/30 bg-primary/10 cursor-pointer"
           >
             <Volume2 size={12} />
-            <span>सुनें</span>
+            <span>{t.listenBtn}</span>
           </button>
         </div>
       </div>
@@ -182,9 +188,9 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
             <HeartPulse size={20} className="text-rose-600 dark:text-rose-400 shrink-0" />
             <div>
               <div className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-200">
-                {/chest|precordium|heart|सीने|हृदय/i.test(currentSymptom.site)
+                {/chest|precordium|heart|सीने|छाती|हृदय|বুক|நெஞ்சு|மார்பு|ఛాతీ|గుండె/i.test(currentSymptom.site)
                   ? 'EMERGENCY CODE-RED INTERCEPT: Suspected Acute Coronary Syndrome'
-                  : /head|brain|cervical|सिर|मस्तिष्क/i.test(currentSymptom.site)
+                  : /head|brain|cervical|सिर|माथा|मस्तिष्क|डोके|মাথা|தலை|తల/i.test(currentSymptom.site)
                   ? 'EMERGENCY CODE-RED INTERCEPT: Acute Neurological / Stroke Event'
                   : 'EMERGENCY TRIAGE INTERCEPT: Severe Acuity Level 2 Event'}
               </div>
@@ -200,7 +206,11 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
               if (typeof navigator !== 'undefined' && navigator.vibrate) {
                 navigator.vibrate([300, 100, 300, 100, 500]);
               }
-              onNext();
+              if (onEmergencyDivert) {
+                onEmergencyDivert();
+              } else {
+                onNext();
+              }
             }}
             className="btn btn-danger text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
@@ -216,13 +226,23 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
         <div className="physical-card p-4 sm:p-5 rounded-2xl flex flex-col gap-3">
           <div className="border-b border-border/70 pb-2">
             <h4 className="text-xs sm:text-sm font-bold text-sky-600 dark:text-sky-400 uppercase tracking-tight">
-              1. दर्द का स्थान व प्रकार (Site &amp; Character)
+              {language === 'en' ? '1. Site & Pain Character' :
+               language === 'bn' ? '১. ব্যথার স্থান ও প্রকৃতি (Site & Character)' :
+               language === 'ta' ? '1. வலி இடம் மற்றும் தன்மை (Site & Character)' :
+               language === 'te' ? '1. నొప్పి ప్రాంతం & స్వభావం (Site & Character)' :
+               language === 'mr' ? '१. वेदनेचे स्थान आणि स्वरूप (Site & Character)' :
+               '1. दर्द का स्थान व प्रकार (Site & Character)'}
             </h4>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Site (कहाँ दर्द है)
+              Site ({language === 'en' ? 'Where it hurts' :
+                     language === 'bn' ? 'কোথায় ব্যথা' :
+                     language === 'ta' ? 'எங்கே வலி' :
+                     language === 'te' ? 'ఎక్కడ నొప్పి' :
+                     language === 'mr' ? 'कुठे दुखते' :
+                     'कहाँ दर्द है'})
             </label>
             <input
               type="text"
@@ -235,7 +255,12 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Character (दर्द कैसा महसूस होता है)
+              Character ({language === 'en' ? 'How it feels' :
+                          language === 'bn' ? 'ব্যথার অনুভূতি কেমন' :
+                          language === 'ta' ? 'வலி எப்படி உணர்கிறது' :
+                          language === 'te' ? 'నొప్పి ఎలా అనిపిస్తుంది' :
+                          language === 'mr' ? 'वेदना कशी जाणवते' :
+                          'दर्द कैसा महसूस होता है'})
             </label>
             <select
               value={currentSymptom.character || 'Dull aching (Bheda)'}
@@ -245,18 +270,23 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
               }}
               className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 cursor-pointer"
             >
-              <option value="Dull aching (Bheda)">मीठा-मीठा धीमा दर्द (Dull Aching / Bheda)</option>
-              <option value="Sharp pricking (Toda)">तीखा चुभने वाला (Sharp Needle-like / Toda)</option>
-              <option value="Crushing heaviness">भारी दबाव / कुचलने जैसा (Crushing / Heavy Pressure)</option>
-              <option value="Burning sensation (Daha)">तेज़ जलन (Burning Sensation / Daha)</option>
-              <option value="Throbbing / Pulsatile">धड़कने वाला दर्द (Throbbing / Pulsatile)</option>
-              <option value="Stiffness / Stambha">जकड़न / अकड़न (Stiffness / Stambha)</option>
+              <option value="Dull aching (Bheda)">{t.characters.dull}</option>
+              <option value="Sharp pricking (Toda)">{t.characters.sharp}</option>
+              <option value="Crushing heaviness">{t.characters.crushing}</option>
+              <option value="Burning sensation (Daha)">{t.characters.burning}</option>
+              <option value="Throbbing / Pulsatile">{t.characters.throbbing}</option>
+              <option value="Stiffness / Stambha">{t.characters.stiffness}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Radiation (दर्द किस तरफ फैलता है)
+              Radiation ({language === 'en' ? 'Does pain spread' :
+                          language === 'bn' ? 'ব্যথা কোন দিকে ছড়ায়' :
+                          language === 'ta' ? 'வலி பரவுகிறதா' :
+                          language === 'te' ? 'నొప్పి వ్యాపిస్తుందా' :
+                          language === 'mr' ? 'वेदना पसरते का' :
+                          'दर्द किस तरफ फैलता है'})
             </label>
             <input
               type="text"
@@ -269,7 +299,12 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Onset &amp; Duration (कब और कैसे शुरू हुआ)
+              Onset &amp; Duration ({language === 'en' ? 'When did it start' :
+                                   language === 'bn' ? 'কখন ও কিভাবে শুরু' :
+                                   language === 'ta' ? 'எப்போது தொடங்கியது' :
+                                   language === 'te' ? 'ఎప్పుడు ప్రారంభమైంది' :
+                                   language === 'mr' ? 'कधी आणि कसे सुरू झाले' :
+                                   'कब और कैसे शुरू हुआ'})
             </label>
             <input
               type="text"
@@ -286,7 +321,12 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
           <div>
             <div className="border-b border-border/70 pb-2 mb-3">
               <h4 className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">
-                2. दर्द की तीव्रता व वाइटल्स (Severity &amp; Vitals)
+                {language === 'en' ? '2. Pain Severity & Vitals' :
+                 language === 'bn' ? '২. ব্যথার তীব্রতা ও ভাইটালস (Severity & Vitals)' :
+                 language === 'ta' ? '2. வலி தீவிரம் & வைட்டல்ஸ் (Severity & Vitals)' :
+                 language === 'te' ? '2. నొప్పి తీవ్రత & వైటల్స్ (Severity & Vitals)' :
+                 language === 'mr' ? '२. वेदनेची तीव्रता आणि व्हायटल्स (Severity & Vitals)' :
+                 '2. दर्द की तीव्रता व वाइटल्स (Severity & Vitals)'}
               </h4>
             </div>
 

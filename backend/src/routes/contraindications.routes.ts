@@ -74,10 +74,11 @@ function evaluateDualPrescriptions(allopathicList: any[], ayushList: any[]) {
  */
 contraindicationsRouter.post('/evaluate', (req: Request, res: Response): void => {
   try {
-    const { allopathic, ayush } = req.body;
-    const alerts = evaluateDualPrescriptions(allopathic || [], ayush || []);
-    const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayush || []);
-    const hypergraphPolypharmacy = PiyGraphService.evaluateHigherOrderPolypharmacy(allopathic || [], ayush || []);
+    const allopathic = req.body.allopathic || req.body.allopathicMeds || req.body.allopathicPrescriptions || req.body.drugs || [];
+    const ayush = req.body.ayush || req.body.ayushFormulations || req.body.ayushPrescriptions || req.body.herbs || [];
+    const alerts = evaluateDualPrescriptions(allopathic, ayush);
+    const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayush);
+    const hypergraphPolypharmacy = PiyGraphService.evaluateHigherOrderPolypharmacy(allopathic, ayush);
 
     res.json({
       success: true,

@@ -95,6 +95,52 @@ export class ClinicalParserService {
     'सिर में दर्द': { standard: 'Headache', defaultSite: 'Head' },
     'सर दर्द': { standard: 'Headache', defaultSite: 'Head' },
     'सर में दर्द': { standard: 'Headache', defaultSite: 'Head' },
+    'हाथ में दर्द': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'हाथ में बहुत दर्द': { standard: 'Severe Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'हाथ दर्द': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'हाथ का दर्द': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'बांह में दर्द': { standard: 'Arm Pain', defaultSite: 'Arm' },
+    'कलाई में दर्द': { standard: 'Wrist Pain', defaultSite: 'Wrist' },
+    'Arm and Hand Pain': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'Severe Arm and Hand Pain': { standard: 'Severe Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    // Multi-Lingual Regional (Marathi, Bengali, Tamil, Telugu)
+    'छातीत दुखणे': { standard: 'Chest Pain', defaultSite: 'Substernal' },
+    'पोटात दुखणे': { standard: 'Abdominal Pain', defaultSite: 'Abdomen' },
+    'डोकेदुखी': { standard: 'Headache', defaultSite: 'Head' },
+    'हात दुखणे': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'हातात वेदना': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'खोकला': { standard: 'Cough / Kasa', defaultSite: 'Respiratory tract' },
+    'दम लागणे': { standard: 'Dyspnea / Shwasa', defaultSite: 'Chest / Lungs' },
+    'श्वास घेण्यास त्रास': { standard: 'Dyspnea / Shwasa', defaultSite: 'Chest / Lungs' },
+    'सांधेदुखी': { standard: 'Joint Pain / Sandhivata', defaultSite: 'Joints' },
+    'कंबरदुखी': { standard: 'Low Back Pain / Kati Shoola', defaultSite: 'Lumbar Spine' },
+    'बुके ব্যথা': { standard: 'Chest Pain', defaultSite: 'Substernal' },
+    'পেটে ব্যথা': { standard: 'Abdominal Pain', defaultSite: 'Abdomen' },
+    'মাথাব্যথা': { standard: 'Headache', defaultSite: 'Head' },
+    'হাতে ব্যথা': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'জ্বর': { standard: 'Fever / Jwara', defaultSite: 'General' },
+    'কাশি': { standard: 'Cough / Kasa', defaultSite: 'Respiratory tract' },
+    'শ্বাসকষ্ট': { standard: 'Dyspnea / Shwasa', defaultSite: 'Chest / Lungs' },
+    'গাঁটে ব্যথা': { standard: 'Joint Pain / Sandhivata', defaultSite: 'Joints' },
+    'কোমর ব্যথা': { standard: 'Low Back Pain / Kati Shoola', defaultSite: 'Lumbar Spine' },
+    'நெஞ்சு வலி': { standard: 'Chest Pain', defaultSite: 'Substernal' },
+    'வயிற்று வலி': { standard: 'Abdominal Pain', defaultSite: 'Abdomen' },
+    'தலைவலி': { standard: 'Headache', defaultSite: 'Head' },
+    'கை வலி': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'காய்ச்சல்': { standard: 'Fever / Jwara', defaultSite: 'General' },
+    'இருமல்': { standard: 'Cough / Kasa', defaultSite: 'Respiratory tract' },
+    'மூச்சுத்திணறல்': { standard: 'Dyspnea / Shwasa', defaultSite: 'Chest / Lungs' },
+    'மூட்டு வலி': { standard: 'Joint Pain / Sandhivata', defaultSite: 'Joints' },
+    'முதுகு வலி': { standard: 'Low Back Pain / Kati Shoola', defaultSite: 'Lumbar Spine' },
+    'ఛాతీ నొప్పి': { standard: 'Chest Pain', defaultSite: 'Substernal' },
+    'కడుపు నొప్పి': { standard: 'Abdominal Pain', defaultSite: 'Abdomen' },
+    'తలనొప్పి': { standard: 'Headache', defaultSite: 'Head' },
+    'చేయి నొప్పి': { standard: 'Arm / Hand Pain', defaultSite: 'Arm & Hand' },
+    'జ్వరం': { standard: 'Fever / Jwara', defaultSite: 'General' },
+    'దగ్గు': { standard: 'Cough / Kasa', defaultSite: 'Respiratory tract' },
+    'శ్వాస ఆడకపోవడం': { standard: 'Dyspnea / Shwasa', defaultSite: 'Chest / Lungs' },
+    'కీళ్ల నొప్పులు': { standard: 'Joint Pain / Sandhivata', defaultSite: 'Joints' },
+    'వెన్నునొప్పి': { standard: 'Low Back Pain / Kati Shoola', defaultSite: 'Lumbar Spine' },
     'आधे सिर में दर्द': { standard: 'Migraine / Ardhavabhedaka', defaultSite: 'Head / Unilateral' },
     'माइग्रेन': { standard: 'Migraine / Ardhavabhedaka', defaultSite: 'Head' },
     'चक्कर आना': { standard: 'Vertigo / Giddiness', defaultSite: 'Head' },
@@ -446,10 +492,11 @@ export class ClinicalParserService {
       let foundAny = false;
       let bestDurationStr = 'Unspecified';
 
-      while ((searchPos = lower.indexOf(key, searchPos)) !== -1) {
+      const keyLower = key.toLowerCase();
+      while ((searchPos = lower.indexOf(keyLower, searchPos)) !== -1) {
         foundAny = true;
         const idx = searchPos;
-        searchPos += key.length;
+        searchPos += keyLower.length;
 
         // Delimit window by clause / speaker boundaries so negation from a prior sentence/clause doesn't leak
         const textBefore = text.substring(0, idx);
@@ -474,7 +521,6 @@ export class ClinicalParserService {
 
         // Check for double negation vs single negation
         // Strip the symptom key itself and non-symptom action clauses (e.g. khana nahi khaya)
-        const keyLower = key.toLowerCase();
         const cleanedWindow = windowLower
           .replace(keyLower, '')
           .replace(/(?:khana|roti|bhojan|paani)\s+(?:bhi\s+)?(?:nahi|na)\s+\w+/gi, '');
@@ -513,13 +559,29 @@ export class ClinicalParserService {
         // If all mentions were negated, isNegated remains true
         const isNegated = !anyAffirmativeOccurrence;
 
+        let detectedCharacter = 'Dull aching (Bheda)';
+        if (/(burning|jalan|daha|जलन|दाह|जळजळ|জ্বালা|எரிச்சல்|காந்தல்|మంట|తాపం)/i.test(lower)) {
+          detectedCharacter = 'Burning sensation (Daha)';
+        } else if (/(crushing|heaviness|dabaav|bojh|vajan|भारी\s*दबाव|भारीपन|वजन|दाटून|অসহ্য\s*চাপ|அழுத்தம்|பிசைதல்|ఒత్తిడి)/i.test(lower)) {
+          detectedCharacter = 'Crushing heaviness';
+        } else if (/(sharp|pricking|stabbing|chubhan|toda|tez|तेज़\s*चुभन|तीक्ष्ण|टोचणे|তীব্র\s*সূঁচালো|குத்தல்|సూది\s*నొప్పి)/i.test(lower)) {
+          detectedCharacter = 'Sharp pricking (Toda)';
+        } else if (/(throbbing|pulsatile|dhadak|tees|धड़कता|ठसठस|धडधड|টনটনানি|துடிக்கும்|అదిరే)/i.test(lower)) {
+          detectedCharacter = 'Throbbing / Pulsatile';
+        } else if (/(stiffness|stambha|jakdan|akdan|जकड़न|अकड़न|ताठरपणा|আড়ষ্টতা|விறைப்பு|బిగుతు)/i.test(lower)) {
+          detectedCharacter = 'Stiffness / Stambha';
+        }
+
         const existing = symptoms.find(s => s.name === meta.standard);
         if (!existing) {
           symptoms.push({
             name: meta.standard,
+            symptom_name: meta.standard,
             rawVernacular: key,
             site: meta.defaultSite || 'Unspecified',
             onset: bestDurationStr,
+            character: detectedCharacter,
+            severityScore: isNegated ? 0 : 5,
             severity: isNegated ? 0 : 5,
             isNegated: isNegated
           });
@@ -527,7 +589,10 @@ export class ClinicalParserService {
           // Affirmative synonym override: attendant confirmed the symptom via an alternate vernacular phrasing
           existing.isNegated = false;
           existing.severity = 5;
+          existing.severityScore = 5;
           existing.rawVernacular = key;
+          existing.symptom_name = meta.standard;
+          if (detectedCharacter !== 'Dull aching (Bheda)') existing.character = detectedCharacter;
           if (bestDurationStr !== 'Unspecified') existing.onset = bestDurationStr;
         }
       }
@@ -796,12 +861,12 @@ export class ClinicalParserService {
       /(?:seenas)[^.!?:\n,]*(?:chhu\s*na)[^.!?:\n,]*(?:dard)/i.test(lower)
     );
 
-    // Acute Coronary Syndrome: pan-Indian regional chest + pain/pressure + radiation/diaphoresis (Latin + Devanagari)
-    const chestTerms = '(?:ch[a|h]ati|seene|seena|chest|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|चेस्ट)';
-    const painTerms = '(?:dard|peeda|vedana|shula|shool|byatha|bojh|pressure|heavy|kheench|dukh|noppi|vali|novu|peer|daag|bikh|jatana|दर्द|पीड़ा|वेदना|भारीपन|दबाव|बोझ|जकड़न|शूल)';
-    const leftTerms = '(?:baaye|baayan|baam|dava|khabb[ae]|ult[ae]|left|edama|idathu|edagade|khowur|vama|बाएं|बायां|बाईं|डावा|लेफ्ट)';
-    const diaphoresisTerms = '(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|bemaru|sweat|sveda|svedadhikya|पसीना|पसीने|घाम)';
-    const armTerms = '(?:haath|arm|hand|bahu|bhuja|hatat|kai|kayyil|cheyyi|atha|हाथ|बांह|भुजा)';
+    // Acute Coronary Syndrome: pan-Indian regional chest + pain/pressure + radiation/diaphoresis (Latin + Devanagari + Bengali + Tamil + Telugu)
+    const chestTerms = '(?:ch[a|h]ati|seene|seena|chest|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|चेस्ट|বুক|বুকে|நெஞ்சு|மார்பு|மார்பில்|ఛాతీ|గుండె|గుండెల్లో)';
+    const painTerms = '(?:dard|peeda|vedana|shula|shool|byatha|bojh|pressure|heavy|kheench|dukh|noppi|vali|novu|peer|daag|bikh|jatana|दर्द|पीड़ा|वेदना|भारीपन|दबाव|बोझ|जकड़न|शूल|कळ|दाट|व्यथा|ব্যথা|চাপ|কষ্ট|টান|வலி|அடைப்பு|பாரம்|பிசை|நొప్పి|బరువు|పోటు|పట్ట)';
+    const leftTerms = '(?:baaye|baayan|baam|dava|khabb[ae]|ult[ae]|left|edama|idathu|edagade|khowur|vama|बाएं|बायां|बाईं|डावा|डाव्या|लेफ्ट|বাঁ|বাম|இடது|ఎడమ)';
+    const diaphoresisTerms = '(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|bemaru|sweat|sveda|svedadhikya|पसीना|पसीने|घाम|थंडा\\s*घाम|ঘাম|ঠাণ্ডা\\s*ঘাম|வேர்வை|குளிர்ந்த\\s*வேர்வை|చెమట|చల్లని\\s*చెమట)';
+    const armTerms = '(?:haath|arm|hand|bahu|bhuja|hatat|kai|kayyil|cheyyi|atha|हाथ|बांह|भुजा|हात|हातात|হাত|হাতে|கை|கையில்|చేయి|చేతి)';
     const isAcsPattern = new RegExp(
       `${chestTerms}[^.!?:\n,]*${painTerms}|` +
       `chest\\s*pain|` +
@@ -870,13 +935,13 @@ export class ClinicalParserService {
     }
 
     // Stroke / CVA / Pakshaghata (FAST Protocol across Pan-Indian Vernaculars)
-    const hasFacialDroop = /(muh\s*(?:tedh|tedha|binga|ghum)|tond\s*vakaad|mukh\s*beke|mukhdo\s*tedho|facial\s*droop|mouth\s*droop|मुंह\s*टेढ़ा|चेहरा\s*टेढ़ा)/i.test(lower);
-    const hasSpeechDifficulty = /(bolne\s*me\s*ladkhadahat|slurred\s*speech|speech\s*slurred|aawaaz\s*(?:naahi|nahi|fas|ladkhad|ruk|chali)|baat\s*(?:samajh\s*nahi|nahi\s*nikal)|kotha\s*bolte\s*parchhe\s*na|bolyo\s*naahi\s*jaave|bolta\s*yet\s*nahi|बोलने\s*में\s*लड़खड़ाहट|आवाज\s*(?:नहीं|रुक|चली))/i.test(lower);
-    const hasMotorDeficit = /(haath\s*(?:kamzor|bejaan|sunn|obosh)|haath.*(?:kaam\s*na|moving|chalat|gir|bejaan)|daayein\s*(?:aang|taraf)|daahina\s*haath|ek\s*taraf.*(?:lakwa|kamzor|sunn|anga\s*gir)|anga\s*gir|pakshaghata|hemiparesis|हाथ\s*(?:कमजोर|बेजान|सुन्न)|एक\s*तरफ\s*(?:लकवा|कमजोर)|पक्षाघात)/i.test(lower);
+    const hasFacialDroop = /(muh\s*(?:tedh|tedha|binga|ghum)|tond\s*vakaad|mukh\s*beke|mukhdo\s*tedho|facial\s*droop|mouth\s*droop|मुंह\s*टेढ़ा|चेहरा\s*टेढ़ा|तोंड\s*वाकडे|মুখ\s*বেঁকে|வாய்\s*கோணல்|మూతి\s*వంకర)/i.test(lower);
+    const hasSpeechDifficulty = /(bolne\s*me\s*ladkhadahat|slurred\s*speech|speech\s*slurred|aawaaz\s*(?:naahi|nahi|fas|ladkhad|ruk|chali)|baat\s*(?:samajh\s*nahi|nahi\s*nikal)|kotha\s*bolte\s*parchhe\s*na|bolyo\s*naahi\s*jaave|bolta\s*yet\s*nahi|बोलने\s*में\s*लड़खड़ाहट|आवाज\s*(?:नहीं|रुक|चली)|बोलता\s*येत\s*नाही|जीभ\s*जड|কথা\s*জড়িয়ে|நாக்கு\s*குளறு|మాట\s*ముద్ద)/i.test(lower);
+    const hasMotorDeficit = /(haath\s*(?:kamzor|bejaan|sunn|obosh)|haath.*(?:kaam\s*na|moving|chalat|gir|bejaan)|daayein\s*(?:aang|taraf)|daahina\s*haath|ek\s*taraf.*(?:lakwa|kamzor|sunn|anga\s*gir)|anga\s*gir|pakshaghata|hemiparesis|हाथ\s*(?:कमजोर|बेजान|सुन्न)|एक\s*तरफ\s*(?:लकवा|कमजोर)|पक्षाघात|हात\s*लुळा|एका\s*बाजूला\s*लकवा|একপাশ\s*অবশ|ஒரு\s*பக்கம்\s*செயல்\s*இழப்பு|ఒక\s*వైపు\s*చచ్చు)/i.test(lower);
     const isStrokePattern = (
       (hasFacialDroop && (hasSpeechDifficulty || hasMotorDeficit)) ||
       (hasSpeechDifficulty && hasMotorDeficit) ||
-      /(bolne\s*me\s*ladkhadahat|slurred\s*speech|facial\s*droop|haath\s*kamzor|ek\s*taraf\s*ka\s*lakwa|pakshaghata|hemiparesis|बोलने\s*में\s*लड़खड़ाहट|एक\s*तरफ\s*का\s*लकवा|पक्षाघात)/i.test(lower)
+      /(bolne\s*me\s*ladkhadahat|slurred\s*speech|facial\s*droop|haath\s*kamzor|ek\s*taraf\s*ka\s*lakwa|pakshaghata|hemiparesis|बोलने\s*में\s*लड़खड़ाहट|एक\s*तरफ\s*का\s*लकवा|पक्षाघात|तोंड\s*वाकडे|মুখ\s*বেঁকে|வாய்\s*கோணல்|మూతి\s*వంకర|একপাশ\s*অবশ|ఒక\s*వైపు\s*చచ్చు)/i.test(lower)
     );
     if (isStrokePattern) {
       isEmergencyRedFlag = true;
@@ -884,8 +949,8 @@ export class ClinicalParserService {
     }
 
     // Snake Envenomation (Neurotoxic / Hemotoxic Snakebite)
-    const isSnakePattern = /(saanp|snake\s*bite|sarpa\s*damsha|fang\s*marks|ptosis.*saanp|saanp\s*ne\s*kaat|bite\s*by\s*snake|सांप\s*ने\s*काट|सर्पदंश|सांप\s*काटना)/i.test(lower);
-    const hasSnakeNegation = /(?:saanp|snake|sarpa\s*damsha|सांप)[^.!?:\n,]*(?:nahi|naahi|nhi|nai|no|not|na\s*ahe|naahi|illai|नहीं|ना)/i.test(lower);
+    const isSnakePattern = /(saanp|snake\s*bite|sarpa\s*damsha|fang\s*marks|ptosis.*saanp|saanp\s*ne\s*kaat|bite\s*by\s*snake|सांप\s*ने\s*काट|सर्पदंश|सांप\s*काटना|साप\s*चावला|सাপ\s*কামড়ে|பாம்பு\s*கடி|పాము\s*కాటు)/i.test(lower);
+    const hasSnakeNegation = /(?:saanp|snake|sarpa\s*damsha|सांप|साप|সাপ|பாம்பு|పాము)[^.!?:\n,]*(?:nahi|naahi|nhi|nai|no|not|na\s*ahe|naahi|illai|नहीं|ना|नाही)/i.test(lower);
     if (isSnakePattern && !hasSnakeNegation) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Acute Snake Envenomation (Suspected Neurotoxic/Hemotoxic Bite)');
@@ -906,12 +971,12 @@ export class ClinicalParserService {
     }
 
     // High-Risk Obstetric Emergencies (Eclampsia / Postpartum Hemorrhage across Dialects)
-    const hasPregnancyMarker = /(garbh[a]?[wv][a]?ti|garbhobati|pregnant|pregnancy|pet\s*(?:te|ri|me|se)\s*(?:mahila|baai|aurat|dulhan|stree)|8\s*mahina|ante\s*partum)/i.test(lower);
-    const hasSeizureMarker = /(jhatke|jhatka|convulsions|seizures|daura|mirgi|aakdi|aakshan|khepuni)/i.test(lower);
+    const hasPregnancyMarker = /(garbh[a]?[wv][a]?ti|garbhobati|pregnant|pregnancy|pet\s*(?:te|ri|me|se)\s*(?:mahila|baai|aurat|dulhan|stree)|8\s*mahina|ante\s*partum|गरोदर|गर्भवती|গর্ভবতী|கர்ப்பிணி|கர்ப்பம்|గర్భిణి|గర్భవతి)/i.test(lower);
+    const hasSeizureMarker = /(jhatke|jhatka|convulsions|seizures|daura|mirgi|aakdi|aakshan|khepuni|फेफरे|झटके|খিঁচুনি|வலிப்பு|ఫిట్స్|మూర్ఛ)/i.test(lower);
     const isObstetricEmerg = (
       (hasPregnancyMarker && hasSeizureMarker) ||
-      /((garbh[a]?[wv][a]?ti|pregnant|pregnancy).*(jhatke|convulsions|daura))/i.test(lower) ||
-      /((postpartum|delivery).*(?:bahut\s*zyada\s*bleeding|hemorrhage|khoon\s*beh|jyada\s*khoon))/i.test(lower)
+      /((garbh[a]?[wv][a]?ti|pregnant|pregnancy|गरोदर|गर्भवती|গর্ভবতী|கர்ப்பிணி|గర్భిణి).*(jhatke|convulsions|daura|फेफरे|খিঁচুনি|வலிப்பு|మూర్ఛ))/i.test(lower) ||
+      /((postpartum|delivery|प्रसव|बाळंतपण|প্রসব|பிரசவம்|ప్రసవం).*(?:bahut\s*zyada\s*bleeding|hemorrhage|khoon\s*beh|jyada\s*khoon|रक्तस्राव|রক্তপাত|ரத்தப்போக்கு|రక్తస్రావం))/i.test(lower)
     );
     if (isObstetricEmerg) {
       isEmergencyRedFlag = true;
@@ -929,8 +994,8 @@ export class ClinicalParserService {
     }
 
     // Acute Pancreatitis / Surgical Abdomen / Appendicitis
-    const isAcuteAbdomen = /(pet\s*me.*(?:tez|bhayankar|severe)\s*dard.*peeth|acute\s*pancreatitis|perforation|acute\s*appendicitis|mcburney|rebound\s*tenderness|acute\s*abdomen|(?:abdominal|udar|bhayankar|severe).*(?:dard|pain|shool).*(?:peeth|back|lumbar)|radiating\s*to\s*back)/i.test(lower) ||
-      /(?:pet|bhayankar|acute).*(?:peeth|back|pancrea)/i.test(rawLower);
+    const isAcuteAbdomen = /(pet\s*me.*(?:tez|bhayankar|severe)\s*dard.*peeth|acute\s*pancreatitis|perforation|acute\s*appendicitis|mcburney|rebound\s*tenderness|acute\s*abdomen|(?:abdominal|udar|bhayankar|severe).*(?:dard|pain|shool).*(?:peeth|back|lumbar)|radiating\s*to\s*back|पोटात.*(?:असह्य|तीव्र|भयंकर).*कळ.*पाठी|পেটে.*(?:প্রচণ্ড|মারাত্মক).*ব্যথা.*পিঠ|வயிற்றில்.*(?:கடுமையான|தீவிர).*வலி.*முதுகு|కడుపులో.*(?:తీవ్రమైన|భరించలేని).*నొప్పి.*వెన్ను)/i.test(lower) ||
+      /(?:pet|bhayankar|acute|पोटात|পেটে|வயிற்றில்|కడుపులో).*(?:peeth|back|pancrea|पाठी|পিঠ|முதுகு|వెన్ను)/i.test(rawLower);
     if (isAcuteAbdomen) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Acute Surgical Abdomen / Pancreatitis / Appendicitis / Peritonitis');

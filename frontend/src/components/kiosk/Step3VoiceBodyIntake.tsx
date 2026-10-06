@@ -45,7 +45,9 @@ import {
   LOCUS_TO_MACRO_ZONE,
   MacroZone
 } from './AnatomicalMannequin3D';
+import { AnatomicalMannequinModal3D } from './AnatomicalMannequinModal3D';
 import { getClinicalProfile } from '../../utils/clinicalOntology';
+import { getKioskTranslations } from '../../utils/kioskLocalization';
 
 interface Step3VoiceBodyIntakeProps {
   transcript: string;
@@ -72,6 +74,42 @@ interface CongruenceRecommendation {
   priorityLevel: 'CRITICAL_CARDIAC' | 'RESPIRATORY_EMERGENCY' | 'ACUTE_SURGICAL' | 'NEURO_CRITICAL' | 'ORGAN_REDIRECT';
   ayushMarmaAlert?: string;
 }
+
+// Robust Multi-Lingual Speech Noise Stripper & Stutter Normalizer
+export const sanitizeVernacularTranscript = (raw: string): string => {
+  if (!raw) return '';
+  let text = raw;
+
+  // 1. Separate fused script boundaries or fused words like हैआई -> है आई
+  text = text.replace(/([।!?\u0900-\u097F])([A-Za-z])/g, '$1 $2');
+  text = text.replace(/([A-Za-z])([\u0900-\u097F])/g, '$1 $2');
+  // Fused Indic verbs with transliterated fillers: e.g. हैआई -> है आई, थाआई -> था आई
+  text = text.replace(/(है|था|थी|थे|हूँ|हूं|हो|गया|गई|आहे|होते|ছিল|হচ্ছে|இருக்கும்|ఉంది)(आई|वेरी|एक्चुअली|यू|सो|very|actually|i\s*am)/gi, '$1 $2');
+
+  // 2. Fix truncated stutters FIRST (handles both Devanagari रे and Bengali রে / stray consonants)
+  text = text.replace(/(?:^|\s)[\u0930\u09B0][\u0947\u09C7]?\s+(हाथ|बांह|पेट|सिर|कमर|पैर|छाती|हात|पोट|डोके|হাত|পেট|கை|வயிறு|చేయి|కడుపు|hath|haath|bah|pet|sir|kamar|pair|chhati)/gi, ' मेरे $1');
+
+  // 3. Strip transliterated conversational fillers
+  text = text.replace(/(?:आई\s*एम\s*वेरी\s*मच|आई\s*एम\s*वेरी|आई\s*एम|वेरी\s*मच|यू\s*नो|एक्चुअली|आई\s*मीन|सो\s*मच|i\s*am\s*very\s*much|i['']?m\s*very\s*much|very\s*much|you\s*know|actually|i\s*mean)/gi, ' ');
+
+  // 4. Strip stray non-matching foreign script characters prepended before primary script
+  text = text.replace(/^[\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0A80-\u0AFF\u0D00-\u0D7F\u0C80-\u0CFF\s]{1,4}(?=[\u0900-\u097F])/g, '');
+
+  // 5. Whitespace normalization
+  text = text.replace(/\s{2,}/g, ' ').trim();
+
+  // 6. Deduplicate repeated sentence/phrase (stutters or WebSpeech duplicate emission)
+  text = text.replace(/^(.{6,60}?)\s*[,.।]?\s*\1$/g, '$1').trim();
+  const words = text.split(/\s+/);
+  if (words.length >= 4 && words.length % 2 === 0) {
+    const half = words.length / 2;
+    const firstHalf = words.slice(0, half).join(' ');
+    const secondHalf = words.slice(half).join(' ');
+    if (firstHalf === secondHalf) text = firstHalf;
+  }
+
+  return text;
+};
 
 // Infallible Multi-Tiered Semantic Symptom-Locus Congruence Cross-Validator
 const evaluateCongruenceMismatch = (
@@ -101,7 +139,11 @@ const evaluateCongruenceMismatch = (
       'seene me dabaav', 'seene me dabav', 'chhati me jalan', 'chhati me bojh', 'sine me dard', 'chati me dard',
       'dil doob', 'dil ghabra', 'सीने में दर्द', 'छाती में दर्द', 'सीने में भारीपन', 'छाती में भारीपन',
       'दिल में दर्द', 'हार्ट में दर्द', 'सीने में जलन', 'सीने में जकड़न', 'हृदय शूल', 'धड़कन तेज़',
-      'घबराहट के साथ सीना', 'सीने में दबाव', 'पसीने के साथ सीने में', 'हार्ट अटैक'
+      'घबराहट के साथ सीना', 'सीने में दबाव', 'पसीने के साथ सीने में', 'हार्ट अटैक',
+      'छातीत दुखणे', 'छातीत दुखतंय', 'छातीत कळ', 'छातीत दाटून', 'छातीवर वजन', 'धडधड', 'थंडा घाम',
+      'बुके ব্যথা', 'বুকে চাপ', 'বুক ধড়ফড়', 'দম আটকে',
+      'நெஞ்சு வலி', 'மார்பு வலி', 'நெஞ்சு அடைப்பு', 'நெஞ்சு பிசைதல்', 'படபடப்பு', 'குளிர்ந்த வேர்வை',
+      'ఛాతీ నొప్పి', 'గుండె నొప్పి', 'గుండెల్లో బరువు', 'గుండె దడ'
     ];
     const matchedCardiac = universalCardiacKeywords.find(k => text.includes(k));
     if (matchedCardiac) {
@@ -130,7 +172,10 @@ const evaluateCongruenceMismatch = (
       'coughing blood', 'hemoptysis', 'stridor', 'saans phool', 'dam phool', 'dam ghut',
       'seeti jaisi awaz', 'balgam me khoon', 'saans lene me takleef', 'सांस फूलना',
       'दम फूलना', 'दम घुटना', 'दमा', 'खांसी में खून', 'सीटी जैसी आवाज़', 'घरघराहट',
-      'सांस लेने में भारी कष्ट'
+      'सांस लेने में भारी कष्ट', 'दम लागणे', 'श्वास कोंडणे', 'खोकला',
+      'শ্বাসকষ্ট', 'দম বন্ধ', 'বুকে ঘড়ঘড়', 'হাঁপানি',
+      'மூச்சுத்திணறல்', 'மூச்சு வாங்க', 'மூச்சு இரைப்பு', 'இருமல்',
+      'శ్వాస ఆడకపోవడం', 'ఊపిరి అందడం', 'దగ్గు', 'దమ్ము'
     ];
     const matchedResp = universalRespiratoryKeywords.find(k => text.includes(k));
     if (matchedResp) {
@@ -152,7 +197,7 @@ const evaluateCongruenceMismatch = (
   // PRIORITY 2: CONTEXTUAL CHEST SUB-DIFFERENTIATION (When Left Chest Selected)
   // =========================================================================
   if (selectedRegion === 'Left Chest / Precordium') {
-    const pulmonaryKeywords = ['खांसी', 'cough', 'दमा', 'asthma', 'बलगम', 'phlegm', 'सीटी', 'wheezing', 'जुकाम', 'cold', 'सांस फूल'];
+    const pulmonaryKeywords = ['खांसी', 'cough', 'दमा', 'asthma', 'बलगम', 'phlegm', 'सीटी', 'wheezing', 'जुकाम', 'cold', 'सांस फूल', 'खोकला', 'काশি', 'இருமல்', 'దగ్గు'];
     const matchedPulmonary = pulmonaryKeywords.find(k => text.includes(k));
     if (matchedPulmonary) {
       return {
@@ -166,7 +211,7 @@ const evaluateCongruenceMismatch = (
       };
     }
 
-    const acidityKeywords = ['खट्टी डकार', 'acidity', 'एसिडिटी', 'heartburn', 'अम्लपित्त', 'गैस', 'खाना खाने के बाद', 'खाली पेट'];
+    const acidityKeywords = ['खट्टी डकार', 'acidity', 'एसिडिटी', 'heartburn', 'अम्लपित्त', 'गैस', 'खाना खाने के बाद', 'खाली पेट', 'आंबट ढेकर', 'টক ঢেকুর', 'புளித்த ஏப்பம்', 'పుల్లటి తేన్పులు'];
     const matchedAcidity = acidityKeywords.find(k => text.includes(k));
     if (matchedAcidity) {
       return {
@@ -191,7 +236,7 @@ const evaluateCongruenceMismatch = (
 
   if (!isAbdominalRegion) {
     // 3A. Appendicitis / Right Lower Quadrant
-    const rlqKeywords = ['दाहिने तरफ नीचे', 'दायां निचला', 'right lower', 'अपेंडिक्स', 'appendix', 'दाएं पेट', 'mcburney', 'daye pet'];
+    const rlqKeywords = ['दाहिने तरफ नीचे', 'दायां निचला', 'right lower', 'अपेंडिक्स', 'appendix', 'दाएं पेट', 'mcburney', 'daye pet', 'उजव्या बाजूला खाली', 'ডান দিকের নিচে', 'வலது கீழ் வயிறு', 'కుడి వైపు క్రింద'];
     const matchedRlq = rlqKeywords.find(k => text.includes(k));
     if (matchedRlq) {
       return {
@@ -208,7 +253,7 @@ const evaluateCongruenceMismatch = (
     }
 
     // 3B. Kidney Stone / Left Lower Quadrant
-    const llqKeywords = ['बाएं पेट', 'बायां निचला', 'left lower', 'पथरी', 'गुर्दा', 'kidney stone', 'कमर से आगे', 'baye pet'];
+    const llqKeywords = ['बाएं पेट', 'बायां निचला', 'left lower', 'पथरी', 'गुर्दा', 'kidney stone', 'कमर से आगे', 'baye pet', 'डाव्या बाजूला', 'বাঁ দিকের নিচে', 'இடது கீழ் வயிறு', 'ఎడమ వైపు క్రింద', 'मूत्रपिंड खडा', 'কিডনির পাথর', 'மூத்திரக்கல்', 'రాళ్ళు'];
     const matchedLlq = llqKeywords.find(k => text.includes(k));
     if (matchedLlq) {
       return {
@@ -223,7 +268,7 @@ const evaluateCongruenceMismatch = (
     }
 
     // 3C. Pelvic / UTI
-    const pelvicKeywords = ['निचला पेट', 'निचले पेट', 'नीचे का पेट', 'पेशाब में जलन', 'पेशाब रुक', 'पेडू', 'मासिक धर्म', 'period', 'bladder', 'uti', 'dysuria', 'lower belly', 'pelvic'];
+    const pelvicKeywords = ['निचला पेट', 'निचले पेट', 'नीचे का पेट', 'पेशाब में जलन', 'पेशाब रुक', 'पेडू', 'मासिक धर्म', 'period', 'bladder', 'uti', 'dysuria', 'lower belly', 'pelvic', 'लघवीला जळजळ', 'ओटीपोट', 'প্রস্রাবে জ্বালা', 'তলপেট', 'சிறுநீர் எரிச்சல்', 'அடிவயிறு', 'మూత్రంలో మంట', 'పొత్తికడుపు'];
     const matchedPelvic = pelvicKeywords.find(k => text.includes(k));
     if (matchedPelvic) {
       return {
@@ -241,7 +286,8 @@ const evaluateCongruenceMismatch = (
     const generalAbdomenKeywords = [
       'pet me dard', 'stomach pain', 'belly ache', 'paat dard', 'pet dard', 'pait me dard',
       'pet kharab', 'pet me marod', 'khatti dakar', 'पेट में दर्द', 'पेट दर्द', 'ऊपरी पेट',
-      'खट्टी डकार', 'अम्लपित्त', 'आमाशय'
+      'खट्टी डकार', 'अम्लपित्त', 'आमाशय', 'पोटात दुख', 'पोट फुगणे', 'পেটে ব্যথা', 'পেট ফাঁপা',
+      'வயிற்று வலி', 'வயிறு உப்புசம்', 'కడుపు నొప్పి', 'కడుపు ఉబ్బరం'
     ];
     const matchedAbdomen = generalAbdomenKeywords.find(k => text.includes(k));
     if (matchedAbdomen) {
@@ -261,7 +307,7 @@ const evaluateCongruenceMismatch = (
   // PRIORITY 4: CRANIAL / ENT / CERVICAL DIVERGENCE
   // =========================================================================
   if (selectedRegion !== 'Head' && selectedRegion !== 'Face & Sinus' && selectedRegion !== 'Ear' && selectedRegion !== 'Neck' && selectedRegion !== 'Cervical Spine') {
-    const headKeywords = ['सिर में दर्द', 'headache', 'माइग्रेन', 'migraine', 'चक्कर', 'vertigo', 'sir dard', 'sar dard', 'matha ghum'];
+    const headKeywords = ['सिर में दर्द', 'headache', 'माइग्रेन', 'migraine', 'चक्कर', 'vertigo', 'sir dard', 'sar dard', 'matha ghum', 'डोकेदुखी', 'चक्कर येणे', 'মাথাব্যথা', 'মাথা ঘোরা', 'தலைவலி', 'மயக்கம்', 'తలనొప్పి', 'తలతిరగడం'];
     const matchedHead = headKeywords.find(k => text.includes(k));
     if (matchedHead) {
       return {
@@ -369,8 +415,9 @@ interface SymptomItem {
 
 interface SensationItem {
   key: string;
-  label: string;
+  labels: Record<string, string>;
   en: string;
+  standardCharacter: string;
   icon: any;
 }
 
@@ -796,12 +843,90 @@ const SYSTEMIC_COMPLAINT_CATEGORIES: Record<string, { titleHi: string; titleEn: 
 };
 
 const UNIVERSAL_SENSATIONS: SensationItem[] = [
-  { key: 'heavy', label: 'भारी दबाव', en: 'Heavy / Dull', icon: Shield },
-  { key: 'sharp', label: 'तेज़ चुभन', en: 'Sharp / Stabbing', icon: Zap },
-  { key: 'burning', label: 'जलन / दाह', en: 'Burning', icon: Flame },
-  { key: 'throbbing', label: 'धड़कता दर्द', en: 'Throbbing', icon: HeartPulse },
-  { key: 'cramping', label: 'मरोड़ / ऐंठन', en: 'Cramping', icon: Activity },
-  { key: 'numbness', label: 'सुन्नपन / झुनझुनी', en: 'Numbness / Tingling', icon: Wind }
+  {
+    key: 'dull',
+    labels: {
+      hi: 'मंद वेदना (Dull Aching)',
+      en: 'Dull Aching (Bheda)',
+      mr: 'मंद दुखणे (Dull Aching)',
+      bn: 'ভোঁতা ব্যথা (Dull Aching)',
+      ta: 'மந்தமான வலி (Dull Aching)',
+      te: 'మందకొడి నొప్పి (Dull Aching)'
+    },
+    en: 'Dull aching (Bheda)',
+    standardCharacter: 'Dull aching (Bheda)',
+    icon: Shield
+  },
+  {
+    key: 'sharp',
+    labels: {
+      hi: 'तीव्र चुभन (Sharp Toda)',
+      en: 'Sharp Pricking (Toda)',
+      mr: 'तीक्ष्ण टोचणे (Sharp Toda)',
+      bn: 'তীব্র সূঁচালো ব্যথা (Sharp)',
+      ta: 'கடுமையான குத்தல் (Sharp)',
+      te: 'తీవ్రమైన సూది నొప్పి (Sharp)'
+    },
+    en: 'Sharp pricking (Toda)',
+    standardCharacter: 'Sharp pricking (Toda)',
+    icon: Zap
+  },
+  {
+    key: 'crushing',
+    labels: {
+      hi: 'छाती में भारी दबाव (Crushing)',
+      en: 'Crushing Heaviness',
+      mr: 'छातीवर वजन / दाटून (Crushing)',
+      bn: 'বুকে অসহ্য চাপ (Crushing)',
+      ta: 'நெஞ்சு அழுத்தம் (Crushing)',
+      te: 'గుండెల్లో తీవ్ర ఒత్తిడి (Crushing)'
+    },
+    en: 'Crushing heaviness',
+    standardCharacter: 'Crushing heaviness',
+    icon: HeartPulse
+  },
+  {
+    key: 'burning',
+    labels: {
+      hi: 'जलन / दाह (Burning)',
+      en: 'Burning Sensation (Daha)',
+      mr: 'जळजळ / दाह (Burning)',
+      bn: 'জ্বালা / প্রদাহ (Burning)',
+      ta: 'எரிச்சல் / காந்தல் (Burning)',
+      te: 'మంట / తాపం (Burning)'
+    },
+    en: 'Burning sensation (Daha)',
+    standardCharacter: 'Burning sensation (Daha)',
+    icon: Flame
+  },
+  {
+    key: 'throbbing',
+    labels: {
+      hi: 'धड़कता दर्द (Throbbing)',
+      en: 'Throbbing / Pulsatile',
+      mr: 'ठसठस / धडधड (Throbbing)',
+      bn: 'টনটনানি (Throbbing)',
+      ta: 'துடிக்கும் வலி (Throbbing)',
+      te: 'అదిరే నొప్పి (Throbbing)'
+    },
+    en: 'Throbbing / Pulsatile',
+    standardCharacter: 'Throbbing / Pulsatile',
+    icon: Activity
+  },
+  {
+    key: 'stiffness',
+    labels: {
+      hi: 'जकड़न / अकड़न (Stiffness)',
+      en: 'Stiffness / Stambha',
+      mr: 'ताठरपणा / जकडणे (Stiffness)',
+      bn: 'শক্ত ভাব / আড়ষ্টতা (Stiffness)',
+      ta: 'விறைப்பு / பிடிப்பு (Stiffness)',
+      te: 'బిగుతు / పట్టివేత (Stiffness)'
+    },
+    en: 'Stiffness / Stambha',
+    standardCharacter: 'Stiffness / Stambha',
+    icon: Wind
+  }
 ];
 
 const PRIVATE_SANCTUARIES = [
@@ -847,9 +972,26 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const [isParsing, setIsParsing] = useState(false);
   const [parseSuccess, setParseSuccess] = useState(false);
   type SupportedSpeechLang = 'hi-IN' | 'en-IN' | 'mr-IN' | 'bn-IN' | 'ta-IN' | 'te-IN' | 'gu-IN' | 'kn-IN' | 'pa-IN' | 'ml-IN';
+  
+  const getInitialMicLang = (lang?: string): SupportedSpeechLang => {
+    const l = (lang || 'hi').toLowerCase().substring(0, 2);
+    if (l === 'bn') return 'bn-IN';
+    if (l === 'ta') return 'ta-IN';
+    if (l === 'te') return 'te-IN';
+    if (l === 'mr') return 'mr-IN';
+    if (l === 'en') return 'en-IN';
+    return 'hi-IN';
+  };
+
+  const t = getKioskTranslations(language);
   const [mannequinView, setMannequinView] = useState<'front' | 'back'>('front');
   const [activeMacroZone, setActiveMacroZone] = useState<MacroZone>('full');
-  const [micLanguage, setMicLanguage] = useState<SupportedSpeechLang>('hi-IN');
+  const [micLanguage, setMicLanguage] = useState<SupportedSpeechLang>(() => getInitialMicLang(language));
+
+  useEffect(() => {
+    setMicLanguage(getInitialMicLang(language));
+  }, [language]);
+  const [selectedSensation, setSelectedSensation] = useState<string | null>(null);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [isPeekActive, setIsPeekActive] = useState(false);
   const [micErrorMessage, setMicErrorMessage] = useState<string | null>(null);
@@ -863,6 +1005,25 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const latestTranscriptRef = useRef<string>(transcript || '');
   const isRecordingRef = useRef<boolean>(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync speech engine with selected kiosk interface language
+  useEffect(() => {
+    const langMap: Record<string, SupportedSpeechLang> = {
+      hi: 'hi-IN',
+      en: 'en-IN',
+      mr: 'mr-IN',
+      bn: 'bn-IN',
+      ta: 'ta-IN',
+      te: 'te-IN',
+      gu: 'gu-IN',
+      kn: 'kn-IN',
+      pa: 'pa-IN',
+      ml: 'ml-IN'
+    };
+    if (language && langMap[language]) {
+      setMicLanguage(langMap[language]);
+    }
+  }, [language]);
 
   // Sync ref with incoming transcript changes
   useEffect(() => {
@@ -910,23 +1071,108 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
 
   const handleSaveManualEdit = () => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
-    setTranscript(manualTextDraft);
-    latestTranscriptRef.current = manualTextDraft;
+    const sanitized = sanitizeVernacularTranscript(manualTextDraft);
+    setTranscript(sanitized);
+    latestTranscriptRef.current = sanitized;
     setIsManualEditing(false);
-    triggerClinicalParse(manualTextDraft);
+    triggerClinicalParse(sanitized);
   };
 
   const SEVERITY_LEVELS = [
-    { key: 'mild', label: 'हल्की तकलीफ़', en: 'Mild' },
-    { key: 'moderate', label: 'मध्यम तकलीफ़', en: 'Moderate' },
-    { key: 'severe', label: 'तीव्र / असहनीय', en: 'Severe' }
+    {
+      key: 'mild',
+      labels: {
+        hi: 'हल्की तकलीफ़',
+        en: 'Mild Discomfort',
+        mr: 'किरकोळ त्रास',
+        bn: 'সামান্য কষ্ট',
+        ta: 'லேசான வலி',
+        te: 'తేలికపాటి నొప్పి'
+      },
+      label: 'हल्की तकलीफ़',
+      en: 'Mild'
+    },
+    {
+      key: 'moderate',
+      labels: {
+        hi: 'मध्यम तकलीफ़',
+        en: 'Moderate Discomfort',
+        mr: 'मध्यम त्रास',
+        bn: 'মাঝারি কষ্ট',
+        ta: 'மிதமான வலி',
+        te: 'మోస్తరు నొప్పి'
+      },
+      label: 'मध्यम तकलीफ़',
+      en: 'Moderate'
+    },
+    {
+      key: 'severe',
+      labels: {
+        hi: 'तीव्र / असहनीय',
+        en: 'Severe / Intense',
+        mr: 'तीव्र / असह्य',
+        bn: 'তীব্র / অসহ্য',
+        ta: 'கடுமையான வலி',
+        te: 'తీవ్రమైన / భరించలేని'
+      },
+      label: 'तीव्र / असहनीय',
+      en: 'Severe'
+    }
   ];
 
   const DURATION_CHOICES = [
-    { key: 'today', label: 'आज से', en: 'Today' },
-    { key: '2-3days', label: '2-3 दिन', en: '2-3 Days' },
-    { key: '1week', label: '1 हफ्ता', en: '1 Week' },
-    { key: 'chronic', label: '1 महीना+', en: 'Chronic' }
+    {
+      key: 'today',
+      labels: {
+        hi: 'आज से',
+        en: 'Today',
+        mr: 'आजपासून',
+        bn: 'আজ থেকে',
+        ta: 'இன்று முதல்',
+        te: 'ఈ రోజు నుండి'
+      },
+      label: 'आज से',
+      en: 'Today'
+    },
+    {
+      key: '2-3days',
+      labels: {
+        hi: '2-3 दिन',
+        en: '2-3 Days',
+        mr: '२-३ दिवस',
+        bn: '২-৩ দিন',
+        ta: '2-3 நாட்கள்',
+        te: '2-3 రోజులు'
+      },
+      label: '2-3 दिन',
+      en: '2-3 Days'
+    },
+    {
+      key: '1week',
+      labels: {
+        hi: '1 हफ्ता',
+        en: '1 Week',
+        mr: '१ आठवडा',
+        bn: '১ সপ্তাহ',
+        ta: '1 வாரம்',
+        te: '1 వారం'
+      },
+      label: '1 हफ्ता',
+      en: '1 Week'
+    },
+    {
+      key: 'chronic',
+      labels: {
+        hi: '1 महीना+',
+        en: '1 Month+',
+        mr: '१ महिना+',
+        bn: '১ মাস+',
+        ta: '1 மாதம்+',
+        te: '1 నెల+'
+      },
+      label: '1 महीना+',
+      en: 'Chronic'
+    }
   ];
 
   const QUICK_VOICE_PRESETS = [
@@ -974,14 +1220,10 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
 
   const handleRegionClick = (regionId: string) => {
     try { sovereignSound.playHotspotPulse(); } catch {}
-    if (selectedBodyRegion === regionId || regionId === '') {
-      setSelectedBodyRegion('');
-      setActiveMacroZone('full');
-    } else {
-      setSelectedBodyRegion(regionId);
-      if (LOCUS_TO_MACRO_ZONE[regionId]) {
-        setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
-      }
+    if (!regionId) return;
+    setSelectedBodyRegion(regionId);
+    if (LOCUS_TO_MACRO_ZONE[regionId]) {
+      setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
     }
   };
 
@@ -1024,12 +1266,53 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     triggerClinicalParse(newTranscript);
   };
 
-  const handleAddSensation = (sensation: { key: string; label: string; en: string; icon: any }) => {
+  const handleAddSensation = (sensation: SensationItem) => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
+    setSelectedSensation(sensation.key);
     const sevObj = SEVERITY_LEVELS.find(s => s.key === severity);
     const durObj = DURATION_CHOICES.find(d => d.key === duration);
+    const currentLang = (language || 'hi').toLowerCase().substring(0, 2);
+    const sensationLabel = sensation.labels[currentLang] || sensation.labels['hi'] || sensation.en;
     const organName = currentRegionalData.hindiName.split('(')[0].trim();
-    const textToAdd = `${organName} में ${sensation.label} [${sensation.en}] (${sevObj?.label || ''}, ${durObj?.label || ''})`;
+    const site = currentRegionalData.enName || selectedBodyRegion || 'General';
+    const symName = `${organName} - ${sensationLabel}`;
+    const score = severity === 'severe' ? 8 : severity === 'moderate' ? 5 : 3;
+
+    // Direct deterministic upsert of Socrates symptom into clinical state with standard clinical ontology character
+    const newSym: SocratesSymptom = {
+      site,
+      name: symName,
+      symptom_name: symName,
+      character: sensation.standardCharacter,
+      severityScore: score,
+      intensity: score,
+      onset: durObj?.label || '2-3 days',
+      duration: durObj?.label || '2-3 days',
+      associations: [sensationLabel],
+      timing: 'Continuous',
+      radiation: 'None',
+      exacerbatingFactors: ['Movement'],
+      relievingFactors: ['Rest']
+    };
+
+    const currentList = Array.isArray(symptoms) ? [...symptoms] : [];
+    const existingIdx = currentList.findIndex(s => s.site === site || s.name === symName);
+    if (existingIdx >= 0) {
+      currentList[existingIdx] = {
+        ...currentList[existingIdx],
+        character: sensation.standardCharacter,
+        severityScore: score,
+        intensity: score,
+        symptom_name: symName,
+        name: symName
+      };
+    } else {
+      currentList.push(newSym);
+    }
+    onExtractedSymptoms(currentList, vitals || {}, redFlags || []);
+    setParseSuccess(true);
+
+    const textToAdd = `${organName} में ${sensationLabel} (${sevObj?.label || ''})`;
     const newTranscript = transcript ? `${transcript}। ${textToAdd}` : textToAdd;
     setTranscript(newTranscript);
     latestTranscriptRef.current = newTranscript;
@@ -1038,10 +1321,13 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
 
   const triggerClinicalParse = useCallback(async (textToParse: string) => {
     if (!textToParse || !textToParse.trim()) return;
+    const cleanText = sanitizeVernacularTranscript(textToParse);
     setIsParsing(true);
     setParseSuccess(false);
     try {
-      const extracted = await api.parseAudioTranscript(textToParse);
+      const extracted = await api.parseAudioTranscript(cleanText);
+      setTranscript(cleanText);
+      latestTranscriptRef.current = cleanText;
       onExtractedSymptoms(
         extracted.symptoms || [],
         extracted.vitals || {},
@@ -1104,11 +1390,15 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
         recognition.onresult = (event: any) => {
           let fullStr = '';
           for (let i = 0; i < event.results.length; ++i) {
-            fullStr += event.results[i][0].transcript;
+            const piece = event.results[i][0].transcript.trim();
+            if (piece) {
+              fullStr = fullStr ? `${fullStr} ${piece}` : piece;
+            }
           }
           if (fullStr) {
-            setTranscript(fullStr);
-            latestTranscriptRef.current = fullStr;
+            const textToSave = sanitizeVernacularTranscript(fullStr);
+            setTranscript(textToSave);
+            latestTranscriptRef.current = textToSave;
 
             // Debounced auto-trigger on short natural silence pause (850ms)
             if (silenceTimerRef.current) {
@@ -1213,9 +1503,22 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
           : 'कृपया माइक दबाकर अपनी तकलीफ़ बोलें या नीचे दिए गए लक्षणों को चुनें।',
         'en-IN': subPhase === 'body'
           ? 'Please touch your painful organ on the 3D model, then tap continue.'
-          : 'Please tap the microphone button to speak your symptoms or tap choices below.'
+          : 'Please tap the microphone button to speak your symptoms or tap choices below.',
+        'bn-IN': subPhase === 'body'
+          ? 'অনুগ্রহ করে 3D শরীরে ব্যথার অঙ্গটি স্পর্শ করুন, তারপর পরবর্তী বোতামে চাপুন।'
+          : 'অনুগ্রহ করে মাইক্রোফোন বোতামটি চেপে আপনার সমস্যা বলুন অথবা নিচের তালিকা থেকে নির্বাচন করুন।',
+        'mr-IN': subPhase === 'body'
+          ? 'कृपया 3D शरीरावर तुमचा दुखणारा भाग निवडा आणि नंतर पुढे जा बटण दाबा.'
+          : 'कृपया माइक दाबून आपला त्रास बोला किंवा खालील लक्षणे निवडा.',
+        'ta-IN': subPhase === 'body'
+          ? 'தயவுசெய்து 3D மாதிரியில் வலி உள்ள பகுதியைத் தொட்டு தேர்ந்தெடுக்கவும், பின்னர் அடுத்து பொத்தானை அழுத்தவும்.'
+          : 'தயவுசெய்து மைக்ரோஃபோன் பொத்தானை அழுத்தி உங்கள் அறிகுறிகளைப் பேசவும் அல்லது கீழே உள்ளவற்றில் தேர்ந்தெடுக்கவும்.',
+        'te-IN': subPhase === 'body'
+          ? 'దయచేసి 3D శరీర నమూనాలో మీ నొప్పి ఉన్న భాగాన్ని తాకి ఎంచుకోండి, తర్వాత ముందుకు వెళ్లండి.'
+          : 'దయచేసి మైక్రోఫోన్ బటన్ నొక్కి మీ లక్షణాలను చెప్పండి లేదా క్రింది వాటి నుండి ఎంచుకోండి.'
       };
-      sovereignSound.speakGuidance(guidanceTexts[micLanguage] || guidanceTexts['hi-IN']);
+      const text = guidanceTexts[micLanguage] || guidanceTexts['en-IN'];
+      sovereignSound.speakGuidance(text, micLanguage);
     } catch {}
   };
 
@@ -1223,173 +1526,25 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     <div className="w-full mx-auto selection:bg-foreground selection:text-background animate-in fade-in duration-300">
       
       {/* =========================================================================
-          PHASE 3.0: 100% PURE FULLSCREEN 3D ANATOMICAL BODY STAGE
+          PHASE 3.0: PURE FULLSCREEN 3D ANATOMICAL BODY MODAL
           ========================================================================= */}
-      {subPhase === 'body' && (
-        <div className="relative w-full h-[calc(100vh-210px)] min-h-[640px] rounded-3xl overflow-hidden border border-border/80 shadow-md bg-card animate-in fade-in zoom-in-95 duration-300">
-          
-          {/* The Pristine 3D Mannequin Viewport (Full Cinematic Canvas) */}
-          <AnatomicalMannequin3D
-            selectedRegion={selectedBodyRegion}
-            onSelectRegion={handleRegionClick}
-            viewMode={mannequinView}
-            onViewModeChange={setMannequinView}
-            isPrivateMode={isPrivateMode}
-            activeMacroZone={activeMacroZone}
-            onMacroZoneChange={setActiveMacroZone}
-            className="w-full h-full rounded-3xl border-0"
-            showAngleControls={true}
-            hideHeaderControls={true}
-          />
-
-          {/* Top Diagnostic HUD Bar - Unified, Never Overlapping */}
-          <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between gap-3 pointer-events-auto flex-wrap">
-            {/* Left: Selected Organ Status / Instruction */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md">
-                <HeartPulse size={18} className={`shrink-0 ${selectedBodyRegion ? 'text-primary' : 'text-muted-foreground'}`} />
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider font-bold">
-                    {selectedBodyRegion ? 'चयनित अंग' : 'शरीर पर छुएं'}
-                  </span>
-                  <span className="font-heading font-extrabold text-sm sm:text-base text-foreground">
-                    {selectedBodyRegion ? (
-                      <span className="text-primary">{currentRegionalData.hindiName}</span>
-                    ) : (
-                      <span className="text-muted-foreground font-medium text-xs sm:text-sm">तकलीफ़ का स्थान छुएं</span>
-                    )}
-                  </span>
-                </div>
-                {selectedBodyRegion && (
-                  <button
-                    type="button"
-                    onClick={() => handleRegionClick(selectedBodyRegion)}
-                    className="ml-2 px-2 py-1 rounded-xl bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Full Body View / संपूर्ण शरीर देखें"
-                  >
-                    <CornerUpLeft size={12} />
-                    <span className="text-[11px]">हटाएं</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Orientation Tag + Audio Guidance + Private Mode */}
-            <div className="flex items-center gap-2">
-              {/* Orientation Tag */}
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-card/95 backdrop-blur-md rounded-xl border border-border/80 text-xs font-mono text-foreground shadow-xs">
-                <span className="text-muted-foreground">दायां (R)</span>
-                <span className="text-border">|</span>
-                <span className="font-semibold text-foreground">बायां (L)</span>
-              </div>
-
-              {/* Audio Guidance */}
-              <button
-                type="button"
-                onClick={handleAudioGuidance}
-                className="tactile-btn h-9 px-3.5 rounded-xl bg-card/95 backdrop-blur-md text-primary border border-border/80 text-xs font-bold gap-1.5 shadow-sm cursor-pointer hover:bg-muted flex items-center"
-                title="Audio Guidance / निर्देश सुनें"
-              >
-                <Volume2 size={15} />
-                <span>सुनें</span>
-              </button>
-
-              {/* Private Mode */}
-              <button
-                type="button"
-                onClick={() => {
-                  try { sovereignSound.playMechanicalSnap(); } catch {}
-                  setIsPrivateMode(!isPrivateMode);
-                }}
-                className={`tactile-btn h-9 px-3.5 rounded-xl backdrop-blur-md text-xs font-bold gap-1.5 shadow-sm cursor-pointer transition-all border flex items-center ${
-                  isPrivateMode
-                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/50'
-                    : 'bg-card/95 text-muted-foreground hover:text-foreground border-border/80'
-                }`}
-                title="Sensitive Mode"
-              >
-                {isPrivateMode ? <EyeOff size={15} /> : <Shield size={15} />}
-                <span>{isPrivateMode ? 'निजी' : 'निजी'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Floating Emergency / Congruence Alert Overlay in Phase 3.0 (When Voice detected Divergence) */}
-          {congruenceMismatch && (
-            <div className="absolute top-20 left-4 right-4 z-30 pointer-events-auto">
-              <div className={`p-3.5 sm:p-4 rounded-2xl border backdrop-blur-md flex items-center justify-between gap-3 shadow-lg animate-in fade-in slide-in-from-top-3 duration-300 ${
-                congruenceMismatch.isEmergency
-                  ? 'bg-rose-500/90 text-white border-rose-400/80 shadow-rose-950/30 ring-2 ring-rose-300/40'
-                  : 'bg-card/95 text-foreground border-amber-500/60 shadow-md'
-              }`}>
-                <div className="flex items-center gap-3 min-w-0 text-left">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    congruenceMismatch.isEmergency ? 'bg-white text-rose-600' : 'bg-amber-500/20 text-amber-600'
-                  }`}>
-                    <HeartPulse size={22} />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider opacity-90">
-                      {congruenceMismatch.isEmergency ? 'तत्काल ध्यान दें (Emergency Attention)' : 'सुझाव (Recommendation)'}
-                    </span>
-                    <span className="font-heading font-extrabold text-xs sm:text-sm truncate">
-                      {congruenceMismatch.reasonHindi}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchWithComorbidity(congruenceMismatch.suggestedLocusId)}
-                  className={`px-4 py-2 text-xs font-heading font-extrabold rounded-xl cursor-pointer shadow-md transition-all active:scale-95 shrink-0 flex items-center gap-1.5 ${
-                    congruenceMismatch.isEmergency
-                      ? 'bg-white text-rose-700 hover:bg-white/90 ring-1 ring-white/50'
-                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  }`}
-                >
-                  <span>{congruenceMismatch.suggestedLocusHindi.split('(')[0].trim()} चुनें</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Floating Bottom Navigation Bar */}
-          <div className="absolute bottom-4 left-4 right-4 z-30 flex items-center justify-between gap-3 pointer-events-none">
-            {/* Left: Back to Step 2 */}
-            <button
-              type="button"
-              onClick={onBack}
-              className="pointer-events-auto tactile-btn px-5 py-3 rounded-2xl bg-card/95 backdrop-blur-md text-xs sm:text-sm font-bold text-muted-foreground hover:text-foreground border border-border/80 shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95"
-            >
-              <ArrowLeft size={16} />
-              <span>पिछला (Back)</span>
-            </button>
-
-            {/* Right: Continue to Step 3.1 Symptoms & Voice Studio (Compulsory Gated) */}
-            <button
-              type="button"
-              disabled={!selectedBodyRegion}
-              onClick={() => {
-                if (!selectedBodyRegion) return;
-                try { sovereignSound.playMechanicalSnap(); } catch {}
-                setSubPhase('symptoms');
-              }}
-              className={`pointer-events-auto btn px-7 py-3.5 rounded-2xl text-sm font-heading font-extrabold flex items-center gap-2.5 shadow-xl transition-all active:scale-95 ${
-                selectedBodyRegion
-                  ? 'btn-primary hover:shadow-2xl cursor-pointer ring-2 ring-primary/40'
-                  : 'bg-muted text-muted-foreground/60 cursor-not-allowed border border-border/40 opacity-70'
-              }`}
-            >
-              <span>
-                {selectedBodyRegion
-                  ? `आगे बढ़ें: ${currentRegionalData.hindiName.split('(')[0].trim()}`
-                  : 'शरीर पर तकलीफ़ का अंग चुनें (Select Body Part)'}
-              </span>
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        </div>
-      )}
+      <AnatomicalMannequinModal3D
+        isOpen={subPhase === 'body'}
+        onClose={() => {
+          try { sovereignSound.playCrystalChime(); } catch {}
+          setSubPhase('symptoms');
+        }}
+        selectedRegion={selectedBodyRegion}
+        onSelectRegion={handleRegionClick}
+        isPrivateMode={isPrivateMode}
+        onTogglePrivateMode={() => setIsPrivateMode(!isPrivateMode)}
+        micLanguage={micLanguage}
+        onSkipToVoice={() => {
+          try { sovereignSound.playMechanicalSnap(); } catch {}
+          setSubPhase('symptoms');
+        }}
+        onBack={onBack}
+      />
 
       {/* =========================================================================
           PHASE 3.1: SOVEREIGN HAUTE LUXURY VOICE & CLINICAL SYMPTOMS STUDIO
@@ -1424,10 +1579,10 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                 try { sovereignSound.playMechanicalSnap(); } catch {}
                 setSubPhase('body');
               }}
-              className="tactile-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-primary border-primary/30 hover:bg-primary/10 flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+              className="tactile-btn px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-heading font-bold text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/10 flex items-center gap-2 cursor-pointer shadow-xs transition-all active:scale-95"
             >
-              <Edit3 size={14} />
-              <span>अंग बदलें (Change Organ)</span>
+              <Sparkles size={15} className="shrink-0" />
+              <span>3D मॉडल बदलें (Fullscreen 3D)</span>
             </button>
           </div>
 
@@ -1521,33 +1676,33 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               <div className="flex items-center gap-2">
                 <Radio size={18} className="text-primary" />
                 <span className="font-heading font-extrabold text-sm sm:text-base text-foreground">
-                  बोलकर बताएं (Speak Symptoms)
+                  {t.speakSymptomsLabel}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">भाषा:</span>
+                <span className="text-xs font-semibold text-muted-foreground">{t.languageSelectLabel}</span>
                 <select
                   value={micLanguage}
                   onChange={(e) => setMicLanguage(e.target.value as any)}
                   className="text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl border border-border bg-background text-foreground cursor-pointer shadow-2xs"
                 >
-                  <option value="hi-IN">Hindi (हिंदी)</option>
+                  <option value="bn-IN">বাংলা (Bengali)</option>
+                  <option value="ta-IN">தமிழ் (Tamil)</option>
+                  <option value="te-IN">తెలుగు (Telugu)</option>
+                  <option value="mr-IN">मराठी (Marathi)</option>
+                  <option value="hi-IN">हिन्दी (Hindi)</option>
                   <option value="en-IN">English (Indian)</option>
-                  <option value="mr-IN">Marathi (मराठी)</option>
-                  <option value="bn-IN">Bengali (বাংলা)</option>
-                  <option value="ta-IN">Tamil (தமிழ்)</option>
-                  <option value="te-IN">Telugu (తెలుగు)</option>
-                  <option value="gu-IN">Gujarati (ગુજરાતી)</option>
-                  <option value="kn-IN">Kannada (ಕನ್ನಡ)</option>
-                  <option value="pa-IN">Punjabi (ਪੰਜਾਬੀ)</option>
-                  <option value="ml-IN">Malayalam (മലയാളം)</option>
+                  <option value="gu-IN">ગુજરાતી (Gujarati)</option>
+                  <option value="kn-IN">ಕನ್ನಡ (Kannada)</option>
+                  <option value="pa-IN">ਪੰਜਾਬੀ (Punjabi)</option>
+                  <option value="ml-IN">മലയാളം (Malayalam)</option>
                 </select>
 
                 {parseSuccess && (
                   <div className="flex items-center gap-1 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/30">
                     <CheckCircle2 size={13} />
-                    <span>सत्यापित (Saved)</span>
+                    <span>{t.savedBadge}</span>
                   </div>
                 )}
               </div>
@@ -1565,14 +1720,14 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                 <div className="absolute inset-0 z-10 backdrop-blur-md bg-background/80 rounded-2xl flex items-center justify-center p-3 text-center border border-amber-500/30">
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-heading font-bold text-xs">
                     <Lock size={14} />
-                    <span>गोपनीय दृष्टि कवच सक्रिय (Private Mode)</span>
+                    <span>{t.privateModeBadge}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsPeekActive(true)}
                     className="tactile-btn ml-3 px-3 py-1 text-xs text-foreground font-bold rounded-lg cursor-pointer"
                   >
-                    देखें (Peek)
+                    Peek
                   </button>
                 </div>
               ) : null}
@@ -1754,21 +1909,26 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
                           className="px-3 py-1.5 rounded-xl bg-card border border-emerald-500/40 text-foreground flex items-center gap-2 shadow-2xs text-xs font-semibold"
                         >
                           <span className="font-heading font-bold text-emerald-600 dark:text-emerald-400">
-                            {s.symptom_name}
+                            {s.symptom_name || s.name || 'लक्षण'}
                           </span>
+                          {s.character && (
+                            <span className="text-[10px] font-mono bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded font-semibold border border-sky-500/20">
+                              {s.character}
+                            </span>
+                          )}
                           {s.location && (
                             <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                               {s.location}
                             </span>
                           )}
-                          {s.duration && (
+                          {(s.duration || s.onset) && (
                             <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                              {s.duration}
+                              {s.duration || s.onset}
                             </span>
                           )}
-                          {s.intensity && (
+                          {(s.severityScore !== undefined || s.intensity !== undefined) && (
                             <span className="text-[10px] font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">
-                              तीव्रता: {s.intensity}/10
+                              तीव्रता: {s.severityScore ?? s.intensity ?? 5}/10
                             </span>
                           )}
                         </div>
@@ -1901,37 +2061,48 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {currentRegionalData.symptoms.map((sym, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleAddSymptom(sym)}
-                    className={`p-3.5 rounded-2xl text-left border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs active:scale-98 group ${
-                      sym.isEmergency
-                        ? 'bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50'
-                        : 'bg-muted/40 hover:bg-primary/10 border-border/70 hover:border-primary/40'
-                    }`}
-                  >
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-heading font-bold text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors">
-                          {sym.hi}
-                        </span>
-                        {sym.isEmergency && (
-                          <span className="text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-rose-600 text-white uppercase shrink-0">
-                            आपातकाल
+                {currentRegionalData.symptoms.map((sym, idx) => {
+                  const currentLangCode = (language || 'hi').toLowerCase().substring(0, 2);
+                  const symPrimaryText = (sym as any)[currentLangCode] || (sym as any).labels?.[currentLangCode] || sym.hi || sym.en;
+                  const emergencyTag =
+                    currentLangCode === 'bn' ? 'জরুরি' :
+                    currentLangCode === 'mr' ? 'तात्काळ' :
+                    currentLangCode === 'ta' ? 'அவசரம்' :
+                    currentLangCode === 'te' ? 'అత్యవసరం' :
+                    currentLangCode === 'en' ? 'EMERGENCY' : 'आपातकाल';
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleAddSymptom(sym)}
+                      className={`p-3.5 rounded-2xl text-left border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs active:scale-98 group ${
+                        sym.isEmergency
+                          ? 'bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50'
+                          : 'bg-muted/40 hover:bg-primary/10 border-border/70 hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-heading font-bold text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors">
+                            {symPrimaryText}
                           </span>
-                        )}
+                          {sym.isEmergency && (
+                            <span className="text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-rose-600 text-white uppercase shrink-0">
+                              {emergencyTag}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10.5px] font-mono text-muted-foreground truncate mt-0.5">
+                          {sym.en}
+                        </span>
                       </div>
-                      <span className="text-[10.5px] font-mono text-muted-foreground truncate mt-0.5">
-                        {sym.en}
-                      </span>
-                    </div>
-                    <div className="h-7 w-7 rounded-xl bg-background/80 border border-border/80 flex items-center justify-center shrink-0 text-primary font-bold text-base group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all shadow-2xs">
-                      +
-                    </div>
-                  </button>
-                ))}
+                      <div className="h-7 w-7 rounded-xl bg-background/80 border border-border/80 flex items-center justify-center shrink-0 text-primary font-bold text-base group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all shadow-2xs">
+                        +
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1941,54 +2112,72 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               {/* Severity Segmented Toggle */}
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground mb-2.5 block text-left">
-                  2. दर्द की तीव्रता (Severity)
+                  {language === 'en' ? '2. Severity of Discomfort (Severity)' :
+                   language === 'bn' ? '২. কষ্টের তীব্রতা (Severity)' :
+                   language === 'mr' ? '२. त्रासाची तीव्रता (Severity)' :
+                   language === 'ta' ? '2. வலியின் தீவிரம் (Severity)' :
+                   language === 'te' ? '2. నొప్పి తీవ్రత (Severity)' :
+                   '2. दर्द की तीव्रता (Severity)'}
                 </span>
                 <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-muted/40 border border-border/70">
-                  {SEVERITY_LEVELS.map((s) => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => {
-                        try { sovereignSound.playMechanicalSnap(); } catch {}
-                        setSeverity(s.key as any);
-                      }}
-                      className={`py-2 px-2 rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-0.5 ${
-                        severity === s.key
-                          ? 'bg-card text-foreground shadow-sm border border-border'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
-                      }`}
-                    >
-                      <span className="text-xs font-heading font-bold">{s.label}</span>
-                      <span className="text-[9.5px] font-mono opacity-80">{s.en}</span>
-                    </button>
-                  ))}
+                  {SEVERITY_LEVELS.map((s) => {
+                    const currentLangCode = (language || 'hi').toLowerCase().substring(0, 2);
+                    const sLabel = (s as any).labels?.[currentLangCode] || s.label;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => {
+                          try { sovereignSound.playMechanicalSnap(); } catch {}
+                          setSeverity(s.key as any);
+                        }}
+                        className={`py-2 px-2 rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-0.5 ${
+                          severity === s.key
+                            ? 'bg-card text-foreground shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                        }`}
+                      >
+                        <span className="text-xs font-heading font-bold">{sLabel}</span>
+                        <span className="text-[9.5px] font-mono opacity-80">{s.en}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Duration Capsule Tabs */}
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground mb-2.5 block text-left">
-                  3. कब से है? (Duration)
+                  {language === 'en' ? '3. Since when? (Duration)' :
+                   language === 'bn' ? '৩. কতদিন ধরে? (Duration)' :
+                   language === 'mr' ? '३. कधीपासून आहे? (Duration)' :
+                   language === 'ta' ? '3. எப்போதிருந்து? (Duration)' :
+                   language === 'te' ? '3. ఎప్పటి నుండి? (Duration)' :
+                   '3. कब से है? (Duration)'}
                 </span>
                 <div className="grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-muted/40 border border-border/70">
-                  {DURATION_CHOICES.map((d) => (
-                    <button
-                      key={d.key}
-                      type="button"
-                      onClick={() => {
-                        try { sovereignSound.playMechanicalSnap(); } catch {}
-                        setDuration(d.key as any);
-                      }}
-                      className={`py-2 px-1 rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-0.5 ${
-                        duration === d.key
-                          ? 'bg-card text-foreground shadow-sm border border-border'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
-                      }`}
-                    >
-                      <span className="text-xs font-heading font-bold truncate">{d.label}</span>
-                      <span className="text-[9.5px] font-mono opacity-80 truncate">{d.en}</span>
-                    </button>
-                  ))}
+                  {DURATION_CHOICES.map((d) => {
+                    const currentLangCode = (language || 'hi').toLowerCase().substring(0, 2);
+                    const dLabel = (d as any).labels?.[currentLangCode] || d.label;
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() => {
+                          try { sovereignSound.playMechanicalSnap(); } catch {}
+                          setDuration(d.key as any);
+                        }}
+                        className={`py-2 px-1 rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-0.5 ${
+                          duration === d.key
+                            ? 'bg-card text-foreground shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                        }`}
+                      >
+                        <span className="text-xs font-heading font-bold truncate">{dLabel}</span>
+                        <span className="text-[9.5px] font-mono opacity-80 truncate">{d.en}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1997,7 +2186,12 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
             <div className="pt-4 border-t border-border/60">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground block text-left">
-                  4. कैसा दर्द या तकलीफ़ है? (Sensation)
+                  {language === 'en' ? '4. What does the pain or discomfort feel like? (Sensation)' :
+                   language === 'bn' ? '৪. কেমন অনুভূতি বা কষ্ট হচ্ছে? (Sensation)' :
+                   language === 'ta' ? '4. வலி அல்லது அசௌகரியம் எப்படி உணர்கிறது? (Sensation)' :
+                   language === 'te' ? '4. నొప్పి లేదా అసౌకర్యం ఎలా అనిపిస్తుంది? (Sensation)' :
+                   language === 'mr' ? '४. वेदना किंवा त्रास कसा जाणवतो? (Sensation)' :
+                   '4. कैसा दर्द या तकलीफ़ है? (Sensation)'}
                 </span>
                 <span className="text-[11px] font-mono text-muted-foreground">
                   {currentRegionalData.enName}
@@ -2006,19 +2200,26 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                 {activeSensations.map((sens) => {
                   const Icon = sens.icon;
+                  const isSelected = selectedSensation === sens.key;
+                  const currentLang = (language || 'hi').toLowerCase().substring(0, 2);
+                  const displayLabel = sens.labels[currentLang] || sens.labels['hi'] || sens.en;
                   return (
                     <button
                       key={sens.key}
                       type="button"
                       onClick={() => handleAddSensation(sens)}
-                      className="p-3 rounded-2xl border border-border/70 bg-muted/40 hover:bg-primary/10 hover:border-primary/40 text-center cursor-pointer transition-all active:scale-95 shadow-2xs flex flex-col items-center justify-center gap-1 group"
+                      className={`p-3 rounded-2xl border text-center cursor-pointer transition-all active:scale-95 shadow-2xs flex flex-col items-center justify-center gap-1 group ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground border-primary ring-2 ring-primary/30 font-bold'
+                          : 'border-border/70 bg-muted/40 hover:bg-primary/10 hover:border-primary/40'
+                      }`}
                     >
-                      <Icon size={18} className="text-primary shrink-0 group-hover:scale-110 transition-transform" />
-                      <span className="text-xs font-heading font-bold text-foreground truncate w-full text-center group-hover:text-primary transition-colors">
-                        {sens.label}
+                      <Icon size={18} className={`shrink-0 group-hover:scale-110 transition-transform ${isSelected ? 'text-primary-foreground' : 'text-primary'}`} />
+                      <span className={`text-xs font-heading font-bold truncate w-full text-center ${isSelected ? 'text-primary-foreground' : 'text-foreground group-hover:text-primary'} transition-colors`}>
+                        {displayLabel}
                       </span>
-                      <span className="text-[10px] font-mono text-muted-foreground truncate w-full text-center">
-                        {sens.en}
+                      <span className={`text-[10px] font-mono truncate w-full text-center ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                        {sens.standardCharacter}
                       </span>
                     </button>
                   );

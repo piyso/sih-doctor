@@ -10,7 +10,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: sih-doctor-backend
+    container_name: hospitalos-doctor-backend
     restart: unless-stopped
     environment:
       - PORT=8001
@@ -27,17 +27,17 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - sih-medikiosk-net
+      - hospitalos-medikiosk-net
     labels:
       - "coolify.managed=true"
       - "coolify.type=service"
-      - "coolify.name=sih-doctor-backend"
+      - "coolify.name=hospitalos-doctor-backend"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: sih-doctor-frontend
+    container_name: hospitalos-doctor-frontend
     restart: unless-stopped
     ports:
       - "80:80"
@@ -46,11 +46,11 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - sih-medikiosk-net
+      - hospitalos-medikiosk-net
     labels:
       - "coolify.managed=true"
       - "coolify.type=application"
-      - "coolify.name=sih-doctor-frontend"
+      - "coolify.name=hospitalos-doctor-frontend"
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
@@ -59,10 +59,10 @@ services:
 
 volumes:
   medikiosk-data:
-    name: sih-doctor-medikiosk-data
+    name: hospitalos-doctor-medikiosk-data
     driver: local
 
 networks:
-  sih-medikiosk-net:
-    name: sih-doctor-net
+  hospitalos-medikiosk-net:
+    name: hospitalos-doctor-net
     driver: bridge

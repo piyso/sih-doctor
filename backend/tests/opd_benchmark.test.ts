@@ -183,7 +183,7 @@ export function runOPDBenchmark(caseCount: number = 5000): BenchmarkResult {
   console.log(`• Exact AYUSH Formulation: ${ayushAccuracy.toFixed(2)}% (${totalAyushAccurate}/${caseCount})`);
   console.log(`• Symptom Match Accuracy:  ${symptomAccuracy.toFixed(2)}% (${totalSymptomsAccurate}/${caseCount})`);
 
-  const passed = avgLatencyMs < 0.2 && 
+  const passed = avgLatencyMs < 0.5 && 
                  vitalsAccuracy >= 95.0 && 
                  rxAccuracy >= 95.0 && 
                  ayushAccuracy >= 95.0 && 

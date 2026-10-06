@@ -40,6 +40,17 @@ PiyGraphService.initialize();
 const graphStats = PiyGraphService.getGraphStats();
 console.log(`[PiyGraph] Initialized Causal AYUSH Graph: ${graphStats.nodeCount} nodes, ${graphStats.edgeCount} edges`);
 
+// Ensure SQLite database has baseline clinical cohort if fresh
+try {
+  const sessionCount = (db.prepare('SELECT count(*) as count FROM sessions').get() as any)?.count || 0;
+  if (sessionCount === 0) {
+    console.log('[Database] Database is fresh (0 sessions). Seeding live hospital patient cohort...');
+    seedDatabase();
+  }
+} catch (e) {
+  console.warn('[Database] Auto-seed check notice:', e);
+}
+
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));

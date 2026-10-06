@@ -109,7 +109,7 @@ const TERMINAL_OPTIONS: TerminalOption[] = [
     title: 'System Defense Matrix',
     shortTitle: 'Audit Matrix',
     hindiTitle: 'सुरक्षा प्रमाण',
-    role: 'Technical Jury & Auditor',
+    role: 'Statutory Technical Auditor',
     device: 'Air-Gapped Audit Terminal',
     summary: 'Zero cloud egress verification, Groth16 zk-SNARK cryptographic curve checks, & Verhoeff D5 audits.',
     liveMetric: 'Zero Cloud Egress',

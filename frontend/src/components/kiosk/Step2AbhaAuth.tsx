@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, CheckCircle2, User, ArrowLeft, ArrowRight, Sparkles, CreditCard, Lock, Smartphone, Check, Volume2 } from 'lucide-react';
 import { VerhoeffD5 } from '../../utils/verhoeff';
 import { sovereignSound } from '../../utils/audio';
+import { getKioskTranslations } from '../../utils/kioskLocalization';
 
 interface Step2AbhaAuthProps {
   patient: {
@@ -16,6 +17,7 @@ interface Step2AbhaAuthProps {
     weightKg?: number;
   };
   setPatient: React.Dispatch<React.SetStateAction<any>>;
+  language?: string;
   onNext: () => void;
   onBack: () => void;
 }
@@ -23,9 +25,11 @@ interface Step2AbhaAuthProps {
 export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
   patient,
   setPatient,
+  language = 'hi',
   onNext,
   onBack
 }) => {
+  const t = getKioskTranslations(language);
   const [authMethod, setAuthMethod] = useState<'abha' | 'aadhaar' | 'guest'>('abha');
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState('4829');
@@ -76,10 +80,10 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
       {/* Title Header */}
       <div className="text-center mb-5 sm:mb-6">
         <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">
-          रोगी पहचान (Patient Verification)
+          {t.step2Title}
         </h2>
         <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-          Enter ABHA ID, Mobile number, or select a demo profile below
+          {t.step2Subtitle}
         </p>
 
         {/* Audio Guidance Accessibility */}
@@ -87,12 +91,12 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
           type="button"
           onClick={() => {
             sovereignSound.playMechanicalSnap();
-            sovereignSound.speakGuidance('कृपया अपना आभा आईडी, आधार नंबर या नाम और उम्र दर्ज करें। यदि आप गर्भवती हैं या स्तनपान करा रही हैं, तो मातृत्व सुरक्षा विकल्प अवश्य चुनें।');
+            sovereignSound.speakGuidance(t.step2AudioPrompt, t.bcp47);
           }}
           className="tactile-btn text-xs font-semibold px-3 py-1 rounded-full gap-1.5 text-sky-600 dark:text-sky-400 border-sky-500/30 bg-sky-500/10 cursor-pointer"
         >
           <Volume2 size={13} />
-          <span>निर्देश सुनें / Audio Guidance</span>
+          <span>{t.audioGuidanceBtn}</span>
         </button>
       </div>
 
@@ -192,7 +196,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
           {/* Patient Full Name */}
           <div>
             <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
-              रोगी का पूरा नाम / Full Legal Name *
+              {t.fullNameLabel} *
             </label>
             <input
               type="text"
@@ -289,7 +293,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
-                आयु / Age *
+                {t.ageLabel} *
               </label>
               <input
                 type="number"
@@ -301,16 +305,16 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
 
             <div className="flex-1.4">
               <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
-                लिंग / Gender *
+                {t.genderLabel} *
               </label>
               <select
                 value={patient.gender}
                 onChange={(e) => setPatient({ ...patient, gender: e.target.value as any })}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 cursor-pointer"
               >
-                <option value="MALE">पुरुष / Male</option>
-                <option value="FEMALE">महिला / Female</option>
-                <option value="OTHER">अन्य / Other</option>
+                <option value="MALE">{t.maleOption}</option>
+                <option value="FEMALE">{t.femaleOption}</option>
+                <option value="OTHER">{t.otherOption}</option>
               </select>
             </div>
           </div>
@@ -323,7 +327,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
               <div className="flex items-center gap-2">
                 <ShieldCheck size={16} className="text-rose-600 dark:text-rose-400" />
                 <span className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-300">
-                  मातृत्व एवं गर्भ सुरक्षा / Maternal-Fetal Pharmacology Guard
+                  {t.maternalGuardTitle}
                 </span>
               </div>
               <span className="text-[10px] font-mono text-muted-foreground">
@@ -335,7 +339,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
               {/* Pregnancy Toggle */}
               <div className="bg-background/80 p-3 rounded-xl border border-border/80">
                 <label className="block text-xs font-semibold text-foreground/80 mb-2">
-                  क्या आप गर्भवती हैं? / Pregnant?
+                  {t.pregnantLabel}
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -350,7 +354,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
                         : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
                     }`}
                   >
-                    हाँ / Yes
+                    {t.yesBtn}
                   </button>
                   <button
                     type="button"
@@ -364,7 +368,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
                         : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
                     }`}
                   >
-                    नहीं / No
+                    {t.noBtn}
                   </button>
                 </div>
               </div>
@@ -372,7 +376,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
               {/* Lactation Toggle */}
               <div className="bg-background/80 p-3 rounded-xl border border-border/80">
                 <label className="block text-xs font-semibold text-foreground/80 mb-2">
-                  स्तनपान करा रही हैं? / Breastfeeding?
+                  {t.lactatingLabel}
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -387,7 +391,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
                         : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
                     }`}
                   >
-                    हाँ / Yes
+                    {t.yesBtn}
                   </button>
                   <button
                     type="button"
@@ -401,7 +405,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
                         : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
                     }`}
                   >
-                    नहीं / No
+                    {t.noBtn}
                   </button>
                 </div>
               </div>
@@ -410,7 +414,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
             {patient.isPregnant && (
               <div className="flex items-center gap-2 bg-muted/80 p-2.5 rounded-xl border border-border/80 text-foreground text-xs font-semibold">
                 <ShieldCheck size={14} className="text-primary shrink-0" />
-                <span>गर्भावस्था सुरक्षा सक्रिय: राजा प्रवर्तनी वटी, कासीसादी, एवं एलोपैथिक टेराटोजेन्स (ACEI/ARBs/Statins) स्वतः ब्लॉक होंगे।</span>
+                <span>{t.maternalGuardSub}</span>
               </div>
             )}
           </div>

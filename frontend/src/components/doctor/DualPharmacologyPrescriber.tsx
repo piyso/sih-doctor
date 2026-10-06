@@ -192,7 +192,9 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
   session = null,
   onOpenRxModal
 }) => {
-  const [activeConflictAlert, setActiveConflictAlert] = useState<ConflictAlert | null>(null);
+  const [detectedConflicts, setDetectedConflicts] = useState<ConflictAlert[]>([]);
+  const [modalAlert, setModalAlert] = useState<ConflictAlert | null>(null);
+  const hasShownModalForPair = React.useRef<string>('');
   const [_hypergraph, setHypergraph] = useState<HypergraphPolypharmacyResult | null>(null);
   const [showFhirModal, setShowFhirModal] = useState(false);
   const [fhirData, setFhirData] = useState<any>(null);
@@ -213,8 +215,17 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
       } else {
         setHypergraph(null);
       }
-      if (res.alerts.length > 0 && !activeConflictAlert) {
-        setActiveConflictAlert(res.alerts[0]);
+      setDetectedConflicts(res.alerts);
+      if (res.alerts.length > 0) {
+        const pairKey = `${res.alerts[0].itemA || res.alerts[0].allopathicDrug}-${res.alerts[0].itemB || res.alerts[0].ayushHerb}`;
+        if (hasShownModalForPair.current !== pairKey) {
+          hasShownModalForPair.current = pairKey;
+          sovereignSound.playClinicalAlert();
+          setModalAlert(res.alerts[0]);
+        }
+      } else {
+        hasShownModalForPair.current = '';
+        setModalAlert(null);
       }
     }).catch(e => {
       console.warn('Polypharmacy check fallback:', e);
@@ -222,19 +233,21 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
     return () => { active = false; };
   }, [allopathicMeds, ayushFormulations]);
 
-  const detectedConflict: ConflictAlert | null = activeConflictAlert;
+  const detectedConflict: ConflictAlert | null = detectedConflicts[0] || null;
 
   const handleOneClickSubstituteDynamic = (strategy: ReturnType<typeof getConflictResolutionStrategy>) => {
     sovereignSound.playCrystalChime();
     setAyushFormulations(prev => {
       const filtered = prev.filter(a => {
-        const nameLower = a.classicalName.toLowerCase();
+        const nameLower = (a.classicalName || '').toLowerCase();
         return !strategy.targetHerbKeywords.some(k => nameLower.includes(k));
       });
       return [...filtered, ...strategy.substitutes];
     });
     setHypergraph(null);
-    setActiveConflictAlert(null);
+    setDetectedConflicts([]);
+    setModalAlert(null);
+    hasShownModalForPair.current = '';
   };
 
   const handleAddAllopathic = async (medTemplate: FormularyAllopathicItem) => {
@@ -252,12 +265,13 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
     setIsAlloSearchOpen(false);
     setSearchAllo('');
 
-    // Evaluate conflicts via live Bayesian Truth Engine
+    // Instant evaluation via live Bayesian Truth Engine + offline fallback
     try {
       const alerts = await api.checkContraindications(updated, ayushFormulations);
       if (alerts.length > 0) {
         sovereignSound.playClinicalAlert();
-        setActiveConflictAlert(alerts[0]);
+        setDetectedConflicts(alerts);
+        setModalAlert(alerts[0]);
       }
     } catch (e) {
       console.warn('Real-time conflict evaluation error:', e);
@@ -282,12 +296,13 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
     setIsAyushSearchOpen(false);
     setSearchAyush('');
 
-    // Evaluate conflicts via live Bayesian Truth Engine
+    // Instant evaluation via live Bayesian Truth Engine + offline fallback
     try {
       const alerts = await api.checkContraindications(allopathicMeds, updated);
       if (alerts.length > 0) {
         sovereignSound.playClinicalAlert();
-        setActiveConflictAlert(alerts[0]);
+        setDetectedConflicts(alerts);
+        setModalAlert(alerts[0]);
       }
     } catch (e) {
       console.warn('Real-time conflict evaluation error:', e);
@@ -462,11 +477,61 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                 type="text"
                 value={searchAllo}
                 onChange={(e) => setSearchAllo(e.target.value)}
-                placeholder="Search NLEM generic name, brand or category..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchAllo.trim()) {
+                    e.preventDefault();
+                    const firstMatch = filteredAllo[0];
+                    if (firstMatch) {
+                      handleAddAllopathic(firstMatch);
+                    } else {
+                      handleAddAllopathic({
+                        id: 'custom-' + Date.now(),
+                        name: searchAllo.trim(),
+                        genericName: searchAllo.trim(),
+                        dosage: 'Standard',
+                        route: 'ORAL',
+                        frequency: 'OD (Once Daily)',
+                        durationDays: 30,
+                        category: 'Custom'
+                      });
+                    }
+                  }
+                }}
+                placeholder="Search NLEM generic name, brand or type custom drug..."
                 style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #cbd5e1', marginBottom: 8 }}
                 autoFocus
               />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                {searchAllo.trim() && (
+                  <div
+                    onClick={() => handleAddAllopathic({
+                      id: 'custom-' + Date.now(),
+                      name: searchAllo.trim(),
+                      genericName: searchAllo.trim(),
+                      dosage: 'Standard',
+                      route: 'ORAL',
+                      frequency: 'OD (Once Daily)',
+                      durationDays: 30,
+                      category: 'Custom'
+                    })}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: '#f0f9ff',
+                      border: '1px dashed #0284c7',
+                      cursor: 'pointer',
+                      fontSize: 11.5,
+                      color: '#0369a1',
+                      fontWeight: 700
+                    }}
+                  >
+                    <span>+ Prescribe custom: &quot;{searchAllo.trim()}&quot;</span>
+                    <span style={{ fontSize: 10, background: '#0284c7', color: '#fff', padding: '2px 6px', borderRadius: 4 }}>Add</span>
+                  </div>
+                )}
                 {filteredAllo.map(med => (
                   <div
                     key={med.id}
@@ -616,11 +681,67 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                 type="text"
                 value={searchAyush}
                 onChange={(e) => setSearchAyush(e.target.value)}
-                placeholder="Search AFI classical compound, category or Bhasma..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchAyush.trim()) {
+                    e.preventDefault();
+                    const firstMatch = filteredAyush[0];
+                    if (firstMatch) {
+                      handleAddAyush(firstMatch);
+                    } else {
+                      handleAddAyush({
+                        id: 'custom-' + Date.now(),
+                        classicalName: searchAyush.trim(),
+                        namasteCode: 'AYU-CUST-' + Math.floor(Math.random() * 1000),
+                        dosageForm: 'Churna / Vati',
+                        dose: '3g / 1 Vati',
+                        anupana: 'Koshna Jala (Warm Water)',
+                        frequency: 'BD (Twice Daily)',
+                        durationDays: 15,
+                        category: 'Classical',
+                        pathya: ['Light warm diet'],
+                        apathya: ['Pungent oily food']
+                      });
+                    }
+                  }
+                }}
+                placeholder="Search AFI classical compound or type custom formulation..."
                 style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #cbd5e1', marginBottom: 8 }}
                 autoFocus
               />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                {searchAyush.trim() && (
+                  <div
+                    onClick={() => handleAddAyush({
+                      id: 'custom-' + Date.now(),
+                      classicalName: searchAyush.trim(),
+                      namasteCode: 'AYU-CUST-' + Math.floor(Math.random() * 1000),
+                      dosageForm: 'Churna / Vati',
+                      dose: '3g / 1 Vati',
+                      anupana: 'Koshna Jala (Warm Water)',
+                      frequency: 'BD (Twice Daily)',
+                      durationDays: 15,
+                      category: 'Classical',
+                      pathya: ['Light warm diet'],
+                      apathya: ['Pungent oily food']
+                    })}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: '#f0fdf4',
+                      border: '1px dashed #16a34a',
+                      cursor: 'pointer',
+                      fontSize: 11.5,
+                      color: '#15803d',
+                      fontWeight: 700
+                    }}
+                  >
+                    <span>+ Prescribe custom formulation: &quot;{searchAyush.trim()}&quot;</span>
+                    <span style={{ fontSize: 10, background: '#16a34a', color: '#fff', padding: '2px 6px', borderRadius: 4 }}>Add</span>
+                  </div>
+                )}
                 {filteredAyush.map(ay => (
                   <div
                     key={ay.id}
@@ -815,7 +936,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
                   type="button"
                   onClick={() => {
                     sovereignSound.playMechanicalSnap();
-                    setActiveConflictAlert(detectedConflict);
+                    setModalAlert(detectedConflict);
                   }}
                   className="btn btn-secondary"
                   style={{
@@ -891,16 +1012,18 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
       })()}
 
       {/* Conflict Alert Modal */}
-      {activeConflictAlert && (
+      {modalAlert && (
         <ConflictAlertModal
-          alert={activeConflictAlert}
-          onClose={() => setActiveConflictAlert(null)}
+          alert={modalAlert}
+          onClose={() => setModalAlert(null)}
           onOverride={(_reason) => {
-            setActiveConflictAlert(null);
+            setModalAlert(null);
           }}
           onRemoveHerb={(herbName) => {
-            setAyushFormulations(ayushFormulations.filter(a => !a.classicalName.includes(herbName.split(' ')[0])));
-            setActiveConflictAlert(null);
+            setAyushFormulations(ayushFormulations.filter(a => !(a.classicalName || '').toLowerCase().includes((herbName || '').toLowerCase().split(' ')[0])));
+            setDetectedConflicts([]);
+            setModalAlert(null);
+            hasShownModalForPair.current = '';
           }}
         />
       )}

@@ -1021,8 +1021,67 @@
   .kiosk-nav-rail {
     display: none !important;
   }
+
+  /* Isolate print document from outer dashboards */
+  body:has(.printable-prescription) .doctor-desk-grid,
+  body:has(.printable-prescription) .doctor-persistent-dock,
+  body:has(.printable-prescription) .glass,
+  body:has(.printable-prescription) .kiosk-container,
+  body:has(.printable-prescription) .portal-container {
+    display: none !important;
+  }
+
+  body:has(.printable-prescription) .official-rx-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
+    inset: auto !important;
+  }
+
+  body:has(.printable-token-slip) .doctor-desk-container,
+  body:has(.printable-token-slip) .portal-container {
+    display: none !important;
+  }
   
-  .printable-prescription,
+  div[style*="position: fixed"] {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  div[style*="maxHeight"],
+  div[style*="max-height"] {
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  .printable-prescription {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    page-break-inside: auto;
+  }
+
+  .printable-prescription * {
+    color: #0f172a !important;
+  }
+
   .printable-token-slip {
     background: #ffffff !important;
     color: #000000 !important;
@@ -1031,6 +1090,8 @@
     padding: 16px !important;
     margin: 0 auto !important;
     max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
     page-break-inside: avoid;
   }
   

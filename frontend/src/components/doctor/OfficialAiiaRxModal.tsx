@@ -75,6 +75,7 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFinalized, setIsFinalized] = useState(false);
 
   const handlePrint = async () => {
     try {
@@ -92,13 +93,17 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
         ayushPrescription: ayushFormulations,
         doctorNotes: 'Prescription reviewed, counterfactual cross-checked, and approved for dispensary fulfillment.'
       });
-      sovereignSound.playCrystalChime();
+      setIsFinalized(true);
+      try { sovereignSound.playCrystalChime(); } catch {}
     } catch (e) {
       console.warn('Finalize prescription notice:', e);
     } finally {
       setIsSubmitting(false);
+      // Execute print synchronously while modal DOM tree is active
       window.print();
-      if (onFinalize) onFinalize();
+      if (onFinalize) {
+        onFinalize();
+      }
     }
   };
 
@@ -118,6 +123,7 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
 
   return (
     <div
+      className="official-rx-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
@@ -132,11 +138,13 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
         overflowY: 'auto'
       }}
       onClick={() => {
-        sovereignSound('notch');
+        try { sovereignSound.playDialNotch(); } catch {}
+        if (isFinalized && onFinalize) onFinalize();
         onClose();
       }}
     >
       <div
+        className="official-rx-card"
         style={{
           maxWidth: 920,
           width: '100%',
@@ -181,18 +189,20 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={() => {
-                sovereignSound('shutter');
+                try { sovereignSound.playMechanicalSnap(); } catch {}
                 handlePrint();
               }}
               className="btn btn-primary"
               style={{ padding: '8px 18px', fontSize: 12, gap: 6 }}
+              disabled={isSubmitting}
             >
               <Printer size={15} />
-              <span>Print Official Slip (A4 / Thermal)</span>
+              <span>{isSubmitting ? 'Signing & Finalizing...' : 'Print Official Slip (A4 / Thermal)'}</span>
             </button>
             <button
               onClick={() => {
-                sovereignSound('notch');
+                try { sovereignSound.playDialNotch(); } catch {}
+                if (isFinalized && onFinalize) onFinalize();
                 onClose();
               }}
               className="btn btn-secondary"
@@ -202,6 +212,57 @@ export const OfficialAiiaRxModal: React.FC<OfficialAiiaRxModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Prescription Finalized & Transmitted Confirmation Banner */}
+        {isFinalized && (
+          <div
+            className="no-print"
+            style={{
+              padding: '12px 22px',
+              background: '#ecfdf5',
+              borderBottom: '1px solid #a7f3d0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CheckCircle2 size={18} color="#059669" />
+              <div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#065f46', display: 'block' }}>
+                  ✓ पर्ची सफलतापूर्वक जारी और प्रमाणित (Prescription Finalized & Transmitted)
+                </span>
+                <span style={{ fontSize: 11, color: '#047857', fontFamily: 'monospace' }}>
+                  Token: {opdNumber} • Dispatched to Hospital Dispensary & ABDM
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn btn-secondary"
+                style={{ padding: '6px 14px', fontSize: 11, gap: 5 }}
+              >
+                <Printer size={13} />
+                <span>पुनः प्रिंट करें (Print Again)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onFinalize) onFinalize();
+                  onClose();
+                }}
+                className="btn btn-primary"
+                style={{ padding: '6px 14px', fontSize: 11, background: '#059669', borderColor: '#059669' }}
+              >
+                <span>समाप्त (Close & Return)</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable Printable Prescription Canvas */}
         <div

@@ -25,8 +25,14 @@ export const CLINICAL_PHONETIC_DICTIONARY: ClinicalPhoneticMapping[] = [
   { raw: 'सांस लेने में तकलीफ', canonical: 'Dyspnea / Breathlessness', category: 'symptom' },
   { raw: 'सांस लेने में दिक्कत', canonical: 'Dyspnea / Breathlessness', category: 'symptom' },
   { raw: 'धड़कन तेज', canonical: 'Tachycardia / Palpitations', category: 'symptom' },
+  { raw: 'हाथ में दर्द', canonical: 'Arm and Hand Pain', category: 'symptom' },
+  { raw: 'हाथ में बहुत दर्द', canonical: 'Severe Arm and Hand Pain', category: 'symptom' },
+  { raw: 'हाथ दर्द', canonical: 'Arm and Hand Pain', category: 'symptom' },
+  { raw: 'बांह में दर्द', canonical: 'Arm and Hand Pain', category: 'symptom' },
   { raw: 'बाएं हाथ में दर्द', canonical: 'Left Arm Radiation Pain', category: 'symptom' },
   { raw: 'बाईं बांह में दर्द', canonical: 'Left Arm Radiation Pain', category: 'symptom' },
+  { raw: 'दाएं हाथ में दर्द', canonical: 'Right Arm and Hand Pain', category: 'symptom' },
+  { raw: 'दाईं बांह में दर्द', canonical: 'Right Arm and Hand Pain', category: 'symptom' },
   { raw: 'तेज बुखार', canonical: 'High Grade Fever / Teekshna Jwara', category: 'symptom' },
   { raw: 'बुखार', canonical: 'Fever', category: 'symptom' },
   { raw: 'सिर दर्द', canonical: 'Headache', category: 'symptom' },
@@ -399,21 +405,21 @@ export class PhoneticNormalizerService {
   private static initialized: boolean = false;
 
   // Multi-Lingual Anatomical Loci Root Regular Expressions (Latin + Devanagari Hindi + Indic)
-  private static readonly ANAT_THORAX = /(?:ch[a|h]ati|seene|seena|sina|kareja|kaleja|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|नेन्जु|गुंडे|हिया)/i;
-  private static readonly ANAT_LEFT_ARM = /(?:baaye\s*haath|baya\s*hath|baaye\s*baahu|baam\s*haat|dava\s*hat|edama\s*cheyyi|idathu\s*kai|khabbe\s*hath|khowur\s*atha|बायां\s*हाथ|बाएं\s*हाथ|बाईं\s*बांह|बायां\s*हाथ|डावा\s*हात)/i;
-  private static readonly ANAT_KNEE_JOINT = /(?:ghutn[ae]|janu|muttukal|mokaalu|jod[o]?|sandhi|घुटना|घुटने|घुटनों|जानु|जोड़|जोड़ों|संधि)/i;
-  private static readonly ANAT_LUMBAR_SPINE = /(?:kamar|peeth|kati|nadumu|kodum|कमर|पीठ|कटि|रीढ़)/i;
-  private static readonly ANAT_ABDOMEN = /(?:pet|pait|paat|paet|udar|koshtha|vayiru|potte|kadupu|hotte|vayar|pedu|nabhi|पेट|आमाशय|उदर|पेड़ू|नाभि|कोठा)/i;
-  private static readonly ANAT_HEAD = /(?:sir|sar|matha|kapaal|thala|tala|सिर|सर|माथा|कपाल|मस्तक)/i;
+  private static readonly ANAT_THORAX = /(?:ch[a|h]ati|seene|seena|sina|kareja|kaleja|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|नेन्जु|गुंडे|हिया|বুক|বুকে|நெஞ்சு|மார்பு|மார்பில்|ఛాతీ|గుండె)/i;
+  private static readonly ANAT_LEFT_ARM = /(?:baaye\s*haath|baya\s*hath|baaye\s*baahu|baam\s*haat|dava\s*hat|edama\s*cheyyi|idathu\s*kai|khabbe\s*hath|khowur\s*atha|बायां\s*हाथ|बाएं\s*हाथ|बाईं\s*बांह|बायां\s*हाथ|डावा\s*हात|डाव्या\s*हातात|বাঁ\s*হাত|বাম\s*হাত|இடது\s*கை|ఎడమ\s*చేయి)/i;
+  private static readonly ANAT_KNEE_JOINT = /(?:ghutn[ae]|janu|muttukal|mokaalu|jod[o]?|sandhi|घुटना|घुटने|घुटनों|जानु|जोड़|जोड़ों|संधि|सांधे|হাঁটু|গাঁট|முழங்கால்|மூட்டு|మోకాలు|కీళ్లు)/i;
+  private static readonly ANAT_LUMBAR_SPINE = /(?:kamar|peeth|kati|nadumu|kodum|कमर|पीठ|कटि|रीढ़|कंबर|पाठ|কোমর|পিঠ|முதுகு|இடுப்பு|నడుము|వెన్ను)/i;
+  private static readonly ANAT_ABDOMEN = /(?:pet|pait|paat|paet|udar|koshtha|vayiru|potte|kadupu|hotte|vayar|pedu|nabhi|पेट|आमाशय|उदर|पेड़ू|नाभि|कोठा|पोट|পেট|তলপেট|வயிறு|அடிவயிறு|కడుపు|పొత్తికడుపు)/i;
+  private static readonly ANAT_HEAD = /(?:sir|sar|matha|kapaal|thala|tala|सिर|सर|माथा|कपाल|मस्तक|डोके|মাথা|தலை|తల)/i;
 
   // Multi-Lingual Pathological Sensation Root Regular Expressions (Latin + Devanagari Hindi + Indic)
-  private static readonly SENS_CRUSHING = /(?:bojh|bhari|bhaari|chaap|dabav|baram|wazan|saap|kediya|crushing|pressure|ghana|ghano|भारीपन|बोझ|दबाव|भारी|कड़क|दबना)/i;
-  private static readonly SENS_PAIN = /(?:dard|peeda|vedana|byatha|noppi|vali|novu|peer|daag|bikh|kasak|jatana|pain|dukh|dukhne|दर्द|पीड़ा|वेदना|दुखना|टीस|कसक|शूल)/i;
-  private static readonly SENS_CREPITUS = /(?:cut\s*cut|kat\s*kat|char\s*char|crepitus|crackling|clicking|कट-कट|कट\s*कट|चर-चर|खट-खट)/i;
-  private static readonly SENS_STIFFNESS = /(?:akad|akdan|stambha|stiff|jam|अकड़न|जकड़न|स्तम्भ|जाम)/i;
-  private static readonly SENS_BURNING = /(?:jalan|jalna|daaha|daha|erichal|manta|acid|burn|जलन|दाह|सुलगना|एसिड)/i;
-  private static readonly SENS_DIAPHORESIS = /(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|sweat|पसीना|पसीने|घाम)/i;
-  private static readonly SENS_DYSPNEA = /(?:saans\s*phool|swasa|dum\s*phool|shaas\s*koshto|moochu\s*thinaral|aadakapovadam|सांस\s*फूल|दम\s*फूल|सांस\s*लेने\s*में\s*तकलीफ|सांस\s*चढ़ना)/i;
+  private static readonly SENS_CRUSHING = /(?:bojh|bhari|bhaari|chaap|dabav|baram|wazan|saap|kediya|crushing|pressure|ghana|ghano|भारीपन|बोझ|दबाव|भारी|कड़क|दबना|दाट|गच्च|চাপ|அடைப்பு|பாரம்|பிசை|బరువు)/i;
+  private static readonly SENS_PAIN = /(?:dard|peeda|vedana|byatha|noppi|vali|novu|peer|daag|bikh|kasak|jatana|pain|dukh|dukhne|दर्द|पीड़ा|वेदना|दुखना|टीस|कसक|शूल|कळ|व्यथा|ব্যথা|কষ্ট|টান|வலி|நோவு|நొప్పి|పోటు)/i;
+  private static readonly SENS_CREPITUS = /(?:cut\s*cut|kat\s*kat|char\s*char|crepitus|crackling|clicking|कट-कट|कट\s*कट|चर-चर|खट-खट|কটকট|சத்தம்|చటచట)/i;
+  private static readonly SENS_STIFFNESS = /(?:akad|akdan|stambha|stiff|jam|अकड़न|जकड़न|स्तम्भ|जाम|आखड|শক্ত|இறுக்கம்|పట్ట)/i;
+  private static readonly SENS_BURNING = /(?:jalan|jalna|daaha|daha|erichal|manta|acid|burn|जलन|दाह|सुलगना|एसिड|जळ|জ্বালা|எரிச்சல்|மంట)/i;
+  private static readonly SENS_DIAPHORESIS = /(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|sweat|पसीना|पसीने|घाम|ঘাম|வேர்வை|చెమట)/i;
+  private static readonly SENS_DYSPNEA = /(?:saans\s*phool|swasa|dum\s*phool|shaas\s*koshto|moochu\s*thinaral|aadakapovadam|सांस\s*फूल|दम\s*फूल|सांस\s*लेने\s*में\s*तकलीफ|सांस\s*चढ़ना|दम\s*लाग|श्वास\s*कोंड|শ্বাসকষ্ট|மூச்சுத்திணறல்|శ్వాస\s*ఆడకపోవడం)/i;
 
   private static initialize(): void {
     if (this.initialized) return;
@@ -529,8 +535,48 @@ export class PhoneticNormalizerService {
     if (!text || !text.trim()) return text;
     this.initialize();
 
+    // Pass 0: Robust Multi-Lingual Speech Noise Stripper & Stutter Normalizer
+    let sanitized = text;
+
+    // 1. Separate fused script boundaries or fused words like हैआई -> है आई
+    sanitized = sanitized.replace(/([।!?\u0900-\u097F])([A-Za-z])/g, '$1 $2');
+    sanitized = sanitized.replace(/([A-Za-z])([\u0900-\u097F])/g, '$1 $2');
+    // Fused Indic verbs with transliterated fillers: e.g. हैआई -> है आई
+    sanitized = sanitized.replace(/(है|था|थी|थे|हूँ|हूं|हो|गया|गई|आहे|होते|ছিল|হচ্ছে|இருக்கும்|ఉంది)(आई|वेरी|एक्चुअली|यू|सो|very|actually|i\s*am)/gi, '$1 $2');
+
+    // 2. Fix truncated stutters (handles both Devanagari रे and Bengali রে)
+    sanitized = sanitized.replace(/(?:^|\s)[\u0930\u09B0][\u0947\u09C7]?\s+(हाथ|बांह|पेट|सिर|कमर|पैर|छाती|हात|पोट|डोके|হাত|পেট|கை|வயிறு|చేయి|కడుపు|hath|haath|bah|pet|sir|kamar|pair|chhati)/gi, ' मेरे $1');
+
+    // 3. Strip transliterated conversational fillers
+    sanitized = sanitized.replace(/(?:आई\s*एम\s*वेरी\s*मच|आई\s*एम\s*वेरी|आई\s*एम|वेरी\s*मच|यू\s*नो|एक्चुअली|आई\s*मीन|सो\s*मच|i\s*am\s*very\s*much|i['']?m\s*very\s*much|very\s*much|you\s*know|actually|i\s*mean)/gi, ' ');
+
+    // 4. Strip stray foreign script characters prepended before primary script
+    sanitized = sanitized.replace(/^[\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0A80-\u0AFF\u0D00-\u0D7F\u0C80-\u0CFF\s]{1,4}(?=[\u0900-\u097F])/g, '');
+
+    // 5. Whitespace normalization
+    sanitized = sanitized.replace(/\s{2,}/g, ' ').trim();
+
+    // 6. Deduplicate repeated stuttered sentences (e.g. "A हो रहा है A हो रहा है" -> "A हो रहा है")
+    sanitized = sanitized.replace(/^(.{6,60}?)\s*[,.।]?\s*\1$/g, '$1').trim();
+    const sentenceParts = sanitized.split(/(?<=[।!?\n])/).map(s => s.trim()).filter(Boolean);
+    if (sentenceParts.length > 1) {
+      const deduped: string[] = [];
+      for (const part of sentenceParts) {
+        if (!deduped.includes(part)) deduped.push(part);
+      }
+      sanitized = deduped.join(' ');
+    } else {
+      const words = sanitized.split(/\s+/);
+      if (words.length >= 4 && words.length % 2 === 0) {
+        const half = words.length / 2;
+        const firstHalf = words.slice(0, half).join(' ');
+        const secondHalf = words.slice(half).join(' ');
+        if (firstHalf === secondHalf) sanitized = firstHalf;
+      }
+    }
+
     // Pass 1: High-Speed Exact Idiom Replacement
-    let normalized = text.replace(this.regexPattern, (match) => {
+    let normalized = sanitized.replace(this.regexPattern, (match) => {
       const canonical = this.normalizerMap.get(match.toLowerCase());
       return canonical || match;
     });

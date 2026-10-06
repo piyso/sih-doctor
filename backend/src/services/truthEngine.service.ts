@@ -48,11 +48,32 @@ export class TruthEngineService {
   ): ConflictAlert[] {
     const alerts: ConflictAlert[] = [];
 
-    const activeDrugs = allopathicList.map((d: any) => (d?.drugName || d?.name || (typeof d === 'string' ? d : '')).toLowerCase()).filter(Boolean);
+    const activeDrugs = allopathicList.flatMap((d: any) => [
+      d?.drugName,
+      d?.name,
+      d?.genericName,
+      d?.brandName,
+      typeof d === 'string' ? d : ''
+    ]).filter(Boolean).map((s: string) => s.toLowerCase().trim());
+
     const activeHerbs = ayushList.flatMap((a: any) => [
-      (a?.formulationName || a?.classicalName || a?.name || (typeof a === 'string' ? a : '')).toLowerCase(),
-      (a?.anupana || '').toLowerCase()
-    ]).filter(Boolean);
+      a?.formulationName,
+      a?.classicalName,
+      a?.name,
+      a?.ayushHerb,
+      a?.herbName,
+      a?.anupana,
+      typeof a === 'string' ? a : ''
+    ]).filter(Boolean).map((s: string) => s.toLowerCase().trim());
+
+    const matchesItem = (items: string[], term: string): boolean => {
+      const t = term.toLowerCase().trim();
+      if (!t) return false;
+      return items.some(item => {
+        if (!item) return false;
+        return item.includes(t) || (item.length >= 4 && t.includes(item));
+      });
+    };
 
     for (const rule of this.interactionRegistry) {
       let matchedA = false;
@@ -61,17 +82,11 @@ export class TruthEngineService {
       let actualItemB = rule.itemB;
 
       // Check itemA in allopathic or herbs
-      if (
-        activeDrugs.some(d => d.includes(rule.itemA.toLowerCase())) ||
-        activeHerbs.some(h => h.includes(rule.itemA.toLowerCase()))
-      ) {
+      if (matchesItem(activeDrugs, rule.itemA) || matchesItem(activeHerbs, rule.itemA)) {
         matchedA = true;
       } else if (rule.aliasesA) {
         for (const alias of rule.aliasesA) {
-          if (
-            activeDrugs.some(d => d.includes(alias.toLowerCase())) ||
-            activeHerbs.some(h => h.includes(alias.toLowerCase()))
-          ) {
+          if (matchesItem(activeDrugs, alias) || matchesItem(activeHerbs, alias)) {
             matchedA = true;
             actualItemA = alias;
             break;
@@ -80,17 +95,11 @@ export class TruthEngineService {
       }
 
       // Check itemB in allopathic or herbs
-      if (
-        activeDrugs.some(d => d.includes(rule.itemB.toLowerCase())) ||
-        activeHerbs.some(h => h.includes(rule.itemB.toLowerCase()))
-      ) {
+      if (matchesItem(activeDrugs, rule.itemB) || matchesItem(activeHerbs, rule.itemB)) {
         matchedB = true;
       } else if (rule.aliasesB) {
         for (const alias of rule.aliasesB) {
-          if (
-            activeDrugs.some(d => d.includes(alias.toLowerCase())) ||
-            activeHerbs.some(h => h.includes(alias.toLowerCase()))
-          ) {
+          if (matchesItem(activeDrugs, alias) || matchesItem(activeHerbs, alias)) {
             matchedB = true;
             actualItemB = alias;
             break;

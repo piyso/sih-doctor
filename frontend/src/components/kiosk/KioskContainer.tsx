@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, ArrowLeft, ArrowRight, Sparkles, Clock, AlertTriangle, ShieldCheck, Stethoscope, AlertOctagon, Activity } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, ArrowRight, Sparkles, Clock, AlertTriangle, ShieldCheck, Stethoscope, AlertOctagon, Activity, HeartPulse, Printer } from 'lucide-react';
 import { Step1Language } from './Step1Language';
 import { Step2AbhaAuth } from './Step2AbhaAuth';
 import { Step3VoiceBodyIntake } from './Step3VoiceBodyIntake';
@@ -10,12 +10,14 @@ import { Step7TokenSummary } from './Step7TokenSummary';
 import { SocratesSymptom, VitalsData, DashavidhaPariksha } from '../../types/api';
 import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
+import { getKioskTranslations } from '../../utils/kioskLocalization';
 
 interface KioskContainerProps {
   onGoToDoctorDesk: () => void;
 }
 
 export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk }) => {
+  const [isSosModalOpen, setIsSosModalOpen] = useState(false);
   const getInitialStep = () => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -265,13 +267,15 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
     setSavedDraft(null);
   };
 
+  const t = getKioskTranslations(language);
+
   const stepLabelsBilingual = [
-    { num: 1, title: 'भाषा (Language)', short: 'भाषा' },
-    { num: 2, title: 'मरीज़ पहचान (Patient ID)', short: 'पहचान' },
-    { num: 3, title: 'तकलीफ़ व अंग (Symptoms)', short: 'लक्षण' },
-    { num: 4, title: 'दर्द का विवरण (Pain Details)', short: 'विवरण' },
-    { num: 5, title: 'पाचन व स्वास्थ्य (Health & Digestion)', short: 'पाचन' },
-    { num: 6, title: 'पर्चे व दस्तावेज़ (Documents)', short: 'दस्तावेज़' }
+    { num: 1, title: t.stepLabels.step1.title, short: t.stepLabels.step1.short },
+    { num: 2, title: t.stepLabels.step2.title, short: t.stepLabels.step2.short },
+    { num: 3, title: t.stepLabels.step3.title, short: t.stepLabels.step3.short },
+    { num: 4, title: t.stepLabels.step4.title, short: t.stepLabels.step4.short },
+    { num: 5, title: t.stepLabels.step5.title, short: t.stepLabels.step5.short },
+    { num: 6, title: t.stepLabels.step6.title, short: t.stepLabels.step6.short }
   ];
 
   return (
@@ -284,20 +288,20 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
               <img src="/ashoka-stambh-hd.png" alt="State Emblem" className="h-7 w-7 object-contain pointer-events-none select-none" />
             </div>
             <div className="flex flex-col">
-              <span className="font-heading font-extrabold text-sm tracking-tight text-foreground">AIIA · अखिल भारतीय आयुर्वेद संस्थान</span>
-              <span className="text-[11px] text-muted-foreground font-medium">OPD Kiosk</span>
+              <span className="font-heading font-extrabold text-sm tracking-tight text-foreground">AIIA · {t.hospitalSubtitle}</span>
+              <span className="text-[11px] text-muted-foreground font-medium">{t.opdKioskBadge}</span>
             </div>
           </div>
           <button
             type="button"
             onClick={() => {
               sovereignSound.playClinicalAlert();
-              onGoToDoctorDesk();
+              setIsSosModalOpen(true);
             }}
             className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-heading font-extrabold shadow-sm cursor-pointer flex items-center gap-1.5 active:scale-95 transition-all"
           >
             <AlertOctagon size={14} />
-            <span>SOS</span>
+            <span>{t.sosBtn}</span>
           </button>
         </header>
 
@@ -312,7 +316,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
               </div>
               <div className="flex flex-col min-w-0 text-left">
                 <div className="text-xs sm:text-sm font-bold text-foreground">
-                  पिछला पंजीकरण मिला (Unfinished Registration Found)
+                  {t.unfinishedDraftTitle}
                 </div>
                 <div className="text-[11px] text-muted-foreground truncate">
                   In-progress check-in (Step {savedDraft.stepNumber}: {savedDraft.draftPayload?.patient?.name || 'Patient'}). Continue?
@@ -324,13 +328,13 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
                 onClick={handleRestoreDraft}
                 className="btn btn-primary text-xs px-3.5 py-1.5 rounded-lg"
               >
-                Continue Check-In
+                {t.continueCheckinBtn}
               </button>
               <button
                 onClick={() => setSavedDraft(null)}
                 className="btn btn-secondary text-xs px-2.5 py-1.5 rounded-lg"
               >
-                Dismiss
+                {t.dismissBtn}
               </button>
             </div>
           </div>
@@ -348,6 +352,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
           <Step2AbhaAuth
             patient={patient}
             setPatient={setPatient}
+            language={language}
             onNext={() => setCurrentStep(3)}
             onBack={() => setCurrentStep(1)}
           />
@@ -377,8 +382,13 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
             setVitals={setVitals}
             redFlags={redFlags}
             selectedBodyRegion={selectedBodyRegion}
+            language={language}
             onNext={() => setCurrentStep(5)}
             onBack={() => setCurrentStep(3)}
+            onEmergencyDivert={() => {
+              sovereignSound.playEmergencyCodeRed();
+              setCurrentStep(7);
+            }}
           />
         )}
 
@@ -445,7 +455,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
             className="tactile-btn px-3.5 py-1.5 text-xs font-semibold rounded-full gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ArrowLeft size={13} />
-            <span>पिछला / Back</span>
+            <span>{t.backBtn}</span>
           </button>
 
           {/* Center Indicator Capsule */}
@@ -472,7 +482,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
                 }}
                 className="tactile-btn-primary px-4 py-1.5 text-xs font-semibold rounded-full gap-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span>{currentStep === 6 ? 'टोकन प्राप्त करें / Complete' : 'आगे बढ़ें / Next'}</span>
+                <span>{currentStep === 6 ? t.finishBtn : t.nextBtn}</span>
                 <ArrowRight size={13} />
               </button>
             );
@@ -512,6 +522,69 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ onGoToDoctorDesk
                 className="btn btn-secondary py-2.5 px-4 text-xs sm:text-sm rounded-xl text-rose-600 dark:text-rose-400 border-rose-500/30"
               >
                 सत्र समाप्त करें / Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sovereign Emergency SOS Code Red Modal */}
+      {isSosModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="max-w-md w-full bg-card border-2 border-rose-500 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 animate-pulse" />
+            
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-lg">
+              <HeartPulse size={36} />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-mono font-extrabold px-3 py-1 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 uppercase tracking-widest mx-auto">
+                STAT EMERGENCY PROTOCOL · कोड रेड
+              </span>
+              <h3 className="text-xl font-heading font-extrabold text-foreground mt-1">
+                आपातकालीन सहायता सक्रिय (Emergency Triggered)
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                हॉस्पिटल कैजुअल्टी वार्ड 001 को अलर्ट भेजा गया है। ऑन-ड्यूटी चिकित्सक एवं नर्सिंग अधिकारी को सूचित कर दिया गया है।
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-left flex flex-col gap-2">
+              <div className="text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <AlertOctagon size={16} className="shrink-0" />
+                <span>निर्देश (Immediate Directive):</span>
+              </div>
+              <p className="text-[11px] text-foreground/90 font-medium leading-relaxed">
+                कृपया तुरंत <strong>भूतल आपातकालीन वार्ड 001 (Ground Floor Casualty Bay 001)</strong> में पहुंचे। यदि चलने में असमर्थ हैं, तो यहीं प्रतीक्षा करें - सहायता भेजी जा रही है।
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  try { sovereignSound.playMechanicalSnap(); } catch {}
+                  window.print();
+                }}
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs font-heading font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-md flex items-center justify-center gap-2"
+              >
+                <Printer size={14} />
+                <span>STAT पर्ची प्रिंट करें</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try { sovereignSound.playMechanicalSnap(); } catch {}
+                  setIsSosModalOpen(false);
+                }}
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs font-heading font-bold border border-border hover:bg-muted text-foreground cursor-pointer"
+              >
+                <span>जांच जारी रखें (Dismiss)</span>
               </button>
             </div>
           </div>

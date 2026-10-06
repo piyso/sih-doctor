@@ -32,6 +32,7 @@ export interface PatientDemographics {
 
 export interface SocratesSymptom {
   name: string;              // Standardized symptom name (e.g. "Chest Pain")
+  symptom_name?: string;     // Interoperability alias with frontend
   rawVernacular?: string;    // Spoken input (e.g. "chhati me dard aur jalan")
   site?: string;             // Anatomical site (e.g. "Substernal", "Epigastrium")
   onset?: string;            // Temporal onset (e.g. "since 3 days", "sudden 2h ago")
@@ -42,6 +43,7 @@ export interface SocratesSymptom {
   exacerbating?: string;     // Exertion, Spicy food, Walking, Cold weather
   relieving?: string;        // Rest, Antacids, Warm water, Sleep
   severity: number;          // 1-10 VAS scale
+  severityScore?: number;    // Interoperability alias with frontend
   isNegated: boolean;        // true if "dard nahi hai"
 }
 

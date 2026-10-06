@@ -11,6 +11,7 @@ import { TruthEngineService } from '../services/truthEngine.service';
 import { FhirGeneratorService } from '../services/fhirGenerator.service';
 import { ZkProofService } from '../services/zkProof.service';
 import { ConsultationRecord } from '../shared/types';
+import { seedDatabase } from '../db/seed';
 
 export const doctorRouter = Router();
 
@@ -23,6 +24,19 @@ function safeJsonParse<T>(raw: any, fallback: T): T {
     return fallback;
   }
 }
+
+/**
+ * POST /api/doctor/seed
+ * Seed live SQLite WAL database with standard clinical benchmark cohort
+ */
+doctorRouter.post('/seed', (_req: Request, res: Response): void => {
+  try {
+    seedDatabase();
+    res.json({ success: true, message: 'Database seeded successfully with 5 clinical cases' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/doctor/queue

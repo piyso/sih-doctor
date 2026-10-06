@@ -19,13 +19,20 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
   const [overrideReason, setOverrideReason] = useState('');
   const isLethal = alert.severity === 'CRITICAL_LETHAL';
 
+  const alloName = alert.allopathicDrug || alert.itemA || 'Allopathic Drug';
+  const herbName = alert.ayushHerb || alert.itemB || 'AYUSH Herb';
+  const mechanismText = alert.mechanism || 'Pharmacological metabolic conflict detected.';
+  const consequenceText = alert.clinicalConsequence || alert.mechanism || 'Potential adverse interaction risk.';
+  const recommendationText = alert.recommendedAction || alert.clinicalAction || 'Review dual prescription with attending physician.';
+  const confidenceScore = alert.bayesianConfidence || 0.95;
+
   const handleRemove = () => {
-    sovereignSound('chime');
-    onRemoveHerb(alert.ayushHerb);
+    sovereignSound.playCrystalChime();
+    onRemoveHerb(herbName);
   };
 
   const handleOverrideClick = () => {
-    sovereignSound('shutter');
+    sovereignSound.playMechanicalSnap();
     onOverride(overrideReason);
   };
 
@@ -84,7 +91,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
           </div>
           <button
             onClick={() => {
-              sovereignSound('notch');
+              sovereignSound.playDialNotch();
               onClose();
             }}
             style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 6 }}
@@ -108,7 +115,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
         >
           <div style={{ textAlign: 'center' }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Allopathic Drug</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#38bdf8', marginTop: 2 }}>{alert.allopathicDrug}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#38bdf8', marginTop: 2 }}>{alloName}</div>
           </div>
           <div
             className={isLethal ? 'badge badge-emergency' : 'badge badge-high'}
@@ -119,7 +126,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
           </div>
           <div style={{ textAlign: 'center' }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AYUSH Herb / Formulation</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#34d399', marginTop: 2 }}>{alert.ayushHerb}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#34d399', marginTop: 2 }}>{herbName}</div>
           </div>
         </div>
 
@@ -130,7 +137,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
               Pharmacological Mechanism:
             </div>
             <p style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.5 }}>
-              {alert.mechanism}
+              {mechanismText}
             </p>
           </div>
 
@@ -146,7 +153,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
               Clinical Consequence:
             </div>
             <p style={{ fontSize: 13, color: '#ffffff', fontWeight: 700, lineHeight: 1.5 }}>
-              {alert.clinicalConsequence}
+              {consequenceText}
             </p>
           </div>
 
@@ -155,10 +162,10 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
               Statutory Clinical Recommendation:
             </div>
             <p style={{ fontSize: 13, color: '#e0f2fe', lineHeight: 1.5 }}>
-              {alert.recommendedAction}
+              {recommendationText}
             </p>
             <div style={{ fontSize: 11, color: '#38bdf8', marginTop: 8, fontWeight: 600 }}>
-              Bayesian Truth Confidence: <strong style={{ color: '#ffffff' }}>{(alert.bayesianConfidence * 100).toFixed(1)}%</strong> • Beta-Binomial Evidence Base
+              Bayesian Truth Confidence: <strong style={{ color: '#ffffff' }}>{(confidenceScore * 100).toFixed(1)}%</strong> • Beta-Binomial Evidence Base
             </div>
           </div>
         </div>
@@ -172,7 +179,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
             type="text"
             value={overrideReason}
             onChange={(e) => setOverrideReason(e.target.value)}
-            placeholder="e.g. Daily INR monitoring instituted; dose reduced by 50%"
+            placeholder="e.g. Daily potassium & ECG monitoring instituted; dose halved"
             style={{
               width: '100%',
               padding: '10px 14px',
@@ -190,7 +197,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
             style={{ padding: '10px 20px', fontSize: 13, gap: 6 }}
           >
             <Check size={16} />
-            <span>Remove {alert.ayushHerb.split(' ')[0]} (Recommended Action)</span>
+            <span>Remove {herbName.split(' ')[0]} (Recommended Action)</span>
           </button>
 
           <button

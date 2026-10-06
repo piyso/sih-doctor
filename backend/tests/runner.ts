@@ -1,5 +1,5 @@
 /**
- * Unified Empirical Verification Battery & Jury Scorecard Runner
+ * Unified Empirical Verification Battery & Institutional Audit Scorecard Runner
  * Executes all 20 test batteries and displays the sovereign validation report.
  */
 

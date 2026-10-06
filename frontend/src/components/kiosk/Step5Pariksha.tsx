@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { DashavidhaPariksha, AgniType, SocratesSymptom } from '../../types/api';
 import { sovereignSound } from '../../utils/audio';
-import { getClinicalProfile } from '../../utils/clinicalOntology';
+import { getClinicalProfile, getLocalizedRationale } from '../../utils/clinicalOntology';
+import { getKioskTranslations, getParikshaLocalization } from '../../utils/kioskLocalization';
 
 interface Step5ParikshaProps {
   pariksha: DashavidhaPariksha;
@@ -37,6 +38,8 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
   onNext,
   onBack
 }) => {
+  const t = getKioskTranslations(language);
+  const pl = getParikshaLocalization(language);
   const hasUserModified = useRef(false);
 
   // Universal Srotas-Anatomy Clinical Profile Evaluator
@@ -79,11 +82,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
   const handleAudioGuidance = () => {
     try {
       sovereignSound.playMechanicalSnap();
-      const guidanceTexts: Record<string, string> = {
-        'hi': 'कृपया अपनी पाचन शक्ति, शारीरिक प्रकृति और ऊर्जा स्तर चुनें, फिर आगे बढ़ें।',
-        'en': 'Please check your digestion, body constitution and energy level, then tap next.'
-      };
-      sovereignSound.speakGuidance(guidanceTexts[language] || guidanceTexts['hi']);
+      sovereignSound.speakGuidance(t.step5AudioPrompt, t.bcp47);
     } catch {}
   };
 
@@ -98,10 +97,10 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           </div>
           <div className="flex flex-col min-w-0 text-left">
             <span className="font-heading font-extrabold text-base sm:text-lg text-foreground">
-              पाचन व स्वास्थ्य (Digestion & Health)
+              {t.step5Title}
             </span>
             <span className="text-xs text-muted-foreground font-sans mt-0.5">
-              अपनी भूख, पाचन व सामान्य ऊर्जा का चयन करें
+              {t.step5Subtitle}
             </span>
           </div>
         </div>
@@ -113,7 +112,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           title="Audio Guidance"
         >
           <Volume2 size={15} />
-          <span>सुनें (Audio)</span>
+          <span>{t.listenBtn}</span>
         </button>
       </div>
 
@@ -122,10 +121,10 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         <Sparkles size={18} className="text-primary shrink-0 mt-0.5" />
         <div className="flex flex-col text-left text-xs text-muted-foreground leading-relaxed">
           <span className="font-heading font-bold text-foreground text-xs sm:text-sm mb-0.5">
-            {language === 'en' ? 'Clinical Assessment Rationale' : 'लक्षण व पाचन का संबंध'}
+            {t.rationaleTitle}
           </span>
           <span>
-            {language === 'en' ? clinicalProfile.causalRationaleEn : clinicalProfile.causalRationaleHi}
+            {getLocalizedRationale(clinicalProfile, language)}
           </span>
         </div>
       </div>
@@ -135,10 +134,10 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
             <Flame size={18} className="text-amber-500" />
-            <span>1. आपकी भूख व पाचन कैसा रहता है? (Digestion & Appetite)</span>
+            <span>{pl.agniSectionTitle}</span>
           </span>
           <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
-            अग्नि परीक्षा
+            {pl.agniBadge}
           </span>
         </div>
 
@@ -146,29 +145,29 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           {[
             {
               type: 'SAMAGNI' as AgniType,
-              title: 'संतुलित पाचन (Normal / Healthy)',
-              sub: 'समय पर भूख लगती है, भोजन आसानी से पचता है, गैस या जलन नहीं होती।',
+              title: pl.agniOptions.SAMAGNI.title,
+              sub: pl.agniOptions.SAMAGNI.sub,
               icon: Shield,
               badgeColor: 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
             },
             {
               type: 'VISHAMAGNI' as AgniType,
-              title: 'गैस व अनियमित (Gas & Irregular)',
-              sub: 'कभी तेज भूख तो कभी बिल्कुल नहीं, पेट में गैस, भारीपन व फूलापन।',
+              title: pl.agniOptions.VISHAMAGNI.title,
+              sub: pl.agniOptions.VISHAMAGNI.sub,
               icon: Wind,
               badgeColor: 'border-sky-500/40 text-sky-600 dark:text-sky-400 bg-sky-500/10'
             },
             {
               type: 'TIKSHNAGNI' as AgniType,
-              title: 'जलन व एसिडिटी (Burning & Acidity)',
-              sub: 'तेज भूख, सीने व पेट में जलन, खट्टी डकार या भोजन के बाद दाह।',
+              title: pl.agniOptions.TIKSHNAGNI.title,
+              sub: pl.agniOptions.TIKSHNAGNI.sub,
               icon: Flame,
               badgeColor: 'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10'
             },
             {
               type: 'MANDAGNI' as AgniType,
-              title: 'भारीपन व सुस्ती (Heavy & Sluggish)',
-              sub: 'धीमा पाचन, भोजन के बाद अत्यधिक भारीपन, आलस्य व अपच।',
+              title: pl.agniOptions.MANDAGNI.title,
+              sub: pl.agniOptions.MANDAGNI.sub,
               icon: Droplets,
               badgeColor: 'border-teal-500/40 text-teal-600 dark:text-teal-400 bg-teal-500/10'
             }
@@ -199,7 +198,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
                       </span>
                       {isAutoCalibrated && (
                         <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                          {language === 'en' ? 'Auto-selected' : 'लक्षणों के आधार पर चयनित'}
+                          {pl.autoCalibratedBadge}
                         </span>
                       )}
                     </div>
@@ -225,17 +224,12 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
             <Zap size={18} className="text-primary" />
-            <span>2. आपकी शारीरिक प्रकृति (Body Type)</span>
+            <span>{pl.prakritiSectionTitle}</span>
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-          {[
-            { id: 'Vataja', title: 'हल्का शरीर (Vata)', sub: 'ठंड लगना, सक्रिय, दुबला शरीर' },
-            { id: 'Pittaja', title: 'गर्म शरीर (Pitta)', sub: 'गर्मी लगना, तेज भूख, मध्यम देह' },
-            { id: 'Kaphaja', title: 'मजबूत शरीर (Kapha)', sub: 'भारी शरीर, शांत, स्थिर' },
-            { id: 'Vata-Pitta', title: 'संतुलित (Balanced)', sub: 'दोषों का मिला-जुला प्रभाव' }
-          ].map((p) => {
+          {pl.prakritiOptions.map((p) => {
             const isSelected = (pariksha.prakriti || 'Vata-Pitta') === p.id;
             return (
               <button
@@ -261,28 +255,12 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <span className="font-heading font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
             <Scale size={18} className="text-primary" />
-            <span>3. ऊर्जा स्तर व सहनशक्ति (Energy Level)</span>
+            <span>{pl.vitalitySectionTitle}</span>
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          {[
-            {
-              key: 'Pravara' as const,
-              title: 'उत्तम ऊर्जा (High)',
-              sub: 'दिनभर अच्छी स्फूर्ति व ताज़गी।'
-            },
-            {
-              key: 'Madhyama' as const,
-              title: 'सामान्य ऊर्जा (Normal)',
-              sub: 'सामान्य ऊर्जा व दैनिक काम।'
-            },
-            {
-              key: 'Avara' as const,
-              title: 'कमजोरी (Low)',
-              sub: 'जल्दी थकान व कमजोरी महसूस होना।'
-            }
-          ].map((lvl) => {
+          {pl.vitalityOptions.map((lvl) => {
             const isSelected = (pariksha.sara || 'Madhyama') === lvl.key;
             return (
               <button
@@ -321,7 +299,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           className="tactile-btn px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground border border-border/80 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
         >
           <ArrowLeft size={16} />
-          <span>पिछला: लक्षण (Back to Symptoms)</span>
+          <span>{pl.backBtn}</span>
         </button>
 
         <button
@@ -332,7 +310,7 @@ export const Step5Pariksha: React.FC<Step5ParikshaProps> = ({
           }}
           className="btn btn-primary px-7 py-3.5 rounded-2xl text-xs sm:text-sm font-heading font-extrabold flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all active:scale-95"
         >
-          <span>आगे बढ़ें: दस्तावेज़ स्कैन</span>
+          <span>{pl.nextBtn}</span>
           <ArrowRight size={16} />
         </button>
       </div>

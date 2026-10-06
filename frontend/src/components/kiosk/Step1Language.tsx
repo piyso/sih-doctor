@@ -19,12 +19,66 @@ export const Step1Language: React.FC<Step1LanguageProps> = ({
   const touchDetectedRef = useRef(false);
 
   const languages = [
-    { code: 'hi', label: 'हिन्दी', sub: 'Hindi', nativePrompt: 'नमस्ते! कृपया अपनी भाषा चुनें', scriptRegion: 'उत्तरी एवं मध्य भारत' },
-    { code: 'en', label: 'English', sub: 'Indian English', nativePrompt: 'Welcome! Please select your preferred language', scriptRegion: 'Pan-India & Global' },
-    { code: 'mr', label: 'मराठी', sub: 'Marathi', nativePrompt: 'नमस्कार! कृपया आपली भाषा निवडा', scriptRegion: 'महाराष्ट्र' },
-    { code: 'bn', label: 'বাংলা', sub: 'Bengali', nativePrompt: 'নমস্কার! অনুগ্রহ করে আপনার ভাষা বেছে নিন', scriptRegion: 'পশ্চিমবঙ্গ ও ত্রিপুরা' },
-    { code: 'ta', label: 'தமிழ்', sub: 'Tamil', nativePrompt: 'வணக்கம்! உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்', scriptRegion: 'தமிழ்நாடு' },
-    { code: 'te', label: 'తెలుగు', sub: 'Telugu', nativePrompt: 'నమస్కారం! దయచేసి మీ భాషను ఎంచుకోండి', scriptRegion: 'ఆంధ్రప్రదేశ్ & తెలంగాణ' }
+    {
+      code: 'hi',
+      label: 'हिन्दी',
+      sub: 'Hindi',
+      nativePrompt: 'नमस्ते! कृपया अपनी भाषा चुनें',
+      scriptRegion: 'उत्तर एवं मध्य भारत (North India)',
+      listenLabel: 'सुनें',
+      speakingLabel: 'बोल रहे हैं...',
+      listenTitle: 'बोलकर सुनें (Tap to Listen - Hindi)'
+    },
+    {
+      code: 'en',
+      label: 'English',
+      sub: 'Indian English',
+      nativePrompt: 'Welcome! Please select your preferred language',
+      scriptRegion: 'Pan-India & Global',
+      listenLabel: 'Listen',
+      speakingLabel: 'Speaking...',
+      listenTitle: 'Tap to Listen (English)'
+    },
+    {
+      code: 'bn',
+      label: 'বাংলা',
+      sub: 'Bengali',
+      nativePrompt: 'নমস্কার! অনুগ্রহ করে আপনার ভাষা বেছে নিন',
+      scriptRegion: 'পশ্চিমবঙ্গ ও ত্রিপুরা (Bengal & Tripura)',
+      listenLabel: 'শুনুন',
+      speakingLabel: 'বলছি...',
+      listenTitle: 'শুনুন (Tap to Listen - বাংলা)'
+    },
+    {
+      code: 'mr',
+      label: 'मराठी',
+      sub: 'Marathi',
+      nativePrompt: 'नमस्कार! कृपया आपली भाषा निवडा',
+      scriptRegion: 'महाराष्ट्र (Maharashtra)',
+      listenLabel: 'ऐका',
+      speakingLabel: 'बोलत आहे...',
+      listenTitle: 'ऐका (Tap to Listen - मराठी)'
+    },
+    {
+      code: 'ta',
+      label: 'தமிழ்',
+      sub: 'Tamil',
+      nativePrompt: 'வணக்கம்! உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்',
+      scriptRegion: 'தமிழ்நாடு (Tamil Nadu)',
+      listenLabel: 'கேளுங்கள்',
+      speakingLabel: 'பேசுகிறது...',
+      listenTitle: 'கேளுங்கள் (Tap to Listen - தமிழ்)'
+    },
+    {
+      code: 'te',
+      label: 'తెలుగు',
+      sub: 'Telugu',
+      nativePrompt: 'నమస్కారం! దయచేసి మీ భాషను ఎంచుకోండి',
+      scriptRegion: 'ఆంధ్రప్రదేశ్ & తెలంగాణ (AP & TS)',
+      listenLabel: 'వినండి',
+      speakingLabel: 'మాట్లాడుతోంది...',
+      listenTitle: 'వినండి (Tap to Listen - తెలుగు)'
+    }
   ];
 
   // 8-Second Hesitation Circuit (Empathy-Driven Micro-Interaction)
@@ -157,13 +211,13 @@ export const Step1Language: React.FC<Step1LanguageProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handlePlayAudioPrompt(e, lang.code, lang.nativePrompt)}
-                  title="बोलकर सुनें (Tap to Listen)"
+                  title={lang.listenTitle}
                   className={`tactile-btn text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 gap-1.5 cursor-pointer ${
                     isAudioPlaying ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/50' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <Volume2 size={12} className={isAudioPlaying ? 'text-sky-500' : 'text-muted-foreground'} />
-                  <span>{isAudioPlaying ? 'बोल रहे हैं...' : 'सुनें'}</span>
+                  <span>{isAudioPlaying ? lang.speakingLabel : lang.listenLabel}</span>
                 </button>
               </div>
             </div>

@@ -199,6 +199,7 @@ export class FhirGeneratorService {
     for (const allo of allopathicList) {
       const medId = uuidv4();
       medicationRefs.push(`urn:uuid:${medId}`);
+      const drugName = (allo as any).drugName || (allo as any).name || 'Allopathic Medication';
 
       const medResource = {
         resourceType: 'MedicationRequest',
@@ -209,14 +210,14 @@ export class FhirGeneratorService {
         status: 'active',
         intent: 'order',
         medicationCodeableConcept: {
-          text: `${allo.drugName} ${allo.dosage}`
+          text: `${drugName} ${allo.dosage || ''}`.trim()
         },
         subject: {
           reference: `urn:uuid:${patientId}`
         },
         dosageInstruction: [
           {
-            text: `${allo.frequency} - ${allo.timing} for ${allo.duration}`
+            text: `${allo.frequency || 'OD'} - ${allo.timing || 'After Food'} for ${allo.duration || '5 days'}`
           }
         ]
       };
@@ -227,6 +228,8 @@ export class FhirGeneratorService {
     for (const ayu of ayushList) {
       const medId = uuidv4();
       medicationRefs.push(`urn:uuid:${medId}`);
+      const formName = (ayu as any).formulationName || (ayu as any).name || 'Ayurvedic Formulation';
+      const category = (ayu as any).category || 'Formulation';
 
       const medResource = {
         resourceType: 'MedicationRequest',
@@ -240,11 +243,11 @@ export class FhirGeneratorService {
           coding: [
             {
               system: 'https://namstp.ayush.gov.in/formulations',
-              code: ayu.formulationName,
-              display: ayu.formulationName
+              code: formName,
+              display: formName
             }
           ],
-          text: `${ayu.formulationName} (${ayu.category}) - ${ayu.dosage}`
+          text: `${formName} (${category}) - ${ayu.dosage || ''}`.trim()
         },
         subject: {
           reference: `urn:uuid:${patientId}`

@@ -13,7 +13,8 @@ import {
   Bone,
   Layers,
   Activity,
-  Mic
+  Mic,
+  ArrowLeft
 } from 'lucide-react';
 import { sovereignSound } from '../../utils/audio';
 import {
@@ -35,6 +36,7 @@ interface AnatomicalMannequinModal3DProps {
   onTogglePrivateMode: () => void;
   micLanguage?: string;
   onSkipToVoice?: () => void;
+  onBack?: () => void;
 }
 
 export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProps> = ({
@@ -45,7 +47,8 @@ export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProp
   isPrivateMode,
   onTogglePrivateMode,
   micLanguage = 'hi-IN',
-  onSkipToVoice
+  onSkipToVoice,
+  onBack
 }) => {
   const [viewMode, setViewMode] = useState<'front' | 'back'>('front');
   const [macroZone, setMacroZone] = useState<MacroZone>('full');
@@ -166,6 +169,9 @@ export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProp
     try { 
       sovereignSound.playCrystalChime(); 
     } catch {}
+    if (!selectedRegion && activeSubLocus) {
+      onSelectRegion(activeSubLocus.id);
+    }
     onClose();
   };
 
@@ -256,6 +262,23 @@ export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProp
             >
               <Mic size={15} className="text-muted-foreground" />
               <span>सीधे बोलें (Skip)</span>
+            </button>
+          )}
+
+          {/* Back button (if onBack provided) */}
+          {onBack && (
+            <button
+              type="button"
+              onClick={() => {
+                try { sovereignSound.playMechanicalSnap(); } catch {}
+                onBack();
+              }}
+              className="tactile-btn h-9 sm:h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl text-muted-foreground hover:text-foreground flex items-center gap-1.5 cursor-pointer border border-border/70"
+              title="Previous Step"
+            >
+              <ArrowLeft size={15} />
+              <span className="hidden sm:inline">पिछला</span>
+              <span className="text-[10px] opacity-75 font-mono">(Back)</span>
             </button>
           )}
 
@@ -447,8 +470,22 @@ export const AnatomicalMannequinModal3D: React.FC<AnatomicalMannequinModal3DProp
             );
           })()}
 
-          {/* Right: Giant, High-Contrast Next Button */}
+          {/* Right: Progression & Navigation Buttons */}
           <div className="flex items-center gap-3 shrink-0 justify-end">
+            {onBack && (
+              <button
+                type="button"
+                onClick={() => {
+                  try { sovereignSound.playMechanicalSnap(); } catch {}
+                  onBack();
+                }}
+                className="tactile-btn py-3 px-5 sm:px-6 text-sm sm:text-base font-heading font-semibold rounded-2xl flex items-center justify-center gap-2 cursor-pointer border border-border/80 text-muted-foreground hover:text-foreground transition-all"
+              >
+                <ArrowLeft size={16} />
+                <span>पिछला (Back)</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleConfirmAndProceed}
