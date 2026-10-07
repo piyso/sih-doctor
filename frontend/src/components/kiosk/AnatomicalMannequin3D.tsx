@@ -1176,6 +1176,78 @@ export const classifyHitToRegion = (localHit: THREE.Vector3 | { x: number; y: nu
   return isLeft ? 'Left Foot' : 'Right Foot';
 };
 
+/**
+ * High-Precision Mesh-First Region Resolver (4-Strategy Cascade)
+ *
+ * The previous implementation used ONLY spatial coordinate classification,
+ * which has imprecise boundaries (e.g., ear vs head, shoulder vs chest).
+ * This function uses the actual mesh identity from the 1,744-mesh anatomical
+ * database as the PRIMARY signal, falling back to spatial only when needed.
+ *
+ * Strategy cascade:
+ *  1. Direct mesh record regionId (highest precision for specific structures)
+ *  2. Spatial hit-point classification (for large spanning meshes like
+ *     trapezius, rectus abdominis, sciatic nerve that cross multiple zones)
+ *  3. Multi-hit consensus voting (top 5 intersections agree on a region)
+ *  4. Pure spatial coordinate fallback (unmapped meshes / procedural model)
+ */
+export const resolveRegionFromHit = (
+  topHit: THREE.Intersection,
+  allIntersects: THREE.Intersection[],
+  humanGroup: THREE.Group
+): string => {
+  const hitMesh = topHit.object as THREE.Mesh;
+  const record = hitMesh.userData?.record as AnatomicalMeshRecord | undefined;
+  const localHit = humanGroup.worldToLocal(topHit.point.clone());
+
+  // Strategy 1 & 2: Mesh database regionId (small mesh = trust it, large mesh = use hit point)
+  if (record?.regionId) {
+    // Large spanning meshes (height > 25cm in original model space) cross multiple
+    // clinical regions. For these, where the user CLICKED matters more than the
+    // mesh's center-based regionId. Example: rectus abdominis spans from chest
+    // to pelvis — clicking the upper portion should yield "Epigastrium" not
+    // "Umbilicus / Mid-Abdomen".
+    const meshHeight = record.size?.[1] ?? 0;
+    if (meshHeight > 25) {
+      return classifyHitToRegion(localHit);
+    }
+    // Small / specific anatomical meshes: the database regionId is more precise
+    // than approximate spatial boundaries. E.g., an ear mesh at the edge of
+    // the spatial "Head" zone correctly returns "Ear".
+    return record.regionId;
+  }
+
+  // Strategy 3: Pre-computed spatial regionId from model setup (assigned during traversal)
+  if (hitMesh.userData?.spatialRegionId) {
+    return hitMesh.userData.spatialRegionId as string;
+  }
+
+  // Strategy 4: Multi-hit consensus (top 5 visible intersections vote on region)
+  const visibleHits = allIntersects.filter(h => h.object.visible).slice(0, 5);
+  const regionVotes = new Map<string, number>();
+  for (const hit of visibleHits) {
+    const rec = (hit.object as any).userData?.record as AnatomicalMeshRecord | undefined;
+    const region = rec?.regionId || (hit.object as any).userData?.spatialRegionId;
+    if (region) {
+      regionVotes.set(region, (regionVotes.get(region) || 0) + 1);
+    }
+  }
+  if (regionVotes.size > 0) {
+    let bestRegion = '';
+    let bestCount = 0;
+    for (const [region, count] of regionVotes) {
+      if (count > bestCount) {
+        bestCount = count;
+        bestRegion = region;
+      }
+    }
+    if (bestRegion) return bestRegion;
+  }
+
+  // Strategy 5: Pure spatial coordinate classification (final fallback)
+  return classifyHitToRegion(localHit);
+};
+
 // Multi-Strategy Dual Spatial & Semantic Region Matcher
 export const isMeshMatchingSelectedRegion = (
   meshName: string,
@@ -1941,7 +2013,9 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     gltfLoader.setDRACOLoader(dracoLoader);
 
     // Helper: IndexedDB Persistent 3D Cache for instant sub-100ms subsequent loads
-    const IDB_NAME = 'medikiosk_3d_cache_v3';
+    // IMPORTANT: Bump version whenever the model loading/validation logic changes
+    // to invalidate potentially corrupt cached buffers. v4 = endianness fix (getUint32 LE).
+    const IDB_NAME = 'medikiosk_3d_cache_v4';
     const IDB_STORE = 'models';
     const IDB_KEY = 'medikiosk_3d_mannequin';
 
@@ -2086,7 +2160,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         const buffer = await response.arrayBuffer();
         if (buffer.byteLength < 1000) return null;
         const view = new DataView(buffer);
-        const magic = view.getUint32(0, false);
+        const magic = view.getUint32(0, true);
         // Binary GLTF magic: 0x46546C67 ('glTF')
         if (magic !== 0x46546C67) {
           const firstChar = String.fromCharCode(view.getUint8(0)).trim();
@@ -2108,8 +2182,27 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         const cached = await loadFromIndexedDB();
         if (cached && cached.byteLength > 1000000) {
           const view = new DataView(cached);
-          if (view.getUint32(0, false) === 0x46546C67) {
-            parseAndMount(cached, () => {});
+          if (view.getUint32(0, true) === 0x46546C67) {
+            parseAndMount(cached, async () => {
+              // Cache was corrupt/stale — cascade to network loading
+              console.warn('[3D Loader] Cached model parse failed, cascading to network fetch.');
+              setLoadingProgress(30);
+              const dracoBuf = await fetchValidModelBuffer('/models/3d_mannequin_draco.glb');
+              if (dracoBuf) {
+                saveToIndexedDB(dracoBuf);
+                setLoadingProgress(80);
+                parseAndMount(dracoBuf, () => {
+                  fetchValidModelBuffer('/models/human_body.glb').then((lightBuf) => {
+                    if (lightBuf) parseAndMount(lightBuf);
+                    else mountProceduralMannequinFallback();
+                  });
+                });
+              } else {
+                const lightBuf = await fetchValidModelBuffer('/models/human_body.glb');
+                if (lightBuf) parseAndMount(lightBuf);
+                else mountProceduralMannequinFallback();
+              }
+            });
             return;
           }
         }
@@ -2220,9 +2313,11 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         const intersects = raycasterRef.current.intersectObjects(humanGroup.children, true);
         const topHit = getTargetHit(intersects);
 
-        let localHit: THREE.Vector3 | null = null;
+        let hitRegion: string | null = null;
+
         if (topHit) {
-          localHit = humanGroup.worldToLocal(topHit.point.clone());
+          // Mesh-first high-precision region resolution (uses 1,744-mesh database identity)
+          hitRegion = resolveRegionFromHit(topHit, intersects, humanGroup);
         } else {
           // Robust Silhouette Fallback: Intersect coronal plane (Z = 0) in model space for edge touches
           const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
@@ -2232,23 +2327,31 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           const hit = new THREE.Vector3();
           if (ray.intersectPlane(plane, hit)) {
             if (hit.y >= -1.25 && hit.y <= 1.30 && Math.abs(hit.x) <= 0.70) {
-              localHit = hit;
+              hitRegion = classifyHitToRegion(hit);
             }
           }
         }
 
-        if (localHit) {
-          const hitRegion = classifyHitToRegion(localHit);
+        if (hitRegion) {
+          const isAlreadySelected = selectedRegionRef.current === hitRegion;
 
-          // Always select and focus the tapped region
-          const targetZone = LOCUS_TO_MACRO_ZONE[hitRegion] || 'full';
-          if (targetZone !== 'full') {
-            if (onMacroZoneChangeRef.current) onMacroZoneChangeRef.current(targetZone);
-            else setInternalMacroZone(targetZone);
+          if (isAlreadySelected) {
+            // Toggle OFF: same region tapped again → reset to full body view
+            if (onMacroZoneChangeRef.current) onMacroZoneChangeRef.current('full');
+            else setInternalMacroZone('full');
+            try { sovereignSound.playMechanicalSnap(); } catch {}
+            // Signal parent to deselect — pass the same region so parent can toggle
+            onSelectRegionRef.current(hitRegion);
+          } else {
+            // Select new region and zoom into its macro zone
+            const targetZone = LOCUS_TO_MACRO_ZONE[hitRegion] || 'full';
+            if (targetZone !== 'full') {
+              if (onMacroZoneChangeRef.current) onMacroZoneChangeRef.current(targetZone);
+              else setInternalMacroZone(targetZone);
+            }
+            try { sovereignSound.playMechanicalSnap(); } catch {}
+            onSelectRegionRef.current(hitRegion);
           }
-
-          try { sovereignSound.playMechanicalSnap(); } catch {}
-          onSelectRegionRef.current(hitRegion);
         }
       }
     };
@@ -2292,24 +2395,26 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         const topHit = getTargetHit(intersects);
 
         if (topHit) {
-          const localHit = humanGroup.worldToLocal(topHit.point.clone());
-          const hoverRegion = classifyHitToRegion(localHit);
+          // Mesh-first region identification for hover tooltip precision
+          const hoverRegion = resolveRegionFromHit(topHit, intersects, humanGroup);
 
           if (hoverRegion !== lastHoveredRegionIdRef.current) {
             lastHoveredRegionIdRef.current = hoverRegion;
             const matchedLocus = MICRO_LOCI_CATALOG.find(l => l.id === hoverRegion);
+            const hitRecord = (topHit.object as any).userData?.record as AnatomicalMeshRecord | undefined;
+            const localHit = humanGroup.worldToLocal(topHit.point.clone());
 
             setHoveredMeshInfo({
-              name: topHit.object.name || hoverRegion,
+              name: hitRecord?.name || topHit.object.name || hoverRegion,
               regionId: hoverRegion,
-              hindiName: matchedLocus ? matchedLocus.hindiLabel : hoverRegion,
-              system: 'muscular',
-              marma: matchedLocus?.ayushMarma || '',
-              isLeft: localHit.x > 0.025,
-              isRight: localHit.x < -0.025,
-              center: [localHit.x, localHit.y, localHit.z],
-              size: [0.1, 0.1, 0.1],
-              vertexCount: 0
+              hindiName: hitRecord?.hindiName || (matchedLocus ? matchedLocus.hindiLabel : hoverRegion),
+              system: hitRecord?.system || 'muscular',
+              marma: hitRecord?.marma || matchedLocus?.ayushMarma || '',
+              isLeft: hitRecord?.isLeft ?? localHit.x > 0.025,
+              isRight: hitRecord?.isRight ?? localHit.x < -0.025,
+              center: hitRecord?.center || [localHit.x, localHit.y, localHit.z],
+              size: hitRecord?.size || [0.1, 0.1, 0.1],
+              vertexCount: hitRecord?.vertexCount || 0
             });
           }
         } else if (lastHoveredRegionIdRef.current !== null) {

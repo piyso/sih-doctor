@@ -1220,7 +1220,14 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
 
   const handleRegionClick = (regionId: string) => {
     try { sovereignSound.playHotspotPulse(); } catch {}
-    if (!regionId) return;
+
+    // Deselect: empty string or same region tapped again → return to full body
+    if (!regionId || regionId === selectedBodyRegion) {
+      setSelectedBodyRegion('');
+      setActiveMacroZone('full');
+      return;
+    }
+
     setSelectedBodyRegion(regionId);
     if (LOCUS_TO_MACRO_ZONE[regionId]) {
       setActiveMacroZone(LOCUS_TO_MACRO_ZONE[regionId]);
