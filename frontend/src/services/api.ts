@@ -29,12 +29,22 @@ const port = isBrowser ? window.location.port : '';
 
 // Intelligent Cloud & Local Backend Auto-Discovery
 const getAutoApiUrl = (): string => {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    return envUrl.startsWith('http') ? envUrl : `https://${envUrl}`;
+  }
   if (!isBrowser) return 'http://localhost:8001';
 
-  // Auto-route Vercel static edge frontend to live Render backend
-  if (hostname.endsWith('.vercel.app') || hostname.includes('github.io') || hostname.includes('netlify.app')) {
-    return 'https://hospitalos-doctor-backend.onrender.com';
+  // Auto-route cloud edge frontends (Vercel, Render static frontend, GitHub Pages, Netlify) to live backend
+  if (
+    hostname.endsWith('.vercel.app') ||
+    hostname.includes('onrender.com') ||
+    hostname.includes('github.io') ||
+    hostname.includes('netlify.app')
+  ) {
+    if (!hostname.includes('backend')) {
+      return 'https://hospitalos-doctor-backend.onrender.com';
+    }
   }
 
   // Local development / LAN / Reverse Proxy
@@ -42,11 +52,21 @@ const getAutoApiUrl = (): string => {
 };
 
 const getAutoWsUrl = (): string => {
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  const envWs = import.meta.env.VITE_WS_URL;
+  if (envWs && typeof envWs === 'string' && envWs.trim()) {
+    return envWs.startsWith('ws') ? envWs : `wss://${envWs}`;
+  }
   if (!isBrowser) return 'ws://localhost:8001/ws/ambient';
 
-  if (hostname.endsWith('.vercel.app') || hostname.includes('github.io') || hostname.includes('netlify.app')) {
-    return 'wss://hospitalos-doctor-backend.onrender.com/ws/ambient';
+  if (
+    hostname.endsWith('.vercel.app') ||
+    hostname.includes('onrender.com') ||
+    hostname.includes('github.io') ||
+    hostname.includes('netlify.app')
+  ) {
+    if (!hostname.includes('backend')) {
+      return 'wss://hospitalos-doctor-backend.onrender.com/ws/ambient';
+    }
   }
 
   return `${wsProtocol}//${window.location.host}/ws/ambient`;

@@ -25,15 +25,19 @@ data/*.db-wal
 .idea/
 *.log
 
-# Proprietary 3D Anatomical Assets & CAD Models (Protected IP - Not for Public Distribution)
+# Proprietary >100MB Raw CAD Models (Protected IP - Exceeds GitHub 100MB limit)
 *.fbx
-*.glb
-*.gltf
 *.obj
 *.bin
 *.part*
-frontend/public/models/
-frontend/public/models/*
+frontend/public/models/3d_mannequin_clean.glb
+frontend/public/models/3d_mannequin_fidelity.glb
+frontend/public/models/3d_mannequin_instant.glb
+frontend/public/models/3d_mannequin_optimized.glb
+frontend/public/models/3d_mannequin_smooth.glb
+frontend/public/models/3d_mannequin_ultrafast.glb
+frontend/public/models/anatomical_full_body.glb
+frontend/public/models/3d_mannequin.fbx
 
 # Private Documentation and Internal Specifications
 .private_docs/

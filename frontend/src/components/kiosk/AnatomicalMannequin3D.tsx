@@ -1990,7 +1990,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       } catch {}
     };
 
-    const parseAndMount = (buffer: ArrayBuffer | Uint8Array) => {
+    const parseAndMount = (buffer: ArrayBuffer | Uint8Array, onError?: () => void) => {
       try {
         const arrayBuffer = buffer instanceof Uint8Array
           ? (buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer)
@@ -2002,13 +2002,15 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
             setupLoadedInternalModel(gltf.scene);
           },
           (err) => {
-            console.warn('GLTF buffer parse error, trying fallback:', err);
-            fallbackDirect();
+            console.warn('[3D Loader] GLTF buffer parse error, cascading:', err);
+            if (onError) onError();
+            else mountProceduralMannequinFallback();
           }
         );
       } catch (err) {
-        console.warn('Buffer parse exception:', err);
-        fallbackDirect();
+        console.warn('[3D Loader] Buffer parse exception, cascading:', err);
+        if (onError) onError();
+        else mountProceduralMannequinFallback();
       }
     };
 
@@ -2068,67 +2070,86 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       }
     };
 
-    const fallbackDirect = () => {
-      // Tier 1: Draco-compressed model
-      gltfLoader.load(
-        '/models/3d_mannequin_draco.glb',
-        (gltf) => { setupLoadedInternalModel(gltf.scene); },
-        (xhr) => { if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100)); },
-        () => {
-          // Tier 2: Uncompressed smooth model
-          gltfLoader.load(
-            '/models/3d_mannequin_smooth.glb',
-            (gltfSmooth) => { setupLoadedInternalModel(gltfSmooth.scene); },
-            (xhr) => { if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100)); },
-            () => {
-              // Tier 3: Lightweight body or procedural fail-safe
-              gltfLoader.load(
-                '/models/human_body.glb',
-                (gltfFallback) => { setupLoadedInternalModel(gltfFallback.scene); },
-                undefined,
-                () => { mountProceduralMannequinFallback(); }
-              );
-            }
-          );
+    /**
+     * Inspect network response to avoid corrupting parser on SPA HTML 200 catch-alls
+     */
+    const fetchValidModelBuffer = async (url: string): Promise<ArrayBuffer | null> => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const contentType = response.headers.get('content-type') || '';
+        // If server returned HTML (SPA fallback), reject immediately
+        if (contentType.includes('text/html')) {
+          console.warn(`[3D Loader] Detected SPA HTML redirect for ${url}, skipping.`);
+          return null;
         }
-      );
+        const buffer = await response.arrayBuffer();
+        if (buffer.byteLength < 1000) return null;
+        const view = new DataView(buffer);
+        const magic = view.getUint32(0, false);
+        // Binary GLTF magic: 0x46546C67 ('glTF')
+        if (magic !== 0x46546C67) {
+          const firstChar = String.fromCharCode(view.getUint8(0)).trim();
+          if (firstChar !== '{') {
+            console.warn(`[3D Loader] Invalid GLTF header for ${url}, skipping.`);
+            return null;
+          }
+        }
+        return buffer;
+      } catch (e) {
+        console.warn(`[3D Loader] Network fetch error for ${url}:`, e);
+        return null;
+      }
     };
 
-    // Main loader entrypoint: IndexedDB Cache -> Draco CDN -> Uncompressed Localhost -> Procedural Fail-safe
-    loadFromIndexedDB()
-      .then((cached) => {
-        if (cached && cached.byteLength > 5000000) {
-          parseAndMount(cached);
+    const loadWithCascade = async () => {
+      try {
+        // Step 1: Check IndexedDB Cache
+        const cached = await loadFromIndexedDB();
+        if (cached && cached.byteLength > 1000000) {
+          const view = new DataView(cached);
+          if (view.getUint32(0, false) === 0x46546C67) {
+            parseAndMount(cached, () => {});
+            return;
+          }
+        }
+
+        // Step 2: Try High-Fidelity Draco-compressed model (/models/3d_mannequin_draco.glb)
+        setLoadingProgress(30);
+        const dracoBuf = await fetchValidModelBuffer('/models/3d_mannequin_draco.glb');
+        if (dracoBuf) {
+          saveToIndexedDB(dracoBuf);
+          setLoadingProgress(80);
+          parseAndMount(dracoBuf, () => {
+            // If Draco parsing failed, cascade to lightweight
+            fetchValidModelBuffer('/models/human_body.glb').then((lightBuf) => {
+              if (lightBuf) parseAndMount(lightBuf);
+              else mountProceduralMannequinFallback();
+            });
+          });
           return;
         }
-        gltfLoader.load(
-          '/models/3d_mannequin_draco.glb',
-          (gltf) => {
-            setupLoadedInternalModel(gltf.scene);
-          },
-          (xhr) => {
-            if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100));
-          },
-          () => {
-            gltfLoader.load(
-              '/models/3d_mannequin_smooth.glb',
-              (gltf) => { setupLoadedInternalModel(gltf.scene); },
-              (xhr) => { if (xhr.total > 0) setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100)); },
-              () => {
-                gltfLoader.load(
-                  '/models/human_body.glb',
-                  (gltfFallback) => { setupLoadedInternalModel(gltfFallback.scene); },
-                  undefined,
-                  () => { mountProceduralMannequinFallback(); }
-                );
-              }
-            );
-          }
-        );
-      })
-      .catch(() => {
-        fallbackDirect();
-      });
+
+        // Step 3: Try Lightweight Model (/models/human_body.glb)
+        setLoadingProgress(60);
+        const lightBuf = await fetchValidModelBuffer('/models/human_body.glb');
+        if (lightBuf) {
+          setLoadingProgress(90);
+          parseAndMount(lightBuf);
+          return;
+        }
+
+        // Step 4: Instant Procedural Fail-Safe (Zero network, 100% dependable)
+        console.info('[3D Loader] Mounting instantaneous procedural sovereign mannequin.');
+        mountProceduralMannequinFallback();
+      } catch (err) {
+        console.warn('[3D Loader] Cascading loader caught error:', err);
+        mountProceduralMannequinFallback();
+      }
+    };
+
+    // Main loader entrypoint: IndexedDB Cache -> Draco CDN -> Lightweight Body -> Procedural Fail-safe
+    loadWithCascade();
 
 
 
