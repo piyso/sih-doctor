@@ -74,8 +74,13 @@ backend/data/backups/
 !docs/*.md
 !edge-ai/README.md
 !.env.example
-backups/
-models/
+# Models and test caches
+/models/
+edge-ai/models/
+frontend/.model-cache/
+e2e/.probe/
+frontend/public/models/cmp-*.glb
+!frontend/public/models/body.glb
 e2e/test-results/
 e2e/node_modules/
 

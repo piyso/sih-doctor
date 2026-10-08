@@ -8,8 +8,7 @@ import { db } from '../db/database';
 import { ClinicalParserService } from '../services/clinicalParser.service';
 import { SovereignNERService } from '../services/sovereignNER.service';
 import { AyushEngineService } from '../services/ayushEngine.service';
-import { PhoneticNormalizerService } from '../services/phoneticNormalizer.service';
-import { HopfieldAssociativeService } from '../services/hopfieldAssociative.service';
+import { analyseTranscript } from '../services/intakeExtraction.service';
 import ayushOntology from '../shared/ayush_ontology.json';
 import { cleanConsent, recordConsent } from '../security/privacy.service';
 import { blindIndex, encryptField, decryptField, normalisePhone } from '../security/fieldCrypto';
@@ -26,7 +25,7 @@ export const kioskRouter = Router();
 
 /**
  * POST /api/kiosk/parse-audio
- * Parse a kiosk transcript: phonetic normalisation -> clinical rules -> clinical-lexicon emergency rules
+ * Parse a kiosk transcript into symptoms, vitals, history and red flags (services/intakeExtraction.service.ts).
  */
 kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
   try {
@@ -36,58 +35,7 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
       return;
     }
 
-    // 1. Phonetic Normalization (Hinglish / Regional Dialects -> Canonical terms)
-    const normalizedText = PhoneticNormalizerService.normalize(transcript);
-    const phoneticReplacements = PhoneticNormalizerService.extractTerms(transcript);
-
-    // 2. Clinical Extraction
-    const extracted = ClinicalParserService.parse(normalizedText, patientId, abhaId);
-    // Emergency rules from the shared clinical lexicon (Hindi / Hinglish / English, recall-first).
-    const lexicon = analyseComplaint(String(transcript));
-    if (lexicon.redFlags.length) {
-      extracted.redFlagTriggers = Array.from(new Set([...(extracted.redFlagTriggers || []), ...lexicon.redFlags.map(f => f.label)]));
-      if (lexicon.sos) extracted.isEmergencyRedFlag = true;
-    }
-
-    // 3. Hopfield Modern Attractor Recall
-    // Build 10-D indicator vector from extracted symptoms + normalized text
-    const featureVector = new Array(10).fill(0);
-    const lower = normalizedText.toLowerCase();
-    const symNames = (extracted.symptoms || []).map(s => (s.name || '').toLowerCase() + ' ' + (s.site || '').toLowerCase()).join(' ');
-
-    if (lower.includes('chest') || lower.includes('substernal') || lower.includes('cardiac') || lower.includes('सीने') || lower.includes('छाती') || symNames.includes('chest')) featureVector[0] = 1.0;
-    // Arm pain only counts as the cardiac "radiation to left arm" feature when chest symptoms are present too;
-    // otherwise "मेरे हाथ में दर्द" (pain in my hand) would be scored as a heart attack.
-    if (featureVector[0] === 1.0 && (lower.includes('left arm') || lower.includes('arm radiation') || lower.includes('बाएं हाथ') || lower.includes('बाईं बांह') || symNames.includes('arm'))) featureVector[1] = 1.0;
-    if (lower.includes('diaphoresis') || lower.includes('sweat') || lower.includes('pasina') || lower.includes('पसीना') || symNames.includes('diaphoresis')) featureVector[2] = 1.0;
-    if (lower.includes('crepitus') || lower.includes('cut cut') || lower.includes('knee') || lower.includes('घुटना') || lower.includes('कट-कट') || symNames.includes('knee') || symNames.includes('crepitus')) featureVector[3] = 1.0;
-    if (lower.includes('morning stiffness') || lower.includes('stambha') || lower.includes('जकड़न') || lower.includes('अकड़न') || symNames.includes('stiffness')) featureVector[4] = 1.0;
-    if (lower.includes('fever') || lower.includes('jwara') || lower.includes('बुखार') || symNames.includes('fever') || (extracted.vitals?.temp && parseFloat(extracted.vitals.temp) > 100)) featureVector[5] = 1.0;
-    if (lower.includes('cough') || lower.includes('kasa') || lower.includes('balgam') || lower.includes('खांसी') || lower.includes('बलगम') || symNames.includes('cough')) featureVector[6] = 1.0;
-    if (lower.includes('polyuria') || lower.includes('thirst') || lower.includes('urine') || lower.includes('पेशाब') || lower.includes('प्यास') || symNames.includes('urine')) featureVector[7] = 1.0;
-    if (lower.includes('burning feet') || lower.includes('daha') || lower.includes('जलन') || symNames.includes('burning')) featureVector[8] = 1.0;
-    if (lower.includes('joint swelling') || lower.includes('shotha') || lower.includes('जोड़ों में सूजन') || symNames.includes('joint')) featureVector[9] = 1.0;
-
-    const activeFeatures = featureVector.filter(v => v > 0).length;
-    const hopfieldRecall = HopfieldAssociativeService.recallAttractor(featureVector);
-    // A syndrome match from a single feature is noise, not evidence — don't report it.
-    const hopfieldIsMeaningful = activeFeatures >= 2;
-
-    res.json({
-      success: true,
-      data: {
-        ...extracted,
-        normalizedTranscript: normalizedText,
-        phoneticReplacements,
-        hopfieldAttractor: hopfieldIsMeaningful ? {
-          syndromeName: hopfieldRecall.bestMatchSyndrome.name,
-          namasteCode: hopfieldRecall.bestMatchSyndrome.namasteCode,
-          icd11Code: hopfieldRecall.bestMatchSyndrome.icd11Code,
-          confidence: hopfieldRecall.retrievalConfidence,
-          attractorEnergy: hopfieldRecall.attractorEnergy
-        } : null
-      }
-    });
+    res.json({ success: true, data: analyseTranscript(String(transcript), patientId, abhaId) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

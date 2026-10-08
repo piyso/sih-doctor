@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { sovereignSound } from '../../utils/audio';
 import { kioskText, regionName } from '../../utils/kioskLocalization';
 import { REGIONAL_SYMPTOMS } from '../../utils/kioskSymptomCatalog';
@@ -1854,12 +1854,13 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           }
 
           // Ensure smooth vertex normals and complete bounding volumes for raycasting on every mesh geometry
-          // Critical for Draco-decoded geometry: WASM decoder doesn't pre-compute bounding volumes
+          // Bounding volumes are needed for raycasting (tap picking)
           if (child.geometry) {
-            child.geometry.computeVertexNormals();
+            // the model ships normals; recomputing 1.4 M triangles' worth would block the main thread
+            if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
             child.geometry.computeBoundingBox();
             child.geometry.computeBoundingSphere();
-            // Ensure Draco-decoded non-indexed geometry still has proper draw range
+            // Non-indexed geometry still needs a full draw range
             if (!child.geometry.index && child.geometry.attributes.position) {
               child.geometry.setDrawRange(0, child.geometry.attributes.position.count);
             }
@@ -1940,40 +1941,18 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       setLoadingProgress(100);
     };
 
-    // 8. Sovereign Zero-Loss High-Fidelity Anatomical Loading Pipeline (1,751 Clean Meshes)
-    //    Draco-compressed: 226 MB → 28 MB, pixel-identical (KHR_draco_mesh_compression)
-    //    CDN fallback: if local /draco/ fails (MIME type issue), fall to Google CDN
+    // 8. Anatomical model: 1,744 named parts (names drive colours and body-region mapping), simplified from
+    //    9.8 M to 1.4 M triangles under a 0.5% per-part error bound and meshopt-compressed — built by
+    //    frontend/scripts/optimize-body-model.mjs. Meshopt decodes in milliseconds on the main thread with
+    //    no WebAssembly worker or decoder download (Draco needed both).
     let disposed = false;
-    const dracoLoader = new DRACOLoader();
-    const cdnDracoPath = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
-    // Default to local path — probe below will switch to CDN if local fails
-    dracoLoader.setDecoderPath('/draco/');
-
-    // Fire-and-forget probe: if local Draco WASM is undeliverable, swap to CDN before model load starts
-    const probeDracoPath = async () => {
-      try {
-        const probe = await fetch('/draco/draco_decoder.wasm', { method: 'HEAD' });
-        const ct = probe.headers.get('content-type') || '';
-        if (!probe.ok || ct.includes('text/html')) {
-          dracoLoader.setDecoderPath(cdnDracoPath);
-          console.info('[3D Loader] Local draco probe failed, switching to CDN Draco decoder.');
-        } else {
-          console.info('[3D Loader] Using local Draco decoder (/draco/).');
-        }
-      } catch {
-        dracoLoader.setDecoderPath(cdnDracoPath);
-        console.info('[3D Loader] Local draco unreachable, switching to CDN Draco decoder.');
-      }
-    };
-
-    dracoLoader.preload();
     const gltfLoader = new GLTFLoader();
-    gltfLoader.setDRACOLoader(dracoLoader);
+    gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 
     // Helper: IndexedDB Persistent 3D Cache for instant sub-100ms subsequent loads
     // IMPORTANT: Bump version whenever the model loading/validation logic changes
     // to invalidate potentially corrupt cached buffers. v4 = endianness fix (getUint32 LE).
-    const IDB_NAME = 'medikiosk_3d_cache_v4';
+    const IDB_NAME = 'medikiosk_3d_cache_v5'; // v5 = optimised meshopt model
     const IDB_STORE = 'models';
     const IDB_KEY = 'medikiosk_3d_mannequin';
 
@@ -2059,9 +2038,9 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
      */
     const MODEL_FETCH_TIMEOUT_MS = 12_000;
 
-    const MODEL_URL = '/models/3d_mannequin_draco.glb';
+    const MODEL_URL = (new URLSearchParams(location.search).get('model3d')) || '/models/body.glb';
     const STALL_TIMEOUT_MS = 30_000; // give up only if no data arrives for 30 s (slow links still finish)
-    const MODEL_SIZE_HINT = 28_573_092; // bytes, for the progress bar when the server does not say
+    const MODEL_SIZE_HINT = 17_633_336; // bytes, for the progress bar when the server does not say
 
     const fetchValidModelBuffer = async (url: string): Promise<ArrayBuffer | null> => {
       const controller = new AbortController();
@@ -2126,7 +2105,6 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     // Browser cache (instant on repeat visits) -> the one high-fidelity model -> body-area list
     const loadModel = async () => {
       try {
-        await probeDracoPath();
         const cached = await loadFromIndexedDB();
         if (cached && cached.byteLength > 1_000_000 && new DataView(cached).getUint32(0, true) === 0x46546C67) {
           // a stale or corrupt cache entry falls through to a fresh download
@@ -2345,7 +2323,6 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
-      dracoLoader.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);

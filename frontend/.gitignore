@@ -29,6 +29,7 @@ dist-ssr
 *.part*
 !public/models/human_body.glb
 !public/models/3d_mannequin_draco.glb
+!public/models/body.glb
 
 
 
