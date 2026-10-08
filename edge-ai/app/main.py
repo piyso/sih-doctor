@@ -40,6 +40,8 @@ def run(engine_name: str, fn):
         return fn()
     except HTTPException:
         raise
+    except ValueError as e:  # bad or unreadable input
+        raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:  # model errors must not crash the service
@@ -50,8 +52,9 @@ def run(engine_name: str, fn):
 @app.get("/health")
 def health(_: None = Depends(require_token)):
     caps = {name: e.status() for name, e in ENGINES.items()}
-    for name in ("asr", "tts", "translate"):
-        caps[name]["languages"] = [l for l in LANGS if not (name == "asr" and l == "or")] if caps[name]["available"] else []
+    caps["asr"]["languages"] = asr.languages() if caps["asr"]["available"] else []
+    for name in ("tts", "translate"):
+        caps[name]["languages"] = list(LANGS) if caps[name]["available"] else []
     return {"status": "ok", "device": f"{_device()} ({platform.machine()})", "capabilities": caps}
 
 

@@ -74,6 +74,7 @@ services:
       - "443:443"
     environment:
       HOSPITAL_HOSTNAME: ${HOSPITAL_HOSTNAME:-hospital.local}
+      CADDY_TLS: ${CADDY_TLS:-internal}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -88,6 +89,9 @@ services:
     restart: unless-stopped
     environment:
       EDGE_AI_TOKEN: ${EDGE_AI_TOKEN:-}
+      # Hindi + English speech recognition (fetch once: docker compose --profile ai run --rm edge-ai scripts/fetch_models.sh)
+      ASR_SHERPA_DIR: /models/asr
+      ASR_THREADS: ${ASR_THREADS:-2}
       ASR_MODEL: ${ASR_MODEL:-}
       TTS_MODEL: ${TTS_MODEL:-}
       TRANSLATE_MODEL: ${TRANSLATE_MODEL:-}

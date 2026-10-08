@@ -18,7 +18,8 @@
     "benchmark:efficiency": "tsx tests/deep_system_efficiency_benchmark.ts",
     "create-admin": "tsx scripts/create-admin.ts",
     "restore-backup": "tsx scripts/restore-backup.ts",
-    "backup": "tsx -e \"require('./src/services/backup.service').runBackup().then(r=>{console.log(r);process.exit(0)})\""
+    "backup": "tsx -e \"require('./src/services/backup.service').runBackup().then(r=>{console.log(r);process.exit(0)})\"",
+    "test:lexicon": "tsx tests/clinical_lexicon.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

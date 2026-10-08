@@ -107,64 +107,6 @@ app.get(['/health', '/api/health'], (_req, res) => {
   });
 });
 
-import { Readable } from 'stream';
-
-// High-Speed CORS-Enabled 3D Anatomical Model Streaming Endpoint (1,751 Clean Meshes)
-app.get('/api/models/anatomical-smooth', async (req, res) => {
-  const localSmoothPath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', '3d_mannequin_smooth.glb');
-  const localInstantPath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', '3d_mannequin_instant.glb');
-
-  if (fs.existsSync(localSmoothPath)) {
-    res.setHeader('Content-Type', 'model/gltf-binary');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    return res.sendFile(localSmoothPath);
-  }
-  if (fs.existsSync(localInstantPath)) {
-    res.setHeader('Content-Type', 'model/gltf-binary');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    return res.sendFile(localInstantPath);
-  }
-
-  const cdnUrl = process.env.PROPRIETARY_MODEL_ASSETS_CDN_URL;
-  if (!cdnUrl) {
-    return res.status(404).json({ error: '3D model assets are proprietary and restricted to authorized local kiosks.' });
-  }
-  try {
-    const range = req.headers.range;
-    const fetchHeaders: Record<string, string> = {};
-    if (range) fetchHeaders['Range'] = range;
-
-    const response = await fetch(cdnUrl, { headers: fetchHeaders });
-    res.status(response.status);
-    response.headers.forEach((val, key) => {
-      const lowerKey = key.toLowerCase();
-      if (!['content-encoding', 'transfer-encoding', 'connection'].includes(lowerKey)) {
-        res.setHeader(key, val);
-      }
-    });
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-
-    if (response.body) {
-      const nodeStream = Readable.fromWeb(response.body as any);
-      nodeStream.on('error', (err) => {
-        console.error('[Stream Error in 3D Model Proxy]:', err);
-        if (!res.headersSent) res.status(500).end();
-      });
-      nodeStream.pipe(res);
-    } else {
-      res.status(500).json({ error: 'No response body received from CDN' });
-    }
-  } catch (err) {
-    console.error('Error streaming 3D model:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to stream 3D model' });
-    }
-  }
-});
-
 // ---------- Routes ----------
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);

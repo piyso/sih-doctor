@@ -1,0 +1,819 @@
+{
+ "hi": [
+  [
+   "मुझे तीन दिन से बुखार है और ठंड लगती है",
+   [
+    "Fever with chills",
+    "Fever with shivering"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "पेशाब करते समय बहुत जलन होती है",
+   [
+    "Burning or pain while passing urine",
+    "Burning or blockage while passing urine"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "सीने में भारी दबाव है और पसीना आ रहा है",
+   [
+    "Heavy pressure in the chest",
+    "Heavy pressure or tightness in the chest",
+    "Sweating with fast heartbeat",
+    "Fast heartbeat with cold sweat"
+   ],
+   true,
+   "standard"
+  ],
+  [
+   "सुबह उठते ही एड़ी में दर्द होता है",
+   [
+    "Heel pain on first steps in the morning"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "पेट में गैस बनती है और फूला रहता है",
+   [
+    "Bloating and gas",
+    "Bloating with rumbling",
+    "Stomach cramps and gas"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "कमर का दर्द पैर तक जाता है",
+   [
+    "Back pain going down the leg (sciatica)",
+    "Lower back pain going down the leg",
+    "Shooting pain from back to foot"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "रात को नींद नहीं आती",
+   [
+    "Cannot sleep / restless"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "खाँसी में बलगम आता है",
+   [
+    "Cough with phlegm",
+    "Long-standing cough with phlegm"
+   ],
+   false,
+   "standard"
+  ],
+  [
+   "दो दिन से पेट में मरोड़ उठ रही है",
+   [
+    "Stomach cramps and gas",
+    "Cramps around the navel",
+    "Loose motions with cramps",
+    "Constipation with cramps",
+    "Cramps in the lower belly"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "सिर फटा जा रहा है",
+   [
+    "Severe headache with heaviness",
+    "Sudden worst-ever headache",
+    "Throbbing headache (migraine)",
+    "Throbbing one-sided headache (migraine)",
+    "Body ache and headache with fever"
+   ],
+   false,
+   "idiom"
+  ],
+  [
+   "जी घबरा रहा है और उल्टी जैसा लग रहा है",
+   [
+    "Nausea or vomiting",
+    "Dizziness with nausea"
+   ],
+   false,
+   "idiom"
+  ],
+  [
+   "थोड़ा चलने पर सांस फूल जाती है",
+   [
+    "Sudden breathlessness",
+    "Breathless with chest discomfort",
+    "Breathlessness with wheezing",
+    "Wheezing and difficulty breathing"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "पैरों में सूजन आ गई है",
+   [
+    "Swollen, heavy ankles",
+    "Swollen, heavy calf",
+    "Swollen or twisted ankle"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "कमर में बहुत दर्द रहता है झुक नहीं पाता",
+   [
+    "Severe pain when bending or lifting",
+    "Back pain when sitting or standing long",
+    "Stiff lower back in the morning",
+    "Lower back pain going down the leg",
+    "Back pain going down the leg (sciatica)"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "तीन दिन से बुखार है और बदन टूट रहा है",
+   [
+    "Body ache and headache with fever",
+    "Body ache all over",
+    "Fever with chills",
+    "Fever with shivering"
+   ],
+   false,
+   "idiom"
+  ],
+  [
+   "हाथ पैर सुन्न हो जाते हैं",
+   [
+    "Numbness or tingling in hands and feet",
+    "Numb hand / tingling",
+    "Numbness or tingling in hand and fingers",
+    "Numbness or tingling in toes",
+    "Burning or numb soles"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "खाना खाने के बाद छाती में जलन होती है",
+   [
+    "Acidity and heartburn",
+    "Acidity and burning in chest/stomach"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "आँखें लाल हैं और जलती हैं",
+   [
+    "Burning or red eyes"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "शरीर पर दाने निकल आए हैं बहुत खुजली होती है",
+   [
+    "Severe itching with rashes"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "भूख बिल्कुल नहीं लगती",
+   [
+    "Loss of appetite"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "पखाना साफ नहीं होता",
+   [
+    "Constipation",
+    "Constipation with cramps"
+   ],
+   false,
+   "idiom"
+  ],
+  [
+   "गला बैठ गया है",
+   [
+    "Hoarse voice"
+   ],
+   false,
+   "idiom"
+  ],
+  [
+   "दाँत में बहुत दर्द है",
+   [
+    "Toothache or jaw pain"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "कान से पानी आता है",
+   [
+    "Fluid or pus from the ear"
+   ],
+   false,
+   "colloquial"
+  ],
+  [
+   "मुझे chest में pain हो रहा है",
+   [
+    "Heavy pressure in the chest",
+    "Heavy pressure or tightness in the chest",
+    "Chest tightness, feeling suffocated",
+    "Breathless with chest discomfort",
+    "Pain spreading to left arm, jaw or back",
+    "Arm pain that seems to come from the chest"
+   ],
+   true,
+   "hinglish"
+  ],
+  [
+   "सुबह से loose motion हो रहे हैं",
+   [
+    "Loose motions / diarrhoea",
+    "Loose motions with cramps"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "बार बार vomiting हो रही है",
+   [
+    "Nausea or vomiting",
+    "Stomach pain with fever and vomiting"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "knee में बहुत pain है चलने में",
+   [
+    "Knee pain with swelling",
+    "Pain climbing stairs or bearing weight",
+    "Stiff knee when walking or bending"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "acidity की problem है",
+   [
+    "Acidity and heartburn",
+    "Acidity and burning in chest/stomach"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "नीचे कमर में back pain है",
+   [
+    "Severe pain when bending or lifting",
+    "Back pain when sitting or standing long",
+    "Stiff lower back in the morning",
+    "Lower back pain going down the leg",
+    "Back pain going down the leg (sciatica)"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "fever है और body pain भी है",
+   [
+    "Body ache and headache with fever",
+    "Body ache all over",
+    "Fever with chills",
+    "Fever with shivering"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "urine में burning हो रही है",
+   [
+    "Burning or pain while passing urine",
+    "Burning or blockage while passing urine"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "headache बहुत रहता है",
+   [
+    "Severe headache with heaviness",
+    "Sudden worst-ever headache",
+    "Throbbing headache (migraine)",
+    "Throbbing one-sided headache (migraine)",
+    "Body ache and headache with fever"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "एक हफ्ते से dry cough है",
+   [
+    "Persistent dry cough",
+    "Sore throat and dry cough"
+   ],
+   false,
+   "hinglish"
+  ],
+  [
+   "सीने में बहुत दर्द है जो बाएँ हाथ तक जा रहा है",
+   [
+    "Pain spreading to left arm, jaw or back",
+    "Arm pain that seems to come from the chest",
+    "Heavy pressure in the chest",
+    "Heavy pressure or tightness in the chest"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "अचानक सांस नहीं ले पा रहा हूँ",
+   [
+    "Sudden breathlessness"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "मुँह टेढ़ा हो गया है और एक तरफ का हाथ नहीं उठ रहा",
+   [
+    "Sudden weakness of face, arm or leg"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "खांसी में खून आ रहा है",
+   [
+    "Coughing up blood"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "बहुत तेज़ बुखार है जो उतर नहीं रहा",
+   [
+    "High fever that does not come down"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "पेट के दाहिने तरफ नीचे बहुत तेज़ दर्द है",
+   [
+    "Severe pain in the lower right stomach"
+   ],
+   true,
+   "redflag"
+  ]
+ ],
+ "en": [
+  [
+   "I am having burning sensation while passing urine",
+   [
+    "Burning or pain while passing urine",
+    "Burning or blockage while passing urine"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My stomach is paining since two days",
+   [
+    "Pain in the upper stomach",
+    "Stomach cramps and gas",
+    "Cramps around the navel",
+    "Pain in the lower left stomach",
+    "Severe pain in the lower right stomach",
+    "Bloating and gas",
+    "Indigestion and heaviness",
+    "Stomach pain with fever and vomiting"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I have loose motions from yesterday",
+   [
+    "Loose motions / diarrhoea",
+    "Loose motions with cramps"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I feel giddy when I get up",
+   [
+    "Spinning dizziness",
+    "Dizziness with nausea",
+    "Dizziness when turning the neck"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "There is gas formation and bloating in my stomach",
+   [
+    "Bloating and gas",
+    "Stomach cramps and gas",
+    "Bloating with rumbling"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I have fever with body pain",
+   [
+    "Body ache and headache with fever",
+    "Body ache all over",
+    "Fever with chills",
+    "Fever with shivering"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My knee is swollen and paining",
+   [
+    "Knee pain with swelling",
+    "Pain climbing stairs or bearing weight",
+    "Stiff knee when walking or bending"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I have dry cough since one week",
+   [
+    "Persistent dry cough",
+    "Sore throat and dry cough"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My head is paining very badly",
+   [
+    "Severe headache with heaviness",
+    "Sudden worst-ever headache",
+    "Throbbing headache (migraine)",
+    "Throbbing one-sided headache (migraine)",
+    "Body ache and headache with fever"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My eyes are red and burning",
+   [
+    "Burning or red eyes"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I get breathlessness when I walk",
+   [
+    "Sudden breathlessness",
+    "Breathless with chest discomfort",
+    "Breathlessness with wheezing",
+    "Wheezing and difficulty breathing"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My heel pains when I get up in the morning",
+   [
+    "Heel pain on first steps in the morning"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "Pus is coming from my ear",
+   [
+    "Fluid or pus from the ear"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My throat is sore and it hurts to swallow",
+   [
+    "Pain when swallowing",
+    "Sore, dry throat",
+    "Sore throat and dry cough"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I am feeling vomiting sensation",
+   [
+    "Nausea or vomiting",
+    "Dizziness with nausea"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "Both my legs are swelling",
+   [
+    "Swollen, heavy ankles",
+    "Swollen, heavy calf",
+    "Swollen or twisted ankle"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I have pain in my lower back",
+   [
+    "Severe pain when bending or lifting",
+    "Back pain when sitting or standing long",
+    "Stiff lower back in the morning",
+    "Lower back pain going down the leg",
+    "Back pain going down the leg (sciatica)"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I am not getting sleep at night",
+   [
+    "Cannot sleep / restless"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "My hands and feet feel numb",
+   [
+    "Numbness or tingling in hands and feet",
+    "Numb hand / tingling",
+    "Numbness or tingling in hand and fingers",
+    "Numbness or tingling in toes",
+    "Burning or numb soles"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "There is itching and rashes all over my body",
+   [
+    "Severe itching with rashes"
+   ],
+   false,
+   "indian-english"
+  ],
+  [
+   "I have severe chest pain going to my left arm",
+   [
+    "Pain spreading to left arm, jaw or back",
+    "Arm pain that seems to come from the chest",
+    "Heavy pressure in the chest",
+    "Heavy pressure or tightness in the chest"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "Suddenly I am not able to breathe",
+   [
+    "Sudden breathlessness"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "I am coughing blood",
+   [
+    "Coughing up blood"
+   ],
+   true,
+   "redflag"
+  ],
+  [
+   "My face is drooping and my arm is weak",
+   [
+    "Sudden weakness of face, arm or leg"
+   ],
+   true,
+   "redflag"
+  ]
+ ],
+ "typed": [
+  [
+   "pet me dard ho raha hai",
+   [
+    "Pain in the upper stomach",
+    "Stomach cramps and gas",
+    "Cramps around the navel",
+    "Pain in the lower left stomach",
+    "Severe pain in the lower right stomach",
+    "Bloating and gas",
+    "Indigestion and heaviness",
+    "Stomach pain with fever and vomiting"
+   ]
+  ],
+  [
+   "sir me bahut dard",
+   [
+    "Severe headache with heaviness",
+    "Sudden worst-ever headache",
+    "Throbbing headache (migraine)",
+    "Throbbing one-sided headache (migraine)",
+    "Body ache and headache with fever"
+   ]
+  ],
+  [
+   "peshab me jalan",
+   [
+    "Burning or pain while passing urine",
+    "Burning or blockage while passing urine"
+   ]
+  ],
+  [
+   "khansi aur bukhar",
+   [
+    "Fever with chills",
+    "Fever with shivering",
+    "Body ache and headache with fever",
+    "Persistent dry cough",
+    "Cough with phlegm",
+    "Sore throat and dry cough",
+    "Long-standing cough with phlegm"
+   ]
+  ],
+  [
+   "saans phoolti hai",
+   [
+    "Sudden breathlessness",
+    "Breathless with chest discomfort",
+    "Breathlessness with wheezing",
+    "Wheezing and difficulty breathing"
+   ]
+  ],
+  [
+   "chakkar aate hai",
+   [
+    "Spinning dizziness",
+    "Dizziness with nausea",
+    "Dizziness when turning the neck"
+   ]
+  ],
+  [
+   "ghutne me sujan",
+   [
+    "Knee pain with swelling",
+    "Pain climbing stairs or bearing weight",
+    "Stiff knee when walking or bending"
+   ]
+  ],
+  [
+   "ulti ho rahi hai",
+   [
+    "Nausea or vomiting",
+    "Dizziness with nausea"
+   ]
+  ],
+  [
+   "dast lag gaye",
+   [
+    "Loose motions / diarrhoea",
+    "Loose motions with cramps"
+   ]
+  ],
+  [
+   "seene me dard",
+   [
+    "Heavy pressure in the chest",
+    "Heavy pressure or tightness in the chest",
+    "Chest tightness, feeling suffocated",
+    "Breathless with chest discomfort",
+    "Pain spreading to left arm, jaw or back",
+    "Arm pain that seems to come from the chest"
+   ]
+  ],
+  [
+   "kamar dard",
+   [
+    "Severe pain when bending or lifting",
+    "Back pain when sitting or standing long",
+    "Stiff lower back in the morning",
+    "Lower back pain going down the leg",
+    "Back pain going down the leg (sciatica)"
+   ]
+  ],
+  [
+   "gale me kharash",
+   [
+    "Pain when swallowing",
+    "Sore, dry throat",
+    "Sore throat and dry cough"
+   ]
+  ],
+  [
+   "aankh lal hai",
+   [
+    "Burning or red eyes"
+   ]
+  ],
+  [
+   "kaan me dard",
+   [
+    "Earache"
+   ]
+  ],
+  [
+   "pairon me sujan",
+   [
+    "Swollen, heavy ankles",
+    "Swollen, heavy calf",
+    "Swollen or twisted ankle"
+   ]
+  ],
+  [
+   "neend nahi aati",
+   [
+    "Cannot sleep / restless"
+   ]
+  ],
+  [
+   "bhookh nahi lagti",
+   [
+    "Loss of appetite"
+   ]
+  ],
+  [
+   "khujli bahut hai",
+   [
+    "Severe itching with rashes",
+    "Unusual discharge or itching (private parts)"
+   ]
+  ],
+  [
+   "kabj hai",
+   [
+    "Constipation",
+    "Constipation with cramps"
+   ]
+  ],
+  [
+   "daant me dard",
+   [
+    "Toothache or jaw pain"
+   ]
+  ]
+ ],
+ "ooc": [
+  [
+   "मुझे साँप ने काट लिया है",
+   true
+  ],
+  [
+   "सुबह बेहोश हो गया था",
+   true
+  ],
+  [
+   "बच्चे को झटके आ रहे हैं",
+   true
+  ],
+  [
+   "I was bitten by a dog",
+   true
+  ],
+  [
+   "गलती से ज़हर पी लिया",
+   true
+  ],
+  [
+   "पैर जल गया है",
+   true
+  ]
+ ],
+ "visit": [
+  "दवाई लेने आया हूँ",
+  "रिपोर्ट दिखानी है",
+  "I have come for my BP medicine",
+  "शुगर की दवा खत्म हो गई"
+ ]
+}

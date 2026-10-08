@@ -7,8 +7,15 @@ def env(name: str, default: str = "") -> str:
 TOKEN = env("EDGE_AI_TOKEN")               # if set, callers must send Authorization: Bearer <token>
 DEVICE = env("EDGE_AI_DEVICE", "auto")     # auto | cpu | cuda | mps
 
-# Speech recognition: a faster-whisper model name or a local CTranslate2 directory.
-# Good choices: "large-v3" (best multilingual), "medium", or an Indic fine-tune converted to CT2.
+# Speech recognition (recommended): per-language sherpa-onnx models on CPU, fetched by scripts/fetch_models.sh.
+#   <ASR_SHERPA_DIR>/hi/  IndicConformer-hi (model.int8.onnx + tokens.txt, NeMo CTC)
+#   <ASR_SHERPA_DIR>/en/  Parakeet-TDT-0.6B-v2 (encoder/decoder/joiner.int8.onnx + tokens.txt, NeMo transducer)
+# Measured on edge-ai/eval: Hindi CER 2.5% clean, English WER 3.6% clean; ~0.2-0.5 s per 5 s utterance on CPU.
+ASR_SHERPA_DIR = env("ASR_SHERPA_DIR")
+ASR_THREADS = int(env("ASR_THREADS", "2"))
+
+# Optional fallback for languages without a sherpa model: a faster-whisper model name or CTranslate2 directory.
+# Whisper-small scored ~76% CER on our Hindi set, so do not use it for Hindi or English when the above exist.
 ASR_MODEL = env("ASR_MODEL")
 ASR_COMPUTE = env("ASR_COMPUTE_TYPE", "int8")
 

@@ -1,8 +1,8 @@
-# HTTPS reverse proxy for the hospital LAN.
-# `tls internal` issues a certificate from Caddy's own CA; trust that CA on each device once.
-# With a public domain, replace `tls internal` by nothing and Caddy obtains a Let's Encrypt cert.
+# HTTPS reverse proxy.
+# CADDY_TLS=internal (default): certificate from Caddy's own CA for a hospital LAN — trust that CA on each device once.
+# CADDY_TLS=you@example.org: a public domain gets a Let's Encrypt certificate (ports 80/443 must be reachable).
 {$HOSPITAL_HOSTNAME} {
-	tls internal
+	tls {$CADDY_TLS:internal}
 	encode gzip
 	header Strict-Transport-Security "max-age=31536000"
 	reverse_proxy frontend:80 {

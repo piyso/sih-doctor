@@ -1,3 +1,4 @@
+// GENERATED from frontend/src/utils/clinicalLexicon.ts by scripts/sync-clinical-lexicon.mjs — do not edit here.
 /**
  * Clinical concept lexicon for Hindi, Hinglish (romanised or in Devanagari) and English complaint text.
  *

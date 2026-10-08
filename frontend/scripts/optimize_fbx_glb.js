@@ -132,7 +132,7 @@ async function optimizeAndExport() {
   const gltf = await exporter.parseAsync(fbx, { binary: true, embedImages: false });
   
   const outBuffer = Buffer.from(gltf);
-  const outPath = path.resolve(__dirname, '../public/models/anatomical_full_body_optimized.glb');
+  const outPath = path.resolve(__dirname, '../assets-src/3d/anatomical_full_body_optimized.glb');
   fs.writeFileSync(outPath, outBuffer);
   console.log(`Optimized GLB saved to: ${outPath} (${(outBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
 }

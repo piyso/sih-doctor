@@ -100,7 +100,7 @@ exporter.parse(
   fbx,
   (gltf) => {
     const outBuffer = Buffer.from(gltf);
-    const outPath = path.resolve(__dirname, '../public/models/anatomical_full_body.glb');
+    const outPath = path.resolve(__dirname, '../assets-src/3d/anatomical_full_body.glb');
     fs.writeFileSync(outPath, outBuffer);
     console.log(`SUCCESS! Exported GLB: ${outPath} (${(outBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
     process.exit(0);

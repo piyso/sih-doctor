@@ -14,6 +14,16 @@ test.describe('Patient journey', () => {
     expect(a.department).toBe(b.department);
   });
 
+  test('emergency words are triaged on the server even without the SOS button', async ({ request }) => {
+    const snake = await checkIn(request, `${TAG}Snakebite`, { rawTranscript: 'मुझे साँप ने काट लिया है' });
+    expect(snake.triagePriority).toBe('EMERGENCY_RED_FLAG');
+    expect(snake.redFlags.join(' ')).toMatch(/snake/i);
+    const dog = await checkIn(request, `${TAG}Dogbite`, { rawTranscript: 'I was bitten by a dog' });
+    expect(dog.triagePriority).toBe('HIGH_PRIORITY');
+    const knee = await checkIn(request, `${TAG}Knee`, { rawTranscript: 'घुटने में दर्द है' });
+    expect(knee.triagePriority).toBe('ROUTINE');
+  });
+
   test('kiosk Next stays blocked until treatment consent is given', async ({ page }) => {
     await page.goto('/?mode=kiosk&step=2');
     await page.locator('#kiosk-name').fill(`${TAG}Kiosk`);

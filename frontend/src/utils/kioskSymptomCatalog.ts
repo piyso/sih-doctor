@@ -190,7 +190,7 @@ REGIONAL_SYMPTOMS['Right Knee'] = REGIONAL_SYMPTOMS['Left Knee'];
 REGIONAL_SYMPTOMS['Right Leg'] = REGIONAL_SYMPTOMS['Left Leg'];
 REGIONAL_SYMPTOMS['Right Foot'] = REGIONAL_SYMPTOMS['Left Foot'];
 
-export type SystemicCategoryId = 'general' | 'fever' | 'cardio' | 'gastro' | 'ortho' | 'neuro' | 'skin';
+export type SystemicCategoryId = 'general' | 'visit' | 'fever' | 'cardio' | 'gastro' | 'ortho' | 'neuro' | 'skin' | 'urgent';
 
 export const SYSTEMIC_SYMPTOMS: Record<SystemicCategoryId, KioskSymptom[]> = {
   general: [
@@ -200,6 +200,12 @@ export const SYSTEMIC_SYMPTOMS: Record<SystemicCategoryId, KioskSymptom[]> = {
     ['Cannot sleep / restless', 'नींद न आना / बेचैनी', 'झोप न येणे / अस्वस्थता', 'ঘুম না আসা / অস্থিরতা', 'தூக்கமின்மை / அமைதியின்மை', 'నిద్ర పట్టకపోవడం / అశాంతి'],
     ['Body ache all over', 'पूरे शरीर में दर्द', 'संपूर्ण अंगदुखी', 'সারা শরীরে ব্যথা', 'உடல் முழுவதும் வலி', 'ఒళ్ళు నొప్పులు'],
     ['Nausea or vomiting', 'जी मिचलाना या उल्टी', 'मळमळ किंवा उलटी', 'বমি ভাব বা বমি', 'குமட்டல் அல்லது வாந்தி', 'వికారం లేదా వాంతులు']
+  ].map(t => sym(t as Tuple)),
+  // Patients who come back for a review, a refill or to show reports — a large share of every OPD.
+  visit: [
+    ['Follow-up visit', 'दोबारा दिखाने आए हैं (फॉलो-अप)', 'पुन्हा तपासणीसाठी आलो (फॉलो-अप)', 'আবার দেখাতে এসেছি (ফলো-আপ)', 'மறுபரிசோதனைக்கு வந்துள்ளேன்', 'ఫాలో-అప్ కోసం వచ్చాను'],
+    ['Medicine refill (BP, sugar, thyroid…)', 'दवा लेने आए हैं (बीपी, शुगर, थायराइड…)', 'औषध घ्यायला आलो (बीपी, शुगर, थायरॉईड…)', 'ওষুধ নিতে এসেছি (প্রেশার, সুগার, থাইরয়েড…)', 'மருந்து வாங்க வந்தேன் (பிபி, சர்க்கரை, தைராய்டு…)', 'మందుల కోసం వచ్చాను (బీపీ, షుగర్, థైరాయిడ్…)'],
+    ['Show test reports', 'जाँच की रिपोर्ट दिखानी है', 'तपासणी अहवाल दाखवायचे आहेत', 'পরীক্ষার রিপোর্ট দেখাতে এসেছি', 'பரிசோதனை அறிக்கையைக் காட்ட வந்தேன்', 'పరీక్ష రిపోర్టులు చూపించాలి']
   ].map(t => sym(t as Tuple)),
   fever: [
     ['Fever with shivering', 'कंपकंपी के साथ बुखार', 'हुडहुडी भरून ताप', 'কাঁপুনিসহ জ্বর', 'நடுக்கத்துடன் காய்ச்சல்', 'వణుకుతో జ్వరం'],
@@ -236,17 +242,31 @@ export const SYSTEMIC_SYMPTOMS: Record<SystemicCategoryId, KioskSymptom[]> = {
     ['Blisters or burning on skin', 'त्वचा पर छाले या जलन', 'त्वचेवर फोड किंवा जळजळ', 'ত্বকে ফোস্কা বা জ্বালা', 'தோலில் கொப்புளம் அல்லது எரிச்சல்', 'చర్మంపై బొబ్బలు లేదా మంట'],
     ['Dry, scaly skin', 'रूखी, पपड़ीदार त्वचा', 'कोरडी, खवलेदार त्वचा', 'শুকনো, আঁশযুক্ত ত্বক', 'வறண்ட, செதில் தோல்', 'పొడి, పొలుసుల చర్మం'],
     ['Fungal infection in skin folds', 'त्वचा की सिलवटों में फंगल संक्रमण', 'त्वचेच्या घड्यांमध्ये बुरशी संसर्ग', 'ত্বকের ভাঁজে ছত্রাক সংক্রমণ', 'தோல் மடிப்புகளில் பூஞ்சைத் தொற்று', 'చర్మ మడతల్లో ఫంగల్ ఇన్ఫెక్షన్']
+  ].map(t => sym(t as Tuple)),
+  // Emergencies that have no body-map area. The kiosk SOS button is always there as well.
+  urgent: [
+    ['Snake or scorpion bite', 'साँप या बिच्छू ने काटा', 'साप किंवा विंचू चावला', 'সাপ বা বিছে কামড়েছে', 'பாம்பு அல்லது தேள் கடி', 'పాము లేదా తేలు కాటు', true],
+    ['Dog or animal bite', 'कुत्ते या जानवर ने काटा', 'कुत्रा किंवा प्राणी चावला', 'কুকুর বা পশুর কামড়', 'நாய் அல்லது விலங்கு கடி', 'కుక్క లేదా జంతువు కాటు'],
+    ['Swallowed poison or a harmful substance', 'ज़हर या हानिकारक चीज़ निगल ली', 'विष किंवा हानिकारक पदार्थ गिळला', 'বিষ বা ক্ষতিকর কিছু খেয়ে ফেলেছে', 'விஷம் அல்லது தீங்கான பொருளை விழுங்கினார்', 'విషం లేదా హానికర పదార్థం మింగారు', true],
+    ['Fainted or became unconscious', 'बेहोश हो गए थे', 'बेशुद्ध झाले होते', 'অজ্ঞান হয়ে গিয়েছিলেন', 'மயக்கம் அடைந்தார்', 'స్పృహ కోల్పోయారు', true],
+    ['Fits / seizure', 'दौरा / झटके आना', 'फिट / आकडी येणे', 'খিঁচুনি', 'வலிப்பு', 'మూర్ఛ / ఫిట్స్', true],
+    ['Bleeding or pain in pregnancy', 'गर्भावस्था में खून आना या दर्द', 'गर्भारपणात रक्तस्राव किंवा वेदना', 'গর্ভাবস্থায় রক্তপাত বা ব্যথা', 'கர்ப்பகாலத்தில் இரத்தப்போக்கு அல்லது வலி', 'గర్భంతో ఉన్నప్పుడు రక్తస్రావం లేదా నొప్పి', true],
+    ['Heavy bleeding', 'बहुत ज़्यादा खून बहना', 'खूप रक्तस्राव', 'প্রচুর রক্তপাত', 'அதிக இரத்தப்போக்கு', 'ఎక్కువ రక్తస్రావం', true],
+    ['Burn injury', 'जलने की चोट', 'भाजल्याची जखम', 'পোড়ার ক্ষত', 'தீக்காயம்', 'కాలిన గాయం', true],
+    ['Injury or accident', 'चोट या दुर्घटना', 'जखम किंवा अपघात', 'আঘাত বা দুর্ঘটনা', 'காயம் அல்லது விபத்து', 'గాయం లేదా ప్రమాదం', true]
   ].map(t => sym(t as Tuple))
 };
 
-export const SYSTEMIC_CATEGORIES: Array<{ id: SystemicCategoryId; key: 'catGeneral' | 'catFever' | 'catCardio' | 'catGastro' | 'catOrtho' | 'catNeuro' | 'catSkin' }> = [
+export const SYSTEMIC_CATEGORIES: Array<{ id: SystemicCategoryId; key: 'catGeneral' | 'catVisit' | 'catFever' | 'catCardio' | 'catGastro' | 'catOrtho' | 'catNeuro' | 'catSkin' | 'catUrgent' }> = [
   { id: 'general', key: 'catGeneral' },
+  { id: 'visit', key: 'catVisit' },
   { id: 'fever', key: 'catFever' },
   { id: 'cardio', key: 'catCardio' },
   { id: 'gastro', key: 'catGastro' },
   { id: 'ortho', key: 'catOrtho' },
   { id: 'neuro', key: 'catNeuro' },
-  { id: 'skin', key: 'catSkin' }
+  { id: 'skin', key: 'catSkin' },
+  { id: 'urgent', key: 'catUrgent' }
 ];
 
 /** Private concerns shown only in private mode. */

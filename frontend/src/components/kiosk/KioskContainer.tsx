@@ -406,6 +406,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
             redFlags={redFlags}
             language={language}
             onExtras={handleExtractedExtras}
+            onRequestSos={() => setSos({ phase: 'confirm' })}
             registerNav={registerNav}
             onNext={() => goToStep(4)}
             onBack={() => goToStep(2)}

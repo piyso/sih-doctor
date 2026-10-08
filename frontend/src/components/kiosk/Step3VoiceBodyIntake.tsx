@@ -21,6 +21,8 @@ import {
 } from '../../utils/vernacularSpeech';
 import { RegisterNav, useStepNav } from './kioskNav';
 import { aiCapabilities, cloudSpeechAllowed, startRecording, Recorder } from '../../utils/onPremAsr';
+import { analyseComplaint } from '../../utils/clinicalLexicon';
+import { kioskSymptomMatcher, SUGGEST_MIN_SCORE } from '../../utils/symptomMatcher';
 
 interface Step3VoiceBodyIntakeProps {
   transcript: string;
@@ -34,6 +36,8 @@ interface Step3VoiceBodyIntakeProps {
   redFlags?: string[];
   language?: string;
   onExtras: (extra: { redFlags?: string[]; causalDagOverride?: any; mlcCaseInfo?: any; airborneIsolationInfo?: any }) => void;
+  /** Opens the kiosk's SOS confirmation (same as the header button). */
+  onRequestSos?: () => void;
   registerNav?: RegisterNav;
   onNext: () => void;
   onBack: () => void;
@@ -78,6 +82,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   setVitals,
   language = 'hi',
   onExtras,
+  onRequestSos,
   registerNav,
   onNext,
   onBack
@@ -284,6 +289,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     setIsRecording(false);
   };
 
+  const toggleOnPremRecordingRef = useRef<() => void>(() => {});
   /** Hospital's own speech recognition: record here, transcribe on the hospital server. */
   const toggleOnPremRecording = async () => {
     if (recorderRef.current) {
@@ -308,12 +314,15 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     }
     try {
       sovereignSound.playMechanicalSnap();
-      recorderRef.current = await startRecording(60);
+      // Stops by itself ~1.5 s after the patient finishes speaking (press-to-talk still works).
+      recorderRef.current = await startRecording({ maxSeconds: 60, onSilence: () => { if (recorderRef.current) toggleOnPremRecordingRef.current(); } });
       setIsRecording(true);
     } catch (e: any) {
       setMicError(e?.name === 'NotAllowedError' ? 'micDenied' : 'micUnavailable');
     }
   };
+
+  toggleOnPremRecordingRef.current = toggleOnPremRecording;
 
   const toggleRecording = () => {
     setMicError(null);
@@ -466,6 +475,8 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     ? REGIONAL_SYMPTOMS[selectedBodyRegion] || SYSTEMIC_SYMPTOMS[effectiveCategory]
     : SYSTEMIC_SYMPTOMS[systemicCategory];
   const quickChoices = useMemo(() => {
+    // "snake bite · moderate · 2–3 days" makes no sense: no presets for emergencies or follow-up visits
+    if (effectiveCategory === 'urgent' || effectiveCategory === 'visit') return [];
     const base = areaSymptoms.filter(s => !s.isEmergency);
     const pool = base.length >= 2 ? base : areaSymptoms;
     const choices: Array<{ sym: KioskSymptom; sev: Severity; dur: DurationKey }> = [];
@@ -474,7 +485,26 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     if (pool[0]) choices.push({ sym: pool[0], sev: 'severe', dur: 'today' });
     if (pool[2]) choices.push({ sym: pool[2], sev: 'mild', dur: 'month' });
     return choices;
-  }, [areaSymptoms]);
+  }, [areaSymptoms, effectiveCategory]);
+
+  // ---------------------------------------------------------------- Words → cards, emergency rules, follow-up
+  // Deterministic and offline (clinicalLexicon.ts / symptomMatcher.ts): Hindi, Hinglish and English.
+  const complaint = useMemo(() => analyseComplaint(transcript), [transcript]);
+  const wordSuggestions = useMemo(() => {
+    if (!transcript.trim()) return [];
+    const inArea = new Set(areaSymptoms.map(s => s.en));
+    const visitCards = new Set(SYSTEMIC_SYMPTOMS.visit.map(s => s.en)); // offered by the follow-up prompt instead
+    return kioskSymptomMatcher()
+      .rank(transcript, { limit: 8 })
+      .filter(m => m.score >= SUGGEST_MIN_SCORE && !chips[m.symptom.en] && !visitCards.has(m.symptom.en))
+      // a card in the area the patient tapped wins a close call
+      .map(m => ({ ...m, rankScore: m.score + (inArea.has(m.symptom.en) ? 0.15 : 0) }))
+      .sort((a, b) => b.rankScore - a.rankScore)
+      .slice(0, 3);
+  }, [transcript, areaSymptoms, chips]);
+  const visitCards = SYSTEMIC_SYMPTOMS.visit;
+  const showVisitPrompt = complaint.visitReason === 'follow-up' && !visitCards.some(v => chips[v.en]);
+  const urgentOnly = !complaint.sos && complaint.redFlags.length > 0;
 
   const cluster = selectedBodyRegion ? CLUSTER_DISAMBIGUATION[LOCUS_TO_CLUSTER[selectedBodyRegion]] : null;
   const anyEmergency = composedSymptoms.some(s => s.isEmergency);
@@ -671,6 +701,64 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
           ) : null}
         </div>
       </div>
+
+      {/* The patient's words suggest an emergency: one tap to the SOS desk */}
+      {complaint.sos && (
+        <div className="p-4 rounded-2xl bg-rose-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg" role="alert">
+          <div className="flex items-start gap-3 min-w-0">
+            <AlertOctagon size={22} className="shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <div className="font-heading font-extrabold text-base">{tx('sosSuggestTitle')}</div>
+              <p className="text-sm text-white/95 leading-snug">{tx('sosSuggestBody')}</p>
+            </div>
+          </div>
+          {onRequestSos && (
+            <button type="button" onClick={() => { sovereignSound.playMechanicalSnap(); onRequestSos(); }} className="shrink-0 px-5 py-3 rounded-xl bg-white text-rose-700 font-heading font-extrabold text-sm shadow">
+              {tx('sosSuggestBtn')}
+            </button>
+          )}
+        </div>
+      )}
+      {urgentOnly && (
+        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-sm font-semibold text-amber-900 dark:text-amber-100 flex items-start gap-2" role="status">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <span>{tx('urgentFlagNote')}</span>
+        </div>
+      )}
+
+      {/* Here for a review, refill or reports */}
+      {showVisitPrompt && (
+        <div className="p-4 rounded-2xl bg-sky-500/5 border border-sky-500/40 flex flex-col gap-2.5">
+          <span className="text-sm font-heading font-bold text-foreground">{tx('visitPrompt')}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {visitCards.map(v => (
+              <button key={v.en} type="button" onClick={() => toggleChip(v)} className="p-3 rounded-xl text-left text-sm font-semibold border border-sky-500/40 bg-background hover:bg-sky-500/10">
+                {symptomLabel(v, lang)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cards that match the patient's own words — added only when tapped */}
+      {wordSuggestions.length > 0 && (
+        <div className="p-4 rounded-2xl bg-primary/5 border border-primary/30 flex flex-col gap-2.5" aria-live="polite">
+          <span className="text-sm font-heading font-bold text-foreground flex items-center gap-2"><Sparkles size={14} className="text-primary" /> {tx('matchTitle')}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {wordSuggestions.map(m => (
+              <button
+                key={m.symptom.en}
+                type="button"
+                onClick={() => toggleChip(m.symptom)}
+                className={`p-3 rounded-xl text-left text-sm font-semibold border transition-colors flex items-center justify-between gap-2 ${m.symptom.isEmergency ? 'border-rose-500/50 bg-rose-500/5 hover:bg-rose-500/10' : 'border-primary/30 bg-background hover:bg-primary/10'}`}
+              >
+                <span>{isPrivateMode && !showPrivateText ? '••••' : symptomLabel(m.symptom, lang)}</span>
+                <span className="h-6 w-6 rounded-lg border border-border/80 flex items-center justify-center text-primary font-bold shrink-0">+</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* What we have noted — only what the patient chose or said */}
       <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/30 flex flex-col gap-3" aria-live="polite">

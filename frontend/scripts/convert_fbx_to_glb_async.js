@@ -97,7 +97,7 @@ async function run() {
     outBuffer = Buffer.from(JSON.stringify(gltf));
   }
 
-  const outPath = path.resolve(__dirname, '../public/models/anatomical_full_body.glb');
+  const outPath = path.resolve(__dirname, '../assets-src/3d/anatomical_full_body.glb');
   fs.writeFileSync(outPath, outBuffer);
   console.log(`GLB export complete! Saved to ${outPath} (${(outBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
 }

@@ -4,3 +4,5 @@ uvicorn[standard]>=0.29
 pydantic>=2.6
 numpy>=1.26
 soundfile>=0.12
+# Speech recognition on CPU (IndicConformer-hi, Parakeet-en); models via scripts/fetch_models.sh
+sherpa-onnx>=1.12

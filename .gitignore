@@ -30,14 +30,14 @@ data/*.db-wal
 *.obj
 *.bin
 *.part*
-frontend/public/models/3d_mannequin_clean.glb
-frontend/public/models/3d_mannequin_fidelity.glb
-frontend/public/models/3d_mannequin_instant.glb
-frontend/public/models/3d_mannequin_optimized.glb
-frontend/public/models/3d_mannequin_smooth.glb
-frontend/public/models/3d_mannequin_ultrafast.glb
-frontend/public/models/anatomical_full_body.glb
-frontend/public/models/3d_mannequin.fbx
+frontend/assets-src/3d/3d_mannequin_clean.glb
+frontend/assets-src/3d/3d_mannequin_fidelity.glb
+frontend/assets-src/3d/3d_mannequin_instant.glb
+frontend/assets-src/3d/3d_mannequin_optimized.glb
+frontend/assets-src/3d/3d_mannequin_smooth.glb
+frontend/assets-src/3d/3d_mannequin_ultrafast.glb
+frontend/assets-src/3d/anatomical_full_body.glb
+frontend/assets-src/3d/3d_mannequin.fbx
 
 # Private Documentation and Internal Specifications
 .private_docs/
@@ -78,9 +78,6 @@ backups/
 models/
 e2e/test-results/
 e2e/node_modules/
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-.venv/
-venv/
+
+# Local database (patient data never goes into git)
+backend/data/*.db

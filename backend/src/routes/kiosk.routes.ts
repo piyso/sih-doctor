@@ -10,7 +10,6 @@ import { SovereignNERService } from '../services/sovereignNER.service';
 import { AyushEngineService } from '../services/ayushEngine.service';
 import { PhoneticNormalizerService } from '../services/phoneticNormalizer.service';
 import { HopfieldAssociativeService } from '../services/hopfieldAssociative.service';
-import { PACConformalGateService } from '../services/pacConformalGate.service';
 import ayushOntology from '../shared/ayush_ontology.json';
 import { cleanConsent, recordConsent } from '../security/privacy.service';
 import { blindIndex, encryptField, decryptField, normalisePhone } from '../security/fieldCrypto';
@@ -18,6 +17,7 @@ import { audit } from '../security/audit';
 import { requireStaff } from '../security/middleware';
 import { CLINICIAN_ROLES } from '../security/config';
 import { routeCheckIn, issueToken, queuePosition } from '../services/hospitalRouting.service';
+import { analyseComplaint } from '../services/clinicalLexicon';
 import { AlertsService } from '../services/alerts.service';
 import { publish } from '../services/eventBus.service';
 import { SmsService } from '../services/sms.service';
@@ -26,7 +26,7 @@ export const kioskRouter = Router();
 
 /**
  * POST /api/kiosk/parse-audio
- * Deep Multi-Modal Parse: Phonetic Normalizer -> Clinical Engine -> Hopfield Attractor -> PAC Conformal Gate
+ * Parse a kiosk transcript: phonetic normalisation -> clinical rules -> clinical-lexicon emergency rules
  */
 kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
   try {
@@ -42,6 +42,12 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
 
     // 2. Clinical Extraction
     const extracted = ClinicalParserService.parse(normalizedText, patientId, abhaId);
+    // Emergency rules from the shared clinical lexicon (Hindi / Hinglish / English, recall-first).
+    const lexicon = analyseComplaint(String(transcript));
+    if (lexicon.redFlags.length) {
+      extracted.redFlagTriggers = Array.from(new Set([...(extracted.redFlagTriggers || []), ...lexicon.redFlags.map(f => f.label)]));
+      if (lexicon.sos) extracted.isEmergencyRedFlag = true;
+    }
 
     // 3. Hopfield Modern Attractor Recall
     // Build 10-D indicator vector from extracted symptoms + normalized text
@@ -67,15 +73,6 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
     // A syndrome match from a single feature is noise, not evidence — don't report it.
     const hopfieldIsMeaningful = activeFeatures >= 2;
 
-    // 4. PAC Conformal Triage Gating
-    const isEmergencyCandidate = extracted.isEmergencyRedFlag || (hopfieldIsMeaningful && hopfieldRecall.bestMatchSyndrome.triagePriority === 'EMERGENCY_RED_FLAG');
-    const pacGate = PACConformalGateService.evaluate({
-      topCandidateConfidence: isEmergencyCandidate ? 0.98 : 0.88,
-      runnerUpConfidence: isEmergencyCandidate ? 0.12 : 0.45,
-      vitalsAnomalyCount: extracted.isEmergencyRedFlag ? 1 : 0,
-      alpha: 0.01 // 99% coverage guarantee
-    });
-
     res.json({
       success: true,
       data: {
@@ -88,8 +85,7 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
           icd11Code: hopfieldRecall.bestMatchSyndrome.icd11Code,
           confidence: hopfieldRecall.retrievalConfidence,
           attractorEnergy: hopfieldRecall.attractorEnergy
-        } : null,
-        pacConformalGate: pacGate
+        } : null
       }
     });
   } catch (err: any) {
@@ -171,17 +167,21 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     const pulse = vitals?.pulse ? Number(vitals.pulse) : NaN;
     const tempF = vitals?.temp ? parseFloat(String(vitals.temp)) : NaN;
     const severeEmergencySymptom = cleanSymptoms.some((s: any) => s?.isEmergency && Number(s?.severityScore) >= 8);
+    // Re-run the emergency rules here so a kiosk that was offline or modified cannot skip them.
+    const lexicon = analyseComplaint([transcript, ...cleanSymptoms.map((s: any) => `${s?.name || ''} ${s?.labelLocal || ''}`)].join(' . '));
+    const lexiconFlags = lexicon.redFlags.map(f => f.label);
     const criticalVitals = (sbp >= 180 || sbp < 90) || spo2 < 92 || pulse > 130 || pulse < 40;
 
     if (isSos) {
       priority = 'EMERGENCY_RED_FLAG';
       redFlags = [...extraRedFlags, ...(parserResult.redFlagTriggers || [])];
       if (!redFlags.length) redFlags = ['Patient pressed the SOS button at the kiosk'];
-    } else if (parserResult.isEmergencyRedFlag || severeEmergencySymptom) {
+    } else if (parserResult.isEmergencyRedFlag || severeEmergencySymptom || lexicon.sos) {
       priority = 'EMERGENCY_RED_FLAG';
-      redFlags = [...(parserResult.redFlagTriggers || []), ...(severeEmergencySymptom ? ['Severe pain with an emergency warning symptom reported at kiosk'] : [])];
-    } else if (criticalVitals || tempF > 101 || sbp > 150) {
+      redFlags = [...(parserResult.redFlagTriggers || []), ...lexiconFlags, ...(severeEmergencySymptom ? ['Severe pain with an emergency warning symptom reported at kiosk'] : [])];
+    } else if (criticalVitals || tempF > 101 || sbp > 150 || lexiconFlags.length) {
       priority = 'HIGH_PRIORITY';
+      redFlags = [...lexiconFlags];
     }
     redFlags = Array.from(new Set(redFlags));
 

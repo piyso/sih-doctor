@@ -1,12 +1,18 @@
 # Deploying Hospital OS in a hospital
 
-This guide installs the system on one on-premise server for a hospital LAN.
+This guide installs the system on one server. For real patients, use an on-premise box; for a pilot or demo, an India-region cloud VM.
 
 ## 1. Server
 
-- Linux server (Ubuntu 22.04+) or a small PC: 4+ cores, 8 GB RAM, SSD. Add a GPU or 32 GB RAM to run the on-premise AI models.
-- Docker and Docker Compose.
+| Where | When | Why |
+|---|---|---|
+| **On-premise box** (recommended for a hospital) — a small PC with 4+ cores, 16 GB RAM, SSD, on a UPS, on the hospital LAN | Live use with patients | Kiosks keep working when the internet is down; patient data stays in the hospital (DPDP); Hindi + English speech recognition runs on its CPU. |
+| **India-region cloud VM** — e.g. an ARM VM (4 cores / 24 GB) in Mumbai or Hyderabad; `deploy/oracle-setup.sh` sets one up | Pilot, demo, multi-site dashboard | Persistent disk, data stays in India, enough RAM for the speech models. Check whether your client requires a MeitY-empanelled provider. |
+| ~~Free PaaS tiers (e.g. Render free)~~ | Never with patient data | The disk is wiped on every restart (the SQLite database and signing keys are lost), the service sleeps after inactivity, and the region may be outside India. |
+
+- Linux (Ubuntu 22.04+), Docker and Docker Compose.
 - A fixed LAN IP and a name, e.g. `hospital.local`, through the hospital DNS or the router.
+- **One close-talk microphone per kiosk** (USB gooseneck or telephone-style handset, ₹1–3k). In our tests the room's noise and echo mattered more than any model choice: an echoing hall cut the right-symptom rate from 35/40 to 15/40.
 
 ## 2. Install
 
@@ -57,12 +63,13 @@ Then import `hospital-root.crt` as a trusted root on each device (Windows: certm
 |---|---|---|
 | SMS (token, medicines ready, follow-up) | `SMS_PROVIDER=msg91` plus `MSG91_*` template ids | Templates must be DLT-registered with the telecom operator. Patients opt in at the kiosk. |
 | Thermal token printer | Set per kiosk in Administration › Kiosks | Any ESC/POS 80 mm network printer (port 9100). |
-| On-premise AI | `docker compose --profile ai up -d` | See `edge-ai/README.md` for models and hardware. Everything works without it. |
+| On-premise speech recognition (Hindi + English) | `docker compose --profile ai run --rm edge-ai scripts/fetch_models.sh` once, then `docker compose --profile ai up -d` | CPU only, ~2.5 GB RAM. Without it the kiosk falls back to the browser's speech recognition (audio goes to the browser vendor; set `VITE_ALLOW_CLOUD_SPEECH=false` to forbid). Tapping and typing always work. See `edge-ai/README.md`. |
 | ABDM / ABHA | `ABDM_CLIENT_ID`, `ABDM_CLIENT_SECRET` | From NHA after facility registration; finish the sandbox certification first. |
 
 ## 6. Go-live checklist (needs people, not code)
 
-- [ ] **Clinical review**: a physician and a vaidya review the triage rules, the red-flag list, the interaction table and the high-risk-pregnancy thresholds, and sign off.
+- [ ] **Clinical review**: a physician and a vaidya review the triage rules, the red-flag list and emergency rules (`frontend/src/utils/clinicalLexicon.ts` — run `npm run eval:matcher` in `frontend/` after any change), the interaction table and the high-risk-pregnancy thresholds, and sign off.
+- [ ] **Speech check**: record ~30 consenting staff and patients saying common complaints through each kiosk's microphone, put the files in `edge-ai/eval/audio/` and run the speech evaluation. Do not enable voice input on a kiosk whose microphone fails it — tapping still works.
 - [ ] **Language review**: a native speaker checks the kiosk text in every enabled language. The Gujarati, Kannada, Malayalam, Punjabi and Odia text was machine-assisted and especially needs checking.
 - [ ] **DPDP Act**: name the Data Protection Officer (`GRIEVANCE_OFFICER_*`), display the privacy notice at registration, and set the retention period with the medical records department.
 - [ ] **Security audit**: run a VAPT (CERT-In empanelled auditor) before connecting to ABDM or the internet.

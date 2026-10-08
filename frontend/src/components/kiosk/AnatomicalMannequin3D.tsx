@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { sovereignSound } from '../../utils/audio';
 import { kioskText, regionName } from '../../utils/kioskLocalization';
+import { REGIONAL_SYMPTOMS } from '../../utils/kioskSymptomCatalog';
 import {
 
   RotateCw,
@@ -1452,6 +1453,8 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0); // bump to rebuild the scene and retry the download
   const [internalSystemLayer, setInternalSystemLayer] = useState<AnatomicalSystemLayer>('all');
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [internalMacroZone, setInternalMacroZone] = useState<MacroZone>('full');
@@ -1940,6 +1943,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     // 8. Sovereign Zero-Loss High-Fidelity Anatomical Loading Pipeline (1,751 Clean Meshes)
     //    Draco-compressed: 226 MB → 28 MB, pixel-identical (KHR_draco_mesh_compression)
     //    CDN fallback: if local /draco/ fails (MIME type issue), fall to Google CDN
+    let disposed = false;
     const dracoLoader = new DRACOLoader();
     const cdnDracoPath = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
     // Default to local path — probe below will switch to CDN if local fails
@@ -2032,126 +2036,21 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           (err) => {
             console.warn('[3D Loader] GLTF buffer parse error, cascading:', err);
             if (onError) onError();
-            else mountProceduralMannequinFallback();
+            else showLoadFailure();
           }
         );
       } catch (err) {
         console.warn('[3D Loader] Buffer parse exception, cascading:', err);
         if (onError) onError();
-        else mountProceduralMannequinFallback();
+        else showLoadFailure();
       }
     };
 
-    const mountProceduralMannequinFallback = () => {
-      try {
-        console.info('[3D Loader] ⚠ Mounting procedural sovereign mannequin (GLB models unavailable).');
-        const procGroup = new THREE.Group();
-        procGroup.name = 'ProceduralSovereignMannequin';
-
-        // Premium skin-tone material — warm, matte, anatomical-chart aesthetic
-        const skinMat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(0xe8beac),
-          roughness: 0.65,
-          metalness: 0.0,
-          side: THREE.FrontSide
-        });
-        // Slightly darker tone for joints & extremities to give visual depth
-        const jointMat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(0xd4a594),
-          roughness: 0.60,
-          metalness: 0.0,
-          side: THREE.FrontSide
-        });
-
-        // Helper: create smooth capsule-like limb (cylinder with hemispherical caps)
-        const seg = 24;
-        const capSeg = 16;
-        const capsule = (rTop: number, rBot: number, h: number): THREE.BufferGeometry => {
-          // CapsuleGeometry gives a much smoother, more anatomical look than raw cylinders
-          const cyl = new THREE.CylinderGeometry(rTop, rBot, h, seg, 1, false);
-          const topCap = new THREE.SphereGeometry(rTop, capSeg, capSeg, 0, Math.PI * 2, 0, Math.PI / 2);
-          topCap.translate(0, h / 2, 0);
-          const botCap = new THREE.SphereGeometry(rBot, capSeg, capSeg, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
-          botCap.translate(0, -h / 2, 0);
-          // Merge into single geometry for clean raycast
-          const merged = new THREE.BufferGeometry();
-          const geos = [cyl, topCap, botCap];
-          const posArrays: number[][] = [];
-          const normArrays: number[][] = [];
-          geos.forEach(g => {
-            g.computeVertexNormals();
-            const pos = Array.from(g.getAttribute('position').array);
-            const nrm = Array.from(g.getAttribute('normal').array);
-            posArrays.push(pos);
-            normArrays.push(nrm);
-          });
-          merged.setAttribute('position', new THREE.Float32BufferAttribute(posArrays.flat(), 3));
-          merged.setAttribute('normal', new THREE.Float32BufferAttribute(normArrays.flat(), 3));
-          return merged;
-        };
-
-        const parts: Array<{ name: string; regionId: string; geo: THREE.BufferGeometry; pos: [number, number, number]; scale?: [number, number, number]; mat?: THREE.Material }> = [
-          // Head — smooth sphere, slightly taller
-          { name: 'Head', regionId: 'Head', geo: new THREE.SphereGeometry(0.18, seg, seg), pos: [0, 1.82, 0], scale: [1, 1.15, 1] },
-          // Neck — smooth tapered capsule
-          { name: 'Neck', regionId: 'Neck', geo: capsule(0.065, 0.075, 0.12), pos: [0, 1.63, 0] },
-          // Torso — upper chest (slightly wider, barrel-shaped)
-          { name: 'Left Chest / Precordium', regionId: 'Left Chest / Precordium', geo: capsule(0.19, 0.17, 0.18), pos: [0.07, 1.45, 0.01] },
-          { name: 'Right Chest', regionId: 'Right Chest', geo: capsule(0.19, 0.17, 0.18), pos: [-0.07, 1.45, 0.01] },
-          // Abdomen — smooth tapered cylinder
-          { name: 'Epigastrium', regionId: 'Epigastrium', geo: capsule(0.16, 0.165, 0.12), pos: [0, 1.22, 0] },
-          { name: 'Umbilicus / Mid-Abdomen', regionId: 'Umbilicus / Mid-Abdomen', geo: capsule(0.165, 0.17, 0.12), pos: [0, 1.10, 0] },
-          // Lower abdomen & pelvis
-          { name: 'Right Lower Quadrant (RLQ)', regionId: 'Right Lower Quadrant (RLQ)', geo: new THREE.SphereGeometry(0.10, seg, seg), pos: [-0.09, 0.96, 0.02] },
-          { name: 'Left Lower Quadrant (LLQ)', regionId: 'Left Lower Quadrant (LLQ)', geo: new THREE.SphereGeometry(0.10, seg, seg), pos: [0.09, 0.96, 0.02] },
-          { name: 'Pelvic / Hypogastrium', regionId: 'Pelvic / Hypogastrium', geo: capsule(0.17, 0.16, 0.14), pos: [0, 0.88, 0] },
-          // Spine — posterior
-          { name: 'Upper Back / Thoracic', regionId: 'Upper Back / Thoracic', geo: capsule(0.04, 0.04, 0.30), pos: [0, 1.40, -0.09] },
-          { name: 'Lumbar Spine (Kati)', regionId: 'Lumbar Spine (Kati)', geo: capsule(0.04, 0.04, 0.22), pos: [0, 1.08, -0.08] },
-          // Shoulders — smooth spheres
-          { name: 'Right Shoulder', regionId: 'Right Shoulder', geo: new THREE.SphereGeometry(0.08, seg, seg), pos: [-0.26, 1.52, 0], mat: jointMat },
-          { name: 'Left Shoulder', regionId: 'Left Shoulder', geo: new THREE.SphereGeometry(0.08, seg, seg), pos: [0.26, 1.52, 0], mat: jointMat },
-          // Upper arms
-          { name: 'Right Arm', regionId: 'Right Arm', geo: capsule(0.052, 0.045, 0.26), pos: [-0.28, 1.30, 0] },
-          { name: 'Left Arm', regionId: 'Left Arm', geo: capsule(0.052, 0.045, 0.26), pos: [0.28, 1.30, 0] },
-          // Forearms
-          { name: 'Right Hand', regionId: 'Right Hand', geo: capsule(0.042, 0.032, 0.28), pos: [-0.30, 0.96, 0] },
-          { name: 'Left Hand', regionId: 'Left Hand', geo: capsule(0.042, 0.032, 0.28), pos: [0.30, 0.96, 0] },
-          // Thighs
-          { name: 'Right Hip', regionId: 'Right Hip', geo: capsule(0.08, 0.065, 0.38), pos: [-0.11, 0.58, 0] },
-          { name: 'Left Hip', regionId: 'Left Hip', geo: capsule(0.08, 0.065, 0.38), pos: [0.11, 0.58, 0] },
-          // Knees — smooth joints
-          { name: 'Right Knee', regionId: 'Right Knee', geo: new THREE.SphereGeometry(0.058, seg, seg), pos: [-0.11, 0.36, 0.01], mat: jointMat },
-          { name: 'Left Knee', regionId: 'Left Knee', geo: new THREE.SphereGeometry(0.058, seg, seg), pos: [0.11, 0.36, 0.01], mat: jointMat },
-          // Shins
-          { name: 'Right Foot', regionId: 'Right Foot', geo: capsule(0.055, 0.04, 0.34), pos: [-0.11, 0.14, 0] },
-          { name: 'Left Foot', regionId: 'Left Foot', geo: capsule(0.055, 0.04, 0.34), pos: [0.11, 0.14, 0] },
-          // Feet — elongated rounded boxes
-          { name: 'Right Leg', regionId: 'Right Leg', geo: capsule(0.04, 0.035, 0.14), pos: [-0.11, -0.05, 0.03], scale: [1.2, 0.6, 1.8] },
-          { name: 'Left Leg', regionId: 'Left Leg', geo: capsule(0.04, 0.035, 0.14), pos: [0.11, -0.05, 0.03], scale: [1.2, 0.6, 1.8] },
-        ];
-
-        parts.forEach(p => {
-          const mat = (p.mat || skinMat).clone();
-          const mesh = new THREE.Mesh(p.geo, mat);
-          mesh.name = p.name;
-          mesh.position.set(p.pos[0], p.pos[1], p.pos[2]);
-          if (p.scale) mesh.scale.set(p.scale[0], p.scale[1], p.scale[2]);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          p.geo.computeVertexNormals();
-          p.geo.computeBoundingBox();
-          p.geo.computeBoundingSphere();
-          procGroup.add(mesh);
-        });
-
-        setupLoadedInternalModel(procGroup);
-      } catch (e) {
-        console.warn('Procedural mannequin initialization error:', e);
-      } finally {
-        setModelLoaded(true);
-        setLoadingProgress(100);
-      }
+    // No substitute body: a low-detail or block figure misleads patients about where they are pointing.
+    // If the real model cannot load, the kiosk shows a list of body areas instead (see render below).
+    const showLoadFailure = () => {
+      setLoadFailed(true);
+      setModelLoaded(true);
     };
 
     /**
@@ -2160,116 +2059,81 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
      */
     const MODEL_FETCH_TIMEOUT_MS = 12_000;
 
+    const MODEL_URL = '/models/3d_mannequin_draco.glb';
+    const STALL_TIMEOUT_MS = 30_000; // give up only if no data arrives for 30 s (slow links still finish)
+
     const fetchValidModelBuffer = async (url: string): Promise<ArrayBuffer | null> => {
       const controller = new AbortController();
-      const timer = setTimeout(() => {
-        controller.abort();
-        console.warn(`[3D Loader] Fetch timeout after ${MODEL_FETCH_TIMEOUT_MS}ms for ${url}.`);
-      }, MODEL_FETCH_TIMEOUT_MS);
+      let stall = setTimeout(() => controller.abort(), STALL_TIMEOUT_MS);
+      const touch = () => { clearTimeout(stall); stall = setTimeout(() => controller.abort(), STALL_TIMEOUT_MS); };
       try {
         const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timer);
         if (!response.ok) return null;
-        const contentType = response.headers.get('content-type') || '';
-        // If server returned HTML (SPA fallback), reject immediately
-        if (contentType.includes('text/html')) {
-          console.warn(`[3D Loader] Detected SPA HTML redirect for ${url}, skipping.`);
+        // If the server returned the SPA's HTML instead of the model, stop here
+        if ((response.headers.get('content-type') || '').includes('text/html')) {
+          console.warn(`[3D Loader] ${url} returned HTML, not a model.`);
           return null;
         }
-        const buffer = await response.arrayBuffer();
-        if (buffer.byteLength < 1000) return null;
-        const view = new DataView(buffer);
-        const magic = view.getUint32(0, true);
-        // Binary GLTF magic: 0x46546C67 ('glTF')
-        if (magic !== 0x46546C67) {
-          const firstChar = String.fromCharCode(view.getUint8(0)).trim();
-          if (firstChar !== '{') {
-            console.warn(`[3D Loader] Invalid GLTF header for ${url}, skipping.`);
-            return null;
+        const total = Number(response.headers.get('content-length')) || 0;
+        let buffer: ArrayBuffer;
+        if (response.body && total) {
+          const reader = response.body.getReader();
+          const out = new Uint8Array(total);
+          let got = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            touch();
+            if (got + value.length > out.length) throw new Error('model larger than announced');
+            out.set(value, got);
+            got += value.length;
+            if (!disposed) setLoadingProgress(Math.min(90, 5 + Math.round((got / total) * 85)));
           }
+          buffer = out.buffer.slice(0, got);
+        } else {
+          buffer = await response.arrayBuffer();
+        }
+        if (buffer.byteLength < 1000 || new DataView(buffer).getUint32(0, true) !== 0x46546C67) {
+          console.warn(`[3D Loader] ${url} is not a binary glTF file.`);
+          return null;
         }
         return buffer;
       } catch (e: any) {
-        clearTimeout(timer);
-        if (e?.name === 'AbortError') {
-          console.warn(`[3D Loader] Aborted slow fetch for ${url} (>${MODEL_FETCH_TIMEOUT_MS}ms).`);
-        } else {
-          console.warn(`[3D Loader] Network fetch error for ${url}:`, e);
-        }
+        console.warn(`[3D Loader] Could not download ${url}:`, e?.name === 'AbortError' ? 'no data for 30 s' : e);
         return null;
+      } finally {
+        clearTimeout(stall);
       }
     };
 
-    const loadWithCascade = async () => {
+    const loadFromNetwork = async () => {
+      setLoadingProgress(5);
+      const buf = await fetchValidModelBuffer(MODEL_URL);
+      if (!buf) return showLoadFailure();
+      saveToIndexedDB(buf);
+      setLoadingProgress(95);
+      parseAndMount(buf, showLoadFailure);
+    };
+
+    // Browser cache (instant on repeat visits) -> the one high-fidelity model -> body-area list
+    const loadModel = async () => {
       try {
-        // Step 0: Probe Draco decoder availability (switches to CDN if local fails)
         await probeDracoPath();
-
-        // Step 1: Check IndexedDB Cache
         const cached = await loadFromIndexedDB();
-        if (cached && cached.byteLength > 1000000) {
-          const view = new DataView(cached);
-          if (view.getUint32(0, true) === 0x46546C67) {
-            parseAndMount(cached, async () => {
-              // Cache was corrupt/stale — cascade to network loading
-              console.warn('[3D Loader] Cached model parse failed, cascading to network fetch.');
-              setLoadingProgress(30);
-              const dracoBuf = await fetchValidModelBuffer('/models/3d_mannequin_draco.glb');
-              if (dracoBuf) {
-                saveToIndexedDB(dracoBuf);
-                setLoadingProgress(80);
-                parseAndMount(dracoBuf, () => {
-                  fetchValidModelBuffer('/models/human_body.glb').then((lightBuf) => {
-                    if (lightBuf) parseAndMount(lightBuf);
-                    else mountProceduralMannequinFallback();
-                  });
-                });
-              } else {
-                const lightBuf = await fetchValidModelBuffer('/models/human_body.glb');
-                if (lightBuf) parseAndMount(lightBuf);
-                else mountProceduralMannequinFallback();
-              }
-            });
-            return;
-          }
-        }
-
-        // Step 2: Try High-Fidelity Draco-compressed model (/models/3d_mannequin_draco.glb)
-        setLoadingProgress(30);
-        const dracoBuf = await fetchValidModelBuffer('/models/3d_mannequin_draco.glb');
-        if (dracoBuf) {
-          saveToIndexedDB(dracoBuf);
-          setLoadingProgress(80);
-          parseAndMount(dracoBuf, () => {
-            // If Draco parsing failed, cascade to lightweight
-            fetchValidModelBuffer('/models/human_body.glb').then((lightBuf) => {
-              if (lightBuf) parseAndMount(lightBuf);
-              else mountProceduralMannequinFallback();
-            });
-          });
+        if (cached && cached.byteLength > 1_000_000 && new DataView(cached).getUint32(0, true) === 0x46546C67) {
+          // a stale or corrupt cache entry falls through to a fresh download
+          parseAndMount(cached, () => { loadFromNetwork(); });
           return;
         }
-
-        // Step 3: Try Lightweight Model (/models/human_body.glb)
-        setLoadingProgress(60);
-        const lightBuf = await fetchValidModelBuffer('/models/human_body.glb');
-        if (lightBuf) {
-          setLoadingProgress(90);
-          parseAndMount(lightBuf);
-          return;
-        }
-
-        // Step 4: Instant Procedural Fail-Safe (Zero network, 100% dependable)
-        console.info('[3D Loader] Mounting instantaneous procedural sovereign mannequin.');
-        mountProceduralMannequinFallback();
+        await loadFromNetwork();
       } catch (err) {
-        console.warn('[3D Loader] Cascading loader caught error:', err);
-        mountProceduralMannequinFallback();
+        console.warn('[3D Loader] Load failed:', err);
+        showLoadFailure();
       }
     };
+    loadModel();
 
-    // Main loader entrypoint: IndexedDB Cache -> Draco CDN -> Lightweight Body -> Procedural Fail-safe
-    loadWithCascade();
+
 
 
 
@@ -2464,6 +2328,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     window.addEventListener('resize', handleResize);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(animId);
       domEl.removeEventListener('pointerdown', handlePointerDown);
       domEl.removeEventListener('pointercancel', handlePointerCancel);
@@ -2478,7 +2343,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [loadAttempt]);
 
   const handleZoom = (direction: 'in' | 'out') => {
     try { sovereignSound.playMechanicalSnap(); } catch {}
@@ -2625,8 +2490,37 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         </div>
       </div>
 
+      {/* The 3D body could not load: choose the area from a list instead (never a substitute figure) */}
+      {loadFailed && (
+        <div className="absolute inset-0 bg-background/95 flex flex-col gap-3 p-4 z-40 overflow-y-auto" role="alert">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-sm font-heading font-bold text-foreground">{tx('body3dUnavailable')}</span>
+            <button
+              type="button"
+              onClick={() => { setLoadFailed(false); setModelLoaded(false); setLoadingProgress(0); setLoadAttempt(n => n + 1); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-muted"
+            >
+              {tx('body3dRetry')}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {Object.keys(REGIONAL_SYMPTOMS).map(r => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => onSelectRegion(r)}
+                aria-pressed={selectedRegion === r}
+                className={`p-2.5 rounded-xl text-sm font-semibold border text-left ${selectedRegion === r ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border/70 hover:bg-primary/10'}`}
+              >
+                {regionName(r, language)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Hospital-Grade Anatomical Loading Indicator */}
-      {!modelLoaded && (
+      {!modelLoaded && !loadFailed && (
         <div className="absolute inset-0 bg-background/85 backdrop-blur-md flex flex-col items-center justify-center gap-4 z-40">
           <div className="flex flex-col items-center gap-2.5">
             <div className="h-10 w-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-xs">
