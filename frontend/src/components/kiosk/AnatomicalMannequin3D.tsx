@@ -2061,6 +2061,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
     const MODEL_URL = '/models/3d_mannequin_draco.glb';
     const STALL_TIMEOUT_MS = 30_000; // give up only if no data arrives for 30 s (slow links still finish)
+    const MODEL_SIZE_HINT = 28_573_092; // bytes, for the progress bar when the server does not say
 
     const fetchValidModelBuffer = async (url: string): Promise<ArrayBuffer | null> => {
       const controller = new AbortController();
@@ -2074,22 +2075,29 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           console.warn(`[3D Loader] ${url} returned HTML, not a model.`);
           return null;
         }
-        const total = Number(response.headers.get('content-length')) || 0;
+        // Stream in every case and reset the stall timer on each chunk. Do not size buffers from
+        // Content-Length: CDNs (e.g. Vercel) send the model brotli-compressed, often with no length at all,
+        // and the decoded stream is larger than any compressed length they announce.
+        const encoded = !!response.headers.get('content-encoding');
+        const announced = Number(response.headers.get('content-length')) || 0;
+        const expected = !encoded && announced ? announced : MODEL_SIZE_HINT;
         let buffer: ArrayBuffer;
-        if (response.body && total) {
+        if (response.body) {
           const reader = response.body.getReader();
-          const out = new Uint8Array(total);
+          const chunks: Uint8Array[] = [];
           let got = 0;
           for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
             touch();
-            if (got + value.length > out.length) throw new Error('model larger than announced');
-            out.set(value, got);
+            chunks.push(value);
             got += value.length;
-            if (!disposed) setLoadingProgress(Math.min(90, 5 + Math.round((got / total) * 85)));
+            if (!disposed) setLoadingProgress(Math.min(90, 5 + Math.round((got / expected) * 85)));
           }
-          buffer = out.buffer.slice(0, got);
+          const out = new Uint8Array(got);
+          let at = 0;
+          for (const c of chunks) { out.set(c, at); at += c.length; }
+          buffer = out.buffer;
         } else {
           buffer = await response.arrayBuffer();
         }
