@@ -1,0 +1,20 @@
+# Render Static Site Custom Headers
+# Ensures correct MIME types for 3D model assets and WebAssembly
+
+/draco/*
+  Content-Type: application/wasm
+  Access-Control-Allow-Origin: *
+
+/draco/*.js
+  Content-Type: application/javascript
+
+/models/*.glb
+  Content-Type: model/gltf-binary
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=2592000, immutable
+
+/models/*.fbx
+  Content-Type: application/octet-stream
+
+/assets/*.wasm
+  Content-Type: application/wasm

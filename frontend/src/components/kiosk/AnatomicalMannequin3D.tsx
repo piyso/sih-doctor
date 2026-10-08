@@ -1939,8 +1939,29 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
     // 8. Sovereign Zero-Loss High-Fidelity Anatomical Loading Pipeline (1,751 Clean Meshes)
     //    Draco-compressed: 226 MB → 28 MB, pixel-identical (KHR_draco_mesh_compression)
+    //    CDN fallback: if local /draco/ fails (MIME type issue), fall to Google CDN
     const dracoLoader = new DRACOLoader();
+    const cdnDracoPath = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
+    // Default to local path — probe below will switch to CDN if local fails
     dracoLoader.setDecoderPath('/draco/');
+
+    // Fire-and-forget probe: if local Draco WASM is undeliverable, swap to CDN before model load starts
+    const probeDracoPath = async () => {
+      try {
+        const probe = await fetch('/draco/draco_decoder.wasm', { method: 'HEAD' });
+        const ct = probe.headers.get('content-type') || '';
+        if (!probe.ok || ct.includes('text/html')) {
+          dracoLoader.setDecoderPath(cdnDracoPath);
+          console.info('[3D Loader] Local draco probe failed, switching to CDN Draco decoder.');
+        } else {
+          console.info('[3D Loader] Using local Draco decoder (/draco/).');
+        }
+      } catch {
+        dracoLoader.setDecoderPath(cdnDracoPath);
+        console.info('[3D Loader] Local draco unreachable, switching to CDN Draco decoder.');
+      }
+    };
+
     dracoLoader.preload();
     const gltfLoader = new GLTFLoader();
     gltfLoader.setDRACOLoader(dracoLoader);
@@ -2023,40 +2044,96 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
     const mountProceduralMannequinFallback = () => {
       try {
+        console.info('[3D Loader] ⚠ Mounting procedural sovereign mannequin (GLB models unavailable).');
         const procGroup = new THREE.Group();
         procGroup.name = 'ProceduralSovereignMannequin';
 
-        const defaultMat = boneMaterial;
+        // Premium skin-tone material — warm, matte, anatomical-chart aesthetic
+        const skinMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(0xe8beac),
+          roughness: 0.65,
+          metalness: 0.0,
+          side: THREE.FrontSide
+        });
+        // Slightly darker tone for joints & extremities to give visual depth
+        const jointMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(0xd4a594),
+          roughness: 0.60,
+          metalness: 0.0,
+          side: THREE.FrontSide
+        });
 
-        const parts: Array<{ name: string; regionId: string; geo: THREE.BufferGeometry; pos: [number, number, number]; scale?: [number, number, number] }> = [
-          { name: 'Head', regionId: 'Head', geo: new THREE.SphereGeometry(0.18, 20, 20), pos: [0, 1.82, 0], scale: [1, 1.15, 1] },
-          { name: 'Face & Sinus', regionId: 'Face & Sinus', geo: new THREE.BoxGeometry(0.14, 0.12, 0.08), pos: [0, 1.80, 0.10] },
-          { name: 'Throat & Neck', regionId: 'Throat & Neck', geo: new THREE.CylinderGeometry(0.065, 0.08, 0.12, 16), pos: [0, 1.63, 0] },
-          { name: 'Chest', regionId: 'Chest', geo: new THREE.BoxGeometry(0.38, 0.32, 0.20), pos: [0, 1.40, 0] },
-          { name: 'Abdomen', regionId: 'Abdomen', geo: new THREE.CylinderGeometry(0.16, 0.17, 0.26, 16), pos: [0, 1.10, 0] },
-          { name: 'Pelvis', regionId: 'Pelvis', geo: new THREE.CylinderGeometry(0.18, 0.16, 0.18, 16), pos: [0, 0.88, 0] },
-          { name: 'Upper Spine', regionId: 'Upper Spine', geo: new THREE.CylinderGeometry(0.04, 0.04, 0.30, 12), pos: [0, 1.40, -0.09] },
-          { name: 'Lumbar Spine', regionId: 'Lumbar Spine', geo: new THREE.CylinderGeometry(0.04, 0.04, 0.22, 12), pos: [0, 1.10, -0.08] },
-          { name: 'Right Shoulder', regionId: 'Right Shoulder', geo: new THREE.SphereGeometry(0.075, 14, 14), pos: [-0.25, 1.50, 0] },
-          { name: 'Right Arm', regionId: 'Right Arm', geo: new THREE.CylinderGeometry(0.05, 0.045, 0.26, 12), pos: [-0.27, 1.30, 0] },
-          { name: 'Right Forearm', regionId: 'Right Forearm', geo: new THREE.CylinderGeometry(0.042, 0.035, 0.24, 12), pos: [-0.29, 0.98, 0] },
-          { name: 'Right Hand', regionId: 'Right Hand', geo: new THREE.BoxGeometry(0.06, 0.10, 0.03), pos: [-0.30, 0.78, 0] },
-          { name: 'Left Shoulder', regionId: 'Left Shoulder', geo: new THREE.SphereGeometry(0.075, 14, 14), pos: [0.25, 1.50, 0] },
-          { name: 'Left Arm', regionId: 'Left Arm', geo: new THREE.CylinderGeometry(0.05, 0.045, 0.26, 12), pos: [0.27, 1.30, 0] },
-          { name: 'Left Forearm', regionId: 'Left Forearm', geo: new THREE.CylinderGeometry(0.042, 0.035, 0.24, 12), pos: [0.29, 0.98, 0] },
-          { name: 'Left Hand', regionId: 'Left Hand', geo: new THREE.BoxGeometry(0.06, 0.10, 0.03), pos: [0.30, 0.78, 0] },
-          { name: 'Right Thigh', regionId: 'Right Thigh', geo: new THREE.CylinderGeometry(0.075, 0.06, 0.38, 16), pos: [-0.11, 0.58, 0] },
-          { name: 'Right Knee', regionId: 'Right Knee', geo: new THREE.SphereGeometry(0.055, 12, 12), pos: [-0.11, 0.36, 0.01] },
-          { name: 'Right Leg', regionId: 'Right Leg', geo: new THREE.CylinderGeometry(0.055, 0.04, 0.36, 16), pos: [-0.11, 0.15, 0] },
-          { name: 'Right Foot', regionId: 'Right Foot', geo: new THREE.BoxGeometry(0.08, 0.05, 0.16), pos: [-0.11, -0.06, 0.04] },
-          { name: 'Left Thigh', regionId: 'Left Thigh', geo: new THREE.CylinderGeometry(0.075, 0.06, 0.38, 16), pos: [0.11, 0.58, 0] },
-          { name: 'Left Knee', regionId: 'Left Knee', geo: new THREE.SphereGeometry(0.055, 12, 12), pos: [0.11, 0.36, 0.01] },
-          { name: 'Left Leg', regionId: 'Left Leg', geo: new THREE.CylinderGeometry(0.055, 0.04, 0.36, 16), pos: [0.11, 0.15, 0] },
-          { name: 'Left Foot', regionId: 'Left Foot', geo: new THREE.BoxGeometry(0.08, 0.05, 0.16), pos: [0.11, -0.06, 0.04] },
+        // Helper: create smooth capsule-like limb (cylinder with hemispherical caps)
+        const seg = 24;
+        const capSeg = 16;
+        const capsule = (rTop: number, rBot: number, h: number): THREE.BufferGeometry => {
+          // CapsuleGeometry gives a much smoother, more anatomical look than raw cylinders
+          const cyl = new THREE.CylinderGeometry(rTop, rBot, h, seg, 1, false);
+          const topCap = new THREE.SphereGeometry(rTop, capSeg, capSeg, 0, Math.PI * 2, 0, Math.PI / 2);
+          topCap.translate(0, h / 2, 0);
+          const botCap = new THREE.SphereGeometry(rBot, capSeg, capSeg, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+          botCap.translate(0, -h / 2, 0);
+          // Merge into single geometry for clean raycast
+          const merged = new THREE.BufferGeometry();
+          const geos = [cyl, topCap, botCap];
+          const posArrays: number[][] = [];
+          const normArrays: number[][] = [];
+          geos.forEach(g => {
+            g.computeVertexNormals();
+            const pos = Array.from(g.getAttribute('position').array);
+            const nrm = Array.from(g.getAttribute('normal').array);
+            posArrays.push(pos);
+            normArrays.push(nrm);
+          });
+          merged.setAttribute('position', new THREE.Float32BufferAttribute(posArrays.flat(), 3));
+          merged.setAttribute('normal', new THREE.Float32BufferAttribute(normArrays.flat(), 3));
+          return merged;
+        };
+
+        const parts: Array<{ name: string; regionId: string; geo: THREE.BufferGeometry; pos: [number, number, number]; scale?: [number, number, number]; mat?: THREE.Material }> = [
+          // Head — smooth sphere, slightly taller
+          { name: 'Head', regionId: 'Head', geo: new THREE.SphereGeometry(0.18, seg, seg), pos: [0, 1.82, 0], scale: [1, 1.15, 1] },
+          // Neck — smooth tapered capsule
+          { name: 'Neck', regionId: 'Neck', geo: capsule(0.065, 0.075, 0.12), pos: [0, 1.63, 0] },
+          // Torso — upper chest (slightly wider, barrel-shaped)
+          { name: 'Left Chest / Precordium', regionId: 'Left Chest / Precordium', geo: capsule(0.19, 0.17, 0.18), pos: [0.07, 1.45, 0.01] },
+          { name: 'Right Chest', regionId: 'Right Chest', geo: capsule(0.19, 0.17, 0.18), pos: [-0.07, 1.45, 0.01] },
+          // Abdomen — smooth tapered cylinder
+          { name: 'Epigastrium', regionId: 'Epigastrium', geo: capsule(0.16, 0.165, 0.12), pos: [0, 1.22, 0] },
+          { name: 'Umbilicus / Mid-Abdomen', regionId: 'Umbilicus / Mid-Abdomen', geo: capsule(0.165, 0.17, 0.12), pos: [0, 1.10, 0] },
+          // Lower abdomen & pelvis
+          { name: 'Right Lower Quadrant (RLQ)', regionId: 'Right Lower Quadrant (RLQ)', geo: new THREE.SphereGeometry(0.10, seg, seg), pos: [-0.09, 0.96, 0.02] },
+          { name: 'Left Lower Quadrant (LLQ)', regionId: 'Left Lower Quadrant (LLQ)', geo: new THREE.SphereGeometry(0.10, seg, seg), pos: [0.09, 0.96, 0.02] },
+          { name: 'Pelvic / Hypogastrium', regionId: 'Pelvic / Hypogastrium', geo: capsule(0.17, 0.16, 0.14), pos: [0, 0.88, 0] },
+          // Spine — posterior
+          { name: 'Upper Back / Thoracic', regionId: 'Upper Back / Thoracic', geo: capsule(0.04, 0.04, 0.30), pos: [0, 1.40, -0.09] },
+          { name: 'Lumbar Spine (Kati)', regionId: 'Lumbar Spine (Kati)', geo: capsule(0.04, 0.04, 0.22), pos: [0, 1.08, -0.08] },
+          // Shoulders — smooth spheres
+          { name: 'Right Shoulder', regionId: 'Right Shoulder', geo: new THREE.SphereGeometry(0.08, seg, seg), pos: [-0.26, 1.52, 0], mat: jointMat },
+          { name: 'Left Shoulder', regionId: 'Left Shoulder', geo: new THREE.SphereGeometry(0.08, seg, seg), pos: [0.26, 1.52, 0], mat: jointMat },
+          // Upper arms
+          { name: 'Right Arm', regionId: 'Right Arm', geo: capsule(0.052, 0.045, 0.26), pos: [-0.28, 1.30, 0] },
+          { name: 'Left Arm', regionId: 'Left Arm', geo: capsule(0.052, 0.045, 0.26), pos: [0.28, 1.30, 0] },
+          // Forearms
+          { name: 'Right Hand', regionId: 'Right Hand', geo: capsule(0.042, 0.032, 0.28), pos: [-0.30, 0.96, 0] },
+          { name: 'Left Hand', regionId: 'Left Hand', geo: capsule(0.042, 0.032, 0.28), pos: [0.30, 0.96, 0] },
+          // Thighs
+          { name: 'Right Hip', regionId: 'Right Hip', geo: capsule(0.08, 0.065, 0.38), pos: [-0.11, 0.58, 0] },
+          { name: 'Left Hip', regionId: 'Left Hip', geo: capsule(0.08, 0.065, 0.38), pos: [0.11, 0.58, 0] },
+          // Knees — smooth joints
+          { name: 'Right Knee', regionId: 'Right Knee', geo: new THREE.SphereGeometry(0.058, seg, seg), pos: [-0.11, 0.36, 0.01], mat: jointMat },
+          { name: 'Left Knee', regionId: 'Left Knee', geo: new THREE.SphereGeometry(0.058, seg, seg), pos: [0.11, 0.36, 0.01], mat: jointMat },
+          // Shins
+          { name: 'Right Foot', regionId: 'Right Foot', geo: capsule(0.055, 0.04, 0.34), pos: [-0.11, 0.14, 0] },
+          { name: 'Left Foot', regionId: 'Left Foot', geo: capsule(0.055, 0.04, 0.34), pos: [0.11, 0.14, 0] },
+          // Feet — elongated rounded boxes
+          { name: 'Right Leg', regionId: 'Right Leg', geo: capsule(0.04, 0.035, 0.14), pos: [-0.11, -0.05, 0.03], scale: [1.2, 0.6, 1.8] },
+          { name: 'Left Leg', regionId: 'Left Leg', geo: capsule(0.04, 0.035, 0.14), pos: [0.11, -0.05, 0.03], scale: [1.2, 0.6, 1.8] },
         ];
 
         parts.forEach(p => {
-          const mesh = new THREE.Mesh(p.geo, defaultMat.clone());
+          const mat = (p.mat || skinMat).clone();
+          const mesh = new THREE.Mesh(p.geo, mat);
           mesh.name = p.name;
           mesh.position.set(p.pos[0], p.pos[1], p.pos[2]);
           if (p.scale) mesh.scale.set(p.scale[0], p.scale[1], p.scale[2]);
@@ -2078,11 +2155,20 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
     };
 
     /**
-     * Inspect network response to avoid corrupting parser on SPA HTML 200 catch-alls
+     * Inspect network response to avoid corrupting parser on SPA HTML 200 catch-alls.
+     * Includes a 12-second AbortController timeout to prevent infinite hangs on slow CDNs.
      */
+    const MODEL_FETCH_TIMEOUT_MS = 12_000;
+
     const fetchValidModelBuffer = async (url: string): Promise<ArrayBuffer | null> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        controller.abort();
+        console.warn(`[3D Loader] Fetch timeout after ${MODEL_FETCH_TIMEOUT_MS}ms for ${url}.`);
+      }, MODEL_FETCH_TIMEOUT_MS);
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
         if (!response.ok) return null;
         const contentType = response.headers.get('content-type') || '';
         // If server returned HTML (SPA fallback), reject immediately
@@ -2103,14 +2189,22 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           }
         }
         return buffer;
-      } catch (e) {
-        console.warn(`[3D Loader] Network fetch error for ${url}:`, e);
+      } catch (e: any) {
+        clearTimeout(timer);
+        if (e?.name === 'AbortError') {
+          console.warn(`[3D Loader] Aborted slow fetch for ${url} (>${MODEL_FETCH_TIMEOUT_MS}ms).`);
+        } else {
+          console.warn(`[3D Loader] Network fetch error for ${url}:`, e);
+        }
         return null;
       }
     };
 
     const loadWithCascade = async () => {
       try {
+        // Step 0: Probe Draco decoder availability (switches to CDN if local fails)
+        await probeDracoPath();
+
         // Step 1: Check IndexedDB Cache
         const cached = await loadFromIndexedDB();
         if (cached && cached.byteLength > 1000000) {
