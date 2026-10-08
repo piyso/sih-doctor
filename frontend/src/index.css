@@ -28,8 +28,10 @@
     --radius: 0.75rem;
 
     /* Clean Clinical Surfaces & Typography */
-    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans Devanagari', sans-serif;
-    --font-mono: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+    --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+      'Noto Sans Devanagari', 'Noto Sans Bengali', 'Noto Sans Tamil', 'Noto Sans Telugu', 'Noto Sans Gujarati',
+      'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Gurmukhi', 'Noto Sans Oriya', 'Nirmala UI', sans-serif;
+    --font-mono: 'JetBrains Mono Variable', 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
 
     --bg-app: #f8fafc;
     --bg-card: #ffffff;
@@ -305,7 +307,7 @@
   transform: scale(0.98);
 }
 
-.btn-primary, .sovereign-button-primary {
+.btn-primary, .sovereign-button-primary, .tactile-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -323,10 +325,18 @@
   transition: all 0.15s ease;
 }
 
-.btn-primary:hover, .sovereign-button-primary:hover {
+.btn-primary:hover, .sovereign-button-primary:hover, .tactile-btn-primary:hover {
   background-color: #0369a1;
   border-color: #0369a1;
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+
+.tactile-btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled, .sovereign-button-primary:disabled, .tactile-btn-primary:disabled,
+.tactile-btn:disabled, .btn:disabled, .sovereign-button-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-danger {
@@ -604,6 +614,16 @@
 @media (max-width: 1120px) {
   .pharmacy-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* 3D body map: always ends above the floating kiosk dock so its controls stay reachable. */
+.body-map-stage {
+  height: clamp(300px, calc(100dvh - 460px), 680px);
+}
+@media (min-width: 768px) {
+  .body-map-stage {
+    height: clamp(380px, calc(100dvh - 400px), 680px);
   }
 }
 
@@ -1111,3 +1131,18 @@
   }
 }
 
+
+/* Locked patient kiosk: no text selection, pinch-zoom or pull-to-refresh. */
+.kiosk-locked,
+.kiosk-locked body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+}
+.kiosk-locked input,
+.kiosk-locked textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}

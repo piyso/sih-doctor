@@ -12,6 +12,15 @@ import { PhoneticNormalizerService } from '../services/phoneticNormalizer.servic
 import { HopfieldAssociativeService } from '../services/hopfieldAssociative.service';
 import { PACConformalGateService } from '../services/pacConformalGate.service';
 import ayushOntology from '../shared/ayush_ontology.json';
+import { cleanConsent, recordConsent } from '../security/privacy.service';
+import { blindIndex, encryptField, decryptField, normalisePhone } from '../security/fieldCrypto';
+import { audit } from '../security/audit';
+import { requireStaff } from '../security/middleware';
+import { CLINICIAN_ROLES } from '../security/config';
+import { routeCheckIn, issueToken, queuePosition } from '../services/hospitalRouting.service';
+import { AlertsService } from '../services/alerts.service';
+import { publish } from '../services/eventBus.service';
+import { SmsService } from '../services/sms.service';
 
 export const kioskRouter = Router();
 
@@ -41,7 +50,9 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
     const symNames = (extracted.symptoms || []).map(s => (s.name || '').toLowerCase() + ' ' + (s.site || '').toLowerCase()).join(' ');
 
     if (lower.includes('chest') || lower.includes('substernal') || lower.includes('cardiac') || lower.includes('सीने') || lower.includes('छाती') || symNames.includes('chest')) featureVector[0] = 1.0;
-    if (lower.includes('left arm') || lower.includes('arm radiation') || lower.includes('बाएं हाथ') || lower.includes('बाईं बांह') || symNames.includes('arm')) featureVector[1] = 1.0;
+    // Arm pain only counts as the cardiac "radiation to left arm" feature when chest symptoms are present too;
+    // otherwise "मेरे हाथ में दर्द" (pain in my hand) would be scored as a heart attack.
+    if (featureVector[0] === 1.0 && (lower.includes('left arm') || lower.includes('arm radiation') || lower.includes('बाएं हाथ') || lower.includes('बाईं बांह') || symNames.includes('arm'))) featureVector[1] = 1.0;
     if (lower.includes('diaphoresis') || lower.includes('sweat') || lower.includes('pasina') || lower.includes('पसीना') || symNames.includes('diaphoresis')) featureVector[2] = 1.0;
     if (lower.includes('crepitus') || lower.includes('cut cut') || lower.includes('knee') || lower.includes('घुटना') || lower.includes('कट-कट') || symNames.includes('knee') || symNames.includes('crepitus')) featureVector[3] = 1.0;
     if (lower.includes('morning stiffness') || lower.includes('stambha') || lower.includes('जकड़न') || lower.includes('अकड़न') || symNames.includes('stiffness')) featureVector[4] = 1.0;
@@ -51,10 +62,13 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
     if (lower.includes('burning feet') || lower.includes('daha') || lower.includes('जलन') || symNames.includes('burning')) featureVector[8] = 1.0;
     if (lower.includes('joint swelling') || lower.includes('shotha') || lower.includes('जोड़ों में सूजन') || symNames.includes('joint')) featureVector[9] = 1.0;
 
+    const activeFeatures = featureVector.filter(v => v > 0).length;
     const hopfieldRecall = HopfieldAssociativeService.recallAttractor(featureVector);
+    // A syndrome match from a single feature is noise, not evidence — don't report it.
+    const hopfieldIsMeaningful = activeFeatures >= 2;
 
     // 4. PAC Conformal Triage Gating
-    const isEmergencyCandidate = extracted.isEmergencyRedFlag || hopfieldRecall.bestMatchSyndrome.triagePriority === 'EMERGENCY_RED_FLAG';
+    const isEmergencyCandidate = extracted.isEmergencyRedFlag || (hopfieldIsMeaningful && hopfieldRecall.bestMatchSyndrome.triagePriority === 'EMERGENCY_RED_FLAG');
     const pacGate = PACConformalGateService.evaluate({
       topCandidateConfidence: isEmergencyCandidate ? 0.98 : 0.88,
       runnerUpConfidence: isEmergencyCandidate ? 0.12 : 0.45,
@@ -68,13 +82,13 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
         ...extracted,
         normalizedTranscript: normalizedText,
         phoneticReplacements,
-        hopfieldAttractor: {
+        hopfieldAttractor: hopfieldIsMeaningful ? {
           syndromeName: hopfieldRecall.bestMatchSyndrome.name,
           namasteCode: hopfieldRecall.bestMatchSyndrome.namasteCode,
           icd11Code: hopfieldRecall.bestMatchSyndrome.icd11Code,
           confidence: hopfieldRecall.retrievalConfidence,
           attractorEnergy: hopfieldRecall.attractorEnergy
-        },
+        } : null,
         pacConformalGate: pacGate
       }
     });
@@ -85,169 +99,197 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
 
 /**
  * POST /api/kiosk/intake
- * Save complete pre-consultation history intake from MediKiosk
+ * Save the completed kiosk check-in, assign a department and token, and raise an SOS if needed.
  */
+const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
+const normName = (n: string) => n.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
 kioskRouter.post('/intake', (req: Request, res: Response): void => {
   try {
-    const { patient, symptoms, pariksha, vitals, rawTranscript, scannedDocs } = req.body;
+    const { patient, symptoms, pariksha, vitals, rawTranscript, scannedDocs, careStream, history, language, triageOverride, sosTriggered, routingHints } = req.body || {};
+    const isSos = triageOverride === 'EMERGENCY_RED_FLAG' || !!sosTriggered;
 
-    const cleanName = (patient?.name && patient.name.trim().length > 0)
-      ? patient.name.trim()
-      : 'Self-Registered Patient';
-    const cleanAbha = patient?.abhaId && patient.abhaId.trim().length > 0 ? patient.abhaId.trim() : null;
+    // DPDP Act: process health data only with consent. A medical emergency is a permitted
+    // exception (s.7), so an SOS check-in proceeds and is recorded as such.
+    let consent = cleanConsent(req.body?.consent);
+    if (!isSos && (!consent || !consent.purposes.care)) {
+      res.status(400).json({ error: 'Consent to use your information for treatment is needed to continue.', code: 'CONSENT_REQUIRED' });
+      return;
+    }
+    if (isSos && (!consent || !consent.purposes.care)) {
+      consent = { purposes: { care: true, abha_link: false, sms: false, research: false }, method: 'emergency', language };
+    }
 
-    let patientId = patient?.id;
+    // ---- Validate input ----
+    const cleanCareStream = ['AYURVEDA', 'ALLOPATHY', 'UNDECIDED'].includes(careStream) ? careStream : 'UNDECIDED';
+    const extraRedFlags: string[] = Array.isArray(req.body.redFlags) ? req.body.redFlags.filter((f: unknown) => typeof f === 'string').slice(0, 20) : [];
+    const rawName = typeof patient?.name === 'string' ? patient.name.trim().slice(0, 80) : '';
+    const cleanName = rawName || (isSos ? 'Emergency patient (name not given)' : 'Self-registered patient');
+    const age = Number(patient?.age);
+    if (patient?.age !== undefined && patient?.age !== '' && (!Number.isFinite(age) || age < 0 || age > 120)) {
+      res.status(400).json({ error: 'Age must be between 0 and 120.' });
+      return;
+    }
+    const gender = GENDERS.includes(patient?.gender) ? patient.gender : 'OTHER';
+    const cleanAbha = typeof patient?.abhaId === 'string' && patient.abhaId.trim() ? patient.abhaId.trim().slice(0, 40) : null;
+    const cleanSymptoms = Array.isArray(symptoms) ? symptoms.slice(0, 30) : [];
+    const transcript = typeof rawTranscript === 'string' ? rawTranscript.slice(0, 5000) : '';
+    const lang = typeof language === 'string' ? language.slice(0, 8) : (patient?.language || 'hi');
+
+    const phone = normalisePhone(patient?.phone);
+    const phoneHash = phone ? blindIndex(phone) : null;
+    // Keep the full number (encrypted) only if the patient wants SMS updates.
+    const phoneEnc = phone && consent?.purposes.sms ? encryptField(phone) : null;
+    const maskedPhone = phone ? SovereignNERService.maskPhone(phone) : null;
+    const maskedAadhaar = patient?.aadhaar ? SovereignNERService.maskAadhaar(String(patient.aadhaar)) : null;
+
     const sessionId = uuidv4();
     const now = new Date().toISOString();
 
-    // Deduplicate existing patient by ABHA ID or phone to prevent duplicate UNIQUE constraint collisions
-    if (!patientId && cleanAbha) {
-      const existingByAbha: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ?`).get(cleanAbha);
-      if (existingByAbha) {
-        patientId = existingByAbha.id;
-      }
+    // ---- Find the patient: ABHA is exact; a phone number alone is NOT enough because families
+    // share phones, so the name and age must match too.
+    let patientId: string | null = null;
+    if (cleanAbha) {
+      const byAbha: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ?`).get(cleanAbha);
+      if (byAbha) patientId = byAbha.id;
     }
-    if (!patientId && patient?.phone) {
-      const cleanPhone = (patient.phone || '').replace(/\D/g, '');
-      if (cleanPhone.length >= 10) {
-        const existingByPhone: any = db.prepare(`SELECT id FROM patients WHERE phone_masked LIKE ?`).get(`%${cleanPhone.slice(-6)}%`);
-        if (existingByPhone) {
-          patientId = existingByPhone.id;
-        }
-      }
+    if (!patientId && phoneHash && rawName) {
+      const candidates = db.prepare(`SELECT id, name, age FROM patients WHERE phone_hash = ? AND erased_at IS NULL`).all(phoneHash) as any[];
+      const match = candidates.find(c => normName(c.name) === normName(rawName) && (!Number.isFinite(age) || Math.abs((c.age || 0) - age) <= 2));
+      if (match) patientId = match.id;
     }
-    if (!patientId) {
-      patientId = uuidv4();
-    }
+    const isNewPatient = !patientId;
+    if (!patientId) patientId = uuidv4();
 
-    // Redact / mask demographic data
-    const maskedAadhaar = patient?.aadhaar ? SovereignNERService.maskAadhaar(patient.aadhaar) : null;
-    const maskedPhone = patient?.phone ? SovereignNERService.maskPhone(patient.phone) : null;
-
-    // Check emergency red flags
-    const parserResult = ClinicalParserService.parse(rawTranscript || JSON.stringify(symptoms || []));
+    // ---- Triage ----
+    const parserResult = ClinicalParserService.parse(transcript || JSON.stringify(cleanSymptoms));
     let priority: 'EMERGENCY_RED_FLAG' | 'HIGH_PRIORITY' | 'ROUTINE' = 'ROUTINE';
     let redFlags: string[] = [];
 
-    if (parserResult.isEmergencyRedFlag) {
+    const sbp = vitals?.bp ? parseInt(String(vitals.bp).split('/')[0], 10) : NaN;
+    const spo2 = vitals?.spo2 ? parseInt(String(vitals.spo2), 10) : NaN;
+    const pulse = vitals?.pulse ? Number(vitals.pulse) : NaN;
+    const tempF = vitals?.temp ? parseFloat(String(vitals.temp)) : NaN;
+    const severeEmergencySymptom = cleanSymptoms.some((s: any) => s?.isEmergency && Number(s?.severityScore) >= 8);
+    const criticalVitals = (sbp >= 180 || sbp < 90) || spo2 < 92 || pulse > 130 || pulse < 40;
+
+    if (isSos) {
       priority = 'EMERGENCY_RED_FLAG';
-      redFlags = parserResult.redFlagTriggers;
-    } else if (vitals && (parseInt(vitals.temp) > 101 || (vitals.bp && parseInt(vitals.bp.split('/')[0]) > 150))) {
+      redFlags = [...extraRedFlags, ...(parserResult.redFlagTriggers || [])];
+      if (!redFlags.length) redFlags = ['Patient pressed the SOS button at the kiosk'];
+    } else if (parserResult.isEmergencyRedFlag || severeEmergencySymptom) {
+      priority = 'EMERGENCY_RED_FLAG';
+      redFlags = [...(parserResult.redFlagTriggers || []), ...(severeEmergencySymptom ? ['Severe pain with an emergency warning symptom reported at kiosk'] : [])];
+    } else if (criticalVitals || tempF > 101 || sbp > 150) {
       priority = 'HIGH_PRIORITY';
     }
+    redFlags = Array.from(new Set(redFlags));
 
-    // Upsert Patient with safe conflict resolution
-    try {
-      const insertPatient = db.prepare(`
-        INSERT INTO patients (id, abha_id, abha_address, name, age, gender, phone_masked, language, prakriti, is_pregnant, gestational_weeks, is_lactating, weight_kg, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          name=excluded.name,
-          age=excluded.age,
-          gender=excluded.gender,
-          phone_masked=COALESCE(excluded.phone_masked, patients.phone_masked),
-          language=excluded.language,
-          prakriti=excluded.prakriti,
-          is_pregnant=excluded.is_pregnant,
-          gestational_weeks=excluded.gestational_weeks,
-          is_lactating=excluded.is_lactating,
-          weight_kg=excluded.weight_kg
-      `);
+    // ---- Department and token ----
+    const complaintText = [...cleanSymptoms.map((s: any) => `${s?.site || ''} ${s?.name || ''}`), transcript].join(' ');
+    const department = routeCheckIn({
+      careStream: cleanCareStream,
+      age: Number.isFinite(age) ? age : undefined,
+      gender,
+      isPregnant: !!patient?.isPregnant,
+      isEmergency: priority === 'EMERGENCY_RED_FLAG',
+      isAirborne: !!routingHints?.isAirborne,
+      isMlc: !!routingHints?.isMlc,
+      complaintText
+    });
+    const { tokenNo, tokenDate } = issueToken(department);
+    const status = priority === 'EMERGENCY_RED_FLAG' ? 'DIVERTED_EMERGENCY' : 'PENDING_DOCTOR';
 
-      insertPatient.run(
-        patientId,
-        cleanAbha,
-        patient?.abhaAddress || null,
-        cleanName,
-        patient?.age || 40,
-        patient?.gender || 'MALE',
-        maskedPhone,
-        patient?.language || 'hi',
-        pariksha?.prakriti || 'Vata-Pitta',
-        patient?.isPregnant ? 1 : 0,
-        patient?.gestationalWeeks || null,
-        patient?.isLactating ? 1 : 0,
-        patient?.weightKg || null,
-        now
-      );
-    } catch (dupErr: any) {
-      // If abha_id exists under different UUID, update that record
-      if (dupErr.message?.includes('abha_id') && cleanAbha) {
-        const existing: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ?`).get(cleanAbha);
-        if (existing) {
-          patientId = existing.id;
-          db.prepare(`
-            UPDATE patients SET
-              name = ?, age = ?, gender = ?, phone_masked = COALESCE(?, phone_masked),
-              language = ?, prakriti = ?, is_pregnant = ?, gestational_weeks = ?,
-              is_lactating = ?, weight_kg = ?
-            WHERE id = ?
-          `).run(
-            cleanName,
-            patient?.age || 40,
-            patient?.gender || 'MALE',
-            maskedPhone,
-            patient?.language || 'hi',
-            pariksha?.prakriti || 'Vata-Pitta',
-            patient?.isPregnant ? 1 : 0,
-            patient?.gestationalWeeks || null,
-            patient?.isLactating ? 1 : 0,
-            patient?.weightKg || null,
-            patientId
-          );
-        }
+    db.transaction(() => {
+      if (isNewPatient) {
+        db.prepare(`
+          INSERT INTO patients (id, abha_id, abha_address, name, age, gender, phone_masked, phone_hash, phone_enc, aadhaar_masked, language, prakriti, is_pregnant, gestational_weeks, is_lactating, weight_kg, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          patientId, cleanAbha, patient?.abhaAddress || null, cleanName, Number.isFinite(age) ? age : 0, gender,
+          maskedPhone, phoneHash, phoneEnc, maskedAadhaar, lang, pariksha?.prakriti || null,
+          patient?.isPregnant ? 1 : 0, patient?.gestationalWeeks || null, patient?.isLactating ? 1 : 0, patient?.weightKg || null, now
+        );
       } else {
-        throw dupErr;
-      }
-    }
-
-    // Insert Session
-    const insertSession = db.prepare(`
-      INSERT INTO sessions (id, patient_id, symptoms_json, pariksha_json, vitals_json, triage_priority, red_flag_triggers, raw_transcript, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    insertSession.run(
-      sessionId,
-      patientId,
-      JSON.stringify(symptoms || parserResult.symptoms || []),
-      JSON.stringify(pariksha || {}),
-      JSON.stringify(vitals || parserResult.vitals || {}),
-      priority,
-      JSON.stringify(redFlags),
-      rawTranscript || '',
-      priority === 'EMERGENCY_RED_FLAG' ? 'DIVERTED_EMERGENCY' : 'PENDING_DOCTOR',
-      now
-    );
-
-    // Ingest and link scanned prior documents if provided
-    if (scannedDocs && Array.isArray(scannedDocs) && scannedDocs.length > 0) {
-      const insertDoc = db.prepare(`
-        INSERT OR REPLACE INTO documents (id, patient_id, document_type, extracted_text, metadata_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      for (const d of scannedDocs) {
-        const docId = d.documentId || uuidv4();
-        insertDoc.run(
-          docId,
-          patientId,
-          d.docType || 'OLD_PRESCRIPTION',
-          d.rawText || '',
-          JSON.stringify({
-            medications: d.extractedMeds || [],
-            labMarkers: d.extractedLabs || [],
-            diagnoses: d.extractedDiagnoses || [],
-            confidence: d.confidenceScore || 0.9,
-            recordedDate: now,
-            plausibilityWarnings: d.plausibilityWarnings || [],
-            fuzzyCorrections: d.fuzzyCorrections || [],
-            vernacularPosology: d.vernacularPosologyDetected || [],
-            humanReviewRequired: d.humanReviewRequired || false,
-            engineUsed: d.engineUsed || 'KIOSK_DOCUMENT_SCANNER'
-          }),
-          now
+        db.prepare(`
+          UPDATE patients SET
+            name = CASE WHEN ? != '' THEN ? ELSE name END,
+            age = CASE WHEN ? > 0 THEN ? ELSE age END,
+            gender = ?, language = ?,
+            phone_masked = COALESCE(?, phone_masked), phone_hash = COALESCE(?, phone_hash),
+            phone_enc = CASE WHEN ? IS NOT NULL THEN ? ELSE phone_enc END,
+            aadhaar_masked = COALESCE(?, aadhaar_masked),
+            prakriti = COALESCE(?, prakriti), is_pregnant = ?, gestational_weeks = ?, is_lactating = ?, weight_kg = COALESCE(?, weight_kg)
+          WHERE id = ?
+        `).run(
+          rawName, rawName, Number.isFinite(age) ? age : 0, Number.isFinite(age) ? age : 0, gender, lang,
+          maskedPhone, phoneHash, phoneEnc, phoneEnc, maskedAadhaar,
+          pariksha?.prakriti || null, patient?.isPregnant ? 1 : 0, patient?.gestationalWeeks || null, patient?.isLactating ? 1 : 0, patient?.weightKg || null,
+          patientId
         );
       }
+
+      db.prepare(`
+        INSERT INTO sessions (id, patient_id, symptoms_json, pariksha_json, vitals_json, triage_priority, red_flag_triggers, raw_transcript, status, created_at, care_stream, history_json, language, department, token_no, token_date, kiosk_device_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        sessionId, patientId,
+        JSON.stringify(cleanSymptoms.length ? cleanSymptoms : parserResult.symptoms || []),
+        JSON.stringify(pariksha || {}),
+        JSON.stringify(vitals ? { ...vitals, source: 'patient_self_report' } : {}),
+        priority, JSON.stringify(redFlags), transcript, status, now, cleanCareStream,
+        history ? JSON.stringify(history) : null, lang, department, tokenNo, tokenDate, req.kioskDevice?.id || null
+      );
+
+      recordConsent(patientId!, sessionId, consent!, req.kioskDevice ? `kiosk:${req.kioskDevice.id}` : req.staff?.id || 'kiosk');
+
+      if (Array.isArray(scannedDocs) && scannedDocs.length > 0) {
+        const insertDoc = db.prepare(`
+          INSERT OR REPLACE INTO documents (id, patient_id, document_type, extracted_text, metadata_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        for (const d of scannedDocs.slice(0, 10)) {
+          insertDoc.run(
+            d.documentId || uuidv4(),
+            patientId,
+            d.docType || 'OLD_PRESCRIPTION',
+            String(d.rawText || '').slice(0, 20000),
+            JSON.stringify({
+              medications: d.extractedMeds || [],
+              labMarkers: d.extractedLabs || [],
+              diagnoses: d.extractedDiagnoses || [],
+              confidence: d.confidenceScore ?? null,
+              recordedDate: now,
+              plausibilityWarnings: d.plausibilityWarnings || [],
+              fuzzyCorrections: d.fuzzyCorrections || [],
+              vernacularPosology: d.vernacularPosologyDetected || [],
+              humanReviewRequired: d.humanReviewRequired || false,
+              patientConfirmed: d.patientConfirmed ?? null,
+              engineUsed: d.engineUsed || 'KIOSK_DOCUMENT_SCANNER'
+            }),
+            now
+          );
+        }
+      }
+    })();
+
+    audit(req, 'kiosk.check_in', sessionId, { patientId, department, priority, sos: isSos, newPatient: isNewPatient });
+
+    let alertId: string | null = null;
+    if (isSos) {
+      alertId = AlertsService.raiseSos({
+        sessionId,
+        tokenNo,
+        location: req.kioskDevice ? `${req.kioskDevice.name}${req.kioskDevice.location ? ` · ${req.kioskDevice.location}` : ''}` : 'Kiosk',
+        message: `SOS at kiosk${rawName ? ` — ${rawName}` : ''}${redFlags.length ? `: ${redFlags[0]}` : ''}`,
+        raisedBy: req.kioskDevice ? `kiosk:${req.kioskDevice.id}` : req.staff?.id || 'kiosk'
+      }).id;
+    }
+    publish({ type: 'queue.changed', reason: 'check_in', sessionId });
+
+    const position = queuePosition(sessionId);
+    if (consent?.purposes.sms && phoneEnc && position) {
+      SmsService.notifyTokenIssued(patientId!, tokenNo, position.room).catch(() => {});
     }
 
     res.json({
@@ -256,14 +298,65 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
       patientId,
       triagePriority: priority,
       redFlags,
-      status: priority === 'EMERGENCY_RED_FLAG' ? 'DIVERTED_EMERGENCY' : 'PENDING_DOCTOR',
+      status,
+      tokenNo,
+      department,
+      room: position?.room,
+      floor: position?.floor,
+      ahead: position?.ahead ?? 0,
+      estimatedWaitMinutes: position?.estimatedWaitMinutes ?? 0,
+      smsConfigured: SmsService.isConfigured,
+      alertId,
       message: priority === 'EMERGENCY_RED_FLAG'
-        ? 'CRITICAL ALERT: Emergency signs detected. Divert to Emergency Resuscitation Bay.'
-        : 'Pre-consultation intake recorded successfully. Token assigned.'
+        ? 'Emergency signs detected. Please go to the Emergency Room now; staff have been alerted.'
+        : 'Check-in recorded. Token assigned.'
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * POST /api/kiosk/sos
+ * SOS pressed before a check-in exists (or from a screen without a session).
+ */
+kioskRouter.post('/sos', (req: Request, res: Response): void => {
+  try {
+    const alert = AlertsService.raiseSos({
+      sessionId: typeof req.body?.sessionId === 'string' ? req.body.sessionId : null,
+      tokenNo: null,
+      location: req.kioskDevice ? `${req.kioskDevice.name}${req.kioskDevice.location ? ` · ${req.kioskDevice.location}` : ''}` : 'Kiosk',
+      message: typeof req.body?.message === 'string' ? req.body.message : undefined,
+      raisedBy: req.kioskDevice ? `kiosk:${req.kioskDevice.id}` : req.staff?.id || 'kiosk'
+    });
+    res.json({ success: true, alertId: alert.id, acknowledged: !!alert.acknowledgedAt });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/kiosk/alert/:id — lets the kiosk show "a nurse is coming" once the alert is acknowledged.
+ */
+kioskRouter.get('/alert/:id', (req: Request, res: Response): void => {
+  const a = AlertsService.get(String(req.params.id));
+  if (!a) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  res.json({ success: true, acknowledged: !!a.acknowledgedAt, resolved: !!a.resolvedAt });
+});
+
+/**
+ * GET /api/kiosk/position/:sessionId — queue position for the token slip (no other patients' data).
+ */
+kioskRouter.get('/position/:sessionId', (req: Request, res: Response): void => {
+  const p = queuePosition(String(req.params.sessionId));
+  if (!p) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  res.json({ success: true, data: p });
 });
 
 /**
@@ -282,16 +375,16 @@ kioskRouter.get('/pariksha-factors', (_req: Request, res: Response): void => {
 
 /**
  * GET /api/kiosk/session/:id
- * Retrieve session state by session ID
+ * Visit summary — staff only (it contains health information).
  */
-kioskRouter.get('/session/:id', (req: Request, res: Response): void => {
+kioskRouter.get('/session/:id', requireStaff(...CLINICIAN_ROLES, 'reception'), (req: Request, res: Response): void => {
   try {
     const row: any = db.prepare(`
       SELECT s.*, p.name as patient_name, p.age, p.gender, p.language
       FROM sessions s
       JOIN patients p ON s.patient_id = p.id
       WHERE s.id = ?
-    `).get(req.params.id);
+    `).get(String(req.params.id));
 
     if (!row) {
       res.status(404).json({ error: 'Session not found' });
@@ -313,6 +406,7 @@ kioskRouter.get('/session/:id', (req: Request, res: Response): void => {
         triagePriority: row.triage_priority,
         redFlags: JSON.parse(row.red_flag_triggers || '[]'),
         status: row.status,
+        tokenNo: row.token_no,
         createdAt: row.created_at
       }
     });
@@ -321,79 +415,81 @@ kioskRouter.get('/session/:id', (req: Request, res: Response): void => {
   }
 });
 
+/*
+ * Unfinished check-ins ("drafts") let a patient continue after a power cut or a dead phone battery.
+ * Contents are encrypted at rest, looked up only by the exact mobile number (via a keyed hash),
+ * and deleted automatically after DRAFT_RETENTION_HOURS.
+ */
+try { db.exec('ALTER TABLE ephemeral_drafts ADD COLUMN phone_hash TEXT;'); } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_drafts_phone_hash ON ephemeral_drafts(phone_hash);'); } catch {}
+// Drafts saved before encryption was introduced held plain phone numbers and names: remove them.
+db.exec("DELETE FROM ephemeral_drafts WHERE draft_json NOT LIKE 'v1:%'");
+
 /**
  * POST /api/kiosk/draft
- * Incremental state flush to protect against dead smartphone battery (<5%)
  */
 kioskRouter.post('/draft', (req: Request, res: Response): void => {
   try {
-    const { draftId, phone, name, draftData } = req.body;
-    const id = draftId || uuidv4();
-    const cleanPhone = (phone || '').replace(/\D/g, '');
-    const cleanName = (name || '').trim();
+    const draftData = req.body.draftData ?? (req.body.draftPayload ? { stepNumber: req.body.stepNumber, draftPayload: req.body.draftPayload } : null);
+    if (!draftData || (typeof draftData === 'object' && Object.keys(draftData).length === 0)) {
+      res.status(400).json({ error: 'draftPayload is required' });
+      return;
+    }
+    const serialized = JSON.stringify(draftData);
+    if (serialized.length > 200_000) {
+      res.status(413).json({ error: 'Draft is too large' });
+      return;
+    }
+    const id = typeof req.body.draftId === 'string' && /^[0-9a-f-]{36}$/i.test(req.body.draftId) ? req.body.draftId : uuidv4();
+    const phone = normalisePhone(req.body.phone || req.body.draftPayload?.patient?.phone);
     const now = new Date().toISOString();
 
     db.prepare(`
-      INSERT INTO ephemeral_drafts (id, phone, name, draft_json, updated_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO ephemeral_drafts (id, phone, name, draft_json, updated_at, phone_hash)
+      VALUES (?, NULL, NULL, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
-        phone = COALESCE(excluded.phone, ephemeral_drafts.phone),
-        name = COALESCE(excluded.name, ephemeral_drafts.name),
         draft_json = excluded.draft_json,
-        updated_at = excluded.updated_at
-    `).run(id, cleanPhone || null, cleanName || null, JSON.stringify(draftData || {}), now);
+        updated_at = excluded.updated_at,
+        phone_hash = COALESCE(excluded.phone_hash, ephemeral_drafts.phone_hash)
+    `).run(id, encryptField(serialized), now, phone ? blindIndex(phone) : null);
 
-    res.json({
-      success: true,
-      draftId: id,
-      message: 'Incremental draft preserved in SQLite WAL with zero-data-loss guarantee.'
-    });
+    res.json({ success: true, draftId: id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /**
- * GET /api/kiosk/lookup-draft
- * Retrieve incomplete draft by mobile number or patient name (for doctor desk / kiosk resumption)
+ * DELETE /api/kiosk/draft/:draftId
+ */
+kioskRouter.delete('/draft/:draftId', (req: Request, res: Response): void => {
+  try {
+    db.prepare(`DELETE FROM ephemeral_drafts WHERE id = ?`).run(String(req.params.draftId));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/kiosk/lookup-draft?phone=XXXXXXXXXX
+ * Resume an unfinished check-in. Requires the full 10-digit mobile number.
  */
 kioskRouter.get('/lookup-draft', (req: Request, res: Response): void => {
   try {
-    const phone = req.query.phone as string;
-    const name = req.query.name as string;
-    const query = (req.query.query as string || '').trim();
-
-    let row: any = null;
-    if (phone) {
-      const cleanPhone = phone.replace(/\D/g, '');
-      row = db.prepare(`SELECT * FROM ephemeral_drafts WHERE phone LIKE ? ORDER BY updated_at DESC LIMIT 1`).get(`%${cleanPhone}%`);
-    } else if (name) {
-      row = db.prepare(`SELECT * FROM ephemeral_drafts WHERE LOWER(name) LIKE ? ORDER BY updated_at DESC LIMIT 1`).get(`%${name.toLowerCase()}%`);
-    } else if (query) {
-      const cleanQ = query.replace(/\D/g, '');
-      if (cleanQ.length >= 4) {
-        row = db.prepare(`SELECT * FROM ephemeral_drafts WHERE phone LIKE ? ORDER BY updated_at DESC LIMIT 1`).get(`%${cleanQ}%`);
-      }
-      if (!row) {
-        row = db.prepare(`SELECT * FROM ephemeral_drafts WHERE LOWER(name) LIKE ? ORDER BY updated_at DESC LIMIT 1`).get(`%${query.toLowerCase()}%`);
-      }
-    }
-
-    if (!row) {
-      res.status(404).json({ success: false, message: 'No draft session found for given identifier' });
+    const phone = normalisePhone(req.query.phone || req.query.query);
+    if (!phone) {
+      res.status(400).json({ success: false, message: 'Enter the full 10-digit mobile number.' });
       return;
     }
-
-    res.json({
-      success: true,
-      data: {
-        draftId: row.id,
-        phone: row.phone,
-        name: row.name,
-        draftData: JSON.parse(row.draft_json),
-        updatedAt: row.updated_at
-      }
-    });
+    const row: any = db.prepare(`SELECT * FROM ephemeral_drafts WHERE phone_hash = ? ORDER BY updated_at DESC LIMIT 1`).get(blindIndex(phone));
+    const plain = row ? decryptField(row.draft_json) : null;
+    if (!row || !plain) {
+      res.status(404).json({ success: false, message: 'No unfinished check-in found for this number.' });
+      return;
+    }
+    audit(req, 'kiosk.draft_resumed', row.id);
+    res.json({ success: true, data: { draftId: row.id, draftData: JSON.parse(plain), updatedAt: row.updated_at } });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -401,102 +497,84 @@ kioskRouter.get('/lookup-draft', (req: Request, res: Response): void => {
 
 /**
  * POST /api/kiosk/family-intake
- * Frontier 4: Multi-Patient Family Session Hub
- * Issues linked sequential tokens (e.g. KAYA-042A, KAYA-042B, BALA-008C) under single attendant device
+ * Check in several family members from one device. Each member gets their own department and
+ * token. Nothing is invented: no default vitals, no default prakriti.
  */
 kioskRouter.post('/family-intake', (req: Request, res: Response): void => {
   try {
-    const attendantPhone = req.body.attendantPhone || req.body.masterPhone;
     const familyMembers = req.body.familyMembers || req.body.members;
-    if (!Array.isArray(familyMembers) || familyMembers.length === 0) {
-      res.status(400).json({ error: 'familyMembers array is required' });
+    if (!Array.isArray(familyMembers) || familyMembers.length === 0 || familyMembers.length > 6) {
+      res.status(400).json({ error: 'Add between 1 and 6 family members.' });
       return;
     }
-
-    const suffixes = ['A', 'B', 'C', 'D', 'E'];
-    const baseCounter = Math.floor(Math.random() * 400 + 40);
+    const consent = cleanConsent(req.body?.consent);
+    if (!consent || !consent.purposes.care) {
+      res.status(400).json({ error: 'Consent to use their information for treatment is needed to continue.', code: 'CONSENT_REQUIRED' });
+      return;
+    }
+    const careStream = ['AYURVEDA', 'ALLOPATHY', 'UNDECIDED'].includes(req.body.careStream) ? req.body.careStream : 'UNDECIDED';
+    const phone = normalisePhone(req.body.attendantPhone || req.body.masterPhone);
     const now = new Date().toISOString();
+    const groupId = `FAM-${uuidv4().slice(0, 8).toUpperCase()}`;
 
-    const issuedFamilyTokens = familyMembers.map((member: any, idx: number) => {
-      const suffix = suffixes[idx] || `${idx + 1}`;
-      const isPediatric = member.age < 12;
-      const isObgyn = member.gender === 'FEMALE' && (member.isPregnant || member.isLactating);
-      const isSurgical = (member.chiefComplaint || '').toLowerCase().includes('piles') || (member.chiefComplaint || '').toLowerCase().includes('cut');
-
-      let deptCode = 'KAYA';
-      let deptName = 'Kayachikitsa (Internal Medicine)';
-      let room = 'Room 204';
-
-      if (isPediatric) {
-        deptCode = 'BALA';
-        deptName = 'Kaumarbhritya (Pediatrics)';
-        room = 'Room 108';
-      } else if (isObgyn) {
-        deptCode = 'PRAS';
-        deptName = 'Prasuti Tantra (OBGYN)';
-        room = 'Room 206';
-      } else if (isSurgical) {
-        deptCode = 'SHAL';
-        deptName = 'Shalya Tantra (Surgery)';
-        room = 'Room 112';
+    for (const m of familyMembers) {
+      const age = Number(m?.age);
+      if (!String(m?.name || '').trim() || !Number.isFinite(age) || age < 0 || age > 120) {
+        res.status(400).json({ error: 'Each family member needs a name and an age between 0 and 120.' });
+        return;
       }
+    }
 
-      const tokenNumber = `${deptCode}-0${baseCounter}${suffix}`;
-      const memberPatientId = uuidv4();
-      const memberSessionId = uuidv4();
+    const issued = db.transaction(() => familyMembers.map((member: any, idx: number) => {
+      const name = String(member.name).trim().slice(0, 80);
+      const age = Number(member.age);
+      const gender = GENDERS.includes(member.gender) ? member.gender : 'OTHER';
+      const complaint = String(member.chiefComplaint || '').trim().slice(0, 200);
+      const department = routeCheckIn({ careStream, age, gender, isPregnant: !!member.isPregnant, isEmergency: false, complaintText: complaint });
+      const { tokenNo, tokenDate } = issueToken(department);
+      const patientId = uuidv4();
+      const sessionId = uuidv4();
 
-      // Persist member patient record
       db.prepare(`
-        INSERT INTO patients (id, name, age, gender, phone_masked, language, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        memberPatientId,
-        member.name,
-        member.age,
-        member.gender,
-        attendantPhone ? SovereignNERService.maskPhone(attendantPhone) : null,
-        member.language || 'hi',
-        now
-      );
-
-      // Persist member session
-      db.prepare(`
-        INSERT INTO sessions (id, patient_id, symptoms_json, pariksha_json, vitals_json, triage_priority, status, created_at)
+        INSERT INTO patients (id, name, age, gender, phone_masked, phone_hash, language, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        memberSessionId,
-        memberPatientId,
-        JSON.stringify([{ name: member.chiefComplaint || 'General OPD Consultation', site: member.bodyRegion || 'General', severityScore: member.severity || 5 }]),
-        JSON.stringify({ prakriti: member.prakriti || 'Vata-Pitta' }),
-        JSON.stringify(member.vitals || { bp: '120/80', pulse: 76, spo2: '98%', temp: '98.6°F' }),
-        member.severity >= 8 ? 'EMERGENCY_RED_FLAG' : 'ROUTINE',
-        'PENDING_DOCTOR',
-        now
-      );
+      `).run(patientId, name, age, gender, phone ? SovereignNERService.maskPhone(phone) : null, phone ? blindIndex(phone) : null, member.language || req.body.language || 'hi', now);
 
+      db.prepare(`
+        INSERT INTO sessions (id, patient_id, symptoms_json, pariksha_json, vitals_json, triage_priority, red_flag_triggers, status, created_at, care_stream, language, department, token_no, token_date, kiosk_device_id, raw_transcript)
+        VALUES (?, ?, ?, '{}', '{}', 'ROUTINE', '[]', 'PENDING_DOCTOR', ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        sessionId, patientId,
+        JSON.stringify(complaint ? [{ name: complaint, site: 'General', source: 'family', labelLocal: complaint }] : []),
+        now, careStream, member.language || req.body.language || 'hi', department, tokenNo, tokenDate, req.kioskDevice?.id || null,
+        `Family check-in (${groupId}), relation: ${String(member.relationship || member.relation || '').slice(0, 40)}`
+      );
+      recordConsent(patientId, sessionId, { ...consent, method: 'kiosk_assisted' }, req.kioskDevice ? `kiosk:${req.kioskDevice.id}` : 'kiosk');
+      const pos = queuePosition(sessionId);
       return {
         memberIndex: idx,
-        patientName: member.name,
-        age: member.age,
-        gender: member.gender,
-        relation: member.relation || 'Family Member',
-        tokenNumber,
-        department: deptName,
-        consultationRoom: room,
-        sessionId: memberSessionId,
-        patientId: memberPatientId,
-        consecutiveSlot: idx > 0 && deptCode === 'KAYA' ? 'Consecutive Slot with Attendant' : 'Standard Queue'
+        patientName: name,
+        age,
+        gender,
+        relation: member.relationship || member.relation || '',
+        tokenNumber: tokenNo,
+        departmentCode: department,
+        consultationRoom: pos?.room || '',
+        estimatedWaitMinutes: pos?.estimatedWaitMinutes ?? null,
+        sessionId,
+        patientId
       };
-    });
+    }))();
+
+    audit(req, 'kiosk.family_check_in', groupId, { members: issued.length });
+    publish({ type: 'queue.changed', reason: 'family_check_in' });
 
     res.json({
       success: true,
-      attendantPhone,
-      totalRegistered: issuedFamilyTokens.length,
-      familyGroupTokenId: `FAM-GRP-${baseCounter}`,
-      tokens: issuedFamilyTokens,
-      familyTokens: issuedFamilyTokens,
-      message: 'Multi-Patient Family Session Hub: Sequential tokens successfully linked to attendant mobile.'
+      totalRegistered: issued.length,
+      familyGroupTokenId: groupId,
+      tokens: issued,
+      familyTokens: issued
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

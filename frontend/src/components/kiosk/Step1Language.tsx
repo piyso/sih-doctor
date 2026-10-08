@@ -1,223 +1,109 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, ArrowRight, CheckCircle2, Globe } from 'lucide-react';
+import { Volume2, CheckCircle2, Globe } from 'lucide-react';
 import { sovereignSound } from '../../utils/audio';
 import { sovereignVoice } from '../../utils/SovereignVoiceEngine';
+import { BCP47, KIOSK_LANGUAGES, SupportedKioskLanguage, kioskText } from '../../utils/kioskLocalization';
+import { RegisterNav, useStepNav } from './kioskNav';
 
 interface Step1LanguageProps {
   selectedLanguage: string;
   onSelectLanguage: (lang: string) => void;
-  onNext: () => void;
+  registerNav?: RegisterNav;
 }
 
-export const Step1Language: React.FC<Step1LanguageProps> = ({
-  selectedLanguage,
-  onSelectLanguage,
-  onNext
-}) => {
+const LANGUAGE_CARDS: Record<SupportedKioskLanguage, { label: string; font: string }> = {
+  hi: { label: 'हिन्दी', font: "'Noto Sans Devanagari', sans-serif" },
+  en: { label: 'English', font: 'var(--font-sans)' },
+  bn: { label: 'বাংলা', font: "'Noto Sans Bengali', sans-serif" },
+  mr: { label: 'मराठी', font: "'Noto Sans Devanagari', sans-serif" },
+  ta: { label: 'தமிழ்', font: "'Noto Sans Tamil', sans-serif" },
+  te: { label: 'తెలుగు', font: "'Noto Sans Telugu', sans-serif" },
+  gu: { label: 'ગુજરાતી', font: "'Noto Sans Gujarati', sans-serif" },
+  kn: { label: 'ಕನ್ನಡ', font: "'Noto Sans Kannada', sans-serif" },
+  ml: { label: 'മലയാളം', font: "'Noto Sans Malayalam', sans-serif" },
+  pa: { label: 'ਪੰਜਾਬੀ', font: "'Noto Sans Gurmukhi', sans-serif" },
+  or: { label: 'ଓଡ଼ିଆ', font: "'Noto Sans Oriya', sans-serif" }
+};
+
+export const Step1Language: React.FC<Step1LanguageProps> = ({ selectedLanguage, onSelectLanguage, registerNav }) => {
   const [playingLang, setPlayingLang] = useState<string | null>(null);
-  const [hasHesitated, setHasHesitated] = useState(false);
   const touchDetectedRef = useRef(false);
+  const tx = kioskText(selectedLanguage);
 
-  const languages = [
-    {
-      code: 'hi',
-      label: 'हिन्दी',
-      sub: 'Hindi',
-      nativePrompt: 'नमस्ते! कृपया अपनी भाषा चुनें',
-      scriptRegion: 'उत्तर एवं मध्य भारत (North India)',
-      listenLabel: 'सुनें',
-      speakingLabel: 'बोल रहे हैं...',
-      listenTitle: 'बोलकर सुनें (Tap to Listen - Hindi)'
-    },
-    {
-      code: 'en',
-      label: 'English',
-      sub: 'Indian English',
-      nativePrompt: 'Welcome! Please select your preferred language',
-      scriptRegion: 'Pan-India & Global',
-      listenLabel: 'Listen',
-      speakingLabel: 'Speaking...',
-      listenTitle: 'Tap to Listen (English)'
-    },
-    {
-      code: 'bn',
-      label: 'বাংলা',
-      sub: 'Bengali',
-      nativePrompt: 'নমস্কার! অনুগ্রহ করে আপনার ভাষা বেছে নিন',
-      scriptRegion: 'পশ্চিমবঙ্গ ও ত্রিপুরা (Bengal & Tripura)',
-      listenLabel: 'শুনুন',
-      speakingLabel: 'বলছি...',
-      listenTitle: 'শুনুন (Tap to Listen - বাংলা)'
-    },
-    {
-      code: 'mr',
-      label: 'मराठी',
-      sub: 'Marathi',
-      nativePrompt: 'नमस्कार! कृपया आपली भाषा निवडा',
-      scriptRegion: 'महाराष्ट्र (Maharashtra)',
-      listenLabel: 'ऐका',
-      speakingLabel: 'बोलत आहे...',
-      listenTitle: 'ऐका (Tap to Listen - मराठी)'
-    },
-    {
-      code: 'ta',
-      label: 'தமிழ்',
-      sub: 'Tamil',
-      nativePrompt: 'வணக்கம்! உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்',
-      scriptRegion: 'தமிழ்நாடு (Tamil Nadu)',
-      listenLabel: 'கேளுங்கள்',
-      speakingLabel: 'பேசுகிறது...',
-      listenTitle: 'கேளுங்கள் (Tap to Listen - தமிழ்)'
-    },
-    {
-      code: 'te',
-      label: 'తెలుగు',
-      sub: 'Telugu',
-      nativePrompt: 'నమస్కారం! దయచేసి మీ భాషను ఎంచుకోండి',
-      scriptRegion: 'ఆంధ్రప్రదేశ్ & తెలంగాణ (AP & TS)',
-      listenLabel: 'వినండి',
-      speakingLabel: 'మాట్లాడుతోంది...',
-      listenTitle: 'వినండి (Tap to Listen - తెలుగు)'
-    }
-  ];
+  useStepNav(registerNav, { canNext: true });
 
-  // 8-Second Hesitation Circuit (Empathy-Driven Micro-Interaction)
+  // Gentle spoken prompt if nobody touches the screen for a while.
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!touchDetectedRef.current) {
-        setHasHesitated(true);
-        // Play gentle Hindi fallback voice prompt if user freezes
-        sovereignVoice.speak('कृपया अपनी परेशानी बताएं या स्क्रीन पर स्पर्श करें', 'hi-IN', () => setPlayingLang(null), () => setPlayingLang(null));
+        sovereignVoice.speak(kioskText(selectedLanguage)('s1Hesitate'), BCP47.hi, () => setPlayingLang(null), () => setPlayingLang(null));
       }
-    }, 8000);
-
-    const handleTouch = () => {
-      touchDetectedRef.current = true;
-    };
-
+    }, 12000);
+    const handleTouch = () => { touchDetectedRef.current = true; };
     window.addEventListener('pointerdown', handleTouch);
-    window.addEventListener('touchstart', handleTouch);
-
     return () => {
       clearTimeout(timer);
       window.removeEventListener('pointerdown', handleTouch);
-      window.removeEventListener('touchstart', handleTouch);
       sovereignVoice.stop();
     };
   }, []);
 
-  const handleSelect = (code: string) => {
-    touchDetectedRef.current = true;
-    sovereignSound.playMechanicalSnap();
-    onSelectLanguage(code);
-  };
-
-  const handlePlayAudioPrompt = (e: React.MouseEvent, code: string, promptText: string) => {
+  const handlePlay = (e: React.MouseEvent, code: SupportedKioskLanguage) => {
     e.stopPropagation();
-    touchDetectedRef.current = true;
     sovereignSound.playDialNotch();
     setPlayingLang(code);
-    
-    sovereignVoice.speak(
-      promptText,
-      code,
-      () => setPlayingLang(null),
-      () => setPlayingLang(null)
-    );
-  };
-
-  const handleProceed = () => {
-    touchDetectedRef.current = true;
-    sovereignVoice.stop();
-    sovereignSound.playMechanicalSnap();
-    onNext();
+    sovereignVoice.speak(kioskText(code)('s1Greeting'), code, () => setPlayingLang(null), () => setPlayingLang(null));
   };
 
   return (
     <div className="text-center py-4 px-1 sm:px-4 max-w-5xl mx-auto">
-      {/* Header Pill & Title */}
       <div className="mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 bg-sky-500/10 border border-sky-500/30 rounded-full px-3.5 py-1 mb-3">
-          <Globe size={13} className="text-sky-500" />
-          <span className="text-[10.5px] font-mono font-bold text-sky-600 dark:text-sky-400 tracking-wider uppercase">
-            Sovereign Accessibility · 6 Official Languages
-          </span>
+        <div className="inline-flex items-center justify-center h-10 w-10 rounded-2xl bg-sky-500/10 border border-sky-500/30 mb-3">
+          <Globe size={18} className="text-sky-600" />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-heading font-extrabold text-foreground tracking-tight mb-2">
-          अपनी भाषा चुनें / Select Your Language
-        </h2>
-        <p className="text-xs sm:text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-          Touch your preferred language to begin automated OPD pre-intake and clinical triage
-        </p>
+        <h2 className="text-2xl sm:text-3xl font-heading font-extrabold text-foreground tracking-tight mb-2">{tx('s1Title')}</h2>
+        <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">{tx('s1Sub')}</p>
       </div>
 
-      {/* Language Monolith Card Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 mb-8">
-        {languages.map((lang) => {
-          const isSelected = selectedLanguage === lang.code;
-          const isAudioPlaying = playingLang === lang.code;
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 mb-8" role="radiogroup">
+        {KIOSK_LANGUAGES.map(code => {
+          const card = LANGUAGE_CARDS[code];
+          const isSelected = selectedLanguage === code;
+          const isPlaying = playingLang === code;
+          const own = kioskText(code);
           return (
             <div
-              key={lang.code}
-              onClick={() => handleSelect(lang.code)}
-              className={`physical-card p-5 sm:p-6 rounded-2xl cursor-pointer text-left flex flex-col justify-between min-h-[150px] transition-all duration-200 relative group ${
-                isSelected
-                  ? 'border-sky-500 ring-2 ring-sky-500/30 shadow-md bg-sky-500/5 dark:bg-sky-500/10'
-                  : 'hover:border-foreground/30'
+              key={code}
+              role="radio"
+              aria-checked={isSelected}
+              tabIndex={0}
+              onClick={() => { sovereignSound.playMechanicalSnap(); onSelectLanguage(code); }}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectLanguage(code); } }}
+              className={`physical-card p-5 sm:p-6 rounded-2xl cursor-pointer text-left flex flex-col justify-between min-h-[136px] transition-all duration-200 ${
+                isSelected ? 'border-sky-500 ring-2 ring-sky-500/30 shadow-md bg-sky-500/5 dark:bg-sky-500/10' : 'hover:border-foreground/30'
               }`}
             >
-              {/* Top Row: Native Script & Selection Beacon */}
-              <div className="flex items-center justify-between w-full mb-2">
-                <span
-                  className={`text-3xl font-extrabold tracking-tight transition-colors ${
-                    isSelected ? 'text-sky-600 dark:text-sky-400' : 'text-foreground'
-                  }`}
-                  style={{
-                    fontFamily: lang.code === 'hi' || lang.code === 'mr' ? "'Noto Sans Devanagari', sans-serif" :
-                               lang.code === 'bn' ? "'Noto Sans Bengali', sans-serif" :
-                               lang.code === 'ta' ? "'Noto Sans Tamil', sans-serif" :
-                               lang.code === 'te' ? "'Noto Sans Telugu', sans-serif" : 'var(--font-sans)'
-                  }}
-                >
-                  {lang.label}
+              <div className="flex items-center justify-between w-full mb-3">
+                <span className={`text-3xl font-extrabold tracking-tight ${isSelected ? 'text-sky-700 dark:text-sky-300' : 'text-foreground'}`} style={{ fontFamily: card.font }}>
+                  {card.label}
                 </span>
-                <div>
-                  {isSelected ? (
-                    <div className="bg-sky-500 text-white rounded-full p-1 shadow-sm">
-                      <CheckCircle2 size={16} />
-                    </div>
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 group-hover:border-foreground/50 transition-colors" />
-                  )}
-                </div>
+                {isSelected ? (
+                  <div className="bg-sky-500 text-white rounded-full p-1 shadow-sm"><CheckCircle2 size={16} /></div>
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />
+                )}
               </div>
-
-              {/* Middle Row: Subtitle & Region */}
-              <div className="flex justify-between items-center mb-3">
-                <span className={`text-xs sm:text-[13px] font-semibold ${isSelected ? 'text-sky-600 dark:text-sky-400' : 'text-muted-foreground'}`}>
-                  {lang.sub}
-                </span>
-                <span className="text-[10.5px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md border border-border/60">
-                  {lang.scriptRegion}
-                </span>
-              </div>
-
-              {/* Bottom Row: Native Speech Prompt & Listen Pill */}
-              <div className="flex items-center justify-between border-t border-border/50 pt-2.5 mt-1">
-                <span className={`text-xs italic truncate pr-2 ${isSelected ? 'text-sky-600 dark:text-sky-400' : 'text-muted-foreground/80'}`}>
-                  "{lang.nativePrompt}"
+              <div className="flex items-center justify-between border-t border-border/50 pt-2.5 gap-2">
+                <span className={`text-xs truncate ${isSelected ? 'text-sky-700 dark:text-sky-300' : 'text-muted-foreground'}`} style={{ fontFamily: card.font }}>
+                  {own('s1Greeting')}
                 </span>
                 <button
                   type="button"
-                  onClick={(e) => handlePlayAudioPrompt(e, lang.code, lang.nativePrompt)}
-                  title={lang.listenTitle}
-                  className={`tactile-btn text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 gap-1.5 cursor-pointer ${
-                    isAudioPlaying ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/50' : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  onClick={e => handlePlay(e, code)}
+                  className={`tactile-btn text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 gap-1.5 ${isPlaying ? 'bg-sky-500/20 text-sky-700 border-sky-500/50' : 'text-muted-foreground'}`}
                 >
-                  <Volume2 size={12} className={isAudioPlaying ? 'text-sky-500' : 'text-muted-foreground'} />
-                  <span>{isAudioPlaying ? lang.speakingLabel : lang.listenLabel}</span>
+                  <Volume2 size={12} />
+                  <span style={{ fontFamily: card.font }}>{isPlaying ? own('speakingBtn') : own('listenBtn')}</span>
                 </button>
               </div>
             </div>

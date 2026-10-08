@@ -1,0 +1,14 @@
+# Optional model backends. Install only what the hospital machine will run.
+# Speech recognition (CTranslate2 Whisper; CPU or NVIDIA GPU)
+faster-whisper>=1.0
+# Small LLM for structured extraction / note drafts (GGUF via llama.cpp; Metal/CUDA/CPU)
+llama-cpp-python>=0.2.80
+# Translation (IndicTrans2) and Indic TTS (Parler)
+torch>=2.2
+transformers>=4.44
+sentencepiece
+IndicTransToolkit
+git+https://github.com/huggingface/parler-tts.git
+# OCR for printed/handwritten Indic documents
+paddleocr>=2.8
+paddlepaddle>=2.6

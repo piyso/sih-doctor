@@ -53,15 +53,22 @@ start.bat
 ```
 
 ### 1.3 Workstation Terminal Endpoints
-| Workstation Role | Direct URL | Interface Profile & Functional Scope | Statutory & Technical Baseline |
-| :--- | :--- | :--- | :---: |
-| **Hospital OS Gateway** | [http://localhost:5173/](http://localhost:5173/) | Central clinical switchboard and multi-department gateway | [17, 30] |
-| **Patient MediKiosk** | [http://localhost:5173/?mode=kiosk](http://localhost:5173/?mode=kiosk) | Vernacular voice and touch intake on 32-inch rugged kiosk | [30, 39, 40] |
-| **Doctor Clinical Cockpit** | [http://localhost:5173/?mode=doctor](http://localhost:5173/?mode=doctor) | Ambient bilingual consultation scribe and dual-pharmacology engine | [4, 5, 10, 12, 13, 26, 27] |
-| **Dispensary Pharmacy POS** | [http://localhost:5173/?mode=pharmacy](http://localhost:5173/?mode=pharmacy) | Optical barcode verification and sound-alike drug safety gate | [10, 27] |
-| **Frontline ASHA Field App** | [http://localhost:5173/?mode=asha](http://localhost:5173/?mode=asha) | Offline Merkle-DAG synchronization for rural community outreach | [21, 39] |
-| **Command & Outbreak NOC** | [http://localhost:5173/?mode=admin](http://localhost:5173/?mode=admin) | Real-time epidemiological syndromic surveillance (IDSP aligned) | [16] |
-| **System Defense Matrix** | [http://localhost:5173/?mode=matrix](http://localhost:5173/?mode=matrix) | Groth16 zk-SNARK cryptographic integrity and DPDP audit monitor | [19, 21, 22] |
+| Screen | URL | Who uses it | Sign-in |
+| :--- | :--- | :--- | :--- |
+| Gateway | [/](http://localhost:5173/) | Choose this computer's role | — |
+| Patient kiosk | [/?mode=kiosk](http://localhost:5173/?mode=kiosk) | Patients, in 11 languages (consent, body map, voice, vitals, history, documents, token) | Enrolled kiosk in production |
+| Doctor / Vaidya desk | [/?mode=doctor](http://localhost:5173/?mode=doctor) | Queue, call to room, intake summary, signed prescription, SOAP draft | doctor, vaidya, nurse, admin |
+| Nurse station | [/?mode=nurse](http://localhost:5173/?mode=nurse) | Live SOS alarms, measured vitals | nurse, doctor, vaidya, admin |
+| Pharmacy counter | [/?mode=pharmacy](http://localhost:5173/?mode=pharmacy) | Signature check, interaction warnings, dose labels, dispensing record | pharmacist, admin |
+| Waiting-room display | [/?mode=display](http://localhost:5173/?mode=display) | TV: now serving / next tokens with announcements (no names) | Enrolled screen in production |
+| ASHA field app | [/?mode=asha](http://localhost:5173/?mode=asha) | Offline visits, high-risk pregnancy flags, sync | asha, nurse, doctor, admin |
+| Administration | [/?mode=admin](http://localhost:5173/?mode=admin) | Analytics from real records, staff, kiosks, audit trail, DPDP requests, backups | admin (analytics also clinicians) |
+
+**Development sign-in:** demo staff accounts are created automatically when demo data is on; usernames are listed on the sign-in screen and PINs are in `backend/src/db/demoStaff.ts`. **Never enable demo data with real patients.**
+
+**Deploying in a hospital:** see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (HTTPS, kiosk enrolment, backups, go-live checklist). Optional on-premise AI: [edge-ai/README.md](edge-ai/README.md).
+
+**Tests:** `cd backend && npm test` (engine batteries) · `cd e2e && npm test` (browser end-to-end, needs both servers running) · `cd edge-ai && python -m pytest tests`.
 
 *Note for Multi-Device Hospital Demonstrations: When connected to a local hospital Wi-Fi or LAN, mobile tablets and smartphones can access all interfaces directly using the host IP address displayed in the terminal during startup (e.g., `http://192.168.1.X:5173/`).*
 

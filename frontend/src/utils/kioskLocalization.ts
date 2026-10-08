@@ -1,876 +1,550 @@
 /**
- * Sovereign HospitalOS Kiosk Multi-Lingual Localization Catalog
- * Covers 6 Official Languages: Bengali (bn), Tamil (ta), Telugu (te), Marathi (mr), Hindi (hi), English (en)
- * Zero Cloud Egress · Pure Client-Side Static Linguistic Resource
+ * Kiosk localization catalog — 11 languages: English, Hindi, Marathi, Bengali, Tamil, Telugu here,
+ * plus Gujarati, Kannada, Malayalam, Punjabi and Odia in kioskLocalization.ext*.ts.
+ *
+ * Patient-facing kiosk screens are strictly monolingual: every visible string comes from this
+ * table in the language the patient picked on Step 1. Never render "हिन्दी (English)" pairs.
+ *
+ * Each row is [en, hi, mr, bn, ta, te]. Use `{name}` placeholders for runtime values.
  */
 
-export type SupportedKioskLanguage = 'hi' | 'en' | 'bn' | 'mr' | 'ta' | 'te';
+import { ExtRow, S_EXT_1 } from './kioskLocalization.ext';
+import { S_EXT_2 } from './kioskLocalization.ext2';
+import { S_EXT_3 } from './kioskLocalization.ext3';
 
-export interface KioskStepLabels {
-  step1: { title: string; short: string };
-  step2: { title: string; short: string };
-  step3: { title: string; short: string };
-  step4: { title: string; short: string };
-  step5: { title: string; short: string };
-  step6: { title: string; short: string };
-}
+export type SupportedKioskLanguage = 'en' | 'hi' | 'mr' | 'bn' | 'ta' | 'te' | 'gu' | 'kn' | 'ml' | 'pa' | 'or';
+export const KIOSK_LANGUAGES: SupportedKioskLanguage[] = ['hi', 'en', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'or'];
+/** Index into a main-table row ([en, hi, mr, bn, ta, te]). */
+const LANG_INDEX: Partial<Record<SupportedKioskLanguage, number>> = { en: 0, hi: 1, mr: 2, bn: 3, ta: 4, te: 5 };
+/** Index into an extension row ([gu, kn, ml, pa, or]). */
+const EXT_INDEX: Partial<Record<SupportedKioskLanguage, number>> = { gu: 0, kn: 1, ml: 2, pa: 3, or: 4 };
+const ALL_LANGS = new Set<string>(KIOSK_LANGUAGES);
 
-export interface KioskTranslations {
-  bcp47: string;
-  nativeName: string;
-  englishName: string;
-  listenBtn: string;
-  speakingBtn: string;
-  listenTitle: string;
-  
-  // Header & Navigation
-  hospitalSubtitle: string;
-  opdKioskBadge: string;
-  sosBtn: string;
-  backBtn: string;
-  nextBtn: string;
-  finishBtn: string;
-  audioGuidanceBtn: string;
-  stepLabels: KioskStepLabels;
-  unfinishedDraftTitle: string;
-  continueCheckinBtn: string;
-  dismissBtn: string;
+type Row = [string, string, string, string, string, string];
 
-  // Step 2: Patient ID
-  step2Title: string;
-  step2Subtitle: string;
-  fullNameLabel: string;
-  fullNamePlaceholder: string;
-  ageLabel: string;
-  genderLabel: string;
-  maleOption: string;
-  femaleOption: string;
-  otherOption: string;
-  maternalGuardTitle: string;
-  maternalGuardSub: string;
-  pregnantLabel: string;
-  lactatingLabel: string;
-  yesBtn: string;
-  noBtn: string;
-  step2AudioPrompt: string;
-
-  // Step 3: Voice & Body Intake
-  step3Title: string;
-  step3Subtitle: string;
-  speakSymptomsLabel: string;
-  languageSelectLabel: string;
-  recordingActive: string;
-  tapToSpeak: string;
-  savedBadge: string;
-  privateModeBadge: string;
-  touchOrganGuidance: string;
-  speakSymptomsGuidance: string;
-
-  // Step 4: Socrates Pain Details
-  step4Title: string;
-  step4Subtitle: string;
-  painIntensityLabel: string;
-  painCharacterLabel: string;
-  characters: {
-    dull: string;
-    sharp: string;
-    crushing: string;
-    burning: string;
-    throbbing: string;
-    stiffness: string;
-  };
-  step4AudioPrompt: string;
-
-  // Step 5: Pariksha Health & Digestion
-  step5Title: string;
-  step5Subtitle: string;
-  rationaleTitle: string;
-  step5AudioPrompt: string;
-
-  // Step 6: Documents
-  step6Title: string;
-  step6Subtitle: string;
-  liveCameraBtn: string;
-  uploadFileBtn: string;
-  byodQrBtn: string;
-  scanAnotherBtn: string;
-  step6AudioPrompt: string;
-}
-
-export const KIOSK_LOCALIZATION: Record<SupportedKioskLanguage, KioskTranslations> = {
-  // ==========================================
-  // BENGALI (বাংলা)
-  // ==========================================
-  bn: {
-    bcp47: 'bn-IN',
-    nativeName: 'বাংলা',
-    englishName: 'Bengali',
-    listenBtn: 'শুনুন',
-    speakingBtn: 'বলছি...',
-    listenTitle: 'শুনুন (Tap to Listen)',
-
-    hospitalSubtitle: 'সর্বভারতীয় আয়ুর্বেদ সংস্থান (AIIA)',
-    opdKioskBadge: 'OPD কিয়স্ক',
-    sosBtn: 'জরুরি SOS',
-    backBtn: 'পেছনে',
-    nextBtn: 'পরবর্তী',
-    finishBtn: 'সম্পন্ন করুন',
-    audioGuidanceBtn: 'নির্দেশ শুনুন / Audio Guidance',
-    stepLabels: {
-      step1: { title: 'ভাষা (Language)', short: 'ভাষা' },
-      step2: { title: 'রোগী পরিচয় (Patient ID)', short: 'পরিচয়' },
-      step3: { title: 'উপসর্গ ও অঙ্গ (Symptoms)', short: 'উপসর্গ' },
-      step4: { title: 'ব্যথার বিবরণ (Pain Details)', short: 'বিবরণ' },
-      step5: { title: 'হজম ও স্বাস্থ্য (Health & Digestion)', short: 'হজম' },
-      step6: { title: 'প্রেসক্রিপশন ও রিপোর্ট (Documents)', short: 'নথি' }
-    },
-    unfinishedDraftTitle: 'অসমাপ্ত নিবন্ধন পাওয়া গেছে',
-    continueCheckinBtn: 'নিবন্ধন চালিয়ে যান',
-    dismissBtn: 'বাতিল করুন',
-
-    step2Title: 'রোগী পরিচয় যাচাই (Patient Verification)',
-    step2Subtitle: 'ABHA আইডি, আধার নম্বর বা রোগীর নাম ও বয়স লিখুন',
-    fullNameLabel: 'রোগীর পুরো নাম / Full Legal Name *',
-    fullNamePlaceholder: 'উদাঃ শান্তা দেবী / Shanta Devi',
-    ageLabel: 'বয়স / Age *',
-    genderLabel: 'লিঙ্গ / Gender *',
-    maleOption: 'পুরুষ / Male',
-    femaleOption: 'মহিলা / Female',
-    otherOption: 'অন্যান্য / Other',
-    maternalGuardTitle: 'মাতৃত্ব ও গর্ভ সুরক্ষা (Maternal-Fetal Pharmacology Guard)',
-    maternalGuardSub: 'গর্ভকালীন ক্ষতিকর ঔষধ থেকে সুরক্ষা নিশ্চিত করে',
-    pregnantLabel: 'আপনি কি গর্ভবতী? / Pregnant?',
-    lactatingLabel: 'আপনি কি শিশুকে বুকের দুধ খাওয়াচ্ছেন? / Lactating?',
-    yesBtn: 'হ্যাঁ (Yes)',
-    noBtn: 'না (No)',
-    step2AudioPrompt: 'অনুগ্রহ করে আপনার আভা আইডি, আধার নম্বর বা নাম এবং বয়স লিখুন। আপনি গর্ভবতী বা স্তন্যদানকারী হলে মাতৃত্ব সুরক্ষা বিকল্পটি অবশ্যই নির্বাচন করুন।',
-
-    step3Title: 'উপসর্গ ও শারীরিক অবস্থান (Symptoms & Body Region)',
-    step3Subtitle: '3D মডেলে ব্যথার স্থান স্পর্শ করুন অথবা মাইক্রোফোনে বলুন',
-    speakSymptomsLabel: 'মুখে বলুন (Speak Symptoms)',
-    languageSelectLabel: 'ভাষা (Language):',
-    recordingActive: 'শুনছি... আপনার কষ্ট বলুন',
-    tapToSpeak: 'মাইক্রোফোন চেপে বলুন',
-    savedBadge: 'সংরক্ষিত (Saved)',
-    privateModeBadge: 'গোপনীয়তা মোড সক্রিয় (Private Mode)',
-    touchOrganGuidance: 'অনুগ্রহ করে 3D শরীরে ব্যথার অঙ্গটি স্পর্শ করুন, তারপর পরবর্তী বোতামে চাপুন।',
-    speakSymptomsGuidance: 'অনুগ্রহ করে মাইক্রোফোন বোতামটি চেপে আপনার সমস্যা বলুন অথবা নিচের তালিকা থেকে নির্বাচন করুন।',
-
-    step4Title: 'ব্যথা ও উপসর্গের বিবরণ (Pain Details)',
-    step4Subtitle: 'ব্যথার ধরন, তীব্রতা এবং বিস্তৃতি নির্বাচন করুন',
-    painIntensityLabel: 'ব্যথার মাত্রা (Wong-Baker Pain Scale)',
-    painCharacterLabel: 'ব্যথার প্রকৃতি (Pain Character)',
-    characters: {
-      dull: 'মৃদু ব্যথা (Dull Aching / Bheda)',
-      sharp: 'তীব্র সূঁচ ফোঁটার মতো (Sharp Needle-like / Toda)',
-      crushing: 'ভারী চাপ বা পিষ্ট করার মতো (Crushing Heaviness)',
-      burning: 'জ্বলন্ত অনুভূতি (Burning Sensation / Daha)',
-      throbbing: 'দপদপ করা ব্যথা (Throbbing / Pulsatile)',
-      stiffness: 'আড়ষ্টতা বা টান লাগা (Stiffness / Stambha)'
-    },
-    step4AudioPrompt: 'অনুগ্রহ করে আপনার ব্যথার স্থান, বিস্তৃতি এবং তীব্রতা নির্বাচন করুন।',
-
-    step5Title: 'হজম ও স্বাস্থ্য পরীক্ষা (Health & Digestion)',
-    step5Subtitle: 'আপনার ক্ষুধা, হজম শক্তি ও শারীরিক প্রকৃতি নির্বাচন করুন',
-    rationaleTitle: 'লক্ষণ ও হজমের সম্পর্ক (Clinical Rationale)',
-    step5AudioPrompt: 'অনুগ্রহ করে আপনার হজম শক্তি, শারীরিক প্রকৃতি এবং শক্তির স্তর নির্বাচন করুন, তারপর পরবর্তী বোতাম চাপুন।',
-
-    step6Title: 'পূর্বের প্রেসক্রিপশন ও রিপোর্ট স্ক্যান (Documents)',
-    step6Subtitle: 'পূর্বের প্রেসক্রিপশন বা ল্যাব রিপোর্ট স্ক্যান বা আপলোড করুন',
-    liveCameraBtn: 'লাইভ ক্যামেরা (Live Camera)',
-    uploadFileBtn: 'নথি আপলোড (Upload Documents)',
-    byodQrBtn: 'স্মার্টফোন স্ক্যান (BYOD QR)',
-    scanAnotherBtn: '+ আরেকটি নথি যোগ করুন',
-    step6AudioPrompt: 'অনুগ্রহ করে আপনার পূর্বের প্রেসক্রিপশন বা ল্যাব স্লিপ স্ক্যান বা আপলোড করুন।'
-  },
-
-  // ==========================================
-  // ENGLISH (Indian English)
-  // ==========================================
-  en: {
-    bcp47: 'en-IN',
-    nativeName: 'English',
-    englishName: 'English',
-    listenBtn: 'Listen',
-    speakingBtn: 'Playing...',
-    listenTitle: 'Tap to Listen (English)',
-
-    hospitalSubtitle: 'All India Institute of Ayurveda (AIIA)',
-    opdKioskBadge: 'OPD Kiosk',
-    sosBtn: 'Emergency SOS',
-    backBtn: 'Back',
-    nextBtn: 'Next',
-    finishBtn: 'Complete Check-In',
-    audioGuidanceBtn: 'Audio Guidance',
-    stepLabels: {
-      step1: { title: 'Language', short: 'Lang' },
-      step2: { title: 'Patient Verification', short: 'ID' },
-      step3: { title: 'Symptoms & Anatomy', short: 'Symptoms' },
-      step4: { title: 'Pain Details', short: 'Pain' },
-      step5: { title: 'Health & Digestion', short: 'Digestion' },
-      step6: { title: 'Prior Prescriptions', short: 'Docs' }
-    },
-    unfinishedDraftTitle: 'Unfinished Registration Found',
-    continueCheckinBtn: 'Continue Check-In',
-    dismissBtn: 'Dismiss',
-
-    step2Title: 'Patient Verification (ABHA / Aadhaar)',
-    step2Subtitle: 'Enter ABHA ID, Aadhaar number, or legal patient details below',
-    fullNameLabel: 'Full Legal Name *',
-    fullNamePlaceholder: 'e.g. Smt. Shanti Devi',
-    ageLabel: 'Age *',
-    genderLabel: 'Gender *',
-    maleOption: 'Male',
-    femaleOption: 'Female',
-    otherOption: 'Other',
-    maternalGuardTitle: 'Maternal-Fetal Pharmacology Guard',
-    maternalGuardSub: 'Restricts classical emmenagogues & teratogenic compounds',
-    pregnantLabel: 'Are you pregnant? (Garbhini)',
-    lactatingLabel: 'Are you lactating / breastfeeding?',
-    yesBtn: 'Yes',
-    noBtn: 'No',
-    step2AudioPrompt: 'Please enter your ABHA ID, Aadhaar number, or name and age. If pregnant or lactating, please select the maternal safety option.',
-
-    step3Title: 'Symptoms & Anatomical Localization',
-    step3Subtitle: 'Touch the affected organ on the 3D model or speak via microphone',
-    speakSymptomsLabel: 'Speak Symptoms (Vernacular Speech)',
-    languageSelectLabel: 'Language:',
-    recordingActive: 'Listening... Please speak your symptoms',
-    tapToSpeak: 'Tap microphone to speak',
-    savedBadge: 'Saved',
-    privateModeBadge: 'Privacy Shield Active',
-    touchOrganGuidance: 'Please touch the affected organ on the 3D body model, then tap next to continue.',
-    speakSymptomsGuidance: 'Please tap the microphone button to speak your symptoms or select choices below.',
-
-    step4Title: 'Pain & Symptom Details (SOCRATES)',
-    step4Subtitle: 'Select pain intensity, radiation, and sensation character',
-    painIntensityLabel: 'Pain Severity Score (Wong-Baker Scale)',
-    painCharacterLabel: 'Pain Sensation Character',
-    characters: {
-      dull: 'Dull Aching (Bheda)',
-      sharp: 'Sharp Needle-like (Toda)',
-      crushing: 'Crushing Heaviness',
-      burning: 'Burning Sensation (Daha)',
-      throbbing: 'Throbbing / Pulsatile',
-      stiffness: 'Stiffness (Stambha)'
-    },
-    step4AudioPrompt: 'Please select your pain location, radiation, and severity score.',
-
-    step5Title: 'Health & Digestion Assessment (Pariksha)',
-    step5Subtitle: 'Select your digestive fire (Agni), constitution, and vitality',
-    rationaleTitle: 'Clinical Assessment Rationale',
-    step5AudioPrompt: 'Please check your digestion, body constitution and energy level, then tap next.',
-
-    step6Title: 'Prior Prescriptions & Lab Slips (Edge OCR)',
-    step6Subtitle: 'Scan or upload previous doctor slips to audit drug-herb interactions',
-    liveCameraBtn: 'Live Camera Frame',
-    uploadFileBtn: 'Upload Documents',
-    byodQrBtn: 'Scan from Smartphone (BYOD)',
-    scanAnotherBtn: '+ Scan Another Slip',
-    step6AudioPrompt: 'Please align your prescription within the frame or upload documents.'
-  },
-
-  // ==========================================
-  // HINDI (हिन्दी)
-  // ==========================================
-  hi: {
-    bcp47: 'hi-IN',
-    nativeName: 'हिन्दी',
-    englishName: 'Hindi',
-    listenBtn: 'सुनें',
-    speakingBtn: 'बोल रहे हैं...',
-    listenTitle: 'बोलकर सुनें (Tap to Listen)',
-
-    hospitalSubtitle: 'अखिल भारतीय आयुर्वेद संस्थान (AIIA)',
-    opdKioskBadge: 'ओपीडी कियोस्क',
-    sosBtn: 'आपातकालीन SOS',
-    backBtn: 'पीछे जाएं',
-    nextBtn: 'आगे बढ़ें',
-    finishBtn: 'पंजीकरण पूर्ण करें',
-    audioGuidanceBtn: 'निर्देश सुनें / Audio Guidance',
-    stepLabels: {
-      step1: { title: 'भाषा (Language)', short: 'भाषा' },
-      step2: { title: 'मरीज़ पहचान (Patient ID)', short: 'पहचान' },
-      step3: { title: 'तकलीफ़ व अंग (Symptoms)', short: 'लक्षण' },
-      step4: { title: 'दर्द का विवरण (Pain Details)', short: 'विवरण' },
-      step5: { title: 'पाचन व स्वास्थ्य (Health & Digestion)', short: 'पाचन' },
-      step6: { title: 'पर्चे व दस्तावेज़ (Documents)', short: 'दस्तावेज़' }
-    },
-    unfinishedDraftTitle: 'पिछला पंजीकरण मिला (Unfinished Registration Found)',
-    continueCheckinBtn: 'पंजीकरण जारी रखें',
-    dismissBtn: 'रद्द करें',
-
-    step2Title: 'रोगी पहचान (Patient Verification)',
-    step2Subtitle: 'आभा आईडी, आधार नंबर या मरीज़ का नाम व उम्र दर्ज करें',
-    fullNameLabel: 'रोगी का पूरा नाम / Full Legal Name *',
-    fullNamePlaceholder: 'उदा. श्रीमती शांति देवी',
-    ageLabel: 'आयु / Age *',
-    genderLabel: 'लिंग / Gender *',
-    maleOption: 'पुरुष / Male',
-    femaleOption: 'महिला / Female',
-    otherOption: 'अन्य / Other',
-    maternalGuardTitle: 'मातृत्व एवं गर्भ सुरक्षा / Maternal-Fetal Pharmacology Guard',
-    maternalGuardSub: 'गर्भ के लिए हानिकारक औषधियों पर रोक लगाता है',
-    pregnantLabel: 'क्या आप गर्भवती हैं? / Pregnant?',
-    lactatingLabel: 'क्या आप स्तनपान करा रही हैं? / Lactating?',
-    yesBtn: 'हाँ (Yes)',
-    noBtn: 'नहीं (No)',
-    step2AudioPrompt: 'कृपया अपना आभा आईडी, आधार नंबर या नाम और उम्र दर्ज करें। यदि आप गर्भवती हैं या स्तनपान करा रही हैं, तो मातृत्व सुरक्षा विकल्प अवश्य चुनें।',
-
-    step3Title: 'तकलीफ़ व शारीरिक स्थान (Symptoms & Anatomy)',
-    step3Subtitle: '3D मॉडल पर अपनी तकलीफ़ का अंग चुनें या माइक दबाकर बोलें',
-    speakSymptomsLabel: 'बोलकर बताएं (Speak Symptoms)',
-    languageSelectLabel: 'भाषा (Language):',
-    recordingActive: 'सुन रहे हैं... कृपया अपनी परेशानी बताएं',
-    tapToSpeak: 'माइक दबाकर बोलें',
-    savedBadge: 'सत्यापित (Saved)',
-    privateModeBadge: 'गोपनीय दृष्टि कवच सक्रिय (Private Mode)',
-    touchOrganGuidance: 'कृपया 3D शरीर मॉडल पर अपनी तकलीफ़ का अंग छूकर बताएं, फिर आगे बढ़ें बटन दबाएं।',
-    speakSymptomsGuidance: 'कृपया माइक दबाकर अपनी तकलीफ़ बोलें या नीचे दिए गए लक्षणों को चुनें।',
-
-    step4Title: 'दर्द व लक्षण विवरण (Pain Details)',
-    step4Subtitle: 'दर्द की तीव्रता, प्रकार और फैलाव का चयन करें',
-    painIntensityLabel: 'दर्द की तीव्रता (Wong-Baker Pain Scale)',
-    painCharacterLabel: 'दर्द की प्रकृति (Pain Character)',
-    characters: {
-      dull: 'मीठा-मीठा धीमा दर्द (Dull Aching / Bheda)',
-      sharp: 'तीखा चुभने वाला (Sharp Needle-like / Toda)',
-      crushing: 'भारी दबाव / कुचलने जैसा (Crushing / Heavy Pressure)',
-      burning: 'तेज़ जलन (Burning Sensation / Daha)',
-      throbbing: 'धड़कने वाला दर्द (Throbbing / Pulsatile)',
-      stiffness: 'जकड़न / अकड़न (Stiffness / Stambha)'
-    },
-    step4AudioPrompt: 'कृपया अपने दर्द का स्थान, फैलाव, और तीव्रता चुनें।',
-
-    step5Title: 'पाचन व स्वास्थ्य (Digestion & Health)',
-    step5Subtitle: 'अपनी भूख, पाचन व सामान्य ऊर्जा का चयन करें',
-    rationaleTitle: 'लक्षण व पाचन का संबंध (Clinical Rationale)',
-    step5AudioPrompt: 'कृपया अपनी पाचन शक्ति, शारीरिक प्रकृति और ऊर्जा स्तर चुनें, फिर आगे बढ़ें।',
-
-    step6Title: 'पर्चे व दस्तावेज़ स्कैनर (Documents)',
-    step6Subtitle: 'पुराने पर्चे या लैब रिपोर्ट कैमरे से स्कैन करें या फ़ाइल अपलोड करें',
-    liveCameraBtn: 'लाइव कैमरा प्रारंभ करें (Live Camera)',
-    uploadFileBtn: 'फ़ाइल अपलोड करें (Upload Documents)',
-    byodQrBtn: 'स्मार्टफोन से स्कैन (BYOD QR)',
-    scanAnotherBtn: '+ दूसरा पर्चा स्कैन करें',
-    step6AudioPrompt: 'कृपया अपने पिछले पर्चे या लैब रिपोर्ट को स्कैन करें या अपलोड करें।'
-  },
-
-  // ==========================================
-  // MARATHI (मराठी)
-  // ==========================================
-  mr: {
-    bcp47: 'mr-IN',
-    nativeName: 'मराठी',
-    englishName: 'Marathi',
-    listenBtn: 'ऐका',
-    speakingBtn: 'बोलत आहे...',
-    listenTitle: 'ऐका (Tap to Listen)',
-
-    hospitalSubtitle: 'अखिल भारतीय आयुर्वेद संस्था (AIIA)',
-    opdKioskBadge: 'OPD किओस्क',
-    sosBtn: 'तातडीचे SOS',
-    backBtn: 'मागे जा',
-    nextBtn: 'पुढे जा',
-    finishBtn: 'नोंदणी पूर्ण करा',
-    audioGuidanceBtn: 'सूचना ऐका / Audio Guidance',
-    stepLabels: {
-      step1: { title: 'भाषा (Language)', short: 'भाषा' },
-      step2: { title: 'रुग्ण ओळख (Patient ID)', short: 'ओळख' },
-      step3: { title: 'त्रास व अवयव (Symptoms)', short: 'लक्षणे' },
-      step4: { title: 'वेदना तपशील (Pain Details)', short: 'तपशील' },
-      step5: { title: 'पचन व आरोग्य (Health & Digestion)', short: 'पचन' },
-      step6: { title: 'कागदपत्रे (Documents)', short: 'कागदपत्रे' }
-    },
-    unfinishedDraftTitle: 'अपूर्ण नोंदणी आढळली',
-    continueCheckinBtn: 'नोंदणी सुरू ठेवा',
-    dismissBtn: 'रद्द करा',
-
-    step2Title: 'रुग्ण ओळख पडताळणी (Patient Verification)',
-    step2Subtitle: 'ABHA आयडी, आधार क्रमांक किंवा रुग्णाचे नाव व वय प्रविष्ट करा',
-    fullNameLabel: 'रुग्णाचे पूर्ण नाव / Full Legal Name *',
-    fullNamePlaceholder: 'उदा. श्रीमती शांती देवी',
-    ageLabel: 'वय / Age *',
-    genderLabel: 'लिंग / Gender *',
-    maleOption: 'पुरुष / Male',
-    femaleOption: 'स्त्री / Female',
-    otherOption: 'इतर / Other',
-    maternalGuardTitle: 'मातृत्व व गर्भ सुरक्षा (Maternal-Fetal Pharmacology Guard)',
-    maternalGuardSub: 'गर्भासाठी हानिकारक औषधांपासून संरक्षण',
-    pregnantLabel: 'आपण गरोदर आहात का? / Pregnant?',
-    lactatingLabel: 'आपण स्तनपान करत आहात का? / Lactating?',
-    yesBtn: 'होय (Yes)',
-    noBtn: 'नाही (No)',
-    step2AudioPrompt: 'कृपया आपला आभा आयडी, आधार क्रमांक किंवा नाव आणि वय प्रविष्ट करा. गरोदर असल्यास मातृत्व सुरक्षा पर्याय नक्की निवडा.',
-
-    step3Title: 'लक्षणे व अवयव निवड (Symptoms & Anatomy)',
-    step3Subtitle: '3D शरीरावर दुखणारा भाग निवडा किंवा माइकवर बोला',
-    speakSymptomsLabel: 'बोलून सांगा (Speak Symptoms)',
-    languageSelectLabel: 'भाषा (Language):',
-    recordingActive: 'ऐकत आहोत... कृपया आपला त्रास सांगा',
-    tapToSpeak: 'माइक दाबून बोला',
-    savedBadge: 'जतन केले (Saved)',
-    privateModeBadge: 'गोपनीयता कवच सक्रिय (Private Mode)',
-    touchOrganGuidance: 'कृपया 3D शरीरावर तुमचा दुखणारा भाग निवडा आणि नंतर पुढे जा बटण दाबा.',
-    speakSymptomsGuidance: 'कृपया माइक दाबून आपला त्रास बोला किंवा खालील लक्षणे निवडा.',
-
-    step4Title: 'वेदना तपशील (Pain Details)',
-    step4Subtitle: 'वेदनेची तीव्रता आणि स्वरूप निवडा',
-    painIntensityLabel: 'वेदनेची तीव्रता (Wong-Baker Scale)',
-    painCharacterLabel: 'वेदनेचे स्वरूप (Pain Character)',
-    characters: {
-      dull: 'मंद मंद वेदना (Dull Aching / Bheda)',
-      sharp: 'सुई टोचल्यासारखी वेदना (Sharp Needle-like / Toda)',
-      crushing: 'जड दाब किंवा चिरडल्यासारखे (Crushing Heaviness)',
-      burning: 'तीव्र जळजळ (Burning Sensation / Daha)',
-      throbbing: 'धडधडणारी वेदना (Throbbing / Pulsatile)',
-      stiffness: 'अकडणे / ताठरता (Stiffness / Stambha)'
-    },
-    step4AudioPrompt: 'कृपया तुमच्या वेदनेचे ठिकाण, प्रकार आणि तीव्रता निवडा.',
-
-    step5Title: 'पचन व प्रकृती तपासणी (Digestion & Health)',
-    step5Subtitle: 'आपली भूक, पचन आणि प्रकृती निवडा',
-    rationaleTitle: 'लक्षणे व पचनाचा संबंध (Clinical Rationale)',
-    step5AudioPrompt: 'कृपया आपली पचनशक्ती, शारीरिक प्रकृती आणि ऊर्जा पातळी निवडा, नंतर पुढे जा.',
-
-    step6Title: 'जुनी प्रिस्क्रिप्शन व चाचण्या (Documents)',
-    step6Subtitle: 'जुनी प्रिस्क्रिप्शन कॅमेऱ्याने स्कॅन करा किंवा अपलोड करा',
-    liveCameraBtn: 'लाइव्ह कॅमेरा (Live Camera)',
-    uploadFileBtn: 'फाइल अपलोड करा (Upload Documents)',
-    byodQrBtn: 'स्मार्टफोनवरून स्कॅन (BYOD QR)',
-    scanAnotherBtn: '+ आणखी एक कागदपत्र जोडा',
-    step6AudioPrompt: 'कृपया तुमची जुनी प्रिस्क्रिप्शन किंवा लॅब रिपोर्ट स्कॅन करा किंवा अपलोड करा.'
-  },
-
-  // ==========================================
-  // TAMIL (தமிழ்)
-  // ==========================================
-  ta: {
-    bcp47: 'ta-IN',
-    nativeName: 'தமிழ்',
-    englishName: 'Tamil',
-    listenBtn: 'கேளுங்கள்',
-    speakingBtn: 'பேசுகிறது...',
-    listenTitle: 'கேளுங்கள் (Tap to Listen)',
-
-    hospitalSubtitle: 'அனைத்திந்திய ஆயுர்வேத நிறுவனம் (AIIA)',
-    opdKioskBadge: 'OPD கியோஸ்க்',
-    sosBtn: 'அவசர SOS',
-    backBtn: 'பின்னே',
-    nextBtn: 'அடுத்து',
-    finishBtn: 'பதிவை முடிக்கவும்',
-    audioGuidanceBtn: 'வழிகாட்டுதல் கேளுங்கள் / Audio Guidance',
-    stepLabels: {
-      step1: { title: 'மொழி (Language)', short: 'மொழி' },
-      step2: { title: 'நோயாளி அடையாளம் (Patient ID)', short: 'அடையாளம்' },
-      step3: { title: 'அறிகுறி & உடல் (Symptoms)', short: 'அறிகுறி' },
-      step4: { title: 'வலி விவரம் (Pain Details)', short: 'விவரம்' },
-      step5: { title: 'செரிமானம் & நலம் (Health & Digestion)', short: 'செரிமானம்' },
-      step6: { title: 'மருத்துவ ஆவணங்கள் (Documents)', short: 'ஆவணங்கள்' }
-    },
-    unfinishedDraftTitle: 'முடிக்கப்படாத பதிவு கண்டறியப்பட்டது',
-    continueCheckinBtn: 'பதிவைத் தொடரவும்',
-    dismissBtn: 'ரத்துசெய்',
-
-    step2Title: 'நோயாளி சரிபார்ப்பு (Patient Verification)',
-    step2Subtitle: 'ABHA ஐடி, ஆதார் எண் அல்லது பெயர் மற்றும் வயதை உள்ளிடவும்',
-    fullNameLabel: 'முழு சட்டபூர்வ பெயர் / Full Legal Name *',
-    fullNamePlaceholder: 'எ.கா. திருமதி சாந்தி தேவி',
-    ageLabel: 'வயது / Age *',
-    genderLabel: 'பாலினம் / Gender *',
-    maleOption: 'ஆண் / Male',
-    femaleOption: 'பெண் / Female',
-    otherOption: 'மற்றவை / Other',
-    maternalGuardTitle: 'தாய்மை & கரு பாதுகாப்பு (Maternal-Fetal Pharmacology Guard)',
-    maternalGuardSub: 'கருவுக்கு ஆபத்தான மருந்துகளிலிருந்து பாதுகாப்பு',
-    pregnantLabel: 'நீங்கள் கர்ப்பமாக உள்ளீர்களா? / Pregnant?',
-    lactatingLabel: 'தாய்ப்பால் ஊட்டுகிறீர்களா? / Lactating?',
-    yesBtn: 'ஆம் (Yes)',
-    noBtn: 'இல்லை (No)',
-    step2AudioPrompt: 'தயவுசெய்து உங்கள் ஆபா ஐடி, ஆதார் எண் அல்லது பெயர் மற்றும் வயதை உள்ளிடவும். கர்ப்பமாக இருந்தால் தாய்மை பாதுகாப்பு விருப்பத்தை தேர்ந்தெடுக்கவும்.',
-
-    step3Title: 'அறிகுறிகள் & உடல் பகுதி (Symptoms & Anatomy)',
-    step3Subtitle: '3D மாதிரியில் வலி உள்ள பகுதியைத் தொடவும் அல்லது பேசவும்',
-    speakSymptomsLabel: 'பேசி விவரிக்கவும் (Speak Symptoms)',
-    languageSelectLabel: 'மொழி (Language):',
-    recordingActive: 'கேட்கிறது... உங்கள் தொந்தரவை கூறவும்',
-    tapToSpeak: 'மைக்கை அழுத்தி பேசவும்',
-    savedBadge: 'சேமிக்கப்பட்டது (Saved)',
-    privateModeBadge: 'தனிநபர் பாதுகாப்பு செயலில் (Private Mode)',
-    touchOrganGuidance: 'தயவுசெய்து 3D மாதிரியில் வலி உள்ள பகுதியைத் தொட்டு தேர்ந்தெடுக்கவும், பின்னர் அடுத்து பொத்தானை அழுத்தவும்.',
-    speakSymptomsGuidance: 'தயவுசெய்து மைக்ரோஃபோன் பொத்தானை அழுத்தி உங்கள் அறிகுறிகளைப் பேசவும் அல்லது கீழே உள்ளவற்றில் தேர்ந்தெடுக்கவும்.',
-
-    step4Title: 'வலி விவரம் (Pain Details)',
-    step4Subtitle: 'வலியின் தீவிரம் மற்றும் தன்மையைத் தேர்ந்தெடுக்கவும்',
-    painIntensityLabel: 'வலியின் அளவு (Wong-Baker Scale)',
-    painCharacterLabel: 'வலியின் தன்மை (Pain Character)',
-    characters: {
-      dull: 'மிதமான வலி (Dull Aching / Bheda)',
-      sharp: 'ஊசி குத்துவது போன்ற வலி (Sharp Needle-like / Toda)',
-      crushing: 'அழுத்தும் கனமான வலி (Crushing Heaviness)',
-      burning: 'எரிச்சல் உணர்வு (Burning Sensation / Daha)',
-      throbbing: 'துடிக்கும் வலி (Throbbing / Pulsatile)',
-      stiffness: 'விறைப்பு / பிடிப்பு (Stiffness / Stambha)'
-    },
-    step4AudioPrompt: 'தயவுசெய்து உங்கள் வலியின் இடம், பரவல் மற்றும் தீவிரத்தை தேர்ந்தெடுக்கவும்.',
-
-    step5Title: 'செரிமானம் & உடல் ஆரோக்கியம் (Digestion & Health)',
-    step5Subtitle: 'உங்கள் பசி, செரிமான சக்தி மற்றும் உடல் நிலையை தேர்ந்தெடுக்கவும்',
-    rationaleTitle: 'அறிகுறிகளும் செரிமானமும் (Clinical Rationale)',
-    step5AudioPrompt: 'தயவுசெய்து உங்கள் செரிமான சக்தி, உடல் தன்மை மற்றும் ஆற்றல் அளவை தேர்வு செய்து அடுத்து அழுத்தவும்.',
-
-    step6Title: 'பழைய மருந்துச்சீட்டு & பரிசோதனை (Documents)',
-    step6Subtitle: 'பழைய மருந்துச்சீட்டு அல்லது ஆய்வக அறிக்கையை ஸ்கேன் செய்யவும்',
-    liveCameraBtn: 'நேரடி கேமரா (Live Camera)',
-    uploadFileBtn: 'கோப்புகளைப் பதிவேற்றவும் (Upload Documents)',
-    byodQrBtn: 'ஸ்மார்ட்போன் ஸ்கேன் (BYOD QR)',
-    scanAnotherBtn: '+ மற்றொரு ஆவணத்தைச் சேர்க்கவும்',
-    step6AudioPrompt: 'தயவுசெய்து உங்கள் முந்தைய மருந்துச்சீட்டு அல்லது ஆய்வக அறிக்கையை ஸ்கேன் செய்யவும்.'
-  },
-
-  // ==========================================
-  // TELUGU (తెలుగు)
-  // ==========================================
-  te: {
-    bcp47: 'te-IN',
-    nativeName: 'తెలుగు',
-    englishName: 'Telugu',
-    listenBtn: 'వినండి',
-    speakingBtn: 'మాట్లాడుతోంది...',
-    listenTitle: 'వినండి (Tap to Listen)',
-
-    hospitalSubtitle: 'అఖిల భారత ఆయుర్వేద సంస్థ (AIIA)',
-    opdKioskBadge: 'OPD కియోస్క్',
-    sosBtn: 'అత్యవసర SOS',
-    backBtn: 'వెనుకకు',
-    nextBtn: 'ముందుకు',
-    finishBtn: 'నమోదు పూర్తి చేయండి',
-    audioGuidanceBtn: 'సూచనలు వినండి / Audio Guidance',
-    stepLabels: {
-      step1: { title: 'భాష (Language)', short: 'భాష' },
-      step2: { title: 'రోగి గుర్తింపు (Patient ID)', short: 'గుర్తింపు' },
-      step3: { title: 'లక్షణాలు & అవయవం (Symptoms)', short: 'లక్షణాలు' },
-      step4: { title: 'నొప్పి వివరాలు (Pain Details)', short: 'వివరాలు' },
-      step5: { title: 'జీర్ణక్రియ & ఆరోగ్యం (Health & Digestion)', short: 'జీర్ణక్రియ' },
-      step6: { title: 'వైద్య పత్రాలు (Documents)', short: 'పత్రాలు' }
-    },
-    unfinishedDraftTitle: 'అసంపూర్ణ నమోదు కనుగొనబడింది',
-    continueCheckinBtn: 'నమోదును కొనసాగించండి',
-    dismissBtn: 'రద్దు చేయండి',
-
-    step2Title: 'రోగి గుర్తింపు ధృవీకరణ (Patient Verification)',
-    step2Subtitle: 'ABHA ఐడీ, ఆధార్ సంఖ్య లేదా పేరు మరియు వయస్సు నమోదు చేయండి',
-    fullNameLabel: 'పూర్తి చట్టపరమైన పేరు / Full Legal Name *',
-    fullNamePlaceholder: 'ఉదా. శ్రీమతి శాంతి దేవి',
-    ageLabel: 'వయస్సు / Age *',
-    genderLabel: 'లింగం / Gender *',
-    maleOption: 'పురుషుడు / Male',
-    femaleOption: 'మహిళ / Female',
-    otherOption: 'ఇతర / Other',
-    maternalGuardTitle: 'మాతృత్వ & గర్భ రక్షణ (Maternal-Fetal Pharmacology Guard)',
-    maternalGuardSub: 'గర్భానికి హానికరమైన మందులను నిరోధిస్తుంది',
-    pregnantLabel: 'మీరు గర్భవతా? / Pregnant?',
-    lactatingLabel: 'మీరు పాలిస్తున్నారా? / Lactating?',
-    yesBtn: 'అవును (Yes)',
-    noBtn: 'కాదు (No)',
-    step2AudioPrompt: 'దయచేసి మీ ఆభా ఐడీ, ఆధార్ సంఖ్య లేదా పేరు మరియు వయస్సు నమోదు చేయండి. గర్భిణీ అయితే మాతృత్వ రక్షణ ఎంపికను తప్పక ఎంచుకోండి.',
-
-    step3Title: 'లక్షణాలు & శరీర స్థానం (Symptoms & Anatomy)',
-    step3Subtitle: '3D నమూనాపై నొప్పి ఉన్న భాగాన్ని తాకండి లేదా మైక్ ద్వారా చెప్పండి',
-    speakSymptomsLabel: 'మాట్లాడి చెప్పండి (Speak Symptoms)',
-    languageSelectLabel: 'భాష (Language):',
-    recordingActive: 'వింటున్నాము... మీ సమస్యను చెప్పండి',
-    tapToSpeak: 'మైక్ నొక్కి మాట్లాడండి',
-    savedBadge: 'సేవ్ చేయబడింది (Saved)',
-    privateModeBadge: 'గోప్యతా కవచం సక్రియం (Private Mode)',
-    touchOrganGuidance: 'దయచేసి 3D శరీర నమూనాలో మీ నొప్పి ఉన్న భాగాన్ని తాకి ఎంచుకోండి, తర్వాత ముందుకు వెళ్లండి.',
-    speakSymptomsGuidance: 'దయచేసి మైక్రోఫోన్ బటన్ నొక్కి మీ లక్షణాలను చెప్పండి లేదా క్రింది వాటి నుండి ఎంచుకోండి.',
-
-    step4Title: 'నొప్పి వివరాలు (Pain Details)',
-    step4Subtitle: 'నొప్పి తీవ్రత మరియు స్వభావాన్ని ఎంచుకోండి',
-    painIntensityLabel: 'నొప్పి తీవ్రత (Wong-Baker Scale)',
-    painCharacterLabel: 'నొప్పి స్వభావం (Pain Character)',
-    characters: {
-      dull: 'నెమ్మదిగా ఉండే నొప్పి (Dull Aching / Bheda)',
-      sharp: 'సూది గుచ్చినట్లు ఉండే నొప్పి (Sharp Needle-like / Toda)',
-      crushing: 'బరువైన ఒత్తిడి నొప్పి (Crushing Heaviness)',
-      burning: 'మంటగా ఉండే నొప్పి (Burning Sensation / Daha)',
-      throbbing: 'దడదడలాడే నొప్పి (Throbbing / Pulsatile)',
-      stiffness: 'పట్టేసినట్లు ఉండటం (Stiffness / Stambha)'
-    },
-    step4AudioPrompt: 'దయచేసి మీ నొప్పి ఉన్న ప్రదేశం, వ్యాప్తి మరియు తీవ్రతను ఎంచుకోండి.',
-
-    step5Title: 'జీర్ణక్రియ & ఆరోగ్య పరీక్ష (Digestion & Health)',
-    step5Subtitle: 'మీ ఆకలి, జీర్ణశక్తి మరియు శరీర తత్వాన్ని ఎంచుకోండి',
-    rationaleTitle: 'లక్షణాలు మరియు జీర్ణక్రియ సంబంధం (Clinical Rationale)',
-    step5AudioPrompt: 'దయచేసి మీ జీర్ణశక్తి, శరీర స్వభావం మరియు శక్తి స్థాయిని ఎంచుకుని, ముందుకు వెళ్లండి.',
-
-    step6Title: 'పాత ప్రిస్క్రిప్షన్ & నివేదికలు (Documents)',
-    step6Subtitle: 'పాత ప్రిస్క్రిప్షన్ లేదా ల్యాబ్ స్లిప్పులను స్కాన్ చేయండి లేదా అప్‌లోడ్ చేయండి',
-    liveCameraBtn: 'లైవ్ కెమెరా (Live Camera)',
-    uploadFileBtn: 'ఫైళ్లను అప్‌లోడ్ చేయండి (Upload Documents)',
-    byodQrBtn: 'స్మార్ట్‌ఫోన్ స్కాన్ (BYOD QR)',
-    scanAnotherBtn: '+ మరొక పత్రాన్ని జోడించండి',
-    step6AudioPrompt: 'దయచేసి మీ మునుపటి ప్రిస్క్రిప్షన్ లేదా ల్యాబ్ స్లిప్పును స్కాన్ చేయండి లేదా అప్‌లోడ్ చేయండి.'
-  }
+export const BCP47: Record<SupportedKioskLanguage, string> = {
+  en: 'en-IN', hi: 'hi-IN', mr: 'mr-IN', bn: 'bn-IN', ta: 'ta-IN', te: 'te-IN',
+  gu: 'gu-IN', kn: 'kn-IN', ml: 'ml-IN', pa: 'pa-IN', or: 'or-IN'
 };
 
-export const getKioskTranslations = (langCode?: string): KioskTranslations => {
-  const code = (langCode || 'hi').toLowerCase().substring(0, 2) as SupportedKioskLanguage;
-  return KIOSK_LOCALIZATION[code] || KIOSK_LOCALIZATION['en'];
+export const normalizeLang = (lang?: string): SupportedKioskLanguage => {
+  const code = (lang || 'hi').toLowerCase().substring(0, 2);
+  return (ALL_LANGS.has(code) ? code : 'en') as SupportedKioskLanguage;
 };
 
-export interface ParikshaOption {
-  title: string;
-  sub: string;
-}
+const S = {
+  // ---------------------------------------------------------------- Shell / navigation
+  hospitalName: ['All India Institute of Ayurveda', 'अखिल भारतीय आयुर्वेद संस्थान', 'अखिल भारतीय आयुर्वेद संस्था', 'সর্বভারতীয় আয়ুর্বেদ সংস্থান', 'அகில இந்திய ஆயுர்வேத நிறுவனம்', 'అఖిల భారత ఆయుర్వేద సంస్థ'],
+  kioskBadge: ['OPD self check-in', 'ओपीडी स्वयं पंजीकरण', 'ओपीडी स्व-नोंदणी', 'ওপিডি স্ব-নিবন্ধন', 'புறநோயாளர் சுய பதிவு', 'ఓపీడీ స్వీయ నమోదు'],
+  sosBtn: ['Emergency help', 'आपातकालीन मदद', 'तातडीची मदत', 'জরুরি সাহায্য', 'அவசர உதவி', 'అత్యవసర సహాయం'],
+  backBtn: ['Back', 'पीछे', 'मागे', 'পিছনে', 'பின்செல்', 'వెనుకకు'],
+  nextBtn: ['Next', 'आगे', 'पुढे', 'পরবর্তী', 'அடுத்து', 'తరువాత'],
+  finishBtn: ['Finish check-in', 'पंजीकरण पूरा करें', 'नोंदणी पूर्ण करा', 'নিবন্ধন সম্পূর্ণ করুন', 'பதிவை முடிக்கவும்', 'నమోదు పూర్తి చేయండి'],
+  submitting: ['Saving…', 'सहेजा जा रहा है…', 'जतन होत आहे…', 'সংরক্ষণ হচ্ছে…', 'சேமிக்கிறது…', 'సేవ్ అవుతోంది…'],
+  stepOf: ['Step {n} of 6', 'चरण {n} / 6', 'टप्पा {n} / 6', 'ধাপ {n} / 6', 'படி {n} / 6', 'దశ {n} / 6'],
+  listenBtn: ['Listen', 'सुनें', 'ऐका', 'শুনুন', 'கேளுங்கள்', 'వినండి'],
+  speakingBtn: ['Speaking…', 'बोल रहे हैं…', 'बोलत आहे…', 'বলছি…', 'பேசுகிறது…', 'మాట్లాడుతోంది…'],
+  yes: ['Yes', 'हाँ', 'होय', 'হ্যাঁ', 'ஆம்', 'అవును'],
+  no: ['No', 'नहीं', 'नाही', 'না', 'இல்லை', 'కాదు'],
+  cancel: ['Cancel', 'रद्द करें', 'रद्द करा', 'বাতিল', 'ரத்து', 'రద్దు'],
+  save: ['Save', 'सहेजें', 'जतन करा', 'সংরক্ষণ', 'சேமி', 'సేవ్'],
+  close: ['Close', 'बंद करें', 'बंद करा', 'বন্ধ করুন', 'மூடு', 'మూసివేయి'],
+  remove: ['Remove', 'हटाएं', 'काढा', 'সরান', 'நீக்கு', 'తొలగించు'],
+  optional: ['optional', 'वैकल्पिक', 'ऐच्छिक', 'ঐচ্ছিক', 'விருப்பம்', 'ఐచ్ఛికం'],
 
-export interface ParikshaLocalization {
-  agniSectionTitle: string;
-  agniBadge: string;
-  autoCalibratedBadge: string;
-  agniOptions: Record<'SAMAGNI' | 'VISHAMAGNI' | 'TIKSHNAGNI' | 'MANDAGNI', ParikshaOption>;
-  prakritiSectionTitle: string;
-  prakritiOptions: Array<{ id: string; title: string; sub: string }>;
-  vitalitySectionTitle: string;
-  vitalityOptions: Array<{ key: 'Pravara' | 'Madhyama' | 'Avara'; title: string; sub: string }>;
-  backBtn: string;
-  nextBtn: string;
-}
+  stepTitle1: ['Language', 'भाषा', 'भाषा', 'ভাষা', 'மொழி', 'భాష'],
+  stepTitle2: ['Your details', 'आपकी जानकारी', 'तुमची माहिती', 'আপনার তথ্য', 'உங்கள் விவரங்கள்', 'మీ వివరాలు'],
+  stepTitle3: ['Symptoms', 'तकलीफ़', 'त्रास', 'উপসর্গ', 'அறிகுறிகள்', 'లక్షణాలు'],
+  stepTitle4: ['Pain & vitals', 'दर्द व जाँच', 'वेदना व तपासणी', 'ব্যথা ও পরীক্ষা', 'வலி & அளவீடுகள்', 'నొప్పి & కొలతలు'],
+  stepTitle5: ['Health history', 'स्वास्थ्य इतिहास', 'आरोग्य इतिहास', 'স্বাস্থ্যের ইতিহাস', 'உடல்நல வரலாறு', 'ఆరోగ్య చరిత్ర'],
+  stepTitle6: ['Old prescriptions', 'पुराने पर्चे', 'जुनी प्रिस्क्रिप्शन', 'পুরনো প্রেসক্রিপশন', 'பழைய மருந்துச்சீட்டு', 'పాత ప్రిస్క్రిప్షన్లు'],
 
-export const PARIKSHA_LOCALES: Record<SupportedKioskLanguage, ParikshaLocalization> = {
-  hi: {
-    agniSectionTitle: '1. आपकी भूख व पाचन कैसा रहता है? (Digestion & Appetite)',
-    agniBadge: 'अग्नि परीक्षा',
-    autoCalibratedBadge: 'लक्षणों के आधार पर चयनित',
-    agniOptions: {
-      SAMAGNI: {
-        title: 'संतुलित पाचन (Normal / Healthy)',
-        sub: 'समय पर भूख लगती है, भोजन आसानी से पचता है, गैस या जलन नहीं होती।'
-      },
-      VISHAMAGNI: {
-        title: 'गैस व अनियमित (Gas & Irregular)',
-        sub: 'कभी तेज भूख तो कभी बिल्कुल नहीं, पेट में गैस, भारीपन व फूलापन।'
-      },
-      TIKSHNAGNI: {
-        title: 'जलन व एसिडिटी (Burning & Acidity)',
-        sub: 'तेज भूख, सीने व पेट में जलन, खट्टी डकार या भोजन के बाद दाह।'
-      },
-      MANDAGNI: {
-        title: 'भारीपन व सुस्ती (Heavy & Sluggish)',
-        sub: 'धीमा पाचन, भोजन के बाद अत्यधिक भारीपन, आलस्य व अपच।'
-      }
-    },
-    prakritiSectionTitle: '2. आपकी शारीरिक प्रकृति (Body Constitution)',
-    prakritiOptions: [
-      { id: 'Vataja', title: 'हल्का शरीर (Vata)', sub: 'ठंड लगना, सक्रिय, दुबला शरीर' },
-      { id: 'Pittaja', title: 'गर्म शरीर (Pitta)', sub: 'गर्मी लगना, तेज भूख, मध्यम देह' },
-      { id: 'Kaphaja', title: 'मजबूत शरीर (Kapha)', sub: 'भारी शरीर, शांत, स्थिर' },
-      { id: 'Vata-Pitta', title: 'संतुलित (Balanced)', sub: 'दोषों का मिला-जुला प्रभाव' }
-    ],
-    vitalitySectionTitle: '3. ऊर्जा स्तर व सहनशक्ति (Energy Level)',
-    vitalityOptions: [
-      { key: 'Pravara', title: 'उत्तम ऊर्जा (High)', sub: 'दिनभर अच्छी स्फूर्ति व ताज़गी।' },
-      { key: 'Madhyama', title: 'सामान्य ऊर्जा (Normal)', sub: 'सामान्य ऊर्जा व दैनिक काम।' },
-      { key: 'Avara', title: 'कमजोरी (Low)', sub: 'जल्दी थकान व कमजोरी महसूस होना।' }
-    ],
-    backBtn: 'पिछला: लक्षण (Back to Symptoms)',
-    nextBtn: 'आगे बढ़ें: दस्तावेज़ स्कैन'
-  },
-  en: {
-    agniSectionTitle: '1. Digestion & Appetite (Agni Assessment)',
-    agniBadge: 'Agni Assessment',
-    autoCalibratedBadge: 'Auto-calibrated from Symptoms',
-    agniOptions: {
-      SAMAGNI: {
-        title: 'Balanced Digestion (Samagni)',
-        sub: 'Regular appetite, food digests comfortably, no bloating or heartburn.'
-      },
-      VISHAMAGNI: {
-        title: 'Irregular & Bloating (Vishamagni)',
-        sub: 'Fluctuating appetite, frequent gas, abdominal bloating and distension.'
-      },
-      TIKSHNAGNI: {
-        title: 'Intense & Acidic (Tikshnagni)',
-        sub: 'Sharp ravenous appetite, intense heartburn, acid reflux and burning sensation.'
-      },
-      MANDAGNI: {
-        title: 'Sluggish & Heavy (Mandagni)',
-        sub: 'Weak slow digestion, lethargy after eating, persistent fullness and indigestion.'
-      }
-    },
-    prakritiSectionTitle: '2. Biological Constitution (Prakriti)',
-    prakritiOptions: [
-      { id: 'Vataja', title: 'Light Frame (Vata)', sub: 'Cold sensitivity, active, lean' },
-      { id: 'Pittaja', title: 'Warm Frame (Pitta)', sub: 'Heat sensitive, sharp hunger, medium frame' },
-      { id: 'Kaphaja', title: 'Sturdy Frame (Kapha)', sub: 'Solid build, calm, steady' },
-      { id: 'Vata-Pitta', title: 'Balanced (Mixed)', sub: 'Mixed dosha constitution' }
-    ],
-    vitalitySectionTitle: '3. Vitality & Stamina (Sara Assessment)',
-    vitalityOptions: [
-      { key: 'Pravara', title: 'High Vitality (Pravara)', sub: 'Energetic throughout the day, resilient.' },
-      { key: 'Madhyama', title: 'Moderate Vitality (Madhyama)', sub: 'Adequate stamina for daily activities.' },
-      { key: 'Avara', title: 'Low Vitality (Avara)', sub: 'Fatigues quickly, low stamina.' }
-    ],
-    backBtn: 'Back: Symptoms',
-    nextBtn: 'Proceed: Scan Documents'
-  },
-  mr: {
-    agniSectionTitle: '1. तुमची भूक आणि पचन कसे आहे? (Digestion & Appetite)',
-    agniBadge: 'अग्नि परीक्षा',
-    autoCalibratedBadge: 'लक्षणांनुसार निवडलेले',
-    agniOptions: {
-      SAMAGNI: {
-        title: 'संतुलित पचन (Samagni)',
-        sub: 'वेळेवर भूक लागते, अन्न सहज पचते, गॅस किंवा जळजळ होत नाही.'
-      },
-      VISHAMAGNI: {
-        title: 'गॅस आणि अनियमित (Vishamagni)',
-        sub: 'कधी खूप भूक तर कधी अजिबात नाही, पोट फुगणे आणि गॅस होणे.'
-      },
-      TIKSHNAGNI: {
-        title: 'जळजळ आणि ॲसिडिटी (Tikshnagni)',
-        sub: 'तीव्र भूक, छातीत आणि पोटात जळजळ, आंबट ढेकर किंवा दाह.'
-      },
-      MANDAGNI: {
-        title: 'जडपणा आणि मंद पचन (Mandagni)',
-        sub: 'मंद पचन, जेवणानंतर खूप जडपणा, आळस आणि अपचन.'
-      }
-    },
-    prakritiSectionTitle: '2. तुमची शारीरिक प्रकृती (Body Constitution)',
-    prakritiOptions: [
-      { id: 'Vataja', title: 'हलके शरीर (Vata)', sub: 'थंडी वाजणे, चपळ, सडपातळ शरीर' },
-      { id: 'Pittaja', title: 'उष्ण प्रकृती (Pitta)', sub: 'उष्णता सहन न होणे, मध्यम देह' },
-      { id: 'Kaphaja', title: 'बळकट शरीर (Kapha)', sub: 'जड शरीर, शांत, स्थिर स्वभाव' },
-      { id: 'Vata-Pitta', title: 'मिश्र / संतुलित (Mixed)', sub: 'दोषांचे मिश्र स्वरूप' }
-    ],
-    vitalitySectionTitle: '3. ऊर्जा पातळी आणि सहनशक्ती (Energy Level)',
-    vitalityOptions: [
-      { key: 'Pravara', title: 'उत्कृष्ट ऊर्जा (High)', sub: 'दिवसभर उत्साह आणि ताजेतवानेपणा.' },
-      { key: 'Madhyama', title: 'मध्यम ऊर्जा (Normal)', sub: 'दैनंदिन कामासाठी पुरेशी ऊर्जा.' },
-      { key: 'Avara', title: 'कमी ऊर्जा / थकवा (Low)', sub: 'लवकर थकवा आणि अशक्तपणा जाणवणे.' }
-    ],
-    backBtn: 'मागे: लक्षणे (Back to Symptoms)',
-    nextBtn: 'पुढे जा: कागदपत्रे स्कॅन करा'
-  },
-  bn: {
-    agniSectionTitle: '1. আপনার ক্ষুধা ও হজম কেমন থাকে? (Digestion & Appetite)',
-    agniBadge: 'অগ্নি পরীক্ষা',
-    autoCalibratedBadge: 'লক্ষণ অনুযায়ী নির্বাচিত',
-    agniOptions: {
-      SAMAGNI: {
-        title: 'স্বাভাবিক হজম (Samagni)',
-        sub: 'সময়ে খিদে পায়, খাবার সহজে হজম হয়, গ্যাস বা জ্বালাপোড়া হয় না।'
-      },
-      VISHAMAGNI: {
-        title: 'অনিয়মিত ও গ্যাস (Vishamagni)',
-        sub: 'কখনও তীব্র খিদে কখনও একেবারেই নেই, পেট ফাঁপা এবং গ্যাস।'
-      },
-      TIKSHNAGNI: {
-        title: 'জ্বালা ও অম্লতা (Tikshnagni)',
-        sub: 'তীব্র খিদে, বুক ও পেটে জ্বালা, টক ঢেকুর বা খাওয়ার পর জ্বালাপোড়া।'
-      },
-      MANDAGNI: {
-        title: 'ভারী ভাব ও ধীর হজম (Mandagni)',
-        sub: 'ধীর হজম, খাওয়ার পর অতিরিক্ত ভারী লাগা, আলস্য ও বদহজম।'
-      }
-    },
-    prakritiSectionTitle: '2. আপনার শারীরিক প্রকৃতি (Body Constitution)',
-    prakritiOptions: [
-      { id: 'Vataja', title: 'হালকা শরীর (Vata)', sub: 'ঠান্ডা লাগা, সক্রিয়, রোগা শরীর' },
-      { id: 'Pittaja', title: 'উষ্ণ প্রকৃতি (Pitta)', sub: 'গরম সহ্য না হওয়া, তীব্র খিদে, মাঝারি দেহ' },
-      { id: 'Kaphaja', title: 'শক্তিশালী শরীর (Kapha)', sub: 'ভারী শরীর, শান্ত, স্থির' },
-      { id: 'Vata-Pitta', title: 'মিশ্র / সমন্বিত (Mixed)', sub: 'মিশ্র প্রভাব' }
-    ],
-    vitalitySectionTitle: '3. শক্তির মাত্রা ও সহনশীলতা (Energy Level)',
-    vitalityOptions: [
-      { key: 'Pravara', title: 'উচ্চ শক্তি (High)', sub: 'সারাদিন প্রচুর শক্তি ও সতেজতা।' },
-      { key: 'Madhyama', title: 'স্বাভাবিক শক্তি (Normal)', sub: 'দৈনন্দিন কাজের জন্য স্বাভাবিক শক্তি।' },
-      { key: 'Avara', title: 'দুর্বলতা (Low)', sub: 'সহজেই ক্লান্তি ও দুর্বলতা অনুভব করা।' }
-    ],
-    backBtn: 'পূর্ববর্তী: লক্ষণ (Back to Symptoms)',
-    nextBtn: 'এগিয়ে যান: নথি স্ক্যান'
-  },
-  ta: {
-    agniSectionTitle: '1. உங்கள் பசி மற்றும் செரிமானம் எப்படி உள்ளது? (Digestion & Appetite)',
-    agniBadge: 'அக்னி பரிசோதனை',
-    autoCalibratedBadge: 'அறிகுறிகளின் அடிப்படையில் தேர்வு',
-    agniOptions: {
-      SAMAGNI: {
-        title: 'சமச்சீர் செரிமானம் (Samagni)',
-        sub: 'சரியான நேரத்தில் பசி எடுக்கும், உணவு எளிதில் செரிக்கும், வாயு அல்லது நெஞ்செரிச்சல் இல்லை.'
-      },
-      VISHAMAGNI: {
-        title: 'வாயு மற்றும் சீரற்ற பசி (Vishamagni)',
-        sub: 'சில நேரங்களில் அதிக பசி, சில நேரங்களில் பசியின்மை, வயிறு உப்பசம்.'
-      },
-      TIKSHNAGNI: {
-        title: 'நெஞ்செரிச்சல் மற்றும் அமிலத்தன்மை (Tikshnagni)',
-        sub: 'அதிக பசி, நெஞ்சு மற்றும் வயிற்றில் எரிச்சல், புளித்த ஏப்பம்.'
-      },
-      MANDAGNI: {
-        title: 'மந்தமான செரிமானம் (Mandagni)',
-        sub: 'மந்தமான செரிமானம், சாப்பிட்ட பின் சோர்வு, அஜீரணம்.'
-      }
-    },
-    prakritiSectionTitle: '2. உங்கள் உடலமைப்பு (Body Constitution)',
-    prakritiOptions: [
-      { id: 'Vataja', title: 'மெலிந்த உடல் (Vata)', sub: 'குளிர் தாங்காமை, சுறுசுறுப்பு, மெலிந்த உடல்' },
-      { id: 'Pittaja', title: 'வெப்ப உடல் (Pitta)', sub: 'வெப்பம் தாங்காமை, அதிக பசி, நடுத்தர உடல்' },
-      { id: 'Kaphaja', title: 'உறுதியான உடல் (Kapha)', sub: 'பருமனான உடல், அமைதி, உறுதி' },
-      { id: 'Vata-Pitta', title: 'சமச்சீர் (Mixed)', sub: 'கலப்பு உடலமைப்பு' }
-    ],
-    vitalitySectionTitle: '3. ஆற்றல் நிலை மற்றும் சகிப்புத்தன்மை (Energy Level)',
-    vitalityOptions: [
-      { key: 'Pravara', title: 'அதிக ஆற்றல் (High)', sub: 'நாள் முழுவதும் சுறுசுறுப்பு மற்றும் புத்துணர்ச்சி.' },
-      { key: 'Madhyama', title: 'சாதாரண ஆற்றல் (Normal)', sub: 'தினசரி வேலைக்கு போதுமான ஆற்றல்.' },
-      { key: 'Avara', title: 'குறைந்த ஆற்றல் (Low)', sub: 'விரைவில் சோர்வு மற்றும் பலவீனம் ஏற்படுதல்.' }
-    ],
-    backBtn: 'பின்செல்: அறிகுறிகள் (Back to Symptoms)',
-    nextBtn: 'தொடரவும்: ஆவண ஸ்கேன்'
-  },
-  te: {
-    agniSectionTitle: '1. మీ ఆకలి మరియు జీర్ణక్రియ ఎలా ఉంది? (Digestion & Appetite)',
-    agniBadge: 'అగ్ని పరీక్ష',
-    autoCalibratedBadge: 'లక్షణాల ఆధారంగా ఎంపిక చేయబడింది',
-    agniOptions: {
-      SAMAGNI: {
-        title: 'సమతుల్య జీర్ణక్రియ (Samagni)',
-        sub: 'సమయానికి ఆకలి వేస్తుంది, ఆహారం సులభంగా జీర్ణమవుతుంది, గ్యాస్ లేదా మంట ఉండదు.'
-      },
-      VISHAMAGNI: {
-        title: 'గ్యాస్ మరియు క్రమరహితం (Vishamagni)',
-        sub: 'ఒక్కోసారి తీవ్రమైన ఆకలి, ఒక్కోసారి అసలు ఉండదు, కడుపుబ్బరం.'
-      },
-      TIKSHNAGNI: {
-        title: 'మంట మరియు అసిడిటీ (Tikshnagni)',
-        sub: 'తీవ్రమైన ఆకలి, ఛాతీ మరియు కడుపులో మంట, పుల్లని తేన్పులు.'
-      },
-      MANDAGNI: {
-        title: 'బరువుగా ఉండటం మరియు మందకొడి జీర్ణం (Mandagni)',
-        sub: 'నెమ్మదిగా జీర్ణం కావడం, భోజనం తర్వాత బద్ధకం మరియు అజీర్ణం.'
-      }
-    },
-    prakritiSectionTitle: '2. మీ శరీర స్వభావం (Body Constitution)',
-    prakritiOptions: [
-      { id: 'Vataja', title: 'తేలికైన శరీరం (Vata)', sub: 'చలి భరించలేకపోవడం, చురుకుదనం, సన్నని శరీరం' },
-      { id: 'Pittaja', title: 'వేడి శరీరం (Pitta)', sub: 'వేడి భరించలేకపోవడం, ఎక్కువ ఆకలి, మధ్యస్థ శరీరం' },
-      { id: 'Kaphaja', title: 'ధృడమైన శరీరం (Kapha)', sub: 'భారీ శరీరం, ప్రశాంతత, నిలకడ' },
-      { id: 'Vata-Pitta', title: 'సమతుల్యం (Mixed)', sub: 'దోషాల మిశ్రమ ప్రభావం' }
-    ],
-    vitalitySectionTitle: '3. శక్తి స్థాయి మరియు సహనశక్తి (Energy Level)',
-    vitalityOptions: [
-      { key: 'Pravara', title: 'అధిక శక్తి (High)', sub: 'రోజంతా మంచి ఉత్సాహం మరియు చురుకుదనం.' },
-      { key: 'Madhyama', title: 'సాధారణ శక్తి (Normal)', sub: 'రోజువారీ పనులకు తగినంత శక్తి.' },
-      { key: 'Avara', title: 'నీరసం / తక్కువ శక్తి (Low)', sub: 'త్వరగా అలసిపోవడం మరియు నీరసం కలగడం.' }
-    ],
-    backBtn: 'వెనుకకు: లక్షణాలు (Back to Symptoms)',
-    nextBtn: 'ముందుకు సాగండి: పత్రాల స్కానింగ్'
-  }
+  draftTitle: ['You have an unfinished registration', 'आपका पंजीकरण अधूरा है', 'तुमची नोंदणी अपूर्ण आहे', 'আপনার নিবন্ধন অসম্পূর্ণ', 'உங்கள் பதிவு முடிக்கப்படவில்லை', 'మీ నమోదు అసంపూర్ణంగా ఉంది'],
+  draftSub: ['{name} · stopped at step {n}', '{name} · चरण {n} पर रुका', '{name} · टप्पा {n} वर थांबले', '{name} · ধাপ {n}-এ থেমেছে', '{name} · படி {n}-ல் நின்றது', '{name} · దశ {n} వద్ద ఆగింది'],
+  draftContinue: ['Continue registration', 'पंजीकरण जारी रखें', 'नोंदणी सुरू ठेवा', 'নিবন্ধন চালিয়ে যান', 'பதிவைத் தொடரவும்', 'నమోదు కొనసాగించండి'],
+  draftDiscard: ['Start fresh', 'नए सिरे से शुरू करें', 'नव्याने सुरू करा', 'নতুন করে শুরু করুন', 'புதிதாகத் தொடங்கு', 'కొత్తగా ప్రారంభించండి'],
+  patientFallback: ['Patient', 'मरीज़', 'रुग्ण', 'রোগী', 'நோயாளி', 'రోగి'],
+
+  idleTitle: ['Are you still there?', 'क्या आप अभी भी यहाँ हैं?', 'तुम्ही अजूनही इथे आहात का?', 'আপনি কি এখনও আছেন?', 'நீங்கள் இன்னும் இருக்கிறீர்களா?', 'మీరు ఇంకా ఇక్కడ ఉన్నారా?'],
+  idleBody: ['For your privacy, this check-in will be cleared if there is no activity.', 'आपकी गोपनीयता के लिए, कोई गतिविधि न होने पर यह पंजीकरण मिटा दिया जाएगा।', 'तुमच्या गोपनीयतेसाठी, काही हालचाल न झाल्यास ही नोंदणी पुसली जाईल.', 'আপনার গোপনীয়তার জন্য, কোনো কার্যকলাপ না হলে এই নিবন্ধন মুছে যাবে।', 'உங்கள் தனியுரிமைக்காக, செயல்பாடு இல்லையெனில் இந்தப் பதிவு அழிக்கப்படும்.', 'మీ గోప్యత కోసం, ఎటువంటి చర్య లేకపోతే ఈ నమోదు తొలగించబడుతుంది.'],
+  idleStay: ['Yes, continue', 'हाँ, जारी रखें', 'होय, सुरू ठेवा', 'হ্যাঁ, চালিয়ে যান', 'ஆம், தொடரவும்', 'అవును, కొనసాగించండి'],
+  idleExit: ['End session', 'सत्र समाप्त करें', 'सत्र संपवा', 'সেশন শেষ করুন', 'அமர்வை முடி', 'సెషన్ ముగించండి'],
+
+  // ---------------------------------------------------------------- SOS
+  sosTitle: ['Help is on the way', 'मदद आ रही है', 'मदत येत आहे', 'সাহায্য আসছে', 'உதவி வருகிறது', 'సహాయం వస్తోంది'],
+  sosBody: ['The emergency team has been alerted. Please go to the Emergency Room on the ground floor, Gate 1. If you cannot walk, stay here — staff are coming to you.', 'आपातकालीन टीम को सूचना भेज दी गई है। कृपया भूतल पर गेट 1 के आपातकालीन कक्ष में जाएं। यदि आप चल नहीं सकते, तो यहीं रुकें — स्टाफ आपके पास आ रहा है।', 'आपत्कालीन टीमला कळवले आहे. कृपया तळमजल्यावरील गेट 1 येथील आपत्कालीन कक्षात जा. चालता येत नसल्यास इथेच थांबा — कर्मचारी तुमच्याकडे येत आहेत.', 'জরুরি দলকে জানানো হয়েছে। অনুগ্রহ করে নিচতলার গেট ১-এর জরুরি বিভাগে যান। হাঁটতে না পারলে এখানেই থাকুন — কর্মীরা আসছেন।', 'அவசரக் குழுவுக்குத் தெரிவிக்கப்பட்டுள்ளது. தரைத்தளம் வாயில் 1-இல் உள்ள அவசர அறைக்குச் செல்லவும். நடக்க முடியாவிட்டால் இங்கேயே இருங்கள் — பணியாளர்கள் வருகிறார்கள்.', 'అత్యవసర బృందానికి సమాచారం అందింది. దయచేసి గ్రౌండ్ ఫ్లోర్ గేట్ 1 వద్ద ఉన్న అత్యవసర గదికి వెళ్ళండి. నడవలేకపోతే ఇక్కడే ఉండండి — సిబ్బంది వస్తున్నారు.'],
+  sosAlertSent: ['Alert sent to emergency desk · Token {token}', 'आपातकालीन डेस्क को सूचना भेजी गई · टोकन {token}', 'आपत्कालीन डेस्कला सूचना पाठवली · टोकन {token}', 'জরুরি ডেস্কে সতর্কবার্তা পাঠানো হয়েছে · টোকেন {token}', 'அவசர மேசைக்கு எச்சரிக்கை அனுப்பப்பட்டது · டோக்கன் {token}', 'అత్యవసర డెస్క్‌కు హెచ్చరిక పంపబడింది · టోకెన్ {token}'],
+  sosSending: ['Alerting emergency desk…', 'आपातकालीन डेस्क को सूचित किया जा रहा है…', 'आपत्कालीन डेस्कला कळवत आहे…', 'জরুরি ডেস্কে জানানো হচ্ছে…', 'அவசர மேசைக்குத் தெரிவிக்கிறது…', 'అత్యవసర డెస్క్‌కు తెలియజేస్తోంది…'],
+  sosOffline: ['Could not reach the hospital network. Please tell the nearest staff member.', 'अस्पताल नेटवर्क से संपर्क नहीं हो सका। कृपया पास के स्टाफ को बताएं।', 'रुग्णालय नेटवर्कशी संपर्क झाला नाही. कृपया जवळच्या कर्मचाऱ्याला सांगा.', 'হাসপাতাল নেটওয়ার্কে যোগাযোগ করা যায়নি। নিকটতম কর্মীকে জানান।', 'மருத்துவமனை வலையமைப்பை அணுக முடியவில்லை. அருகிலுள்ள பணியாளரிடம் சொல்லுங்கள்.', 'ఆసుపత్రి నెట్‌వర్క్‌ను చేరుకోలేకపోయాం. దయచేసి సమీప సిబ్బందికి చెప్పండి.'],
+  sosPrint: ['Print emergency slip', 'आपातकालीन पर्ची प्रिंट करें', 'आपत्कालीन पावती छापा', 'জরুরি স্লিপ প্রিন্ট করুন', 'அவசரச் சீட்டை அச்சிடு', 'అత్యవసర స్లిప్ ముద్రించండి'],
+  sosClose: ['I am safe — continue check-in', 'मैं ठीक हूँ — पंजीकरण जारी रखें', 'मी ठीक आहे — नोंदणी सुरू ठेवा', 'আমি ঠিক আছি — নিবন্ধন চালিয়ে যান', 'நான் நலம் — பதிவைத் தொடரவும்', 'నేను బాగానే ఉన్నాను — నమోదు కొనసాగించండి'],
+  sosConfirmTitle: ['Do you need emergency help now?', 'क्या आपको अभी आपातकालीन मदद चाहिए?', 'तुम्हाला आत्ता तातडीची मदत हवी आहे का?', 'আপনার কি এখনই জরুরি সাহায্য দরকার?', 'உங்களுக்கு இப்போது அவசர உதவி தேவையா?', 'మీకు ఇప్పుడు అత్యవసర సహాయం కావాలా?'],
+  sosConfirmBody: ['Staff will be alerted immediately.', 'स्टाफ को तुरंत सूचना दी जाएगी।', 'कर्मचाऱ्यांना लगेच कळवले जाईल.', 'কর্মীদের সঙ্গে সঙ্গে জানানো হবে।', 'பணியாளர்களுக்கு உடனடியாகத் தெரிவிக்கப்படும்.', 'సిబ్బందికి వెంటనే తెలియజేయబడుతుంది.'],
+  sosConfirmYes: ['Yes, I need help', 'हाँ, मुझे मदद चाहिए', 'होय, मला मदत हवी', 'হ্যাঁ, সাহায্য দরকার', 'ஆம், உதவி வேண்டும்', 'అవును, సహాయం కావాలి'],
+
+  sosWaiting: ['Waiting for staff to respond…', 'स्टाफ के जवाब का इंतज़ार…', 'कर्मचाऱ्यांच्या प्रतिसादाची वाट पाहत आहे…', 'কর্মীদের সাড়ার অপেক্ষা…', 'பணியாளர்களின் பதிலுக்காகக் காத்திருக்கிறது…', 'సిబ్బంది స్పందన కోసం వేచి ఉంది…'],
+  sosAcked: ['A staff member is coming to you now.', 'एक कर्मचारी अभी आपके पास आ रहा है।', 'एक कर्मचारी आत्ता तुमच्याकडे येत आहे.', 'একজন কর্মী এখনই আপনার কাছে আসছেন।', 'ஒரு பணியாளர் இப்போது உங்களிடம் வருகிறார்.', 'ఒక సిబ్బంది ఇప్పుడు మీ వద్దకు వస్తున్నారు.'],
+
+  // ---------------------------------------------------------------- Consent (DPDP Act 2023)
+  consentTitle: ['Your information and your consent', 'आपकी जानकारी और आपकी सहमति', 'तुमची माहिती आणि तुमची संमती', 'আপনার তথ্য ও আপনার সম্মতি', 'உங்கள் தகவலும் உங்கள் ஒப்புதலும்', 'మీ సమాచారం మరియు మీ సమ్మతి'],
+  consentCare: ['Use my information for my treatment at this hospital (required)', 'मेरी जानकारी इस अस्पताल में मेरे इलाज के लिए उपयोग करें (ज़रूरी)', 'माझी माहिती या रुग्णालयातील माझ्या उपचारासाठी वापरा (आवश्यक)', 'এই হাসপাতালে আমার চিকিৎসার জন্য আমার তথ্য ব্যবহার করুন (আবশ্যক)', 'இந்த மருத்துவமனையில் என் சிகிச்சைக்காக என் தகவலைப் பயன்படுத்துங்கள் (கட்டாயம்)', 'ఈ ఆసుపత్రిలో నా చికిత్స కోసం నా సమాచారాన్ని ఉపయోగించండి (తప్పనిసరి)'],
+  consentCareSub: ['Your name, age, symptoms, vitals and documents are seen only by the hospital staff treating you.', 'आपका नाम, उम्र, तकलीफ़, जाँच और कागज़ात केवल आपका इलाज करने वाले अस्पताल कर्मचारी देखेंगे।', 'तुमचे नाव, वय, त्रास, तपासणी आणि कागदपत्रे फक्त तुमच्यावर उपचार करणारे रुग्णालय कर्मचारी पाहतील.', 'আপনার নাম, বয়স, উপসর্গ, পরীক্ষা ও কাগজপত্র শুধু আপনার চিকিৎসাকারী হাসপাতাল কর্মীরা দেখবেন।', 'உங்கள் பெயர், வயது, அறிகுறிகள், அளவீடுகள் மற்றும் ஆவணங்களை உங்களுக்குச் சிகிச்சை அளிக்கும் மருத்துவமனை பணியாளர்கள் மட்டுமே பார்ப்பார்கள்.', 'మీ పేరు, వయస్సు, లక్షణాలు, కొలతలు మరియు పత్రాలను మీకు చికిత్స చేసే ఆసుపత్రి సిబ్బంది మాత్రమే చూస్తారు.'],
+  consentOptional: ['Optional — you can say no and still be treated', 'वैकल्पिक — मना करने पर भी आपका इलाज होगा', 'ऐच्छिक — नकार दिला तरी तुमच्यावर उपचार होतील', 'ঐচ্ছিক — না বললেও আপনার চিকিৎসা হবে', 'விருப்பத்திற்குரியது — மறுத்தாலும் உங்களுக்குச் சிகிச்சை கிடைக்கும்', 'ఐచ్ఛికం — వద్దన్నా మీకు చికిత్స అందుతుంది'],
+  consentSms: ['Send me SMS updates (token, medicines ready, follow-up reminder)', 'मुझे SMS से जानकारी भेजें (टोकन, दवा तैयार, दोबारा दिखाने की याद)', 'मला SMS ने माहिती पाठवा (टोकन, औषधे तयार, पुन्हा तपासणीची आठवण)', 'আমাকে SMS-এ জানান (টোকেন, ওষুধ তৈরি, ফলো-আপ মনে করানো)', 'எனக்கு SMS மூலம் தகவல் அனுப்புங்கள் (டோக்கன், மருந்து தயார், மறுபரிசோதனை நினைவூட்டல்)', 'నాకు SMS ద్వారా సమాచారం పంపండి (టోకెన్, మందులు సిద్ధం, మళ్ళీ చూపించుకోవాల్సిన గుర్తు)'],
+  consentSmsNeedsPhone: ['Enter your mobile number above to get SMS updates.', 'SMS पाने के लिए ऊपर अपना मोबाइल नंबर डालें।', 'SMS मिळवण्यासाठी वर तुमचा मोबाईल नंबर टाका.', 'SMS পেতে উপরে আপনার মোবাইল নম্বর দিন।', 'SMS பெற மேலே உங்கள் கைபேசி எண்ணை உள்ளிடவும்.', 'SMS పొందడానికి పైన మీ మొబైల్ నంబర్ నమోదు చేయండి.'],
+  consentAbha: ['Link this visit to my ABHA health record', 'इस मुलाक़ात को मेरे ABHA स्वास्थ्य रिकॉर्ड से जोड़ें', 'ही भेट माझ्या ABHA आरोग्य नोंदीशी जोडा', 'এই ভিজিট আমার ABHA স্বাস্থ্য রেকর্ডের সাথে যুক্ত করুন', 'இந்த வருகையை என் ABHA சுகாதாரப் பதிவுடன் இணைக்கவும்', 'ఈ సందర్శనను నా ABHA ఆరోగ్య రికార్డుకు జోడించండి'],
+  consentResearch: ['Use my information, without my name, to improve hospital services', 'मेरी जानकारी, बिना मेरे नाम के, अस्पताल की सेवाएँ सुधारने के लिए उपयोग करें', 'माझी माहिती, माझ्या नावाशिवाय, रुग्णालयाच्या सेवा सुधारण्यासाठी वापरा', 'আমার নাম ছাড়া আমার তথ্য হাসপাতালের পরিষেবা উন্নত করতে ব্যবহার করুন', 'என் பெயர் இல்லாமல் என் தகவலை மருத்துவமனை சேவைகளை மேம்படுத்தப் பயன்படுத்துங்கள்', 'నా పేరు లేకుండా నా సమాచారాన్ని ఆసుపత్రి సేవలను మెరుగుపరచడానికి ఉపయోగించండి'],
+  consentMore: ['Read the full notice', 'पूरी सूचना पढ़ें', 'संपूर्ण सूचना वाचा', 'সম্পূর্ণ বিজ্ঞপ্তি পড়ুন', 'முழு அறிவிப்பைப் படிக்கவும்', 'పూర్తి ప్రకటన చదవండి'],
+  consentNotice: [
+    'What we collect: your name, age, gender, mobile number, ABHA/Aadhaar (only the last 4 digits of Aadhaar are kept), symptoms, vitals, health history and photos of old prescriptions. Why: to register you, choose the right doctor and treat you safely. Who sees it: the doctors, nurses and pharmacists treating you. It is not sold or shared outside the hospital, except with your ABHA consent or when the law requires. How long: unfinished check-ins are deleted within 24 hours; treatment records are kept for the period hospital rules require (at least 3 years). Your rights: you can ask to see, correct or erase your information and withdraw optional consent at any time at the registration desk. Complaints: ask for the hospital Data Protection Officer at the registration desk.',
+    'हम क्या लेते हैं: आपका नाम, उम्र, लिंग, मोबाइल नंबर, ABHA/आधार (आधार के केवल आख़िरी 4 अंक रखे जाते हैं), तकलीफ़, जाँच, स्वास्थ्य इतिहास और पुराने पर्चों की फ़ोटो। क्यों: आपका पंजीकरण करने, सही डॉक्टर चुनने और सुरक्षित इलाज के लिए। कौन देखेगा: आपका इलाज करने वाले डॉक्टर, नर्स और फ़ार्मासिस्ट। यह जानकारी बेची या अस्पताल से बाहर साझा नहीं की जाती, सिवाय आपकी ABHA सहमति के या जब क़ानून ज़रूरी करे। कब तक: अधूरे पंजीकरण 24 घंटे में मिटा दिए जाते हैं; इलाज के रिकॉर्ड अस्पताल नियमों के अनुसार (कम से कम 3 साल) रखे जाते हैं। आपके अधिकार: आप पंजीकरण काउंटर पर कभी भी अपनी जानकारी देखने, सुधारने या मिटाने और वैकल्पिक सहमति वापस लेने को कह सकते हैं। शिकायत: पंजीकरण काउंटर पर अस्पताल के डेटा संरक्षण अधिकारी से मिलें।',
+    'आम्ही काय घेतो: तुमचे नाव, वय, लिंग, मोबाईल नंबर, ABHA/आधार (आधारचे फक्त शेवटचे 4 अंक ठेवले जातात), त्रास, तपासणी, आरोग्य इतिहास आणि जुन्या प्रिस्क्रिप्शनचे फोटो. का: तुमची नोंदणी करण्यासाठी, योग्य डॉक्टर निवडण्यासाठी आणि सुरक्षित उपचारासाठी. कोण पाहील: तुमच्यावर उपचार करणारे डॉक्टर, परिचारिका आणि फार्मासिस्ट. ही माहिती विकली जात नाही किंवा रुग्णालयाबाहेर दिली जात नाही, तुमची ABHA संमती किंवा कायद्याची गरज असल्याशिवाय. किती काळ: अपूर्ण नोंदणी 24 तासांत पुसली जाते; उपचाराच्या नोंदी रुग्णालयाच्या नियमांनुसार (किमान 3 वर्षे) ठेवल्या जातात. तुमचे हक्क: नोंदणी काउंटरवर कधीही तुमची माहिती पाहणे, दुरुस्त करणे किंवा पुसणे आणि ऐच्छिक संमती मागे घेणे यासाठी विचारू शकता. तक्रार: नोंदणी काउंटरवर रुग्णालयाच्या डेटा संरक्षण अधिकाऱ्याला भेटा.',
+    'আমরা কী নিই: আপনার নাম, বয়স, লিঙ্গ, মোবাইল নম্বর, ABHA/আধার (আধারের শুধু শেষ ৪টি সংখ্যা রাখা হয়), উপসর্গ, পরীক্ষা, স্বাস্থ্যের ইতিহাস এবং পুরনো প্রেসক্রিপশনের ছবি। কেন: আপনার নিবন্ধন, সঠিক ডাক্তার বাছাই এবং নিরাপদ চিকিৎসার জন্য। কে দেখবেন: আপনার চিকিৎসাকারী ডাক্তার, নার্স ও ফার্মাসিস্ট। এই তথ্য বিক্রি বা হাসপাতালের বাইরে দেওয়া হয় না, আপনার ABHA সম্মতি বা আইনের প্রয়োজন ছাড়া। কতদিন: অসম্পূর্ণ নিবন্ধন ২৪ ঘণ্টার মধ্যে মুছে ফেলা হয়; চিকিৎসার রেকর্ড হাসপাতালের নিয়ম অনুযায়ী (অন্তত ৩ বছর) রাখা হয়। আপনার অধিকার: নিবন্ধন কাউন্টারে যেকোনো সময় আপনার তথ্য দেখতে, সংশোধন বা মুছতে এবং ঐচ্ছিক সম্মতি প্রত্যাহার করতে বলতে পারেন। অভিযোগ: নিবন্ধন কাউন্টারে হাসপাতালের ডেটা সুরক্ষা আধিকারিকের সঙ্গে দেখা করুন।',
+    'நாங்கள் சேகரிப்பது: உங்கள் பெயர், வயது, பாலினம், கைபேசி எண், ABHA/ஆதார் (ஆதாரின் கடைசி 4 இலக்கங்கள் மட்டுமே வைக்கப்படும்), அறிகுறிகள், அளவீடுகள், உடல்நல வரலாறு மற்றும் பழைய மருந்துச்சீட்டுகளின் படங்கள். ஏன்: உங்களைப் பதிவு செய்ய, சரியான மருத்துவரைத் தேர்வு செய்ய, பாதுகாப்பாகச் சிகிச்சை அளிக்க. யார் பார்ப்பார்கள்: உங்களுக்குச் சிகிச்சை அளிக்கும் மருத்துவர்கள், செவிலியர்கள், மருந்தாளர்கள். உங்கள் ABHA ஒப்புதல் அல்லது சட்டத் தேவை இல்லாமல் இந்தத் தகவல் விற்கப்படாது, மருத்துவமனைக்கு வெளியே பகிரப்படாது. எவ்வளவு காலம்: முடிக்கப்படாத பதிவுகள் 24 மணி நேரத்தில் அழிக்கப்படும்; சிகிச்சைப் பதிவுகள் மருத்துவமனை விதிகளின்படி (குறைந்தது 3 ஆண்டுகள்) வைக்கப்படும். உங்கள் உரிமைகள்: பதிவு மேசையில் எப்போது வேண்டுமானாலும் உங்கள் தகவலைப் பார்க்க, திருத்த, அழிக்க, விருப்ப ஒப்புதலைத் திரும்பப் பெறக் கேட்கலாம். புகார்: பதிவு மேசையில் மருத்துவமனை தரவுப் பாதுகாப்பு அலுவலரைக் கேளுங்கள்.',
+    'మేము సేకరించేవి: మీ పేరు, వయస్సు, లింగం, మొబైల్ నంబర్, ABHA/ఆధార్ (ఆధార్ చివరి 4 అంకెలు మాత్రమే ఉంచబడతాయి), లక్షణాలు, కొలతలు, ఆరోగ్య చరిత్ర మరియు పాత ప్రిస్క్రిప్షన్ల ఫోటోలు. ఎందుకు: మిమ్మల్ని నమోదు చేయడానికి, సరైన వైద్యుడిని ఎంచుకోవడానికి, సురక్షితంగా చికిత్స చేయడానికి. ఎవరు చూస్తారు: మీకు చికిత్స చేసే వైద్యులు, నర్సులు మరియు ఫార్మసిస్టులు. మీ ABHA సమ్మతి లేదా చట్టపరమైన అవసరం లేకుండా ఈ సమాచారం అమ్మబడదు, ఆసుపత్రి బయట పంచుకోబడదు. ఎంత కాలం: అసంపూర్ణ నమోదులు 24 గంటల్లో తొలగించబడతాయి; చికిత్స రికార్డులు ఆసుపత్రి నియమాల ప్రకారం (కనీసం 3 సంవత్సరాలు) ఉంచబడతాయి. మీ హక్కులు: నమోదు కౌంటర్ వద్ద ఎప్పుడైనా మీ సమాచారాన్ని చూడటానికి, సరిచేయడానికి లేదా తొలగించడానికి మరియు ఐచ్ఛిక సమ్మతిని ఉపసంహరించుకోవడానికి అడగవచ్చు. ఫిర్యాదు: నమోదు కౌంటర్ వద్ద ఆసుపత్రి డేటా రక్షణ అధికారిని అడగండి.'
+  ],
+  consentNeeded: ['Please agree to the use of your information for treatment to continue. If you do not wish to, please go to the registration desk.', 'आगे बढ़ने के लिए इलाज हेतु जानकारी के उपयोग पर सहमति दें। यदि आप नहीं चाहते, तो कृपया पंजीकरण काउंटर पर जाएँ।', 'पुढे जाण्यासाठी उपचारासाठी माहिती वापरण्यास संमती द्या. तुम्हाला नको असल्यास कृपया नोंदणी काउंटरवर जा.', 'এগোতে চিকিৎসার জন্য তথ্য ব্যবহারে সম্মতি দিন। না চাইলে অনুগ্রহ করে নিবন্ধন কাউন্টারে যান।', 'தொடர, சிகிச்சைக்காக உங்கள் தகவலைப் பயன்படுத்த ஒப்புதல் தாருங்கள். விருப்பமில்லையெனில் பதிவு மேசைக்குச் செல்லவும்.', 'కొనసాగడానికి చికిత్స కోసం మీ సమాచారం వాడకానికి సమ్మతి ఇవ్వండి. ఇష్టం లేకపోతే దయచేసి నమోదు కౌంటర్‌కు వెళ్ళండి.'],
+  abhaUnverified: ['Format is correct. Staff will confirm your ABHA at the desk.', 'नंबर का प्रारूप सही है। कर्मचारी काउंटर पर आपका ABHA पक्का करेंगे।', 'क्रमांकाचे स्वरूप बरोबर आहे. कर्मचारी काउंटरवर तुमचा ABHA निश्चित करतील.', 'নম্বরের ফরম্যাট ঠিক আছে। কর্মীরা কাউন্টারে আপনার ABHA নিশ্চিত করবেন।', 'எண் வடிவம் சரியானது. பணியாளர்கள் மேசையில் உங்கள் ABHA-வை உறுதிப்படுத்துவார்கள்.', 'నంబర్ ఫార్మాట్ సరైనది. సిబ్బంది కౌంటర్ వద్ద మీ ABHA ను నిర్ధారిస్తారు.'],
+
+  aiSuggestTitle: ['Did you also mean?', 'क्या आपका मतलब यह भी था?', 'तुम्हाला हेही म्हणायचे होते का?', 'আপনি কি এটাও বোঝাতে চেয়েছেন?', 'இதையும் சொன்னீர்களா?', 'మీరు ఇది కూడా చెప్పాలనుకున్నారా?'],
+  aiYouSaid: ['You said: “{text}”', 'आपने कहा: “{text}”', 'तुम्ही म्हणालात: “{text}”', 'আপনি বলেছেন: “{text}”', 'நீங்கள் சொன்னது: “{text}”', 'మీరు చెప్పింది: “{text}”'],
+  aiAdd: ['Yes, add', 'हाँ, जोड़ें', 'होय, जोडा', 'হ্যাঁ, যোগ করুন', 'ஆம், சேர்', 'అవును, జోడించండి'],
+  micTranscribing: ['Understanding what you said…', 'आपकी बात समझी जा रही है…', 'तुमचे बोलणे समजून घेत आहे…', 'আপনার কথা বোঝা হচ্ছে…', 'நீங்கள் சொன்னதைப் புரிந்துகொள்கிறது…', 'మీరు చెప్పింది అర్థం చేసుకుంటోంది…'],
+  micOnPrem: ['Your voice is processed inside the hospital.', 'आपकी आवाज़ अस्पताल के अंदर ही समझी जाती है।', 'तुमचा आवाज रुग्णालयातच प्रक्रिया केला जातो.', 'আপনার কণ্ঠ হাসপাতালের ভেতরেই প্রক্রিয়া করা হয়।', 'உங்கள் குரல் மருத்துவமனைக்குள்ளேயே செயலாக்கப்படுகிறது.', 'మీ గొంతు ఆసుపత్రి లోపలే ప్రాసెస్ చేయబడుతుంది.'],
+  micUnavailable: ['Voice input is not available here. Please tap the options or type.', 'यहाँ आवाज़ से लिखना उपलब्ध नहीं है। कृपया विकल्प चुनें या टाइप करें।', 'येथे आवाजाने लिहिणे उपलब्ध नाही. कृपया पर्याय निवडा किंवा टाइप करा.', 'এখানে কণ্ঠে লেখা উপলব্ধ নয়। বিকল্প বাছুন বা টাইপ করুন।', 'இங்கு குரல் உள்ளீடு இல்லை. விருப்பங்களைத் தொடவும் அல்லது தட்டச்சு செய்யவும்.', 'ఇక్కడ వాయిస్ ఇన్‌పుట్ అందుబాటులో లేదు. ఎంపికలను నొక్కండి లేదా టైప్ చేయండి.'],
+
+  // ---------------------------------------------------------------- Live token status
+  s7Called: ['Your token has been called! Please go to Room {room} now.', 'आपका टोकन बुलाया गया है! कृपया अभी कमरा {room} में जाएँ।', 'तुमचा टोकन पुकारला आहे! कृपया आत्ता खोली {room} मध्ये जा.', 'আপনার টোকেন ডাকা হয়েছে! অনুগ্রহ করে এখনই {room} নম্বর ঘরে যান।', 'உங்கள் டோக்கன் அழைக்கப்பட்டது! இப்போதே அறை {room}-க்குச் செல்லவும்.', 'మీ టోకెన్ పిలవబడింది! దయచేసి ఇప్పుడే గది {room} కి వెళ్ళండి.'],
+  s7SmsSent: ['We will send updates to your mobile.', 'हम आपके मोबाइल पर जानकारी भेजेंगे।', 'आम्ही तुमच्या मोबाईलवर माहिती पाठवू.', 'আমরা আপনার মোবাইলে খবর পাঠাব।', 'உங்கள் கைபேசிக்குத் தகவல் அனுப்புவோம்.', 'మీ మొబైల్‌కు సమాచారం పంపుతాము.'],
+  s7Printing: ['Printing your token…', 'आपका टोकन प्रिंट हो रहा है…', 'तुमचा टोकन छापला जात आहे…', 'আপনার টোকেন প্রিন্ট হচ্ছে…', 'உங்கள் டோக்கன் அச்சிடப்படுகிறது…', 'మీ టోకెన్ ముద్రించబడుతోంది…'],
+  s7PrintFailed: ['Printer not available — please take a photo of this screen or ask at the desk.', 'प्रिंटर उपलब्ध नहीं — कृपया इस स्क्रीन की फ़ोटो लें या काउंटर पर पूछें।', 'प्रिंटर उपलब्ध नाही — कृपया या स्क्रीनचा फोटो घ्या किंवा काउंटरवर विचारा.', 'প্রিন্টার নেই — এই স্ক্রিনের ছবি তুলুন বা কাউন্টারে জিজ্ঞাসা করুন।', 'அச்சுப்பொறி இல்லை — இந்தத் திரையைப் புகைப்படம் எடுங்கள் அல்லது மேசையில் கேளுங்கள்.', 'ప్రింటర్ అందుబాటులో లేదు — ఈ స్క్రీన్ ఫోటో తీయండి లేదా కౌంటర్ వద్ద అడగండి.'],
+  s7Printed: ['Token printed. Please take it from the printer.', 'टोकन प्रिंट हो गया। कृपया प्रिंटर से ले लें।', 'टोकन छापला. कृपया प्रिंटरमधून घ्या.', 'টোকেন প্রিন্ট হয়েছে। প্রিন্টার থেকে নিন।', 'டோக்கன் அச்சிடப்பட்டது. அச்சுப்பொறியிலிருந்து எடுத்துக்கொள்ளுங்கள்.', 'టోకెన్ ముద్రించబడింది. ప్రింటర్ నుండి తీసుకోండి.'],
+
+  // ---------------------------------------------------------------- Step 1
+  s1Title: ['Choose your language', 'अपनी भाषा चुनें', 'तुमची भाषा निवडा', 'আপনার ভাষা বেছে নিন', 'உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்', 'మీ భాషను ఎంచుకోండి'],
+  s1Sub: ['Tap a language to begin. The whole check-in will use it.', 'शुरू करने के लिए भाषा पर टैप करें। पूरा पंजीकरण इसी भाषा में होगा।', 'सुरू करण्यासाठी भाषेवर टॅप करा. संपूर्ण नोंदणी याच भाषेत होईल.', 'শুরু করতে একটি ভাষায় চাপুন। পুরো নিবন্ধন এই ভাষায় হবে।', 'தொடங்க ஒரு மொழியைத் தொடவும். முழுப் பதிவும் அந்த மொழியில் இருக்கும்.', 'ప్రారంభించడానికి భాషను నొక్కండి. మొత్తం నమోదు అదే భాషలో ఉంటుంది.'],
+  s1Greeting: ['Welcome! Please choose your language', 'नमस्ते! कृपया अपनी भाषा चुनें', 'नमस्कार! कृपया आपली भाषा निवडा', 'নমস্কার! অনুগ্রহ করে আপনার ভাষা বেছে নিন', 'வணக்கம்! உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்', 'నమస్కారం! దయచేసి మీ భాషను ఎంచుకోండి'],
+  s1Hesitate: ['Please touch the screen to begin.', 'शुरू करने के लिए स्क्रीन को छुएं।', 'सुरू करण्यासाठी स्क्रीनला स्पर्श करा.', 'শুরু করতে স্ক্রিন স্পর্শ করুন।', 'தொடங்க திரையைத் தொடவும்.', 'ప్రారంభించడానికి స్క్రీన్‌ను తాకండి.'],
+
+  // ---------------------------------------------------------------- Step 2
+  s2Title: ['Your details', 'आपकी जानकारी', 'तुमची माहिती', 'আপনার তথ্য', 'உங்கள் விவரங்கள்', 'మీ వివరాలు'],
+  s2Sub: ['Enter your ABHA or Aadhaar number, or just your name and age.', 'अपना आभा या आधार नंबर, या केवल नाम और उम्र दर्ज करें।', 'तुमचा आभा किंवा आधार क्रमांक, किंवा फक्त नाव व वय भरा.', 'আপনার আভা বা আধার নম্বর, অথবা শুধু নাম ও বয়স লিখুন।', 'உங்கள் ABHA அல்லது ஆதார் எண், அல்லது பெயர் மற்றும் வயதை உள்ளிடவும்.', 'మీ ABHA లేదా ఆధార్ నంబర్, లేదా పేరు మరియు వయస్సు నమోదు చేయండి.'],
+  s2Audio: ['Please enter your name and age. You can also use your ABHA or Aadhaar number.', 'कृपया अपना नाम और उम्र दर्ज करें। आप आभा या आधार नंबर भी उपयोग कर सकते हैं।', 'कृपया तुमचे नाव आणि वय भरा. तुम्ही आभा किंवा आधार क्रमांकही वापरू शकता.', 'অনুগ্রহ করে আপনার নাম ও বয়স লিখুন। আভা বা আধার নম্বরও ব্যবহার করতে পারেন।', 'உங்கள் பெயர் மற்றும் வயதை உள்ளிடவும். ABHA அல்லது ஆதார் எண்ணையும் பயன்படுத்தலாம்.', 'దయచేసి మీ పేరు మరియు వయస్సు నమోదు చేయండి. ABHA లేదా ఆధార్ నంబర్ కూడా ఉపయోగించవచ్చు.'],
+  s2Demo: ['Demo patients (for testing)', 'डेमो मरीज़ (परीक्षण हेतु)', 'डेमो रुग्ण (चाचणीसाठी)', 'ডেমো রোগী (পরীক্ষার জন্য)', 'டெமோ நோயாளிகள் (சோதனைக்கு)', 'డెమో రోగులు (పరీక్ష కోసం)'],
+  s2TabAbha: ['ABHA number', 'आभा नंबर', 'आभा क्रमांक', 'আভা নম্বর', 'ABHA எண்', 'ABHA నంబర్'],
+  s2TabAadhaar: ['Aadhaar number', 'आधार नंबर', 'आधार क्रमांक', 'আধার নম্বর', 'ஆதார் எண்', 'ఆధార్ నంబర్'],
+  s2TabWalkin: ['No ID card', 'कोई पहचान पत्र नहीं', 'ओळखपत्र नाही', 'পরিচয়পত্র নেই', 'அடையாள அட்டை இல்லை', 'గుర్తింపు కార్డు లేదు'],
+  s2Name: ['Full name', 'पूरा नाम', 'पूर्ण नाव', 'পুরো নাম', 'முழுப் பெயர்', 'పూర్తి పేరు'],
+  s2NamePh: ['e.g. Shanti Devi', 'उदा. शांति देवी', 'उदा. शांती देवी', 'যেমন শান্তি দেবী', 'எ.கா. சாந்தி தேவி', 'ఉదా. శాంతి దేవి'],
+  s2Age: ['Age (years)', 'उम्र (वर्ष)', 'वय (वर्षे)', 'বয়স (বছর)', 'வயது (ஆண்டுகள்)', 'వయస్సు (సంవత్సరాలు)'],
+  s2Gender: ['Gender', 'लिंग', 'लिंग', 'লিঙ্গ', 'பாலினம்', 'లింగం'],
+  s2Male: ['Male', 'पुरुष', 'पुरुष', 'পুরুষ', 'ஆண்', 'పురుషుడు'],
+  s2Female: ['Female', 'महिला', 'स्त्री', 'মহিলা', 'பெண்', 'స్త్రీ'],
+  s2Other: ['Other', 'अन्य', 'इतर', 'অন্যান্য', 'மற்றவை', 'ఇతర'],
+  s2Phone: ['Mobile number', 'मोबाइल नंबर', 'मोबाईल क्रमांक', 'মোবাইল নম্বর', 'கைபேசி எண்', 'మొబైల్ నంబర్'],
+  s2Abha: ['ABHA number (14 digits)', 'आभा नंबर (14 अंक)', 'आभा क्रमांक (14 अंक)', 'আভা নম্বর (১৪ সংখ্যা)', 'ABHA எண் (14 இலக்கம்)', 'ABHA నంబర్ (14 అంకెలు)'],
+  s2Aadhaar: ['Aadhaar number (12 digits)', 'आधार नंबर (12 अंक)', 'आधार क्रमांक (12 अंक)', 'আধার নম্বর (১২ সংখ্যা)', 'ஆதார் எண் (12 இலக்கம்)', 'ఆధార్ నంబర్ (12 అంకెలు)'],
+  s2Valid: ['Valid', 'सही है', 'बरोबर आहे', 'সঠিক', 'சரியானது', 'సరైనది'],
+  s2DigitsCount: ['{n} of {total} digits', '{total} में से {n} अंक', '{total} पैकी {n} अंक', '{total}টির মধ্যে {n}টি সংখ্যা', '{total}-இல் {n} இலக்கங்கள்', '{total}లో {n} అంకెలు'],
+  errName: ['Please enter the patient’s name.', 'कृपया मरीज़ का नाम लिखें।', 'कृपया रुग्णाचे नाव लिहा.', 'অনুগ্রহ করে রোগীর নাম লিখুন।', 'நோயாளியின் பெயரை உள்ளிடவும்.', 'దయచేసి రోగి పేరు నమోదు చేయండి.'],
+  errAge: ['Please enter an age between 0 and 120.', 'कृपया 0 से 120 के बीच उम्र लिखें।', 'कृपया 0 ते 120 दरम्यान वय लिहा.', '০ থেকে ১২০-এর মধ্যে বয়স লিখুন।', '0 முதல் 120 வரை வயதை உள்ளிடவும்.', '0 నుండి 120 మధ్య వయస్సు నమోదు చేయండి.'],
+  errAbha: ['ABHA number must have 14 digits.', 'आभा नंबर में 14 अंक होने चाहिए।', 'आभा क्रमांकात 14 अंक असावेत.', 'আভা নম্বরে ১৪টি সংখ্যা থাকতে হবে।', 'ABHA எண்ணில் 14 இலக்கங்கள் இருக்க வேண்டும்.', 'ABHA నంబర్‌లో 14 అంకెలు ఉండాలి.'],
+  errAadhaar: ['This Aadhaar number is not valid. Please check it.', 'यह आधार नंबर सही नहीं है। कृपया जाँचें।', 'हा आधार क्रमांक बरोबर नाही. कृपया तपासा.', 'এই আধার নম্বরটি সঠিক নয়। পরীক্ষা করুন।', 'இந்த ஆதார் எண் சரியானதல்ல. சரிபார்க்கவும்.', 'ఈ ఆధార్ నంబర్ సరైనది కాదు. దయచేసి తనిఖీ చేయండి.'],
+  errPhone: ['Mobile number must have 10 digits.', 'मोबाइल नंबर में 10 अंक होने चाहिए।', 'मोबाईल क्रमांकात 10 अंक असावेत.', 'মোবাইল নম্বরে ১০টি সংখ্যা থাকতে হবে।', 'கைபேசி எண்ணில் 10 இலக்கங்கள் இருக்க வேண்டும்.', 'మొబైల్ నంబర్‌లో 10 అంకెలు ఉండాలి.'],
+  s2FixErrors: ['Please complete the highlighted fields to continue.', 'आगे बढ़ने के लिए चिह्नित जानकारी पूरी करें।', 'पुढे जाण्यासाठी चिन्हांकित माहिती पूर्ण करा.', 'এগোতে চিহ্নিত ঘরগুলি পূরণ করুন।', 'தொடர குறிக்கப்பட்ட புலங்களை நிரப்பவும்.', 'కొనసాగడానికి గుర్తించిన వివరాలను పూర్తి చేయండి.'],
+  s2Stream: ['Which doctor do you want to see?', 'आप किस डॉक्टर को दिखाना चाहते हैं?', 'तुम्हाला कोणत्या डॉक्टरांना दाखवायचे आहे?', 'আপনি কোন ডাক্তার দেখাতে চান?', 'எந்த மருத்துவரைப் பார்க்க விரும்புகிறீர்கள்?', 'మీరు ఏ డాక్టర్‌ను చూడాలనుకుంటున్నారు?'],
+  streamAyurveda: ['Ayurveda doctor (Vaidya)', 'आयुर्वेद डॉक्टर (वैद्य)', 'आयुर्वेद डॉक्टर (वैद्य)', 'আয়ুর্বেদ ডাক্তার (বৈদ্য)', 'ஆயுர்வேத மருத்துவர் (வைத்தியர்)', 'ఆయుర్వేద వైద్యుడు'],
+  streamAyurvedaSub: ['Herbal medicines, diet and Panchakarma', 'जड़ी-बूटी की दवा, आहार और पंचकर्म', 'वनौषधी, आहार आणि पंचकर्म', 'ভেষজ ওষুধ, পথ্য ও পঞ্চকর্ম', 'மூலிகை மருந்து, உணவு, பஞ்சகர்மா', 'మూలికా మందులు, ఆహారం, పంచకర్మ'],
+  streamAllopathy: ['Modern medicine doctor (MBBS)', 'एलोपैथी डॉक्टर (MBBS)', 'ॲलोपॅथी डॉक्टर (MBBS)', 'অ্যালোপ্যাথি ডাক্তার (MBBS)', 'ஆங்கில மருத்துவர் (MBBS)', 'అల్లోపతి డాక్టర్ (MBBS)'],
+  streamAllopathySub: ['Tablets, injections and lab tests', 'गोलियाँ, इंजेक्शन और जाँच', 'गोळ्या, इंजेक्शन आणि तपासण्या', 'ট্যাবলেট, ইনজেকশন ও পরীক্ষা', 'மாத்திரை, ஊசி, பரிசோதனைகள்', 'మాత్రలు, ఇంజెక్షన్లు, పరీక్షలు'],
+  streamUnsure: ['Not sure — let the hospital decide', 'पता नहीं — अस्पताल तय करे', 'माहीत नाही — रुग्णालय ठरवेल', 'জানি না — হাসপাতাল ঠিক করুক', 'தெரியவில்லை — மருத்துவமனை முடிவு செய்யட்டும்', 'తెలియదు — ఆసుపత్రి నిర్ణయించాలి'],
+  streamUnsureSub: ['You will be sent to the right doctor', 'आपको सही डॉक्टर के पास भेजा जाएगा', 'तुम्हाला योग्य डॉक्टरांकडे पाठवले जाईल', 'আপনাকে সঠিক ডাক্তারের কাছে পাঠানো হবে', 'சரியான மருத்துவரிடம் அனுப்பப்படுவீர்கள்', 'మిమ్మల్ని సరైన డాక్టర్ వద్దకు పంపుతారు'],
+  maternalTitle: ['Pregnancy & breastfeeding', 'गर्भावस्था व स्तनपान', 'गरोदरपणा व स्तनपान', 'গর্ভাবস্থা ও স্তন্যদান', 'கர்ப்பம் & தாய்ப்பால்', 'గర్భం & తల్లిపాలు'],
+  maternalSub: ['This keeps medicines that are unsafe in pregnancy off your prescription.', 'इससे गर्भावस्था में हानिकारक दवाएँ आपके पर्चे में नहीं आएँगी।', 'यामुळे गरोदरपणात हानिकारक औषधे तुमच्या प्रिस्क्रिप्शनमध्ये येणार नाहीत.', 'এতে গর্ভাবস্থায় ক্ষতিকর ওষুধ আপনার প্রেসক্রিপশনে আসবে না।', 'கர்ப்பத்தில் பாதுகாப்பற்ற மருந்துகள் உங்கள் சீட்டில் வராது.', 'గర్భంలో హానికరమైన మందులు మీ ప్రిస్క్రిప్షన్‌లో రావు.'],
+  pregnantQ: ['Are you pregnant?', 'क्या आप गर्भवती हैं?', 'तुम्ही गरोदर आहात का?', 'আপনি কি গর্ভবতী?', 'நீங்கள் கர்ப்பமாக உள்ளீர்களா?', 'మీరు గర్భవతా?'],
+  lactatingQ: ['Are you breastfeeding?', 'क्या आप स्तनपान करा रही हैं?', 'तुम्ही स्तनपान करत आहात का?', 'আপনি কি স্তন্যদান করছেন?', 'தாய்ப்பால் கொடுக்கிறீர்களா?', 'మీరు పాలిస్తున్నారా?'],
+  otpTitle: ['Verify with OTP', 'ओटीपी से सत्यापित करें', 'ओटीपीने पडताळणी करा', 'ওটিপি দিয়ে যাচাই করুন', 'OTP மூலம் சரிபார்க்கவும்', 'OTP తో ధృవీకరించండి'],
+  otpSub: ['An OTP will be sent to the mobile linked to this number.', 'इस नंबर से जुड़े मोबाइल पर ओटीपी भेजा जाएगा।', 'या क्रमांकाशी जोडलेल्या मोबाईलवर ओटीपी पाठवला जाईल.', 'এই নম্বরের সঙ্গে যুক্ত মোবাইলে ওটিপি পাঠানো হবে।', 'இந்த எண்ணுடன் இணைக்கப்பட்ட கைபேசிக்கு OTP அனுப்பப்படும்.', 'ఈ నంబర్‌కు లింక్ అయిన మొబైల్‌కు OTP పంపబడుతుంది.'],
+  otpSend: ['Send OTP', 'ओटीपी भेजें', 'ओटीपी पाठवा', 'ওটিপি পাঠান', 'OTP அனுப்பு', 'OTP పంపండి'],
+  otpVerify: ['Verify', 'सत्यापित करें', 'पडताळा', 'যাচাই করুন', 'சரிபார்', 'ధృవీకరించు'],
+  otpVerifying: ['Verifying…', 'सत्यापित हो रहा है…', 'पडताळणी होत आहे…', 'যাচাই হচ্ছে…', 'சரிபார்க்கிறது…', 'ధృవీకరిస్తోంది…'],
+  otpDone: ['Identity verified', 'पहचान सत्यापित हुई', 'ओळख पडताळली', 'পরিচয় যাচাই হয়েছে', 'அடையாளம் சரிபார்க்கப்பட்டது', 'గుర్తింపు ధృవీకరించబడింది'],
+  otpDemoHint: ['Demo OTP: 4829', 'डेमो ओटीपी: 4829', 'डेमो ओटीपी: 4829', 'ডেমো ওটিপি: 4829', 'டெமோ OTP: 4829', 'డెమో OTP: 4829'],
+  otpWrong: ['Incorrect OTP. Please try again.', 'गलत ओटीपी। कृपया फिर से प्रयास करें।', 'चुकीचा ओटीपी. पुन्हा प्रयत्न करा.', 'ভুল ওটিপি। আবার চেষ্টা করুন।', 'தவறான OTP. மீண்டும் முயற்சிக்கவும்.', 'తప్పు OTP. మళ్ళీ ప్రయత్నించండి.'],
+
+  // ---------------------------------------------------------------- Step 3: body map
+  bodyTitle: ['Where does it hurt?', 'कहाँ तकलीफ़ है?', 'कुठे त्रास होतो?', 'কোথায় কষ্ট হচ্ছে?', 'எங்கே வலிக்கிறது?', 'ఎక్కడ నొప్పిగా ఉంది?'],
+  bodySub: ['Tap the body to choose the area. Drag to turn it around.', 'जगह चुनने के लिए शरीर पर टैप करें। घुमाने के लिए खींचें।', 'जागा निवडण्यासाठी शरीरावर टॅप करा. फिरवण्यासाठी ओढा.', 'জায়গা বেছে নিতে শরীরে চাপুন। ঘোরাতে টানুন।', 'பகுதியைத் தேர்வு செய்ய உடலைத் தொடவும். சுழற்ற இழுக்கவும்.', 'ప్రాంతాన్ని ఎంచుకోవడానికి శరీరాన్ని నొక్కండి. తిప్పడానికి లాగండి.'],
+  bodyAudio: ['Touch the part of the body where you have pain or trouble, then press Next.', 'शरीर के उस हिस्से को छुएं जहाँ दर्द या तकलीफ़ है, फिर आगे दबाएं।', 'जिथे वेदना किंवा त्रास आहे त्या भागाला स्पर्श करा, मग पुढे दाबा.', 'যেখানে ব্যথা বা কষ্ট, শরীরের সেই অংশ স্পর্শ করুন, তারপর পরবর্তী চাপুন।', 'வலி உள்ள உடல் பகுதியைத் தொட்டு, பின் அடுத்து அழுத்தவும்.', 'నొప్పి ఉన్న శరీర భాగాన్ని తాకి, తరువాత నొక్కండి.'],
+  bodyDescribeInstead: ['Describe instead', 'बोलकर बताएं', 'बोलून सांगा', 'বলে জানান', 'சொல்லிக் கூறுங்கள்', 'మాటలతో చెప్పండి'],
+  bodyPrivate: ['Private mode', 'निजी मोड', 'खाजगी मोड', 'গোপন মোড', 'தனிப்பட்ட முறை', 'ప్రైవేట్ మోడ్'],
+  bodyPrivateOn: ['Private mode is on — sound is muted and details are hidden on screen.', 'निजी मोड चालू है — आवाज़ बंद है और जानकारी स्क्रीन पर छिपी है।', 'खाजगी मोड सुरू आहे — आवाज बंद आणि माहिती लपवलेली आहे.', 'গোপন মোড চালু — শব্দ বন্ধ ও তথ্য লুকানো।', 'தனிப்பட்ட முறை இயக்கத்தில் — ஒலி அணைக்கப்பட்டு விவரங்கள் மறைக்கப்பட்டுள்ளன.', 'ప్రైవేట్ మోడ్ ఆన్ — శబ్దం ఆపివేయబడింది, వివరాలు దాచబడ్డాయి.'],
+  bodySelected: ['Selected', 'चुना गया', 'निवडले', 'নির্বাচিত', 'தேர்ந்தெடுக்கப்பட்டது', 'ఎంచుకున్నది'],
+  bodyNothing: ['No area selected yet — tap the body', 'अभी कोई जगह नहीं चुनी — शरीर पर टैप करें', 'अजून जागा निवडली नाही — शरीरावर टॅप करा', 'এখনও কোনো জায়গা বাছা হয়নি — শরীরে চাপুন', 'இன்னும் பகுதி தேர்வு செய்யவில்லை — உடலைத் தொடவும்', 'ఇంకా ప్రాంతం ఎంచుకోలేదు — శరీరాన్ని నొక్కండి'],
+  bodyTapAgain: ['Tap again to unselect', 'हटाने के लिए फिर टैप करें', 'काढण्यासाठी पुन्हा टॅप करा', 'বাদ দিতে আবার চাপুন', 'நீக்க மீண்டும் தொடவும்', 'తీసివేయడానికి మళ్ళీ నొక్కండి'],
+  bodyArea: ['Exact spot', 'सटीक जगह', 'नेमकी जागा', 'সঠিক জায়গা', 'சரியான இடம்', 'ఖచ్చితమైన చోటు'],
+  bodyFront: ['Front', 'सामने', 'समोर', 'সামনে', 'முன்பக்கம்', 'ముందు'],
+  bodyBack: ['Back side', 'पीछे', 'मागे', 'পিছনে', 'பின்பக்கம்', 'వెనుక'],
+  bodyLoading: ['Loading body model…', 'शरीर मॉडल लोड हो रहा है…', 'शरीर मॉडेल लोड होत आहे…', 'শরীরের মডেল লোড হচ্ছে…', 'உடல் மாதிரி ஏற்றப்படுகிறது…', 'శరీర నమూనా లోడ్ అవుతోంది…'],
+  bodyHeartHint: ['The heart is on the LEFT side of the chest. Did you mean the heart?', 'हृदय छाती की बाईं ओर होता है। क्या आपका मतलब हृदय से है?', 'हृदय छातीच्या डाव्या बाजूला असते. तुम्हाला हृदय म्हणायचे आहे का?', 'হৃদয় বুকের বাঁ দিকে থাকে। আপনি কি হৃদয় বোঝাতে চেয়েছেন?', 'இதயம் மார்பின் இடது பக்கத்தில் உள்ளது. இதயத்தைக் குறிப்பிடுகிறீர்களா?', 'గుండె ఛాతీ ఎడమ వైపు ఉంటుంది. మీరు గుండె అని అనుకున్నారా?'],
+  bodyHeartBtn: ['Choose left chest / heart', 'बायाँ सीना / हृदय चुनें', 'डावी छाती / हृदय निवडा', 'বাঁ বুক / হৃদয় বাছুন', 'இடது மார்பு / இதயம் தேர்வு', 'ఎడమ ఛాతీ / గుండె ఎంచుకోండి'],
+  zoneFull: ['Whole body', 'पूरा शरीर', 'संपूर्ण शरीर', 'পুরো শরীর', 'முழு உடல்', 'మొత్తం శరీరం'],
+  zoneHead: ['Head & neck', 'सिर व गर्दन', 'डोके व मान', 'মাথা ও ঘাড়', 'தலை & கழுத்து', 'తల & మెడ'],
+  zoneChest: ['Chest', 'सीना', 'छाती', 'বুক', 'மார்பு', 'ఛాతీ'],
+  zoneAbdomen: ['Stomach', 'पेट', 'पोट', 'পেট', 'வயிறு', 'కడుపు'],
+  zoneSpine: ['Back', 'पीठ व कमर', 'पाठ व कंबर', 'পিঠ ও কোমর', 'முதுகு', 'వీపు'],
+  zoneArms: ['Arms & hands', 'हाथ व बांह', 'हात', 'হাত', 'கைகள்', 'చేతులు'],
+  zoneLegs: ['Legs & feet', 'पैर', 'पाय', 'পা', 'கால்கள்', 'కాళ్ళు'],
+  needAreaOrWords: ['Choose a body area, a symptom, or speak to continue', 'आगे बढ़ने के लिए अंग, लक्षण चुनें या बोलें', 'पुढे जाण्यासाठी अवयव, लक्षण निवडा किंवा बोला', 'এগোতে অঙ্গ, উপসর্গ বাছুন বা বলুন', 'தொடர உடல் பகுதி, அறிகுறியைத் தேர்ந்தெடுக்கவும் அல்லது பேசவும்', 'కొనసాగడానికి భాగం, లక్షణం ఎంచుకోండి లేదా మాట్లాడండి'],
+
+  // ---------------------------------------------------------------- Step 3: symptoms studio
+  areaLabel: ['Area', 'अंग', 'अवयव', 'অঙ্গ', 'பகுதி', 'భాగం'],
+  areaGeneral: ['Whole body / general', 'पूरा शरीर / सामान्य', 'संपूर्ण शरीर / सामान्य', 'পুরো শরীর / সাধারণ', 'முழு உடல் / பொது', 'మొత్తం శరీరం / సాధారణం'],
+  changeArea: ['Change area', 'अंग बदलें', 'अवयव बदला', 'অঙ্গ বদলান', 'பகுதியை மாற்று', 'భాగం మార్చండి'],
+  clarifyArea: ['Which part exactly?', 'ठीक कौन-सा हिस्सा?', 'नेमका कोणता भाग?', 'ঠিক কোন অংশ?', 'சரியாக எந்தப் பகுதி?', 'ఖచ్చితంగా ఏ భాగం?'],
+  speakTitle: ['Tell us in your own words', 'अपने शब्दों में बताएं', 'तुमच्या शब्दांत सांगा', 'নিজের ভাষায় বলুন', 'உங்கள் சொற்களில் சொல்லுங்கள்', 'మీ మాటల్లో చెప్పండి'],
+  micTap: ['Tap to speak', 'बोलने के लिए दबाएं', 'बोलण्यासाठी दाबा', 'বলতে চাপুন', 'பேச அழுத்தவும்', 'మాట్లాడటానికి నొక్కండి'],
+  micStop: ['Stop', 'रोकें', 'थांबवा', 'থামান', 'நிறுத்து', 'ఆపు'],
+  micListening: ['Listening… speak now', 'सुन रहे हैं… अब बोलें', 'ऐकत आहोत… आता बोला', 'শুনছি… এখন বলুন', 'கேட்கிறது… இப்போது பேசுங்கள்', 'వింటున్నాం… ఇప్పుడు మాట్లాడండి'],
+  micNotSupported: ['Voice input is not available on this device. Please type, or tap the choices below.', 'इस उपकरण पर आवाज़ से लिखना उपलब्ध नहीं है। कृपया टाइप करें या नीचे से चुनें।', 'या उपकरणावर आवाजाने लिहिणे उपलब्ध नाही. टाइप करा किंवा खालून निवडा.', 'এই যন্ত্রে ভয়েস ইনপুট নেই। টাইপ করুন বা নিচে থেকে বাছুন।', 'இந்தச் சாதனத்தில் குரல் உள்ளீடு இல்லை. தட்டச்சு செய்யவும் அல்லது கீழே தேர்வு செய்யவும்.', 'ఈ పరికరంలో వాయిస్ ఇన్‌పుట్ లేదు. టైప్ చేయండి లేదా క్రింద ఎంచుకోండి.'],
+  micDenied: ['Microphone permission was not given. Please type, or tap the choices below.', 'माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया टाइप करें या नीचे से चुनें।', 'मायक्रोफोनची परवानगी मिळाली नाही. टाइप करा किंवा खालून निवडा.', 'মাইক্রোফোনের অনুমতি পাওয়া যায়নি। টাইপ করুন বা নিচে থেকে বাছুন।', 'மைக்ரோஃபோன் அனுமதி கிடைக்கவில்லை. தட்டச்சு செய்யவும் அல்லது கீழே தேர்வு செய்யவும்.', 'మైక్రోఫోన్ అనుమతి లేదు. టైప్ చేయండి లేదా క్రింద ఎంచుకోండి.'],
+  micNoSpeech: ['We could not hear you. Please speak closer to the microphone.', 'आपकी आवाज़ नहीं सुनाई दी। कृपया माइक के पास बोलें।', 'तुमचा आवाज ऐकू आला नाही. मायक्रोफोनजवळ बोला.', 'আপনার কথা শোনা যায়নি। মাইক্রোফোনের কাছে বলুন।', 'உங்கள் குரல் கேட்கவில்லை. மைக்ரோஃபோன் அருகில் பேசவும்.', 'మీ మాట వినబడలేదు. మైక్రోఫోన్ దగ్గర మాట్లాడండి.'],
+  transcriptPh: ['Tap the microphone and say what is troubling you, e.g. “pain in my right knee for 3 days”.', 'माइक दबाकर अपनी तकलीफ़ बताएं, जैसे “3 दिन से दाहिने घुटने में दर्द है”।', 'माइक दाबून तुमचा त्रास सांगा, जसे “3 दिवसांपासून उजव्या गुडघ्यात दुखते”.', 'মাইক চেপে আপনার সমস্যা বলুন, যেমন “৩ দিন ধরে ডান হাঁটুতে ব্যথা”।', 'மைக்கை அழுத்தி உங்கள் தொந்தரவைச் சொல்லுங்கள், எ.கா. “3 நாளாக வலது முழங்காலில் வலி”.', 'మైక్ నొక్కి మీ సమస్య చెప్పండి, ఉదా. “3 రోజులుగా కుడి మోకాలిలో నొప్పి”.'],
+  typeInstead: ['Type instead', 'टाइप करें', 'टाइप करा', 'টাইপ করুন', 'தட்டச்சு செய்', 'టైప్ చేయండి'],
+  editText: ['Edit', 'सुधारें', 'दुरुस्त करा', 'সম্পাদনা', 'திருத்து', 'సవరించు'],
+  undoText: ['Undo last part', 'आख़िरी हिस्सा हटाएं', 'शेवटचा भाग काढा', 'শেষ অংশ সরান', 'கடைசிப் பகுதியை நீக்கு', 'చివరి భాగం తొలగించు'],
+  clearText: ['Clear', 'साफ़ करें', 'पुसा', 'মুছুন', 'அழி', 'తొలగించు'],
+  editPh: ['Type your symptoms here…', 'अपनी तकलीफ़ यहाँ लिखें…', 'तुमचा त्रास इथे लिहा…', 'আপনার উপসর্গ এখানে লিখুন…', 'உங்கள் அறிகுறிகளை இங்கே எழுதுங்கள்…', 'మీ లక్షణాలు ఇక్కడ రాయండి…'],
+  understanding: ['Understanding what you said…', 'आपकी बात समझी जा रही है…', 'तुमचे बोलणे समजून घेत आहोत…', 'আপনার কথা বোঝা হচ্ছে…', 'நீங்கள் சொன்னதைப் புரிந்துகொள்கிறது…', 'మీరు చెప్పింది అర్థం చేసుకుంటోంది…'],
+  summaryTitle: ['What we have noted', 'हमने यह दर्ज किया', 'आम्ही हे नोंदवले', 'আমরা যা লিখেছি', 'நாங்கள் பதிவு செய்தவை', 'మేము నమోదు చేసింది'],
+  summaryEmpty: ['Nothing noted yet. Tap a symptom below or speak.', 'अभी कुछ दर्ज नहीं। नीचे लक्षण चुनें या बोलें।', 'अजून काही नोंदवले नाही. खाली लक्षण निवडा किंवा बोला.', 'এখনও কিছু লেখা হয়নি। নিচে উপসর্গ বাছুন বা বলুন।', 'இன்னும் எதுவும் பதிவாகவில்லை. கீழே அறிகுறியைத் தேர்வு செய்யவும் அல்லது பேசவும்.', 'ఇంకా ఏమీ నమోదు కాలేదు. క్రింద లక్షణం ఎంచుకోండి లేదా మాట్లాడండి.'],
+  fromVoice: ['from your words', 'आपकी बात से', 'तुमच्या बोलण्यातून', 'আপনার কথা থেকে', 'உங்கள் சொற்களிலிருந்து', 'మీ మాటల నుండి'],
+  urgentNote: ['Some of these signs can be serious. Please tell the staff now if it is getting worse.', 'इनमें से कुछ लक्षण गंभीर हो सकते हैं। तकलीफ़ बढ़ रही हो तो अभी स्टाफ को बताएं।', 'यापैकी काही लक्षणे गंभीर असू शकतात. त्रास वाढत असल्यास आत्ताच कर्मचाऱ्यांना सांगा.', 'এর কিছু লক্ষণ গুরুতর হতে পারে। কষ্ট বাড়লে এখনই কর্মীদের জানান।', 'இவற்றில் சில அறிகுறிகள் தீவிரமானவை. மோசமானால் இப்போதே பணியாளரிடம் சொல்லுங்கள்.', 'వీటిలో కొన్ని లక్షణాలు తీవ్రమైనవి. ఎక్కువైతే ఇప్పుడే సిబ్బందికి చెప్పండి.'],
+  quickTitle: ['Quick choices', 'तुरंत चुनें', 'झटपट निवडा', 'দ্রুত বাছুন', 'விரைவுத் தேர்வுகள்', 'త్వరిత ఎంపికలు'],
+  quickHint: ['Tap a sentence if it matches how you feel', 'जो बात आप पर लागू हो, उस पर टैप करें', 'जे तुम्हाला लागू होते त्यावर टॅप करा', 'যা আপনার সঙ্গে মেলে তাতে চাপুন', 'உங்களுக்குப் பொருந்துவதைத் தொடவும்', 'మీకు సరిపోయేదాన్ని నొక్కండి'],
+  symptomsTitle: ['1. Choose your symptoms', '1. अपने लक्षण चुनें', '1. तुमची लक्षणे निवडा', '১. আপনার উপসর্গ বাছুন', '1. உங்கள் அறிகுறிகளைத் தேர்ந்தெடுக்கவும்', '1. మీ లక్షణాలు ఎంచుకోండి'],
+  symptomsHint: ['You can pick more than one. Tap again to remove.', 'आप एक से अधिक चुन सकते हैं। हटाने के लिए फिर टैप करें।', 'तुम्ही एकापेक्षा जास्त निवडू शकता. काढण्यासाठी पुन्हा टॅप करा.', 'একাধিক বাছতে পারেন। সরাতে আবার চাপুন।', 'ஒன்றுக்கு மேல் தேர்வு செய்யலாம். நீக்க மீண்டும் தொடவும்.', 'ఒకటి కంటే ఎక్కువ ఎంచుకోవచ్చు. తీసివేయడానికి మళ్ళీ నొక్కండి.'],
+  severityTitle: ['2. How bad is it?', '2. तकलीफ़ कितनी है?', '2. त्रास किती आहे?', '২. কষ্ট কতটা?', '2. எவ்வளவு கடுமையாக உள்ளது?', '2. ఎంత తీవ్రంగా ఉంది?'],
+  sevMild: ['Mild', 'हल्की', 'सौम्य', 'হালকা', 'லேசானது', 'తేలికపాటి'],
+  sevModerate: ['Moderate', 'मध्यम', 'मध्यम', 'মাঝারি', 'மிதமானது', 'మోస్తరు'],
+  sevSevere: ['Severe', 'बहुत ज़्यादा', 'तीव्र', 'তীব্র', 'கடுமையானது', 'తీవ్రమైనది'],
+  durationTitle: ['3. Since when?', '3. कब से?', '3. कधीपासून?', '৩. কবে থেকে?', '3. எப்போதிருந்து?', '3. ఎప్పటి నుండి?'],
+  durToday: ['Today', 'आज से', 'आजपासून', 'আজ থেকে', 'இன்று முதல்', 'ఈ రోజు నుండి'],
+  dur23: ['2–3 days', '2–3 दिन', '2–3 दिवस', '২–৩ দিন', '2–3 நாட்கள்', '2–3 రోజులు'],
+  durWeek: ['About a week', 'लगभग एक हफ़्ता', 'सुमारे एक आठवडा', 'প্রায় এক সপ্তাহ', 'சுமார் ஒரு வாரம்', 'సుమారు ఒక వారం'],
+  durMonth: ['A month or more', 'एक महीना या अधिक', 'एक महिना किंवा जास्त', 'এক মাস বা বেশি', 'ஒரு மாதம் அல்லது அதிகம்', 'ఒక నెల లేదా ఎక్కువ'],
+  sensationTitle: ['4. What does it feel like?', '4. दर्द कैसा है?', '4. वेदना कशी आहे?', '৪. কেমন অনুভূতি?', '4. எப்படி உணர்கிறது?', '4. ఎలా అనిపిస్తుంది?'],
+  sensationHint: ['Choose the one closest to your feeling', 'जो आपकी तकलीफ़ से सबसे मिलता हो, वह चुनें', 'तुमच्या त्रासाशी सर्वात जुळणारे निवडा', 'আপনার অনুভূতির সবচেয়ে কাছেরটি বাছুন', 'உங்கள் உணர்வுக்கு மிக நெருக்கமானதைத் தேர்வு செய்யவும்', 'మీ అనుభూతికి దగ్గరగా ఉన్నదాన్ని ఎంచుకోండి'],
+  chDull: ['Dull ache', 'धीमा दर्द', 'मंद वेदना', 'চাপা ব্যথা', 'மந்தமான வலி', 'మందమైన నొప్పి'],
+  chSharp: ['Sharp / pricking', 'तेज़ चुभन', 'टोचणारी', 'তীক্ষ্ণ / খোঁচা', 'கூர்மையான குத்தல்', 'పదునైన / గుచ్చే'],
+  chCrushing: ['Heavy pressure', 'भारी दबाव', 'जड दाब', 'ভারী চাপ', 'அழுத்தும் கனம்', 'బరువైన ఒత్తిడి'],
+  chBurning: ['Burning', 'जलन', 'जळजळ', 'জ্বালা', 'எரிச்சல்', 'మంట'],
+  chThrobbing: ['Throbbing', 'धड़कता दर्द', 'ठणकणारी', 'দপদপে ব্যথা', 'துடிக்கும் வலி', 'అదిరే నొప్పి'],
+  chStiffness: ['Stiffness', 'जकड़न', 'जखडणे', 'আড়ষ্টতা', 'விறைப்பு', 'బిగుతు'],
+  emergencyTag: ['Urgent', 'गंभीर', 'गंभीर', 'জরুরি', 'அவசரம்', 'అత్యవసరం'],
+  catGeneral: ['Common', 'सामान्य', 'सामान्य', 'সাধারণ', 'பொதுவானவை', 'సాధారణ'],
+  catFever: ['Fever', 'बुखार', 'ताप', 'জ্বর', 'காய்ச்சல்', 'జ్వరం'],
+  catCardio: ['Chest & breathing', 'सीना व सांस', 'छाती व श्वास', 'বুক ও শ্বাস', 'மார்பு & மூச்சு', 'ఛాతీ & శ్వాస'],
+  catGastro: ['Stomach & digestion', 'पेट व पाचन', 'पोट व पचन', 'পেট ও হজম', 'வயிறு & செரிமானம்', 'కడుపు & జీర్ణం'],
+  catOrtho: ['Joints & back', 'जोड़ व कमर', 'सांधे व कंबर', 'গাঁট ও কোমর', 'மூட்டு & முதுகு', 'కీళ్లు & వీపు'],
+  catNeuro: ['Head & nerves', 'सिर व नसें', 'डोके व नसा', 'মাথা ও স্নায়ু', 'தலை & நரம்பு', 'తల & నరాలు'],
+  catSkin: ['Skin', 'त्वचा', 'त्वचा', 'ত্বক', 'தோல்', 'చర్మం'],
+  privateTitle: ['Private concerns', 'निजी समस्याएँ', 'खाजगी समस्या', 'গোপন সমস্যা', 'தனிப்பட்ட பிரச்சினைகள்', 'వ్యక్తిగత సమస్యలు'],
+  mismatchTitle: ['Please check the body area', 'कृपया अंग की जाँच करें', 'कृपया अवयव तपासा', 'অঙ্গটি একবার দেখুন', 'உடல் பகுதியைச் சரிபார்க்கவும்', 'దయచేసి భాగాన్ని తనిఖీ చేయండి'],
+  mismatchBody: ['You chose “{chosen}”, but you mentioned “{phrase}”. Should we change the area to “{suggested}”?', 'आपने “{chosen}” चुना, पर आपने “{phrase}” कहा। क्या अंग “{suggested}” कर दें?', 'तुम्ही “{chosen}” निवडले, पण “{phrase}” म्हटले. अवयव “{suggested}” करायचा का?', 'আপনি “{chosen}” বেছেছেন, কিন্তু “{phrase}” বলেছেন। অঙ্গ কি “{suggested}” করব?', 'நீங்கள் “{chosen}” தேர்வு செய்தீர்கள், ஆனால் “{phrase}” என்று சொன்னீர்கள். பகுதியை “{suggested}” என மாற்றலாமா?', 'మీరు “{chosen}” ఎంచుకున్నారు, కానీ “{phrase}” అన్నారు. భాగాన్ని “{suggested}” గా మార్చాలా?'],
+  mismatchUrgent: ['This can be serious. Please also tell the staff.', 'यह गंभीर हो सकता है। कृपया स्टाफ को भी बताएं।', 'हे गंभीर असू शकते. कृपया कर्मचाऱ्यांनाही सांगा.', 'এটি গুরুতর হতে পারে। কর্মীদেরও জানান।', 'இது தீவிரமாக இருக்கலாம். பணியாளரிடமும் சொல்லுங்கள்.', 'ఇది తీవ్రమైనది కావచ్చు. సిబ్బందికి కూడా చెప్పండి.'],
+  mismatchSwitch: ['Change to {suggested}', '“{suggested}” करें', '“{suggested}” करा', '“{suggested}” করুন', '“{suggested}” ஆக மாற்று', '“{suggested}” గా మార్చు'],
+  mismatchKeep: ['Keep my choice', 'मेरा चुनाव रखें', 'माझी निवड ठेवा', 'আমার পছন্দ রাখুন', 'என் தேர்வையே வை', 'నా ఎంపిక ఉంచండి'],
+
+  // ---------------------------------------------------------------- Step 4
+  s4Title: ['Pain details and vitals', 'दर्द का विवरण और जाँच', 'वेदनेचा तपशील व तपासणी', 'ব্যথার বিবরণ ও পরীক্ষা', 'வலி விவரம் & அளவீடுகள்', 'నొప్పి వివరాలు & కొలతలు'],
+  s4Sub: ['Check what we noted, set the pain level, and add vitals if they were measured.', 'हमने जो लिखा उसे जाँचें, दर्द का स्तर चुनें, और जाँच हुई हो तो वाइटल्स भरें।', 'आम्ही नोंदवलेले तपासा, वेदनेची पातळी निवडा आणि मोजले असल्यास व्हायटल्स भरा.', 'আমরা যা লিখেছি দেখুন, ব্যথার মাত্রা দিন, মাপা হলে ভাইটালস লিখুন।', 'நாங்கள் பதிவு செய்ததைச் சரிபார்த்து, வலி அளவை அமைத்து, அளந்திருந்தால் அளவீடுகளைச் சேர்க்கவும்.', 'మేము నమోదు చేసినది చూడండి, నొప్పి స్థాయి ఎంచుకోండి, కొలిస్తే వైటల్స్ నమోదు చేయండి.'],
+  s4Audio: ['Please check the pain details, move the slider to show how much it hurts, and enter blood pressure or pulse if they were measured.', 'कृपया दर्द का विवरण जाँचें, स्लाइडर से दर्द की तीव्रता बताएं, और नापा गया हो तो बीपी या नब्ज़ भरें।', 'कृपया वेदनेचा तपशील तपासा, स्लायडरने वेदना किती आहे ते दाखवा आणि मोजले असल्यास रक्तदाब किंवा नाडी भरा.', 'ব্যথার বিবরণ দেখুন, স্লাইডার দিয়ে ব্যথার মাত্রা দেখান, মাপা হলে রক্তচাপ বা নাড়ি লিখুন।', 'வலி விவரங்களைச் சரிபார்த்து, ஸ்லைடரால் வலி அளவைக் காட்டி, அளந்திருந்தால் இரத்த அழுத்தம் அல்லது நாடியை உள்ளிடவும்.', 'నొప్పి వివరాలు చూసి, స్లైడర్‌తో నొప్పి ఎంత ఉందో చూపించి, కొలిస్తే బీపీ లేదా నాడి నమోదు చేయండి.'],
+  s4PainCard: ['About the pain', 'दर्द के बारे में', 'वेदनेबद्दल', 'ব্যথা সম্পর্কে', 'வலி பற்றி', 'నొప్పి గురించి'],
+  s4Site: ['Where', 'कहाँ', 'कुठे', 'কোথায়', 'எங்கே', 'ఎక్కడ'],
+  s4SitePh: ['e.g. right knee', 'उदा. दाहिना घुटना', 'उदा. उजवा गुडघा', 'যেমন ডান হাঁটু', 'எ.கா. வலது முழங்கால்', 'ఉదా. కుడి మోకాలు'],
+  s4Character: ['What it feels like', 'कैसा लगता है', 'कसे वाटते', 'কেমন লাগে', 'எப்படி உணர்கிறது', 'ఎలా అనిపిస్తుంది'],
+  s4CharacterPh: ['Choose one', 'एक चुनें', 'एक निवडा', 'একটি বাছুন', 'ஒன்றைத் தேர்வு செய்யவும்', 'ఒకటి ఎంచుకోండి'],
+  s4Radiation: ['Does it spread anywhere?', 'क्या दर्द कहीं फैलता है?', 'वेदना कुठे पसरते का?', 'ব্যথা কি কোথাও ছড়ায়?', 'வலி எங்காவது பரவுகிறதா?', 'నొప్పి ఎక్కడికైనా వ్యాపిస్తుందా?'],
+  s4RadiationPh: ['e.g. down the left arm (leave empty if not)', 'उदा. बाएँ हाथ तक (न हो तो खाली छोड़ें)', 'उदा. डाव्या हातापर्यंत (नसल्यास रिकामे ठेवा)', 'যেমন বাঁ হাতে (না হলে ফাঁকা রাখুন)', 'எ.கா. இடது கை வரை (இல்லையெனில் காலியாக விடவும்)', 'ఉదా. ఎడమ చేయి వరకు (లేకపోతే ఖాళీగా వదిలేయండి)'],
+  s4Onset: ['Since when', 'कब से', 'कधीपासून', 'কবে থেকে', 'எப்போதிருந்து', 'ఎప్పటి నుండి'],
+  s4OnsetPh: ['e.g. 3 days', 'उदा. 3 दिन', 'उदा. 3 दिवस', 'যেমন ৩ দিন', 'எ.கா. 3 நாட்கள்', 'ఉదా. 3 రోజులు'],
+  s4Severity: ['How much does it hurt? (0–10)', 'कितना दर्द है? (0–10)', 'किती दुखते? (0–10)', 'কতটা ব্যথা? (০–১০)', 'எவ்வளவு வலிக்கிறது? (0–10)', 'ఎంత నొప్పి? (0–10)'],
+  face0: ['No pain', 'दर्द नहीं', 'वेदना नाही', 'ব্যথা নেই', 'வலி இல்லை', 'నొప్పి లేదు'],
+  face2: ['A little', 'थोड़ा', 'थोडे', 'একটু', 'கொஞ்சம்', 'కొంచెం'],
+  face4: ['Some', 'कुछ ज़्यादा', 'काहीसे', 'কিছুটা', 'ஓரளவு', 'కొంత'],
+  face6: ['Quite a lot', 'काफ़ी', 'बरेच', 'বেশ', 'அதிகம்', 'చాలా'],
+  face8: ['Very much', 'बहुत ज़्यादा', 'खूप', 'খুব', 'மிக அதிகம்', 'చాలా ఎక్కువ'],
+  face10: ['Worst possible', 'असहनीय', 'असह्य', 'অসহ্য', 'தாங்க முடியாதது', 'భరించలేనిది'],
+  painNone: ['Not set yet', 'अभी नहीं चुना', 'अजून निवडले नाही', 'এখনও বাছা হয়নি', 'இன்னும் அமைக்கவில்லை', 'ఇంకా ఎంచుకోలేదు'],
+  painMild: ['Mild', 'हल्का', 'सौम्य', 'হালকা', 'லேசானது', 'తేలికపాటి'],
+  painModerate: ['Moderate', 'मध्यम', 'मध्यम', 'মাঝারি', 'மிதமானது', 'మోస్తరు'],
+  painSevere: ['Severe', 'गंभीर', 'तीव्र', 'তীব্র', 'கடுமையானது', 'తీవ్రమైనది'],
+  vitalsTitle: ['Vitals (if measured)', 'वाइटल्स (यदि नापे गए हों)', 'व्हायटल्स (मोजले असल्यास)', 'ভাইটালস (মাপা হলে)', 'உடல் அளவீடுகள் (அளந்திருந்தால்)', 'వైటల్స్ (కొలిస్తే)'],
+  vitalsHint: ['Leave empty if not measured — a nurse will check them.', 'नापे न गए हों तो खाली छोड़ें — नर्स जाँच करेंगी।', 'मोजले नसल्यास रिकामे ठेवा — परिचारिका तपासतील.', 'মাপা না হলে ফাঁকা রাখুন — নার্স মেপে দেবেন।', 'அளக்கவில்லையெனில் காலியாக விடவும் — செவிலியர் அளப்பார்.', 'కొలవకపోతే ఖాళీగా వదిలేయండి — నర్సు చూస్తారు.'],
+  vBp: ['Blood pressure', 'रक्तचाप (बीपी)', 'रक्तदाब (बीपी)', 'রক্তচাপ (বিপি)', 'இரத்த அழுத்தம்', 'రక్తపోటు (బీపీ)'],
+  vSys: ['Upper', 'ऊपरी', 'वरचा', 'উপরের', 'மேல்', 'పై'],
+  vDia: ['Lower', 'निचला', 'खालचा', 'নিচের', 'கீழ்', 'కింది'],
+  vPulse: ['Pulse', 'नब्ज़', 'नाडी', 'নাড়ি', 'நாடித்துடிப்பு', 'నాడి'],
+  vSpo2: ['Oxygen (SpO2)', 'ऑक्सीजन (SpO2)', 'ऑक्सिजन (SpO2)', 'অক্সিজেন (SpO2)', 'ஆக்ஸிஜன் (SpO2)', 'ఆక్సిజన్ (SpO2)'],
+  vTemp: ['Temperature', 'तापमान', 'तापमान', 'তাপমাত্রা', 'வெப்பநிலை', 'ఉష్ణోగ్రత'],
+  vNormal: ['Normal', 'सामान्य', 'सामान्य', 'স্বাভাবিক', 'இயல்பு', 'సాధారణం'],
+  vLow: ['Low', 'कम', 'कमी', 'কম', 'குறைவு', 'తక్కువ'],
+  vHigh: ['High', 'ज़्यादा', 'जास्त', 'বেশি', 'அதிகம்', 'ఎక్కువ'],
+  vVeryHigh: ['Very high', 'बहुत ज़्यादा', 'खूप जास्त', 'অনেক বেশি', 'மிக அதிகம்', 'చాలా ఎక్కువ'],
+  vVeryLow: ['Very low', 'बहुत कम', 'खूप कमी', 'অনেক কম', 'மிகக் குறைவு', 'చాలా తక్కువ'],
+  vFever: ['Fever', 'बुखार', 'ताप', 'জ্বর', 'காய்ச்சல்', 'జ్వరం'],
+  vInvalid: ['Check this value ({min}–{max})', 'यह मान जाँचें ({min}–{max})', 'हे मूल्य तपासा ({min}–{max})', 'মানটি দেখুন ({min}–{max})', 'இந்த மதிப்பைச் சரிபார்க்கவும் ({min}–{max})', 'ఈ విలువ తనిఖీ చేయండి ({min}–{max})'],
+  vBpOrder: ['Upper number must be higher than lower', 'ऊपरी संख्या निचली से ज़्यादा होनी चाहिए', 'वरचा आकडा खालच्यापेक्षा जास्त हवा', 'উপরের সংখ্যা নিচেরটির চেয়ে বেশি হবে', 'மேல் எண் கீழ் எண்ணை விட அதிகமாக இருக்க வேண்டும்', 'పై సంఖ్య కింది దానికంటే ఎక్కువగా ఉండాలి'],
+  vCheck: ['Check value', 'जाँचें', 'तपासा', 'দেখে নিন', 'சரிபார்க்கவும்', 'తనిఖీ చేయండి'],
+  vNotEntered: ['Not entered', 'नहीं भरा', 'भरले नाही', 'লেখা হয়নি', 'உள்ளிடவில்லை', 'నమోదు చేయలేదు'],
+  statusWaiting: ['Set your pain level above.', 'ऊपर दर्द का स्तर चुनें।', 'वर वेदनेची पातळी निवडा.', 'উপরে ব্যথার মাত্রা দিন।', 'மேலே வலி அளவை அமைக்கவும்.', 'పైన నొప్పి స్థాయి ఎంచుకోండి.'],
+  statusRoutine: ['Thank you. The doctor will see these details.', 'धन्यवाद। डॉक्टर यह जानकारी देखेंगे।', 'धन्यवाद. डॉक्टर ही माहिती पाहतील.', 'ধন্যবাদ। ডাক্তার এই তথ্য দেখবেন।', 'நன்றி. மருத்துவர் இந்த விவரங்களைப் பார்ப்பார்.', 'ధన్యవాదాలు. డాక్టర్ ఈ వివరాలు చూస్తారు.'],
+  statusUrgent: ['Your pain is high. You will be seen sooner.', 'आपका दर्द ज़्यादा है। आपको जल्दी दिखाया जाएगा।', 'तुमची वेदना जास्त आहे. तुम्हाला लवकर तपासले जाईल.', 'আপনার ব্যথা বেশি। আপনাকে আগে দেখা হবে।', 'உங்கள் வலி அதிகம். விரைவில் பார்க்கப்படுவீர்கள்.', 'మీ నొప్పి ఎక్కువగా ఉంది. మిమ్మల్ని త్వరగా చూస్తారు.'],
+  statusVitalsAlert: ['Some readings are outside the normal range. Please tell the nurse.', 'कुछ रीडिंग सामान्य सीमा से बाहर हैं। कृपया नर्स को बताएं।', 'काही नोंदी सामान्य मर्यादेबाहेर आहेत. परिचारिकेला सांगा.', 'কিছু মাপ স্বাভাবিক সীমার বাইরে। নার্সকে জানান।', 'சில அளவீடுகள் இயல்பு வரம்புக்கு வெளியே உள்ளன. செவிலியரிடம் சொல்லுங்கள்.', 'కొన్ని కొలతలు సాధారణ పరిధికి బయట ఉన్నాయి. నర్సుకు చెప్పండి.'],
+  emergencyChest: ['Severe chest pain can be a heart emergency.', 'तेज़ सीने का दर्द दिल की आपात स्थिति हो सकता है।', 'छातीत तीव्र वेदना हृदयाची आपत्कालीन स्थिती असू शकते.', 'বুকে তীব্র ব্যথা হৃদরোগের জরুরি অবস্থা হতে পারে।', 'கடுமையான மார்பு வலி இதய அவசரநிலையாக இருக்கலாம்.', 'తీవ్రమైన ఛాతీ నొప్పి గుండె అత్యవసర పరిస్థితి కావచ్చు.'],
+  emergencyHead: ['Severe sudden headache can be serious.', 'अचानक तेज़ सिरदर्द गंभीर हो सकता है।', 'अचानक तीव्र डोकेदुखी गंभीर असू शकते.', 'হঠাৎ তীব্র মাথাব্যথা গুরুতর হতে পারে।', 'திடீர் கடுமையான தலைவலி தீவிரமானதாக இருக்கலாம்.', 'అకస్మాత్తుగా తీవ్రమైన తలనొప్పి ప్రమాదకరం కావచ్చు.'],
+  emergencyGeneral: ['Your pain is very severe.', 'आपका दर्द बहुत ज़्यादा है।', 'तुमची वेदना खूप तीव्र आहे.', 'আপনার ব্যথা খুব তীব্র।', 'உங்கள் வலி மிகக் கடுமையானது.', 'మీ నొప్పి చాలా తీవ్రంగా ఉంది.'],
+  emergencyAction: ['Get help now', 'अभी मदद लें', 'आत्ता मदत घ्या', 'এখনই সাহায্য নিন', 'இப்போதே உதவி பெறு', 'ఇప్పుడే సహాయం పొందండి'],
+
+  // ---------------------------------------------------------------- Step 5
+  s5Title: ['Your health history', 'आपका स्वास्थ्य इतिहास', 'तुमचा आरोग्य इतिहास', 'আপনার স্বাস্থ্যের ইতিহাস', 'உங்கள் உடல்நல வரலாறு', 'మీ ఆరోగ్య చరిత్ర'],
+  s5Sub: ['This helps the doctor choose safe medicines for you.', 'इससे डॉक्टर आपके लिए सुरक्षित दवा चुन पाएँगे।', 'यामुळे डॉक्टर तुमच्यासाठी सुरक्षित औषध निवडू शकतील.', 'এতে ডাক্তার আপনার জন্য নিরাপদ ওষুধ বাছতে পারবেন।', 'இது மருத்துவர் உங்களுக்குப் பாதுகாப்பான மருந்தைத் தேர்வு செய்ய உதவும்.', 'ఇది డాక్టర్ మీకు సురక్షితమైన మందులు ఎంచుకోవడానికి సహాయపడుతుంది.'],
+  s5Audio: ['Please tell us about any long-term illness, allergies and medicines you take, then press Next.', 'कृपया कोई पुरानी बीमारी, एलर्जी और आप जो दवाएँ लेते हैं, वह बताएं, फिर आगे दबाएं।', 'कृपया कोणताही जुना आजार, ॲलर्जी आणि तुम्ही घेत असलेली औषधे सांगा, मग पुढे दाबा.', 'কোনো দীর্ঘস্থায়ী রোগ, অ্যালার্জি ও আপনি যে ওষুধ খান তা জানান, তারপর পরবর্তী চাপুন।', 'நீண்டகால நோய், ஒவ்வாமை, நீங்கள் உட்கொள்ளும் மருந்துகள் பற்றிச் சொல்லி, அடுத்து அழுத்தவும்.', 'దీర్ఘకాలిక వ్యాధి, అలర్జీలు, మీరు వాడే మందుల గురించి చెప్పి, తరువాత నొక్కండి.'],
+  s5Conditions: ['Do you have any of these?', 'क्या आपको इनमें से कुछ है?', 'तुम्हाला यापैकी काही आहे का?', 'আপনার কি এগুলির কোনোটি আছে?', 'இவற்றில் ஏதேனும் உள்ளதா?', 'మీకు వీటిలో ఏదైనా ఉందా?'],
+  condDiabetes: ['Diabetes (sugar)', 'मधुमेह (शुगर)', 'मधुमेह (साखर)', 'ডায়াবেটিস (সুগার)', 'நீரிழிவு (சர்க்கரை)', 'మధుమేహం (షుగర్)'],
+  condBp: ['High blood pressure', 'हाई बीपी', 'उच्च रक्तदाब', 'উচ্চ রক্তচাপ', 'உயர் இரத்த அழுத்தம்', 'అధిక రక్తపోటు'],
+  condHeart: ['Heart disease', 'दिल की बीमारी', 'हृदयविकार', 'হৃদরোগ', 'இதய நோய்', 'గుండె జబ్బు'],
+  condAsthma: ['Asthma / breathing problem', 'दमा / सांस की बीमारी', 'दमा / श्वसनाचा त्रास', 'হাঁপানি / শ্বাসকষ্ট', 'ஆஸ்துமா / மூச்சுப் பிரச்சினை', 'ఆస్తమా / శ్వాస సమస్య'],
+  condThyroid: ['Thyroid', 'थायरॉइड', 'थायरॉईड', 'থাইরয়েড', 'தைராய்டு', 'థైరాయిడ్'],
+  condKidney: ['Kidney disease', 'किडनी की बीमारी', 'मूत्रपिंडाचा आजार', 'কিডনির রোগ', 'சிறுநீரக நோய்', 'కిడ్నీ వ్యాధి'],
+  condLiver: ['Liver disease', 'लिवर की बीमारी', 'यकृताचा आजार', 'লিভারের রোগ', 'கல்லீரல் நோய்', 'కాలేయ వ్యాధి'],
+  condNone: ['None of these', 'इनमें से कुछ नहीं', 'यापैकी काहीही नाही', 'এর কোনোটিই নয়', 'இவற்றில் எதுவும் இல்லை', 'వీటిలో ఏదీ లేదు'],
+  s5Allergy: ['Are you allergic to any medicine or food?', 'क्या आपको किसी दवा या भोजन से एलर्जी है?', 'तुम्हाला कोणत्या औषधाची किंवा अन्नाची ॲलर्जी आहे का?', 'কোনো ওষুধ বা খাবারে অ্যালার্জি আছে?', 'ஏதேனும் மருந்து அல்லது உணவு ஒவ்வாமை உள்ளதா?', 'ఏదైనా మందు లేదా ఆహారానికి అలర్జీ ఉందా?'],
+  s5AllergyPh: ['Write the name, e.g. penicillin', 'नाम लिखें, जैसे पेनिसिलिन', 'नाव लिहा, उदा. पेनिसिलिन', 'নাম লিখুন, যেমন পেনিসিলিন', 'பெயரை எழுதுங்கள், எ.கா. பெனிசிலின்', 'పేరు రాయండి, ఉదా. పెన్సిలిన్'],
+  s5Meds: ['Are you taking any medicines now?', 'क्या आप अभी कोई दवा ले रहे हैं?', 'तुम्ही सध्या कोणते औषध घेत आहात का?', 'আপনি কি এখন কোনো ওষুধ খাচ্ছেন?', 'இப்போது ஏதேனும் மருந்து உட்கொள்கிறீர்களா?', 'మీరు ఇప్పుడు ఏవైనా మందులు వాడుతున్నారా?'],
+  s5MedsPh: ['Write medicine names, e.g. metformin, ashwagandha', 'दवाओं के नाम लिखें, जैसे मेटफॉर्मिन, अश्वगंधा', 'औषधांची नावे लिहा, उदा. मेटफॉर्मिन, अश्वगंधा', 'ওষুধের নাম লিখুন, যেমন মেটফর্মিন, অশ্বগন্ধা', 'மருந்துப் பெயர்களை எழுதுங்கள், எ.கா. மெட்ஃபார்மின், அஸ்வகந்தா', 'మందుల పేర్లు రాయండి, ఉదా. మెట్‌ఫార్మిన్, అశ్వగంధ'],
+  s5Ayurveda: ['For your Ayurveda doctor', 'आपके आयुर्वेद डॉक्टर के लिए', 'तुमच्या आयुर्वेद डॉक्टरांसाठी', 'আপনার আয়ুর্বেদ ডাক্তারের জন্য', 'உங்கள் ஆயுர்வேத மருத்துவருக்காக', 'మీ ఆయుర్వేద వైద్యుని కోసం'],
+  s5AyurvedaSub: ['Simple questions about digestion, body type and energy.', 'पाचन, शरीर की प्रकृति और ऊर्जा के बारे में सरल प्रश्न।', 'पचन, शरीर प्रकृती आणि ऊर्जेबद्दल सोपे प्रश्न.', 'হজম, শরীরের প্রকৃতি ও শক্তি নিয়ে সহজ প্রশ্ন।', 'செரிமானம், உடல் வகை, ஆற்றல் பற்றிய எளிய கேள்விகள்.', 'జీర్ణం, శరీర తత్వం, శక్తి గురించి సులభమైన ప్రశ్నలు.'],
+  s5WhyTitle: ['Why we ask about digestion', 'पाचन के बारे में क्यों पूछते हैं', 'पचनाबद्दल का विचारतो', 'হজম নিয়ে কেন জিজ্ঞাসা', 'செரிமானம் பற்றி ஏன் கேட்கிறோம்', 'జీర్ణం గురించి ఎందుకు అడుగుతాం'],
+  agniTitle: ['How are your appetite and digestion?', 'आपकी भूख और पाचन कैसा है?', 'तुमची भूक आणि पचन कसे आहे?', 'আপনার খিদে ও হজম কেমন?', 'உங்கள் பசி மற்றும் செரிமானம் எப்படி?', 'మీ ఆకలి, జీర్ణం ఎలా ఉంది?'],
+  agniSama: ['Normal', 'सामान्य', 'सामान्य', 'স্বাভাবিক', 'இயல்பு', 'సాధారణం'],
+  agniSamaSub: ['Hungry on time, food digests easily, no gas or burning.', 'समय पर भूख, भोजन आसानी से पचता है, गैस या जलन नहीं।', 'वेळेवर भूक, अन्न सहज पचते, गॅस किंवा जळजळ नाही.', 'সময়ে খিদে, খাবার সহজে হজম হয়, গ্যাস বা জ্বালা নেই।', 'சரியான நேரத்தில் பசி, உணவு எளிதில் செரிக்கும், வாயு அல்லது எரிச்சல் இல்லை.', 'సమయానికి ఆకలి, ఆహారం సులభంగా జీర్ణం, గ్యాస్ లేదా మంట లేదు.'],
+  agniVishama: ['Irregular, gassy', 'अनियमित, गैस', 'अनियमित, गॅस', 'অনিয়মিত, গ্যাস', 'சீரற்றது, வாயு', 'క్రమరహితం, గ్యాస్'],
+  agniVishamaSub: ['Hunger comes and goes, bloating and gas.', 'कभी भूख, कभी नहीं; पेट फूलना और गैस।', 'कधी भूक, कधी नाही; पोट फुगणे आणि गॅस.', 'কখনও খিদে, কখনও নয়; পেট ফাঁপা ও গ্যাস।', 'பசி வந்து போகும், வயிறு உப்பசம், வாயு.', 'ఆకలి వస్తూ పోతూ ఉంటుంది, ఉబ్బరం, గ్యాస్.'],
+  agniTikshna: ['Strong hunger, acidity', 'तेज़ भूख, एसिडिटी', 'तीव्र भूक, ॲसिडिटी', 'প্রবল খিদে, অম্বল', 'அதிக பசி, அமிலத்தன்மை', 'ఎక్కువ ఆకలి, ఆమ్లత్వం'],
+  agniTikshnaSub: ['Very hungry, burning in chest or stomach, sour burps.', 'बहुत भूख, सीने या पेट में जलन, खट्टी डकार।', 'खूप भूक, छातीत किंवा पोटात जळजळ, आंबट ढेकर.', 'খুব খিদে, বুকে বা পেটে জ্বালা, টক ঢেকুর।', 'அதிக பசி, மார்பு அல்லது வயிற்றில் எரிச்சல், புளித்த ஏப்பம்.', 'చాలా ఆకలి, ఛాతీ లేదా కడుపులో మంట, పుల్లటి తేన్పులు.'],
+  agniManda: ['Slow, heavy', 'धीमा, भारीपन', 'मंद, जडपणा', 'ধীর, ভারী', 'மந்தம், கனம்', 'నెమ్మది, బరువు'],
+  agniMandaSub: ['Little hunger, feel heavy and sleepy after meals.', 'कम भूख, खाने के बाद भारीपन और नींद।', 'कमी भूक, जेवणानंतर जडपणा आणि झोप.', 'কম খিদে, খাওয়ার পর ভারী ও ঘুম ঘুম।', 'குறைந்த பசி, சாப்பிட்ட பின் கனமாகவும் தூக்கமாகவும்.', 'తక్కువ ఆకలి, భోజనం తర్వాత బరువుగా, నిద్రగా.'],
+  prakritiTitle: ['Which describes your body best?', 'आपके शरीर का स्वभाव कैसा है?', 'तुमच्या शरीराचे स्वरूप कसे आहे?', 'আপনার শরীর কেমন?', 'உங்கள் உடலை எது சிறப்பாக விவரிக்கிறது?', 'మీ శరీరాన్ని ఏది బాగా వివరిస్తుంది?'],
+  prVata: ['Lean, feels cold easily', 'दुबला, जल्दी ठंड लगती है', 'सडपातळ, लवकर थंडी वाजते', 'রোগা, সহজে ঠান্ডা লাগে', 'மெலிந்தவர், எளிதில் குளிர் உணர்வு', 'సన్నగా, త్వరగా చలి'],
+  prPitta: ['Medium build, feels hot easily', 'मध्यम शरीर, जल्दी गर्मी लगती है', 'मध्यम बांधा, लवकर गरम होते', 'মাঝারি গড়ন, সহজে গরম লাগে', 'நடுத்தர உடல், எளிதில் வெப்ப உணர்வு', 'మధ్యస్థ శరీరం, త్వరగా వేడి'],
+  prKapha: ['Sturdy, calm, gains weight easily', 'मज़बूत, शांत, वज़न जल्दी बढ़ता है', 'बळकट, शांत, वजन लवकर वाढते', 'মজবুত, শান্ত, সহজে ওজন বাড়ে', 'உறுதியானவர், அமைதி, எளிதில் எடை கூடும்', 'బలంగా, ప్రశాంతంగా, త్వరగా బరువు పెరుగుతుంది'],
+  prMixed: ['A mix / not sure', 'मिला-जुला / पता नहीं', 'मिश्र / माहीत नाही', 'মিশ্র / জানি না', 'கலப்பு / தெரியவில்லை', 'మిశ్రమం / తెలియదు'],
+  energyTitle: ['How is your energy?', 'आपकी ऊर्जा कैसी है?', 'तुमची ऊर्जा कशी आहे?', 'আপনার শক্তি কেমন?', 'உங்கள் ஆற்றல் எப்படி?', 'మీ శక్తి ఎలా ఉంది?'],
+  enHigh: ['Good all day', 'दिनभर अच्छी', 'दिवसभर चांगली', 'সারাদিন ভালো', 'நாள் முழுதும் நன்று', 'రోజంతా బాగుంది'],
+  enMed: ['Enough for daily work', 'रोज़ के काम लायक', 'रोजच्या कामापुरती', 'দৈনন্দিন কাজের মতো', 'தினசரி வேலைக்குப் போதுமானது', 'రోజువారీ పనికి సరిపోతుంది'],
+  enLow: ['Tired quickly', 'जल्दी थकान', 'लवकर थकवा', 'তাড়াতাড়ি ক্লান্ত', 'விரைவில் சோர்வு', 'త్వరగా అలసట'],
+  suggested: ['Suggested from your symptoms', 'आपके लक्षणों से सुझाया गया', 'तुमच्या लक्षणांवरून सुचवलेले', 'আপনার উপসর্গ থেকে প্রস্তাবিত', 'உங்கள் அறிகுறிகளிலிருந்து பரிந்துரை', 'మీ లక్షణాల నుండి సూచించబడింది'],
+
+  // ---------------------------------------------------------------- Step 6 (documents)
+  s6Title: ['Old prescriptions and reports', 'पुराने पर्चे और रिपोर्ट', 'जुनी प्रिस्क्रिप्शन व अहवाल', 'পুরনো প্রেসক্রিপশন ও রিপোর্ট', 'பழைய மருந்துச்சீட்டுகள் & அறிக்கைகள்', 'పాత ప్రిస్క్రిప్షన్లు & రిపోర్టులు'],
+  s6Sub: ['If you have them, scan them so the doctor can see your past treatment. You can skip this.', 'यदि आपके पास हैं तो स्कैन करें ताकि डॉक्टर पुराना इलाज देख सकें। आप इसे छोड़ भी सकते हैं।', 'असल्यास स्कॅन करा म्हणजे डॉक्टर जुने उपचार पाहू शकतील. हे वगळताही येते.', 'থাকলে স্ক্যান করুন যাতে ডাক্তার আগের চিকিৎসা দেখতে পান। চাইলে বাদ দিতে পারেন।', 'இருந்தால் ஸ்கேன் செய்யுங்கள், மருத்துவர் முந்தைய சிகிச்சையைப் பார்க்கலாம். இதைத் தவிர்க்கலாம்.', 'ఉంటే స్కాన్ చేయండి, డాక్టర్ పాత చికిత్స చూడగలరు. దీన్ని దాటవేయవచ్చు.'],
+  s6Audio: ['If you have an old prescription or lab report, hold it in front of the camera or upload a photo. Otherwise press Finish.', 'यदि पुराना पर्चा या लैब रिपोर्ट है तो कैमरे के सामने रखें या फ़ोटो अपलोड करें। नहीं तो पूरा करें दबाएं।', 'जुनी प्रिस्क्रिप्शन किंवा अहवाल असल्यास कॅमेऱ्यासमोर धरा किंवा फोटो अपलोड करा. नसल्यास पूर्ण करा दाबा.', 'পুরনো প্রেসক্রিপশন বা রিপোর্ট থাকলে ক্যামেরার সামনে ধরুন বা ছবি আপলোড করুন। না হলে সম্পূর্ণ চাপুন।', 'பழைய மருந்துச்சீட்டு அல்லது அறிக்கை இருந்தால் கேமராவின் முன் பிடிக்கவும் அல்லது புகைப்படத்தைப் பதிவேற்றவும். இல்லையெனில் முடி அழுத்தவும்.', 'పాత ప్రిస్క్రిప్షన్ లేదా రిపోర్ట్ ఉంటే కెమెరా ముందు పట్టుకోండి లేదా ఫోటో అప్‌లోడ్ చేయండి. లేకపోతే పూర్తి నొక్కండి.'],
+  s6Camera: ['Use camera', 'कैमरा चलाएं', 'कॅमेरा वापरा', 'ক্যামেরা ব্যবহার করুন', 'கேமரா பயன்படுத்து', 'కెమెరా వాడండి'],
+  s6Upload: ['Upload photo or PDF', 'फ़ोटो या PDF अपलोड करें', 'फोटो किंवा PDF अपलोड करा', 'ছবি বা PDF আপলোড করুন', 'புகைப்படம் அல்லது PDF பதிவேற்று', 'ఫోటో లేదా PDF అప్‌లోడ్ చేయండి'],
+  s6Phone: ['Send from my phone', 'मेरे फ़ोन से भेजें', 'माझ्या फोनवरून पाठवा', 'আমার ফোন থেকে পাঠান', 'என் கைபேசியிலிருந்து அனுப்பு', 'నా ఫోన్ నుండి పంపండి'],
+  s6Capture: ['Take photo', 'फ़ोटो लें', 'फोटो घ्या', 'ছবি তুলুন', 'புகைப்படம் எடு', 'ఫోటో తీయండి'],
+  s6CloseCamera: ['Close camera', 'कैमरा बंद करें', 'कॅमेरा बंद करा', 'ক্যামেরা বন্ধ করুন', 'கேமராவை மூடு', 'కెమెరా మూసివేయి'],
+  s6CameraHint: ['Hold the paper flat inside the frame, in good light.', 'कागज़ को फ्रेम के अंदर सीधा, अच्छी रोशनी में रखें।', 'कागद फ्रेममध्ये सरळ, चांगल्या प्रकाशात धरा.', 'কাগজটি ফ্রেমের ভেতরে সোজা, ভালো আলোয় ধরুন।', 'காகிதத்தைச் சட்டத்திற்குள் நேராக, நல்ல வெளிச்சத்தில் பிடிக்கவும்.', 'కాగితాన్ని ఫ్రేమ్‌లో నిటారుగా, మంచి వెలుతురులో పట్టుకోండి.'],
+  s6CameraStarting: ['Starting camera…', 'कैमरा शुरू हो रहा है…', 'कॅमेरा सुरू होत आहे…', 'ক্যামেরা চালু হচ্ছে…', 'கேமரா தொடங்குகிறது…', 'కెమెరా ప్రారంభమవుతోంది…'],
+  s6CameraInsecure: ['The camera only works on a secure (https) or local connection. Please use “Upload photo” instead.', 'कैमरा केवल सुरक्षित (https) या लोकल कनेक्शन पर चलता है। कृपया “फ़ोटो अपलोड करें” का उपयोग करें।', 'कॅमेरा फक्त सुरक्षित (https) किंवा लोकल कनेक्शनवर चालतो. कृपया “फोटो अपलोड करा” वापरा.', 'ক্যামেরা শুধু নিরাপদ (https) বা লোকাল সংযোগে চলে। “ছবি আপলোড করুন” ব্যবহার করুন।', 'கேமரா பாதுகாப்பான (https) அல்லது உள்ளூர் இணைப்பில் மட்டுமே செயல்படும். “புகைப்படம் பதிவேற்று” பயன்படுத்தவும்.', 'కెమెరా సురక్షిత (https) లేదా లోకల్ కనెక్షన్‌లో మాత్రమే పనిచేస్తుంది. “ఫోటో అప్‌లోడ్” వాడండి.'],
+  s6CameraDenied: ['Camera permission was not given. Please allow the camera, or use “Upload photo”.', 'कैमरे की अनुमति नहीं मिली। कृपया अनुमति दें, या “फ़ोटो अपलोड करें” का उपयोग करें।', 'कॅमेऱ्याची परवानगी मिळाली नाही. परवानगी द्या किंवा “फोटो अपलोड करा” वापरा.', 'ক্যামেরার অনুমতি পাওয়া যায়নি। অনুমতি দিন বা “ছবি আপলোড করুন” ব্যবহার করুন।', 'கேமரா அனுமதி கிடைக்கவில்லை. அனுமதிக்கவும் அல்லது “புகைப்படம் பதிவேற்று” பயன்படுத்தவும்.', 'కెమెరా అనుమతి లేదు. అనుమతించండి లేదా “ఫోటో అప్‌లోడ్” వాడండి.'],
+  s6CameraMissing: ['No camera was found on this device. Please use “Upload photo”.', 'इस उपकरण पर कैमरा नहीं मिला। कृपया “फ़ोटो अपलोड करें” का उपयोग करें।', 'या उपकरणावर कॅमेरा सापडला नाही. “फोटो अपलोड करा” वापरा.', 'এই যন্ত্রে ক্যামেরা পাওয়া যায়নি। “ছবি আপলোড করুন” ব্যবহার করুন।', 'இந்தச் சாதனத்தில் கேமரா இல்லை. “புகைப்படம் பதிவேற்று” பயன்படுத்தவும்.', 'ఈ పరికరంలో కెమెరా లేదు. “ఫోటో అప్‌లోడ్” వాడండి.'],
+  s6CameraBusy: ['The camera is being used by another app. Close it and try again.', 'कैमरा किसी अन्य ऐप में चल रहा है। उसे बंद करके फिर प्रयास करें।', 'कॅमेरा दुसऱ्या ॲपमध्ये वापरात आहे. ते बंद करून पुन्हा प्रयत्न करा.', 'ক্যামেরা অন্য অ্যাপে ব্যবহৃত হচ্ছে। সেটি বন্ধ করে আবার চেষ্টা করুন।', 'கேமரா வேறு செயலியில் பயன்பாட்டில் உள்ளது. அதை மூடிவிட்டு மீண்டும் முயலவும்.', 'కెమెరా మరో యాప్‌లో వాడుకలో ఉంది. దాన్ని మూసి మళ్ళీ ప్రయత్నించండి.'],
+  ocrStageUpload: ['Sending the image to the hospital server…', 'चित्र अस्पताल सर्वर पर भेजा जा रहा है…', 'चित्र रुग्णालय सर्व्हरवर पाठवत आहे…', 'ছবিটি হাসপাতালের সার্ভারে পাঠানো হচ্ছে…', 'படம் மருத்துவமனை சர்வருக்கு அனுப்பப்படுகிறது…', 'చిత్రం ఆసుపత్రి సర్వర్‌కు పంపబడుతోంది…'],
+  ocrStageEngine: ['Preparing text reader on this kiosk…', 'इस कियोस्क पर टेक्स्ट रीडर तैयार हो रहा है…', 'या किओस्कवर मजकूर वाचक तयार होत आहे…', 'এই কিয়স্কে লেখা-পড়ার যন্ত্র প্রস্তুত হচ্ছে…', 'இந்தக் கியோஸ்கில் உரை வாசிப்பான் தயாராகிறது…', 'ఈ కియోస్క్‌లో టెక్స్ట్ రీడర్ సిద్ధమవుతోంది…'],
+  ocrStageReading: ['Reading the text… {pct}%', 'टेक्स्ट पढ़ा जा रहा है… {pct}%', 'मजकूर वाचत आहे… {pct}%', 'লেখা পড়া হচ্ছে… {pct}%', 'உரை வாசிக்கப்படுகிறது… {pct}%', 'టెక్స్ట్ చదువుతోంది… {pct}%'],
+  ocrStageAnalysing: ['Finding medicines and test results…', 'दवाएँ और जाँच परिणाम खोजे जा रहे हैं…', 'औषधे आणि तपासणी निकाल शोधत आहे…', 'ওষুধ ও পরীক্ষার ফল খোঁজা হচ্ছে…', 'மருந்துகள் மற்றும் பரிசோதனை முடிவுகளைத் தேடுகிறது…', 'మందులు, పరీక్ష ఫలితాలు వెతుకుతోంది…'],
+  ocrDone: ['Done. Please check what was found.', 'हो गया। कृपया जो मिला उसे जाँचें।', 'झाले. कृपया जे सापडले ते तपासा.', 'হয়ে গেছে। যা পাওয়া গেছে দেখে নিন।', 'முடிந்தது. கண்டறியப்பட்டதைச் சரிபார்க்கவும்.', 'పూర్తైంది. దొరికినది తనిఖీ చేయండి.'],
+  ocrUnreadable: ['We could not read this clearly. The doctor will look at the paper directly.', 'यह साफ़ नहीं पढ़ा जा सका। डॉक्टर काग़ज़ सीधे देखेंगे।', 'हे स्पष्ट वाचता आले नाही. डॉक्टर कागद थेट पाहतील.', 'এটি পরিষ্কার পড়া যায়নি। ডাক্তার কাগজটি সরাসরি দেখবেন।', 'இதைத் தெளிவாக வாசிக்க முடியவில்லை. மருத்துவர் காகிதத்தை நேரடியாகப் பார்ப்பார்.', 'ఇది స్పష్టంగా చదవలేకపోయాం. డాక్టర్ కాగితాన్ని నేరుగా చూస్తారు.'],
+  ocrCancel: ['Stop reading', 'पढ़ना रोकें', 'वाचन थांबवा', 'পড়া বন্ধ করুন', 'வாசிப்பை நிறுத்து', 'చదవడం ఆపండి'],
+  s6Demo: ['Demo documents (for testing)', 'डेमो दस्तावेज़ (परीक्षण हेतु)', 'डेमो कागदपत्रे (चाचणीसाठी)', 'ডেমো নথি (পরীক্ষার জন্য)', 'டெமோ ஆவணங்கள் (சோதனைக்கு)', 'డెమో పత్రాలు (పరీక్ష కోసం)'],
+  s6Found: ['Found {meds} medicine(s) and {labs} test result(s).', '{meds} दवा और {labs} जाँच परिणाम मिले।', '{meds} औषधे आणि {labs} तपासणी निकाल सापडले.', '{meds}টি ওষুধ ও {labs}টি পরীক্ষার ফল পাওয়া গেছে।', '{meds} மருந்துகள், {labs} பரிசோதனை முடிவுகள் கண்டறியப்பட்டன.', '{meds} మందులు, {labs} పరీక్ష ఫలితాలు దొరికాయి.'],
+  s6Details: ['Show details (for staff)', 'विवरण देखें (स्टाफ हेतु)', 'तपशील पहा (कर्मचाऱ्यांसाठी)', 'বিস্তারিত দেখুন (কর্মীদের জন্য)', 'விவரங்கள் (பணியாளர்களுக்கு)', 'వివరాలు చూడండి (సిబ్బంది కోసం)'],
+  s6HideDetails: ['Hide details', 'विवरण छिपाएं', 'तपशील लपवा', 'বিস্তারিত লুকান', 'விவரங்களை மறை', 'వివరాలు దాచండి'],
+  s6Added: ['Your documents', 'आपके दस्तावेज़', 'तुमची कागदपत्रे', 'আপনার নথি', 'உங்கள் ஆவணங்கள்', 'మీ పత్రాలు'],
+  s6AddAnother: ['Add another', 'एक और जोड़ें', 'आणखी जोडा', 'আরও যোগ করুন', 'மேலும் சேர்', 'మరొకటి జోడించండి'],
+  s6Interaction: ['Some of your current medicines may not be safe together. The doctor will review this.', 'आपकी कुछ मौजूदा दवाएँ साथ में सुरक्षित नहीं हो सकतीं। डॉक्टर इसकी जाँच करेंगे।', 'तुमची काही सध्याची औषधे एकत्र सुरक्षित नसू शकतात. डॉक्टर तपासतील.', 'আপনার কিছু বর্তমান ওষুধ একসঙ্গে নিরাপদ নাও হতে পারে। ডাক্তার দেখবেন।', 'உங்கள் சில மருந்துகள் ஒன்றாகப் பாதுகாப்பாக இல்லாமல் இருக்கலாம். மருத்துவர் பார்ப்பார்.', 'మీ కొన్ని మందులు కలిసి వాడటం సురక్షితం కాకపోవచ్చు. డాక్టర్ పరిశీలిస్తారు.'],
+  s6PhoneTitle: ['Send photos from your phone', 'अपने फ़ोन से फ़ोटो भेजें', 'तुमच्या फोनवरून फोटो पाठवा', 'আপনার ফোন থেকে ছবি পাঠান', 'உங்கள் கைபேசியிலிருந்து புகைப்படம் அனுப்பவும்', 'మీ ఫోన్ నుండి ఫోటోలు పంపండి'],
+  s6PhoneSteps: ['Connect to the hospital Wi-Fi, scan this QR code with your phone camera, and take photos of your papers.', 'अस्पताल के वाई-फ़ाई से जुड़ें, फ़ोन कैमरे से यह QR कोड स्कैन करें और अपने कागज़ों की फ़ोटो लें।', 'रुग्णालयाच्या वाय-फायशी जोडा, फोन कॅमेऱ्याने हा QR कोड स्कॅन करा आणि कागदांचे फोटो घ्या.', 'হাসপাতালের ওয়াই-ফাইতে যুক্ত হন, ফোনের ক্যামেরায় QR কোড স্ক্যান করে কাগজের ছবি তুলুন।', 'மருத்துவமனை வைஃபையுடன் இணைந்து, கைபேசி கேமராவால் இந்த QR குறியீட்டை ஸ்கேன் செய்து, காகிதங்களைப் புகைப்படம் எடுக்கவும்.', 'ఆసుపత్రి వై-ఫైకి కనెక్ట్ అయి, ఫోన్ కెమెరాతో ఈ QR కోడ్ స్కాన్ చేసి, కాగితాల ఫోటోలు తీయండి.'],
+  s6PhoneDemo: ['Load a demo phone upload', 'डेमो फ़ोन अपलोड लोड करें', 'डेमो फोन अपलोड लोड करा', 'ডেমো ফোন আপলোড লোড করুন', 'டெமோ கைபேசி பதிவேற்றம்', 'డెమో ఫోన్ అప్‌లోడ్ లోడ్ చేయండి'],
+  s6Skip: ['I have no papers — finish', 'मेरे पास कागज़ नहीं हैं — पूरा करें', 'माझ्याकडे कागद नाहीत — पूर्ण करा', 'আমার কাগজ নেই — শেষ করুন', 'என்னிடம் காகிதங்கள் இல்லை — முடி', 'నా దగ్గర కాగితాలు లేవు — పూర్తి చేయండి'],
+
+  // ---------------------------------------------------------------- Step 7 (token)
+  s7Title: ['Your check-in is complete', 'आपका पंजीकरण पूरा हुआ', 'तुमची नोंदणी पूर्ण झाली', 'আপনার নিবন্ধন সম্পূর্ণ', 'உங்கள் பதிவு முடிந்தது', 'మీ నమోదు పూర్తైంది'],
+  s7Token: ['Your token number', 'आपका टोकन नंबर', 'तुमचा टोकन क्रमांक', 'আপনার টোকেন নম্বর', 'உங்கள் டோக்கன் எண்', 'మీ టోకెన్ నంబర్'],
+  s7Room: ['Go to', 'यहाँ जाएं', 'येथे जा', 'এখানে যান', 'இங்கே செல்லுங்கள்', 'ఇక్కడికి వెళ్ళండి'],
+  s7Doctor: ['Doctor', 'डॉक्टर', 'डॉक्टर', 'ডাক্তার', 'மருத்துவர்', 'డాక్టర్'],
+  s7Wait: ['Estimated wait', 'अनुमानित प्रतीक्षा', 'अंदाजे प्रतीक्षा', 'আনুমানিক অপেক্ষা', 'மதிப்பிடப்பட்ட காத்திருப்பு', 'అంచనా నిరీక్షణ'],
+  s7WaitMins: ['{n} min', '{n} मिनट', '{n} मिनिटे', '{n} মিনিট', '{n} நிமிடம்', '{n} నిమిషాలు'],
+  s7Ahead: ['{n} patients ahead of you', 'आपसे पहले {n} मरीज़', 'तुमच्या आधी {n} रुग्ण', 'আপনার আগে {n} জন রোগী', 'உங்களுக்கு முன் {n} நோயாளிகள்', 'మీ ముందు {n} మంది రోగులు'],
+  s7Next: ['You are next', 'अगली बारी आपकी है', 'पुढची पाळी तुमची', 'এর পরেই আপনি', 'அடுத்தது நீங்கள்', 'తరువాత మీరే'],
+  s7Immediate: ['Go immediately', 'तुरंत जाएं', 'लगेच जा', 'এখনই যান', 'உடனே செல்லுங்கள்', 'వెంటనే వెళ్ళండి'],
+  s7Print: ['Print token slip', 'टोकन पर्ची प्रिंट करें', 'टोकन पावती छापा', 'টোকেন স্লিপ প্রিন্ট করুন', 'டோக்கன் சீட்டை அச்சிடு', 'టోకెన్ స్లిప్ ముద్రించండి'],
+  s7Announce: ['Read aloud', 'बोलकर सुनाएं', 'मोठ्याने वाचा', 'জোরে পড়ুন', 'சத்தமாகப் படி', 'బిగ్గరగా చదవండి'],
+  s7StopVoice: ['Stop voice', 'आवाज़ रोकें', 'आवाज थांबवा', 'আওয়াজ থামান', 'குரலை நிறுத்து', 'ధ్వని ఆపు'],
+  s7Directions: ['Directions', 'रास्ता', 'मार्ग', 'পথনির্দেশ', 'வழிகாட்டல்', 'దారి'],
+  s7SendMobile: ['Send to my mobile', 'मेरे मोबाइल पर भेजें', 'माझ्या मोबाईलवर पाठवा', 'আমার মোবাইলে পাঠান', 'என் கைபேசிக்கு அனுப்பு', 'నా మొబైల్‌కు పంపండి'],
+  s7Family: ['Add a family member', 'परिवार का सदस्य जोड़ें', 'कुटुंबातील सदस्य जोडा', 'পরিবারের সদস্য যোগ করুন', 'குடும்ப உறுப்பினரைச் சேர்', 'కుటుంబ సభ్యుడిని జోడించండి'],
+  s7Done: ['Done — next patient', 'पूरा — अगला मरीज़', 'पूर्ण — पुढील रुग्ण', 'শেষ — পরের রোগী', 'முடிந்தது — அடுத்த நோயாளி', 'పూర్తి — తదుపరి రోగి'],
+  s7Summary: ['What you told us', 'आपने हमें क्या बताया', 'तुम्ही आम्हाला काय सांगितले', 'আপনি যা জানিয়েছেন', 'நீங்கள் சொன்னவை', 'మీరు చెప్పినది'],
+  s7Complaints: ['Problems', 'तकलीफ़ें', 'त्रास', 'সমস্যা', 'பிரச்சினைகள்', 'సమస్యలు'],
+  s7Vitals: ['Vitals', 'वाइटल्स', 'व्हायटल्स', 'ভাইটালস', 'அளவீடுகள்', 'వైటల్స్'],
+  s7VitalsNone: ['Not measured — the nurse will check', 'नहीं नापे — नर्स जाँच करेंगी', 'मोजले नाही — परिचारिका तपासतील', 'মাপা হয়নি — নার্স দেখবেন', 'அளக்கவில்லை — செவிலியர் சரிபார்ப்பார்', 'కొలవలేదు — నర్సు చూస్తారు'],
+  s7Docs: ['{n} document(s) attached', '{n} दस्तावेज़ जुड़े', '{n} कागदपत्रे जोडली', '{n}টি নথি যুক্ত', '{n} ஆவணங்கள் இணைக்கப்பட்டன', '{n} పత్రాలు జతచేయబడ్డాయి'],
+  s7Emergency: ['Emergency — please go straight to the Emergency Room', 'आपातकाल — कृपया सीधे आपातकालीन कक्ष जाएं', 'आपत्काल — कृपया थेट आपत्कालीन कक्षात जा', 'জরুরি — সরাসরি জরুরি বিভাগে যান', 'அவசரம் — நேராக அவசர அறைக்குச் செல்லுங்கள்', 'అత్యవసరం — నేరుగా అత్యవసర గదికి వెళ్ళండి'],
+  s7Offline: ['Saved on this kiosk. Please show this slip at the reception desk.', 'इस कियोस्क पर सहेजा गया। कृपया यह पर्ची रिसेप्शन पर दिखाएं।', 'या किओस्कवर जतन केले. ही पावती स्वागत कक्षात दाखवा.', 'এই কিয়স্কে সংরক্ষিত। স্লিপটি রিসেপশনে দেখান।', 'இந்தக் கியோஸ்கில் சேமிக்கப்பட்டது. இந்தச் சீட்டை வரவேற்பில் காட்டவும்.', 'ఈ కియోస్క్‌లో సేవ్ అయింది. ఈ స్లిప్‌ను రిసెప్షన్‌లో చూపించండి.'],
+  s7AnnounceText: ['Token {token}. {name}, please go to {room}, {floor}. Estimated waiting time is about {mins} minutes.', 'टोकन {token}। {name}, कृपया {floor}, {room} में जाएं। अनुमानित प्रतीक्षा लगभग {mins} मिनट है।', 'टोकन {token}. {name}, कृपया {floor}, {room} येथे जा. अंदाजे प्रतीक्षा सुमारे {mins} मिनिटे.', 'টোকেন {token}। {name}, অনুগ্রহ করে {floor}, {room}-এ যান। আনুমানিক অপেক্ষা প্রায় {mins} মিনিট।', 'டோக்கன் {token}. {name}, தயவுசெய்து {floor}, {room}-க்குச் செல்லவும். காத்திருப்பு சுமார் {mins} நிமிடம்.', 'టోకెన్ {token}. {name}, దయచేసి {floor}, {room}కు వెళ్ళండి. నిరీక్షణ సుమారు {mins} నిమిషాలు.'],
+  s7MobileTitle: ['Send token to mobile', 'टोकन मोबाइल पर भेजें', 'टोकन मोबाईलवर पाठवा', 'টোকেন মোবাইলে পাঠান', 'டோக்கனை கைபேசிக்கு அனுப்பு', 'టోకెన్‌ను మొబైల్‌కు పంపండి'],
+  s7MobileSent: ['Sent to +91 {phone}', '+91 {phone} पर भेजा गया', '+91 {phone} वर पाठवले', '+91 {phone}-এ পাঠানো হয়েছে', '+91 {phone}-க்கு அனுப்பப்பட்டது', '+91 {phone}కు పంపబడింది'],
+  s7Send: ['Send', 'भेजें', 'पाठवा', 'পাঠান', 'அனுப்பு', 'పంపండి'],
+  s7Dept: ['Department', 'विभाग', 'विभाग', 'বিভাগ', 'பிரிவு', 'విభాగం'],
+  s7Floor: ['Floor', 'मंज़िल', 'मजला', 'তলা', 'தளம்', 'అంతస్తు'],
+  s7PatientDetails: ['Patient', 'मरीज़', 'रुग्ण', 'রোগী', 'நோயாளி', 'రోగి'],
+  s7History: ['Health history', 'स्वास्थ्य इतिहास', 'आरोग्य इतिहास', 'স্বাস্থ্যের ইতিহাস', 'உடல்நல வரலாறு', 'ఆరోగ్య చరిత్ర'],
+  s7Allergy: ['Allergy', 'एलर्जी', 'ॲलर्जी', 'অ্যালার্জি', 'ஒவ்வாமை', 'అలర్జీ'],
+  s7Medicines: ['Current medicines', 'चल रही दवाएँ', 'सध्याची औषधे', 'চলতি ওষুধ', 'தற்போதைய மருந்துகள்', 'ప్రస్తుత మందులు'],
+  wayLift: ['Take the lift or stairs to the {floor}.', 'लिफ्ट या सीढ़ियों से {floor} पर जाएं।', 'लिफ्ट किंवा जिन्याने {floor} वर जा.', 'লিফট বা সিঁড়ি দিয়ে {floor}-এ যান।', 'லிஃப்ட் அல்லது படிக்கட்டு வழியாக {floor}க்குச் செல்லுங்கள்.', 'లిఫ్ట్ లేదా మెట్ల ద్వారా {floor}కు వెళ్ళండి.'],
+  wayGround: ['Stay on the ground floor.', 'भूतल पर ही रहें।', 'तळमजल्यावरच रहा.', 'নিচতলাতেই থাকুন।', 'தரைத்தளத்திலேயே இருங்கள்.', 'గ్రౌండ్ ఫ్లోర్‌లోనే ఉండండి.'],
+  wayFollow: ['Follow the signs to {room}.', '{room} के संकेतों का पालन करें।', '{room} च्या फलकांचे अनुसरण करा.', '{room}-এর চিহ্ন অনুসরণ করুন।', '{room}க்கான அடையாளங்களைப் பின்பற்றுங்கள்.', '{room} గుర్తులను అనుసరించండి.'],
+  wayShow: ['Show this slip at the room door. Wait for your token number to be called.', 'कक्ष के दरवाज़े पर यह पर्ची दिखाएं। अपने टोकन नंबर की प्रतीक्षा करें।', 'कक्षाच्या दारात ही पावती दाखवा. तुमचा टोकन क्रमांक पुकारेपर्यंत थांबा.', 'কক্ষের দরজায় স্লিপটি দেখান। আপনার টোকেন নম্বর ডাকার অপেক্ষা করুন।', 'அறை வாசலில் இந்தச் சீட்டைக் காட்டுங்கள். உங்கள் டோக்கன் அழைக்கப்படும் வரை காத்திருங்கள்.', 'గది ద్వారం వద్ద ఈ స్లిప్ చూపించండి. మీ టోకెన్ పిలిచే వరకు వేచి ఉండండి.'],
+  famTitle: ['Register a family member', 'परिवार के सदस्य का पंजीकरण', 'कुटुंबातील सदस्याची नोंदणी', 'পরিবারের সদস্যের নিবন্ধন', 'குடும்ப உறுப்பினர் பதிவு', 'కుటుంబ సభ్యుని నమోదు'],
+  famRelation: ['Relationship', 'रिश्ता', 'नाते', 'সম্পর্ক', 'உறவு', 'సంబంధం'],
+  famComplaint: ['Main problem', 'मुख्य तकलीफ़', 'मुख्य त्रास', 'প্রধান সমস্যা', 'முக்கிய பிரச்சினை', 'ముఖ్య సమస్య'],
+  famAddMore: ['Add another person', 'एक और व्यक्ति जोड़ें', 'आणखी एक व्यक्ती जोडा', 'আরেকজন যোগ করুন', 'மேலும் ஒருவரைச் சேர்', 'మరో వ్యక్తిని జోడించండి'],
+  famSubmit: ['Get tokens', 'टोकन प्राप्त करें', 'टोकन मिळवा', 'টোকেন নিন', 'டோக்கன்கள் பெறு', 'టోకెన్లు పొందండి'],
+  famFailed: ['Could not register right now. Please ask at the reception desk.', 'अभी पंजीकरण नहीं हो सका। कृपया रिसेप्शन पर पूछें।', 'आत्ता नोंदणी होऊ शकली नाही. कृपया स्वागत कक्षात विचारा.', 'এখন নিবন্ধন করা গেল না। রিসেপশনে জিজ্ঞাসা করুন।', 'இப்போது பதிவு செய்ய முடியவில்லை. வரவேற்பில் கேளுங்கள்.', 'ఇప్పుడు నమోదు కాలేదు. రిసెప్షన్‌లో అడగండి.'],
+  famNeedName: ['Enter a name and age for each person.', 'हर व्यक्ति का नाम और उम्र लिखें।', 'प्रत्येकाचे नाव व वय लिहा.', 'প্রত্যেকের নাম ও বয়স লিখুন।', 'ஒவ்வொருவரின் பெயர், வயதை உள்ளிடவும்.', 'ప్రతి వ్యక్తి పేరు, వయస్సు నమోదు చేయండి.'],
+  s7GotIt: ['Got it', 'समझ गया', 'समजले', 'বুঝেছি', 'புரிந்தது', 'అర్థమైంది']
+} satisfies Record<string, Row>;
+
+export type KioskTextKey = keyof typeof S;
+export type KioskText = (key: KioskTextKey, vars?: Record<string, string | number>) => string;
+
+const fill = (template: string, vars?: Record<string, string | number>) =>
+  vars ? template.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? String(vars[k]) : `{${k}}`)) : template;
+
+/** Returns a translator bound to the chosen kiosk language. */
+const S_EXT = { ...S_EXT_1, ...S_EXT_2, ...S_EXT_3 } as Record<KioskTextKey, ExtRow>;
+
+export const kioskText = (lang?: string): KioskText => {
+  const code = normalizeLang(lang);
+  const ext = EXT_INDEX[code];
+  if (ext !== undefined) return (key, vars) => fill(S_EXT[key]?.[ext] || (S[key] as Row)[0], vars);
+  const idx = LANG_INDEX[code] ?? 0;
+  return (key, vars) => fill((S[key] as Row)[idx] || (S[key] as Row)[0], vars);
 };
 
-export const getParikshaLocalization = (langCode?: string): ParikshaLocalization => {
-  const code = (langCode || 'hi').toLowerCase().substring(0, 2) as SupportedKioskLanguage;
-  return PARIKSHA_LOCALES[code] || PARIKSHA_LOCALES['en'] || PARIKSHA_LOCALES['hi'];
+/** Picks the value for the current language from a per-language record, falling back to English. */
+export const pickLang = (lang: string | undefined, values: Partial<Record<SupportedKioskLanguage, string>>, fallback = '') => {
+  const code = normalizeLang(lang);
+  return values[code] || values.en || fallback;
 };
 
+// -------------------------------------------------------------------- Body region names
+// Region ids are the canonical clinical keys stored in symptoms / sent to the doctor.
+const REGION_NAMES: Record<string, Row> = {
+  'Head': ['Head / forehead', 'सिर / माथा', 'डोके / कपाळ', 'মাথা / কপাল', 'தலை / நெற்றி', 'తల / నుదురు'],
+  'Face & Sinus': ['Face, eyes & nose', 'चेहरा, आँखें व नाक', 'चेहरा, डोळे व नाक', 'মুখ, চোখ ও নাক', 'முகம், கண், மூக்கு', 'ముఖం, కళ్ళు & ముక్కు'],
+  'Ear': ['Ear', 'कान', 'कान', 'কান', 'காது', 'చెవి'],
+  'Neck': ['Throat & neck', 'गला व गर्दन', 'घसा व मान', 'গলা ও ঘাড়', 'தொண்டை & கழுத்து', 'గొంతు & మెడ'],
+  'Cervical Spine': ['Back of neck', 'गर्दन का पिछला भाग', 'मानेचा मागचा भाग', 'ঘাড়ের পিছন', 'பின்கழுத்து', 'మెడ వెనుక భాగం'],
+  'Left Chest / Precordium': ['Left chest / heart', 'बायाँ सीना / हृदय', 'डावी छाती / हृदय', 'বাঁ বুক / হৃদয়', 'இடது மார்பு / இதயம்', 'ఎడమ ఛాతీ / గుండె'],
+  'Right Chest': ['Right chest', 'दायाँ सीना', 'उजवी छाती', 'ডান বুক', 'வலது மார்பு', 'కుడి ఛాతీ'],
+  'Lungs & Respiration': ['Lungs & breathing', 'फेफड़े व सांस', 'फुफ्फुसे व श्वास', 'ফুসফুস ও শ্বাস', 'நுரையீரல் & மூச்சு', 'ఊపిరితిత్తులు & శ్వాస'],
+  'Epigastrium': ['Upper stomach', 'ऊपरी पेट', 'वरचे पोट', 'পেটের উপরিভাগ', 'மேல் வயிறு', 'పై కడుపు'],
+  'Umbilicus / Mid-Abdomen': ['Around the navel', 'नाभि के आसपास', 'बेंबीभोवती', 'নাভির চারপাশ', 'தொப்புளைச் சுற்றி', 'బొడ్డు చుట్టూ'],
+  'Right Lower Quadrant (RLQ)': ['Lower right stomach', 'पेट का दायाँ निचला भाग', 'पोटाचा उजवा खालचा भाग', 'পেটের ডান নিচের অংশ', 'வலது கீழ் வயிறு', 'కడుపు కుడి కింది భాగం'],
+  'Left Lower Quadrant (LLQ)': ['Lower left stomach', 'पेट का बायाँ निचला भाग', 'पोटाचा डावा खालचा भाग', 'পেটের বাঁ নিচের অংশ', 'இடது கீழ் வயிறு', 'కడుపు ఎడమ కింది భాగం'],
+  'Pelvic / Hypogastrium': ['Lower belly / bladder', 'निचला पेट / मूत्राशय', 'ओटीपोट / मूत्राशय', 'তলপেট / মূত্রথলি', 'அடிவயிறு / சிறுநீர்ப்பை', 'పొత్తికడుపు / మూత్రాశయం'],
+  'Upper Back / Thoracic': ['Upper back', 'ऊपरी पीठ', 'वरची पाठ', 'পিঠের উপরিভাগ', 'மேல் முதுகு', 'పై వీపు'],
+  'Lumbar Spine (Kati)': ['Lower back', 'कमर', 'कंबर', 'কোমর', 'கீழ் முதுகு', 'నడుము'],
+  'Sacral / Sciatica Origin': ['Buttock / tailbone', 'नितंब / कमर का निचला भाग', 'नितंब / माकडहाड', 'নিতম্ব / লেজের হাড়', 'பிட்டம் / வால் எலும்பு', 'పిరుదులు / తోక ఎముక'],
+  'Sciatic Pathway / Calves': ['Pain running down the leg', 'पैर में नीचे उतरता दर्द', 'पायात खाली उतरणारी वेदना', 'পা বেয়ে নামা ব্যথা', 'காலில் இறங்கும் வலி', 'కాలి కిందకు దిగే నొప్పి'],
+  'Left Shoulder': ['Left shoulder', 'बायाँ कंधा', 'डावा खांदा', 'বাঁ কাঁধ', 'இடது தோள்', 'ఎడమ భుజం'],
+  'Right Shoulder': ['Right shoulder', 'दायाँ कंधा', 'उजवा खांदा', 'ডান কাঁধ', 'வலது தோள்', 'కుడి భుజం'],
+  'Left Arm': ['Left arm & elbow', 'बायाँ हाथ व कोहनी', 'डावा हात व कोपर', 'বাঁ হাত ও কনুই', 'இடது கை & முழங்கை', 'ఎడమ చేయి & మోచేయి'],
+  'Right Arm': ['Right arm & elbow', 'दायाँ हाथ व कोहनी', 'उजवा हात व कोपर', 'ডান হাত ও কনুই', 'வலது கை & முழங்கை', 'కుడి చేయి & మోచేయి'],
+  'Left Hand': ['Left hand & wrist', 'बायाँ हाथ व कलाई', 'डावा पंजा व मनगट', 'বাঁ হাতের তালু ও কব্জি', 'இடது கை & மணிக்கட்டு', 'ఎడమ చేయి & మణికట్టు'],
+  'Right Hand': ['Right hand & wrist', 'दायाँ हाथ व कलाई', 'उजवा पंजा व मनगट', 'ডান হাতের তালু ও কব্জি', 'வலது கை & மணிக்கட்டு', 'కుడి చేయి & మణికట్టు'],
+  'Left Hip': ['Left hip & thigh', 'बायाँ कूल्हा व जाँघ', 'डावे कूल्हे व मांडी', 'বাঁ কোমর ও উরু', 'இடது இடுப்பு & தொடை', 'ఎడమ తుంటి & తొడ'],
+  'Right Hip': ['Right hip & thigh', 'दायाँ कूल्हा व जाँघ', 'उजवे कूल्हे व मांडी', 'ডান কোমর ও উরু', 'வலது இடுப்பு & தொடை', 'కుడి తుంటి & తొడ'],
+  'Left Knee': ['Left knee', 'बायाँ घुटना', 'डावा गुडघा', 'বাঁ হাঁটু', 'இடது முழங்கால்', 'ఎడమ మోకాలు'],
+  'Right Knee': ['Right knee', 'दायाँ घुटना', 'उजवा गुडघा', 'ডান হাঁটু', 'வலது முழங்கால்', 'కుడి మోకాలు'],
+  'Left Leg': ['Left lower leg / calf', 'बायाँ पैर / पिंडली', 'डावा पाय / पोटरी', 'বাঁ পা / পায়ের ডিম', 'இடது கீழ்க்கால் / கெண்டைக்கால்', 'ఎడమ కాలు / పిక్క'],
+  'Right Leg': ['Right lower leg / calf', 'दायाँ पैर / पिंडली', 'उजवा पाय / पोटरी', 'ডান পা / পায়ের ডিম', 'வலது கீழ்க்கால் / கெண்டைக்கால்', 'కుడి కాలు / పిక్క'],
+  'Left Foot': ['Left foot & ankle', 'बायाँ पंजा व टखना', 'डावे पाऊल व घोटा', 'বাঁ পায়ের পাতা ও গোড়ালি', 'இடது பாதம் & கணுக்கால்', 'ఎడమ పాదం & చీలమండ'],
+  'Right Foot': ['Right foot & ankle', 'दायाँ पंजा व टखना', 'उजवे पाऊल व घोटा', 'ডান পায়ের পাতা ও গোড়ালি', 'வலது பாதம் & கணுக்கால்', 'కుడి పాదం & చీలమండ'],
+  'General': ['Whole body / general', 'पूरा शरीर / सामान्य', 'संपूर्ण शरीर / सामान्य', 'পুরো শরীর / সাধারণ', 'முழு உடல் / பொது', 'మొత్తం శరీరం / సాధారణం']
+};
+
+/** Region names in [gu, kn, ml, pa, or]. */
+const REGION_NAMES_EXT: Record<string, ExtRow> = {
+  'Head': ['માથું / કપાળ', 'ತಲೆ / ಹಣೆ', 'തല / നെറ്റി', 'ਸਿਰ / ਮੱਥਾ', 'ମୁଣ୍ଡ / କପାଳ'],
+  'Face & Sinus': ['ચહેરો, આંખો અને નાક', 'ಮುಖ, ಕಣ್ಣು & ಮೂಗು', 'മുഖം, കണ്ണ്, മൂക്ക്', 'ਚਿਹਰਾ, ਅੱਖਾਂ ਅਤੇ ਨੱਕ', 'ମୁହଁ, ଆଖି ଓ ନାକ'],
+  'Ear': ['કાન', 'ಕಿವಿ', 'ചെവി', 'ਕੰਨ', 'କାନ'],
+  'Neck': ['ગળું અને ડોક', 'ಗಂಟಲು & ಕುತ್ತಿಗೆ', 'തൊണ്ടയും കഴുത്തും', 'ਗਲਾ ਅਤੇ ਗਰਦਨ', 'ଗଳା ଓ ବେକ'],
+  'Cervical Spine': ['ડોકનો પાછળનો ભાગ', 'ಕುತ್ತಿಗೆಯ ಹಿಂಭಾಗ', 'കഴുത്തിന്റെ പിൻഭാഗം', 'ਗਰਦਨ ਦਾ ਪਿਛਲਾ ਹਿੱਸਾ', 'ବେକର ପଛପଟ'],
+  'Left Chest / Precordium': ['ડાબી છાતી / હૃદય', 'ಎಡ ಎದೆ / ಹೃದಯ', 'ഇടത് നെഞ്ച് / ഹൃദയം', 'ਖੱਬੀ ਛਾਤੀ / ਦਿਲ', 'ବାମ ଛାତି / ହୃଦୟ'],
+  'Right Chest': ['જમણી છાતી', 'ಬಲ ಎದೆ', 'വലത് നെഞ്ച്', 'ਸੱਜੀ ਛਾਤੀ', 'ଡାହାଣ ଛାତି'],
+  'Lungs & Respiration': ['ફેફસાં અને શ્વાસ', 'ಶ್ವಾಸಕೋಶ & ಉಸಿರಾಟ', 'ശ്വാസകോശവും ശ്വാസവും', 'ਫੇਫੜੇ ਅਤੇ ਸਾਹ', 'ଫୁସଫୁସ ଓ ଶ୍ୱାସ'],
+  'Epigastrium': ['ઉપરનું પેટ', 'ಮೇಲ್ಹೊಟ್ಟೆ', 'മേൽവയർ', 'ਉੱਪਰਲਾ ਪੇਟ', 'ଉପର ପେଟ'],
+  'Umbilicus / Mid-Abdomen': ['નાભિની આસપાસ', 'ಹೊಕ್ಕುಳ ಸುತ್ತ', 'പൊക്കിളിനു ചുറ്റും', 'ਧੁੰਨੀ ਦੇ ਆਲੇ-ਦੁਆਲੇ', 'ନାଭି ଚାରିପାଖ'],
+  'Right Lower Quadrant (RLQ)': ['પેટનો જમણો નીચેનો ભાગ', 'ಹೊಟ್ಟೆಯ ಬಲ ಕೆಳಭಾಗ', 'വയറിന്റെ വലത് താഴ്ഭാഗം', 'ਪੇਟ ਦਾ ਸੱਜਾ ਹੇਠਲਾ ਹਿੱਸਾ', 'ପେଟର ଡାହାଣ ତଳ ଭାଗ'],
+  'Left Lower Quadrant (LLQ)': ['પેટનો ડાબો નીચેનો ભાગ', 'ಹೊಟ್ಟೆಯ ಎಡ ಕೆಳಭಾಗ', 'വയറിന്റെ ഇടത് താഴ്ഭാഗം', 'ਪੇਟ ਦਾ ਖੱਬਾ ਹੇਠਲਾ ਹਿੱਸਾ', 'ପେଟର ବାମ ତଳ ଭାଗ'],
+  'Pelvic / Hypogastrium': ['પેડુ / મૂત્રાશય', 'ಕೆಳಹೊಟ್ಟೆ / ಮೂತ್ರಕೋಶ', 'അടിവയർ / മൂത്രസഞ്ചി', 'ਹੇਠਲਾ ਪੇਟ / ਮਸਾਨਾ', 'ତଳପେଟ / ମୂତ୍ରାଶୟ'],
+  'Upper Back / Thoracic': ['ઉપરની પીઠ', 'ಮೇಲಿನ ಬೆನ್ನು', 'മുകളിലെ മുതുക്', 'ਉੱਪਰਲੀ ਪਿੱਠ', 'ଉପର ପିଠି'],
+  'Lumbar Spine (Kati)': ['કમર', 'ಸೊಂಟ / ಕೆಳಬೆನ್ನು', 'നടുവ്', 'ਕਮਰ', 'ଅଣ୍ଟା'],
+  'Sacral / Sciatica Origin': ['નિતંબ / પૂંછડીનું હાડકું', 'ಪೃಷ್ಠ / ಬಾಲದ ಮೂಳೆ', 'പൃഷ്ഠം / വാലെല്ല്', 'ਚਿੱਤੜ / ਪੂਛ ਦੀ ਹੱਡੀ', 'ନିତମ୍ବ / ଲାଞ୍ଜ ହାଡ'],
+  'Sciatic Pathway / Calves': ['પગમાં નીચે ઉતરતો દુખાવો', 'ಕಾಲಿನ ಕೆಳಗೆ ಇಳಿಯುವ ನೋವು', 'കാലിലേക്ക് ഇറങ്ങുന്ന വേദന', 'ਲੱਤ ਵਿੱਚ ਹੇਠਾਂ ਉਤਰਦਾ ਦਰਦ', 'ଗୋଡ ତଳକୁ ଓହ୍ଲାଉଥିବା ଯନ୍ତ୍ରଣା'],
+  'Left Shoulder': ['ડાબો ખભો', 'ಎಡ ಭುಜ', 'ഇടത് തോൾ', 'ਖੱਬਾ ਮੋਢਾ', 'ବାମ କାନ୍ଧ'],
+  'Right Shoulder': ['જમણો ખભો', 'ಬಲ ಭುಜ', 'വലത് തോൾ', 'ਸੱਜਾ ਮੋਢਾ', 'ଡାହାଣ କାନ୍ଧ'],
+  'Left Arm': ['ડાબો હાથ અને કોણી', 'ಎಡ ತೋಳು & ಮೊಣಕೈ', 'ഇടത് കൈയും കൈമുട്ടും', 'ਖੱਬੀ ਬਾਂਹ ਅਤੇ ਕੂਹਣੀ', 'ବାମ ବାହୁ ଓ କହୁଣୀ'],
+  'Right Arm': ['જમણો હાથ અને કોણી', 'ಬಲ ತೋಳು & ಮೊಣಕೈ', 'വലത് കൈയും കൈമുട്ടും', 'ਸੱਜੀ ਬਾਂਹ ਅਤੇ ਕੂਹਣੀ', 'ଡାହାଣ ବାହୁ ଓ କହୁଣୀ'],
+  'Left Hand': ['ડાબો પંજો અને કાંડું', 'ಎಡ ಕೈ & ಮಣಿಕಟ್ಟು', 'ഇടത് കൈപ്പത്തിയും മണിബന്ധവും', 'ਖੱਬਾ ਹੱਥ ਅਤੇ ਗੁੱਟ', 'ବାମ ହାତ ଓ ମଣିବନ୍ଧ'],
+  'Right Hand': ['જમણો પંજો અને કાંડું', 'ಬಲ ಕೈ & ಮಣಿಕಟ್ಟು', 'വലത് കൈപ്പത്തിയും മണിബന്ധവും', 'ਸੱਜਾ ਹੱਥ ਅਤੇ ਗੁੱਟ', 'ଡାହାଣ ହାତ ଓ ମଣିବନ୍ଧ'],
+  'Left Hip': ['ડાબો થાપો અને જાંઘ', 'ಎಡ ಸೊಂಟ & ತೊಡೆ', 'ഇടത് ഇടുപ്പും തുടയും', 'ਖੱਬਾ ਕੁੱਲ੍ਹਾ ਅਤੇ ਪੱਟ', 'ବାମ ଅଣ୍ଟା ଓ ଜଙ୍ଘ'],
+  'Right Hip': ['જમણો થાપો અને જાંઘ', 'ಬಲ ಸೊಂಟ & ತೊಡೆ', 'വലത് ഇടുപ്പും തുടയും', 'ਸੱਜਾ ਕੁੱਲ੍ਹਾ ਅਤੇ ਪੱਟ', 'ଡାହାଣ ଅଣ୍ଟା ଓ ଜଙ୍ଘ'],
+  'Left Knee': ['ડાબો ઘૂંટણ', 'ಎಡ ಮೊಣಕಾಲು', 'ഇടത് കാൽമുട്ട്', 'ਖੱਬਾ ਗੋਡਾ', 'ବାମ ଆଣ୍ଠୁ'],
+  'Right Knee': ['જમણો ઘૂંટણ', 'ಬಲ ಮೊಣಕಾಲು', 'വലത് കാൽമുട്ട്', 'ਸੱਜਾ ਗੋਡਾ', 'ଡାହାଣ ଆଣ୍ଠୁ'],
+  'Left Leg': ['ડાબો પગ / પિંડી', 'ಎಡ ಕಾಲು / ಮೀನಖಂಡ', 'ഇടത് കാൽ / കണങ്കാൽ', 'ਖੱਬੀ ਲੱਤ / ਪਿੰਨੀ', 'ବାମ ଗୋଡ / ପିଣ୍ଡୁଳା'],
+  'Right Leg': ['જમણો પગ / પિંડી', 'ಬಲ ಕಾಲು / ಮೀನಖಂಡ', 'വലത് കാൽ / കണങ്കാൽ', 'ਸੱਜੀ ਲੱਤ / ਪਿੰਨੀ', 'ଡାହାଣ ଗୋଡ / ପିଣ୍ଡୁଳା'],
+  'Left Foot': ['ડાબો પગનો પંજો અને ઘૂંટી', 'ಎಡ ಪಾದ & ಹಿಮ್ಮಡಿ', 'ഇടത് പാദവും കണങ്കാലും', 'ਖੱਬਾ ਪੈਰ ਅਤੇ ਗਿੱਟਾ', 'ବାମ ପାଦ ଓ ଗୋଇଠି'],
+  'Right Foot': ['જમણો પગનો પંજો અને ઘૂંટી', 'ಬಲ ಪಾದ & ಹಿಮ್ಮಡಿ', 'വലത് പാദവും കണങ്കാലും', 'ਸੱਜਾ ਪੈਰ ਅਤੇ ਗਿੱਟਾ', 'ଡାହାଣ ପାଦ ଓ ଗୋଇଠି'],
+  'General': ['આખું શરીર / સામાન્ય', 'ಪೂರ್ಣ ದೇಹ / ಸಾಮಾನ್ಯ', 'മുഴുവൻ ശരീരം / പൊതുവായത്', 'ਪੂਰਾ ਸਰੀਰ / ਆਮ', 'ସମଗ୍ର ଶରୀର / ସାଧାରଣ']
+};
+
+export const regionName = (regionId: string | undefined, lang?: string): string => {
+  if (!regionId) return '';
+  const row = REGION_NAMES[regionId];
+  if (!row) return regionId;
+  const code = normalizeLang(lang);
+  const ext = EXT_INDEX[code];
+  if (ext !== undefined) return REGION_NAMES_EXT[regionId]?.[ext] || row[0];
+  return row[LANG_INDEX[code] ?? 0] || row[0];
+};
+
+/** English region label used in clinical records sent to the doctor. */
+export const regionNameEn = (regionId: string | undefined) => (regionId ? REGION_NAMES[regionId]?.[0] || regionId : '');
+
+// -------------------------------------------------------------------- Pain character options
+// `value` is the canonical clinical label stored in the record (shown to doctors in English).
+export const PAIN_CHARACTERS: Array<{ value: string; key: KioskTextKey; sensationKey: string }> = [
+  { value: 'Dull aching (Bheda)', key: 'chDull', sensationKey: 'dull' },
+  { value: 'Sharp pricking (Toda)', key: 'chSharp', sensationKey: 'sharp' },
+  { value: 'Crushing heaviness', key: 'chCrushing', sensationKey: 'crushing' },
+  { value: 'Burning sensation (Daha)', key: 'chBurning', sensationKey: 'burning' },
+  { value: 'Throbbing / Pulsatile', key: 'chThrobbing', sensationKey: 'throbbing' },
+  { value: 'Stiffness / Stambha', key: 'chStiffness', sensationKey: 'stiffness' }
+];

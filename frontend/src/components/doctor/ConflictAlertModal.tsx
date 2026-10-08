@@ -24,7 +24,6 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
   const mechanismText = alert.mechanism || 'Pharmacological metabolic conflict detected.';
   const consequenceText = alert.clinicalConsequence || alert.mechanism || 'Potential adverse interaction risk.';
   const recommendationText = alert.recommendedAction || alert.clinicalAction || 'Review dual prescription with attending physician.';
-  const confidenceScore = alert.bayesianConfidence || 0.95;
 
   const handleRemove = () => {
     sovereignSound.playCrystalChime();
@@ -82,7 +81,7 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
             </div>
             <div>
               <span style={{ fontSize: 11, fontWeight: 800, color: isLethal ? '#fb7185' : '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Bayesian Truth Engine Safety Shield
+                Medicine interaction check
               </span>
               <h3 style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em', margin: '2px 0 0 0' }}>
                 {isLethal ? 'Critical Herb-Drug Contraindication' : 'Herb-Drug Interaction Alert'}
@@ -159,14 +158,16 @@ export const ConflictAlertModal: React.FC<ConflictAlertModalProps> = ({
 
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', padding: 14, borderRadius: 10, border: '1px solid rgba(56, 189, 248, 0.25)' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', marginBottom: 4 }}>
-              Statutory Clinical Recommendation:
+              Recommended action:
             </div>
             <p style={{ fontSize: 13, color: '#e0f2fe', lineHeight: 1.5 }}>
               {recommendationText}
             </p>
-            <div style={{ fontSize: 11, color: '#38bdf8', marginTop: 8, fontWeight: 600 }}>
-              Bayesian Truth Confidence: <strong style={{ color: '#ffffff' }}>{(confidenceScore * 100).toFixed(1)}%</strong> • Beta-Binomial Evidence Base
-            </div>
+            {alert.citation && (
+              <div style={{ fontSize: 11, color: '#38bdf8', marginTop: 8, fontWeight: 600 }}>
+                Source: <span style={{ color: '#ffffff' }}>{alert.citation}</span> — confirm against your formulary; this is decision support, not a substitute for judgement.
+              </div>
+            )}
           </div>
         </div>
 

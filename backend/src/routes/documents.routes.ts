@@ -11,6 +11,8 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db/database';
 import { DocumentOCRService } from '../services/documentOCR.service';
 import { NativeImageOCRService } from '../services/nativeImageOCR.service';
+import { requireStaff } from '../security/middleware';
+import { CLINICIAN_ROLES } from '../security/config';
 
 export const documentsRouter = Router();
 
@@ -150,7 +152,7 @@ documentsRouter.post('/ocr', (req: Request, res: Response): void => {
  * GET /api/documents/patient/:patientId
  * Retrieve chronological health timeline of digitized paper records for a patient
  */
-documentsRouter.get('/patient/:patientId', (req: Request, res: Response): void => {
+documentsRouter.get('/patient/:patientId', requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
   try {
     const rows: any[] = db.prepare(`
       SELECT * FROM documents

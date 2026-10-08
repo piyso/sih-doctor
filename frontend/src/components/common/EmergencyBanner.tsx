@@ -6,12 +6,15 @@ interface EmergencyBannerProps {
   redFlags: string[];
   patientName?: string;
   onDivertClick?: () => void;
+  /** True once the patient has been sent to the Emergency Room. */
+  isDiverted?: boolean;
 }
 
 export const EmergencyBanner: React.FC<EmergencyBannerProps> = ({
   redFlags,
   patientName,
-  onDivertClick
+  onDivertClick,
+  isDiverted = false
 }) => {
   useEffect(() => {
     if (redFlags && redFlags.length > 0) {
@@ -68,7 +71,7 @@ export const EmergencyBanner: React.FC<EmergencyBannerProps> = ({
                 letterSpacing: '+0.06em'
               }}
             >
-              CRITICAL EMERGENCY TRIAGE · ESI TIER 1
+              Emergency · highest triage priority
             </span>
             <span
               style={{
@@ -90,7 +93,7 @@ export const EmergencyBanner: React.FC<EmergencyBannerProps> = ({
               fontFamily: 'var(--font-sans)'
             }}
           >
-            {patientName ? `${patientName}: Immediate Red Bay Referral` : 'Immediate Red Bay Resuscitation Referral'}
+            {patientName ? `${patientName} needs immediate emergency assessment` : 'Patient needs immediate emergency assessment'}
           </h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
             {redFlags.map((flag, idx) => (
@@ -119,6 +122,11 @@ export const EmergencyBanner: React.FC<EmergencyBannerProps> = ({
       </div>
 
       <div style={{ flexShrink: 0 }}>
+        {isDiverted ? (
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#047857', fontFamily: 'var(--font-sans)' }}>
+            Sent to Emergency Room
+          </span>
+        ) : onDivertClick && (
         <button
           onClick={() => {
             sovereignSound.playMechanicalSnap();
@@ -140,9 +148,10 @@ export const EmergencyBanner: React.FC<EmergencyBannerProps> = ({
             transition: 'all 0.16s ease'
           }}
         >
-          <span>Divert to Red Bay</span>
+          <span>Send to Emergency Room</span>
           <ArrowRight size={13} />
         </button>
+        )}
       </div>
     </aside>
   );

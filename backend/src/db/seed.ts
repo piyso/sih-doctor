@@ -468,5 +468,54 @@ export function seedDatabase() {
 
 if (require.main === module) {
   seedDatabase();
+  applyDemoCareStreams();
 }
 
+
+/**
+ * Which kind of doctor each demo patient is waiting for, so both the Ayurveda (Vaidya) desk and the
+ * modern-medicine desk have patients in their queue.
+ */
+const DEMO_CARE_STREAMS: Record<string, 'AYURVEDA' | 'ALLOPATHY' | 'UNDECIDED'> = {
+  'sess-001': 'ALLOPATHY',
+  'sess-002': 'AYURVEDA',
+  'sess-003': 'ALLOPATHY',
+  'sess-004': 'AYURVEDA',
+  'sess-005': 'AYURVEDA',
+  'sess-006': 'AYURVEDA',
+  'sess-007': 'ALLOPATHY',
+  'sess-008': 'AYURVEDA',
+  'sess-009': 'ALLOPATHY',
+  'sess-010': 'UNDECIDED'
+};
+
+export function applyDemoCareStreams() {
+  const update = db.prepare(`UPDATE sessions SET care_stream = ? WHERE id = ? AND (care_stream IS NULL OR care_stream = 'UNDECIDED')`);
+  for (const [id, stream] of Object.entries(DEMO_CARE_STREAMS)) update.run(stream, id);
+}
+
+/**
+ * Puts the demo patients back in the waiting queue WITHOUT deleting anything (unlike seedDatabase,
+ * which wipes all tables). Returns how many demo sessions were re-opened.
+ */
+export function restoreDemoQueue(): number {
+  const demoIds = Object.keys(DEMO_CARE_STREAMS);
+  const existing = db.prepare(`SELECT id FROM sessions WHERE id IN (${demoIds.map(() => '?').join(',')})`).all(...demoIds) as Array<{ id: string }>;
+  if (existing.length === 0) {
+    const total = (db.prepare('SELECT count(*) as count FROM sessions').get() as any)?.count || 0;
+    if (total > 0) return 0; // real data present and no demo rows: never wipe it
+    seedDatabase();
+    return demoIds.length;
+  }
+  const now = Date.now();
+  const reopen = db.prepare(`
+    UPDATE sessions
+    SET status = CASE WHEN triage_priority = 'EMERGENCY_RED_FLAG' THEN 'DIVERTED_EMERGENCY' ELSE 'PENDING_DOCTOR' END,
+        created_at = ?, department = NULL, token_no = NULL, token_date = NULL, called_at = NULL, call_count = 0,
+        consult_started_at = NULL, completed_at = NULL
+    WHERE id = ?
+  `);
+  existing.forEach((row, i) => reopen.run(new Date(now - (existing.length - i) * 60000).toISOString(), row.id));
+  applyDemoCareStreams();
+  return existing.length;
+}

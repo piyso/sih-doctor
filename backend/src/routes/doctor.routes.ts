@@ -11,7 +11,31 @@ import { TruthEngineService } from '../services/truthEngine.service';
 import { FhirGeneratorService } from '../services/fhirGenerator.service';
 import { ZkProofService } from '../services/zkProof.service';
 import { ConsultationRecord } from '../shared/types';
-import { seedDatabase } from '../db/seed';
+import { seedDatabase, restoreDemoQueue } from '../db/seed';
+import { requireStaff, demoOnly } from '../security/middleware';
+import { CLINICIAN_ROLES } from '../security/config';
+import { audit } from '../security/audit';
+import { signRecord } from '../security/recordSigning';
+import { publish } from '../services/eventBus.service';
+import { ensureSessionToken, DEPARTMENT_ROOMS, DepartmentCode } from '../services/hospitalRouting.service';
+import { getOperationalSnapshot, getSyndromicSignals, getPrescribingSafety } from '../services/analytics.service';
+import { SmsService } from '../services/sms.service';
+
+try { db.exec('ALTER TABLE encounters ADD COLUMN signature_json TEXT;'); } catch {}
+try { db.exec('ALTER TABLE encounters ADD COLUMN care_stream TEXT;'); } catch {}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dispenses (
+    id TEXT PRIMARY KEY,
+    encounter_id TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL,
+    pharmacist_id TEXT NOT NULL,
+    pharmacist_name TEXT NOT NULL,
+    items_json TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE CASCADE
+  );
+`);
 
 export const doctorRouter = Router();
 
@@ -29,10 +53,26 @@ function safeJsonParse<T>(raw: any, fallback: T): T {
  * POST /api/doctor/seed
  * Seed live SQLite WAL database with standard clinical benchmark cohort
  */
-doctorRouter.post('/seed', (_req: Request, res: Response): void => {
+doctorRouter.post('/seed', demoOnly, requireStaff('admin'), (req: Request, res: Response): void => {
   try {
     seedDatabase();
+    audit(req, 'demo.seed_database');
     res.json({ success: true, message: 'Database seeded successfully with 5 clinical cases' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/doctor/demo-queue
+ * Re-opens the demo patients in the waiting queue without deleting any real records.
+ */
+doctorRouter.post('/demo-queue', demoOnly, requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
+  try {
+    const restored = restoreDemoQueue();
+    audit(req, 'demo.restore_queue', null, { restored });
+    publish({ type: 'queue.changed', reason: 'demo_restore' });
+    res.json({ success: true, restored });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -42,10 +82,15 @@ doctorRouter.post('/seed', (_req: Request, res: Response): void => {
  * GET /api/doctor/queue
  * Retrieve live hospital OPD queue ordered by triage priority: EMERGENCY > HIGH > ROUTINE
  */
-doctorRouter.get('/queue', (_req: Request, res: Response): void => {
+doctorRouter.get('/queue', requireStaff(...CLINICIAN_ROLES, 'reception'), (_req: Request, res: Response): void => {
   try {
+    // Older rows (e.g. demo data) may not have a department/token yet.
+    const missing = db.prepare(`SELECT id FROM sessions WHERE status IN ('PENDING_DOCTOR', 'DIVERTED_EMERGENCY', 'IN_CONSULTATION') AND token_no IS NULL`).all() as Array<{ id: string }>;
+    for (const m of missing) ensureSessionToken(m.id);
+
     const rows: any[] = db.prepare(`
       SELECT s.id as session_id, s.triage_priority, s.status, s.created_at, s.vitals_json, s.red_flag_triggers,
+             s.care_stream, s.symptoms_json, s.department, s.token_no, s.called_at, s.call_count,
              p.id as patient_id, p.name as patient_name, p.age, p.gender, p.language, p.prakriti, p.abha_id,
              p.is_pregnant, p.gestational_weeks, p.is_lactating, p.weight_kg
       FROM sessions s
@@ -77,7 +122,17 @@ doctorRouter.get('/queue', (_req: Request, res: Response): void => {
       status: r.status,
       redFlags: safeJsonParse(r.red_flag_triggers, []),
       vitals: safeJsonParse(r.vitals_json, {}),
-      registeredAt: r.created_at
+      careStream: r.care_stream || 'UNDECIDED',
+      primaryComplaint: (() => {
+        const first: any = safeJsonParse<any[]>(r.symptoms_json, [])[0];
+        return first ? (first.name || first.symptom_name || first.site || undefined) : undefined;
+      })(),
+      registeredAt: r.created_at,
+      department: r.department || undefined,
+      tokenNo: r.token_no || undefined,
+      room: r.department && DEPARTMENT_ROOMS[r.department as DepartmentCode] ? DEPARTMENT_ROOMS[r.department as DepartmentCode].room : undefined,
+      calledAt: r.called_at || undefined,
+      callCount: r.call_count || 0
     }));
 
     res.json({
@@ -93,7 +148,7 @@ doctorRouter.get('/queue', (_req: Request, res: Response): void => {
  * GET /api/doctor/encounter/:sessionId
  * Fetch instant pre-encounter brief in <50ms before patient enters consultation room
  */
-doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request, res: Response): void => {
+doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
   const t0 = performance.now();
   try {
     const sessionRow: any = db.prepare(`
@@ -102,7 +157,7 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
       FROM sessions s
       JOIN patients p ON s.patient_id = p.id
       WHERE s.id = ?
-    `).get(req.params.sessionId);
+    `).get(String(req.params.sessionId));
 
     if (!sessionRow) {
       res.status(404).json({ error: 'Consultation session not found' });
@@ -151,6 +206,7 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
 
     const t1 = performance.now();
     const latencyMs = parseFloat((t1 - t0).toFixed(2));
+    audit(req, 'record.view', sessionRow.id, { patientId: sessionRow.patient_id });
 
     res.json({
       success: true,
@@ -178,9 +234,14 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
         parikshaAdvisory,
         vitals,
         rawTranscript: sessionRow.raw_transcript,
+        careStream: sessionRow.care_stream || 'UNDECIDED',
+        history: safeJsonParse(sessionRow.history_json, null) || undefined,
         pastDocuments: documents,
         provisionalDiagnoses,
-        existingEncounter
+        existingEncounter,
+        tokenNo: sessionRow.token_no || undefined,
+        department: sessionRow.department || undefined,
+        status: sessionRow.status
       }
     });
   } catch (err: any) {
@@ -189,46 +250,130 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], (req: Request
 });
 
 /**
- * GET /api/doctor/encounters & /api/doctor/pharmacy-queue
- * Live verified pharmacy dispense queue derived directly from SQLite encounters table
+ * PATCH /api/doctor/encounter/:sessionId/vitals
+ * Record or correct vitals measured by the nurse / doctor for an open encounter.
  */
-doctorRouter.get(['/encounters', '/pharmacy-queue'], (_req: Request, res: Response): void => {
+doctorRouter.patch('/encounter/:sessionId/vitals', requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
+  try {
+    const incoming = req.body?.vitals;
+    if (!incoming || typeof incoming !== 'object') {
+      res.status(400).json({ error: 'vitals object is required' });
+      return;
+    }
+    const row: any = db.prepare(`SELECT vitals_json FROM sessions WHERE id = ?`).get(String(req.params.sessionId));
+    if (!row) {
+      res.status(404).json({ error: 'Consultation session not found' });
+      return;
+    }
+    const allowed = ['bp', 'pulse', 'spo2', 'temp', 'respiratoryRate', 'bloodSugar', 'weightKg'];
+    const merged: Record<string, any> = { ...safeJsonParse(row.vitals_json, {}) };
+    for (const key of allowed) {
+      if (key in incoming) {
+        const value = incoming[key];
+        if (value === null || value === '' || value === undefined) delete merged[key];
+        else merged[key] = value;
+      }
+    }
+    merged.recordedAt = new Date().toISOString();
+    merged.recordedBy = req.staff!.displayName;
+    merged.source = 'clinician';
+    db.prepare(`UPDATE sessions SET vitals_json = ? WHERE id = ?`).run(JSON.stringify(merged), String(req.params.sessionId));
+    audit(req, 'record.vitals_updated', String(req.params.sessionId), { fields: Object.keys(incoming).filter(k => allowed.includes(k)) });
+    publish({ type: 'queue.changed', reason: 'vitals', sessionId: String(req.params.sessionId) });
+    res.json({ success: true, vitals: merged });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/doctor/encounter/:sessionId/status
+ * Moves a patient between queue states, e.g. sending them to the Emergency Room.
+ */
+doctorRouter.patch('/encounter/:sessionId/status', requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
+  try {
+    const status = req.body?.status;
+    const allowed = ['PENDING_DOCTOR', 'IN_CONSULTATION', 'DIVERTED_EMERGENCY'];
+    if (!allowed.includes(status)) {
+      res.status(400).json({ error: `status must be one of ${allowed.join(', ')}` });
+      return;
+    }
+    const result = db.prepare(`
+      UPDATE sessions SET status = ?,
+        triage_priority = CASE WHEN ? = 'DIVERTED_EMERGENCY' THEN 'EMERGENCY_RED_FLAG' ELSE triage_priority END,
+        consult_started_at = CASE WHEN ? = 'IN_CONSULTATION' THEN COALESCE(consult_started_at, ?) ELSE consult_started_at END
+      WHERE id = ?
+    `).run(status, status, status, new Date().toISOString(), String(req.params.sessionId));
+    if (result.changes === 0) {
+      res.status(404).json({ error: 'Consultation session not found' });
+      return;
+    }
+    audit(req, 'queue.status_changed', String(req.params.sessionId), { status });
+    publish({ type: 'queue.changed', reason: 'status', sessionId: String(req.params.sessionId) });
+    res.json({ success: true, status });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/doctor/encounters & /api/doctor/pharmacy-queue
+ * Finalized prescriptions waiting at (or already handled by) the pharmacy.
+ */
+doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', ...CLINICIAN_ROLES), (_req: Request, res: Response): void => {
   try {
     const rows: any[] = db.prepare(`
       SELECT e.*, p.name as patient_name, p.age, p.gender, p.language, p.prakriti, p.abha_id,
-             s.triage_priority, s.id as session_token
+             s.triage_priority, s.token_no, s.department AS dept_code,
+             d.status AS dispense_status, d.pharmacist_name, d.created_at AS dispensed_at, d.note AS dispense_note
       FROM encounters e
       JOIN patients p ON e.patient_id = p.id
       JOIN sessions s ON e.session_id = s.id
-      ORDER BY e.created_at DESC
+      LEFT JOIN dispenses d ON d.encounter_id = e.id
+      WHERE e.created_at > datetime('now', '-3 days')
+      ORDER BY (d.status IS NOT NULL), e.created_at DESC
     `).all();
 
-    const queue = rows.map((r, idx) => {
+    const queue = rows.map(r => {
       const sheet: any = safeJsonParse(r.case_sheet_json, {});
+      const signature: any = safeJsonParse(r.signature_json, null);
+      const stream = r.care_stream || sheet.careStream;
       return {
         id: r.id,
-        prescriptionToken: `KY-${100 + idx + 1}`,
+        prescriptionToken: r.token_no || `RX-${r.id.slice(0, 6).toUpperCase()}`,
         patientName: r.patient_name,
         age: r.age,
         gender: r.gender,
+        language: r.language,
         doctorName: r.doctor_name,
-        doctorRegistration: 'DMC-AIIA-2024',
-        roomNumber: r.department,
-        prescribedAt: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        allopathicMeds: sheet.allopathicPrescription || [],
-        ayushFormulations: sheet.ayushPrescription || [],
+        doctorRegistration: sheet.doctorRegistration || '',
+        roomNumber: r.dept_code && DEPARTMENT_ROOMS[r.dept_code as DepartmentCode] ? DEPARTMENT_ROOMS[r.dept_code as DepartmentCode].room : r.department,
+        department: r.department,
+        careStream: stream,
+        prescribedAt: r.created_at,
+        // Only what this doctor prescribed is dispensed; the other list holds the patient's own ongoing medicines.
+        allopathicMeds: stream === 'AYURVEDA' ? [] : (sheet.allopathicPrescription || []),
+        ayushFormulations: stream === 'ALLOPATHY' ? [] : (sheet.ayushPrescription || []),
+        ongoingMedicines: sheet.ongoingMedicines || [],
+        advice: sheet.advice || '',
+        followUpDays: sheet.followUpDays || null,
         lasaAlerts: (sheet.conflictAlerts || []).filter((a: any) =>
           a.severity === 'CRITICAL_LASA' || a.severity === 'CRITICAL_CONTRAINDICATION'
         ),
+        conflictAlerts: sheet.conflictAlerts || [],
         scheduleE1PoisonVerification: {
           containsScheduleE1: (sheet.ayushPrescription || []).some((m: any) =>
             /rasa|bhasma|sindura|vatsanabha|kupilu|gunja|bhanga/i.test(m.classicalName || '')
           ),
-          doctorSigned: true,
-          digitalSignatureDigest: `SHA256:${r.id.substring(0, 16)} (TPM 2.0 Hardware Anchored)`,
-          statutoryRule: 'Drugs & Cosmetics Act 1940 Rule 161 Verified'
+          doctorSigned: !!signature,
+          digitalSignatureDigest: signature ? `Ed25519 · key ${signature.keyId} · record ${String(signature.recordSha256).slice(0, 16)}…` : 'Not signed',
+          statutoryRule: 'Drugs & Cosmetics Rules 1945 — Schedule E(1) items need a registered practitioner\'s prescription'
         },
-        dispenseStatus: 'PENDING_VERIFICATION'
+        signature,
+        dispenseStatus: r.dispense_status || 'PENDING_VERIFICATION',
+        dispensedBy: r.pharmacist_name || null,
+        dispensedAt: r.dispensed_at || null,
+        dispenseNote: r.dispense_note || null
       };
     });
 
@@ -239,134 +384,48 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], (_req: Request, res: Respon
 });
 
 /**
- * GET /api/doctor/telemetry
- * Real hospital NOC telemetry, room binnings, IDSP syndromic clusters, and PvPI surveillance calculated directly from SQLite WAL
+ * POST /api/doctor/encounters/:encounterId/dispense
+ * The pharmacist records that the prescription was dispensed (or could not be).
  */
-doctorRouter.get('/telemetry', (_req: Request, res: Response): void => {
+doctorRouter.post('/encounters/:encounterId/dispense', requireStaff('pharmacist', 'admin'), (req: Request, res: Response): void => {
   try {
-    const stats: any = db.prepare(`
-      SELECT 
-        count(*) as totalSessions,
-        sum(CASE WHEN triage_priority = 'EMERGENCY_RED_FLAG' THEN 1 ELSE 0 END) as emergencyCount,
-        sum(CASE WHEN triage_priority = 'HIGH_PRIORITY' THEN 1 ELSE 0 END) as highPriorityCount,
-        sum(CASE WHEN triage_priority = 'ROUTINE' THEN 1 ELSE 0 END) as routineCount,
-        sum(CASE WHEN status = 'DIVERTED_EMERGENCY' THEN 1 ELSE 0 END) as divertedCount,
-        sum(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completedCount
-      FROM sessions
-    `).get();
-
-    const encounterCount: any = db.prepare(`SELECT count(*) as count FROM encounters`).get();
-
-    // Query active sessions to bin into rooms
-    const activeSessions = db.prepare(`
-      SELECT s.*, p.age, p.gender, p.prakriti, p.is_pregnant 
-      FROM sessions s 
-      JOIN patients p ON s.patient_id = p.id 
-      WHERE s.status != 'COMPLETED'
-    `).all() as any[];
-
-    const roomMap: Record<string, { count: number; emergencies: number; dept: string; doc: string }> = {
-      'Room 14': { count: 0, emergencies: 0, dept: 'General Medicine', doc: 'Dr. Ananya Sharma, MD' },
-      'Room 08': { count: 0, emergencies: 0, dept: 'Kayachikitsa (Internal Ayush)', doc: 'Dr. Rajesh Shastri, MD (Ayu)' },
-      'Room 02': { count: 0, emergencies: 0, dept: 'Pediatric Medicine', doc: 'Dr. K. Rao, MD' },
-      'Room 19': { count: 0, emergencies: 0, dept: 'Orthopedics & Joint Care', doc: 'Dr. S. Verma, MS (Ortho)' },
-    };
-
-    for (const item of activeSessions) {
-      if (item.age <= 12) {
-        roomMap['Room 02'].count++;
-        if (item.triage_priority === 'EMERGENCY_RED_FLAG') roomMap['Room 02'].emergencies++;
-      } else if ((item.prakriti && item.prakriti.includes('Vata')) || /knee|joint|back|sandhi|pain/i.test(item.primary_complaint || '')) {
-        roomMap['Room 19'].count++;
-        if (item.triage_priority === 'EMERGENCY_RED_FLAG') roomMap['Room 19'].emergencies++;
-      } else if ((item.prakriti && item.prakriti.includes('Pitta')) || item.is_pregnant) {
-        roomMap['Room 08'].count++;
-        if (item.triage_priority === 'EMERGENCY_RED_FLAG') roomMap['Room 08'].emergencies++;
-      } else {
-        roomMap['Room 14'].count++;
-        if (item.triage_priority === 'EMERGENCY_RED_FLAG') roomMap['Room 14'].emergencies++;
-      }
+    const status = req.body?.status;
+    if (!['DISPENSED', 'PARTIAL', 'NOT_DISPENSED', 'REFERRED_BACK'].includes(status)) {
+      res.status(400).json({ error: 'status must be DISPENSED, PARTIAL, NOT_DISPENSED or REFERRED_BACK' });
+      return;
     }
-
-    const rooms = Object.entries(roomMap).map(([roomNumber, r]) => ({
-      roomNumber,
-      doctorName: r.doc,
-      department: r.dept,
-      queuedPatientsCount: r.count,
-      averageConsultationSeconds: r.count > 0 ? 105 : 0,
-      pacingStatus: r.count > 4 ? 'BOTTLE_NECK' : 'OPTIMAL',
-      emergencyDivertedCount: r.emergencies
-    }));
-
-    // IDSP Syndromic Outbreak Cluster Analytics (Live from SQLite sessions)
-    const idspClusters = [];
-    const respiratorySessions = db.prepare(`SELECT count(*) as count FROM sessions WHERE primary_complaint LIKE '%cough%' OR primary_complaint LIKE '%shwasa%' OR primary_complaint LIKE '%breath%' OR primary_complaint LIKE '%fever%' OR primary_complaint LIKE '%khansi%'`).get() as any;
-    if (respiratorySessions.count > 0) {
-      idspClusters.push({
-        id: 'idsp-resp',
-        syndromeName: 'Acute Febrile Illness & Severe Bronchial Hyperresponsiveness',
-        suspectedPathogen: 'Respiratory Syncytial Virus (RSV) / Influenza A (H3N2)',
-        pincodeRegion: 'Pin 122107 (Nuh Rural Sub-district)',
-        patientCount: respiratorySessions.count,
-        kulldorffLogLikelihood: 14.8,
-        pValue: 0.002,
-        alertLevel: 'EPIDEMIC_EARLY_WARNING',
-        suggestedIntervention: 'Community fever survey & mobile nebulization van dispatch.'
-      });
+    const enc: any = db.prepare('SELECT id FROM encounters WHERE id = ?').get(String(req.params.encounterId));
+    if (!enc) {
+      res.status(404).json({ error: 'Prescription not found' });
+      return;
     }
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO dispenses (id, encounter_id, status, pharmacist_id, pharmacist_name, items_json, note, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(encounter_id) DO UPDATE SET status = excluded.status, pharmacist_id = excluded.pharmacist_id,
+        pharmacist_name = excluded.pharmacist_name, items_json = excluded.items_json, note = excluded.note, created_at = excluded.created_at
+    `).run(uuidv4(), enc.id, status, req.staff!.id, req.staff!.displayName, JSON.stringify(req.body?.items || null), String(req.body?.note || '').slice(0, 500) || null, now);
+    audit(req, 'pharmacy.dispense', enc.id, { status });
+    res.json({ success: true, status, dispensedAt: now, dispensedBy: req.staff!.displayName });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    const giSessions = db.prepare(`SELECT count(*) as count FROM sessions WHERE primary_complaint LIKE '%diarrhea%' OR primary_complaint LIKE '%vomit%' OR primary_complaint LIKE '%atisara%' OR primary_complaint LIKE '%gas%'`).get() as any;
-    if (giSessions.count > 0) {
-      idspClusters.push({
-        id: 'idsp-gi',
-        syndromeName: 'Acute Gastrointestinal & Watery Diarrhea Cluster',
-        suspectedPathogen: 'Vibrio cholerae / Rotavirus',
-        pincodeRegion: 'Pin 122103 (Ferozepur Namak Basti)',
-        patientCount: giSessions.count,
-        kulldorffLogLikelihood: 9.2,
-        pValue: 0.008,
-        alertLevel: 'CLUSTER_MONITOR',
-        suggestedIntervention: 'Municipal pipe water chlorination audit & ORS depot deployment.'
-      });
-    }
-
-    // PvPI Adverse Reaction Anomalies (Live from SQLite encounters)
-    const pvpiAnomalies = [];
-    const encounters = db.prepare(`SELECT * FROM encounters`).all() as any[];
-    for (const enc of encounters) {
-      try {
-        const sheet: any = safeJsonParse(enc.clinical_sheet_json || enc.case_sheet_json, {});
-        const conflictAlerts = sheet.conflictAlerts || [];
-        for (const alert of conflictAlerts) {
-          if (alert.severity === 'CRITICAL_LETHAL' || alert.severity === 'CRITICAL_CONTRAINDICATION') {
-            pvpiAnomalies.push({
-              id: `pvpi-${enc.id}`,
-              suspectedCommercialBatch: `Batch #${enc.id.substring(0, 8).toUpperCase()}`,
-              formulationName: `${alert.ayushHerb || alert.itemB || 'Commercial Ayurvedic Compound'} + ${alert.allopathicDrug || alert.itemA || 'Allopathic Agent'}`,
-              manufacturer: 'National Ayush Pharmacovigilance Network Surveillance',
-              clinicalAdverseReaction: alert.mechanism || alert.clinicalConsequence || 'Herb-Drug Metabolic Interaction Flagged',
-              reportedCases: 1,
-              bayesFactorBF10: alert.bayesianConfidence ? parseFloat((alert.bayesianConfidence * 100).toFixed(1)) : 88.4,
-              regulatoryActionRequired: true,
-              statutoryNotice: 'Statutory warning logged under Drugs & Cosmetics Act Rule 161 & AYUSH NPvCC Protocol.'
-            });
-          }
-        }
-      } catch {}
-    }
-
+/**
+ * GET /api/doctor/telemetry
+ * Live operations view for the command centre. Every number is computed from hospital records.
+ */
+doctorRouter.get('/telemetry', requireStaff('admin', ...CLINICIAN_ROLES), (_req: Request, res: Response): void => {
+  try {
+    const snapshot = getOperationalSnapshot();
     res.json({
       success: true,
       data: {
-        totalQueued: (stats.totalSessions || 0) - (stats.completedCount || 0),
-        emergencyCount: stats.emergencyCount || 0,
-        highPriorityCount: stats.highPriorityCount || 0,
-        routineCount: stats.routineCount || 0,
-        divertedCount: stats.divertedCount || 0,
-        completedEncounters: encounterCount.count || 0,
-        rooms,
-        idspClusters,
-        pvpiAnomalies
+        ...snapshot,
+        syndromicSignals: getSyndromicSignals(),
+        prescribingSafety: getPrescribingSafety(30)
       }
     });
   } catch (err: any) {
@@ -376,9 +435,9 @@ doctorRouter.get('/telemetry', (_req: Request, res: Response): void => {
 
 /**
  * POST /api/doctor/ambient-stream
- * Real-time consultation room audio transcript parser for live ambient scribing
+ * Parse a chunk of the consultation transcript into structured findings.
  */
-doctorRouter.post('/ambient-stream', (req: Request, res: Response): void => {
+doctorRouter.post('/ambient-stream', requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
   try {
     const { transcriptChunk, patientId } = req.body;
     if (!transcriptChunk) {
@@ -387,36 +446,32 @@ doctorRouter.post('/ambient-stream', (req: Request, res: Response): void => {
     }
 
     const parsed = ClinicalParserService.parse(transcriptChunk, patientId);
-
-    // Also resolve any candidate diagnoses to official NAMASTE A-Codes
     const namasteDiagnoses = parsed.provisionalDiagnoses
       .map(d => AyushEngineService.resolveDiagnosis(d))
       .filter(Boolean);
 
-    res.json({
-      success: true,
-      data: {
-        ...parsed,
-        namasteDiagnoses
-      }
-    });
+    res.json({ success: true, data: { ...parsed, namasteDiagnoses } });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
+const asArray = (v: unknown): any[] => (Array.isArray(v) ? v : []);
+const cleanText = (v: unknown, max = 2000) => (typeof v === 'string' ? v.slice(0, max) : '');
+
 /**
  * POST /api/doctor/prescribe
- * Finalize clinical encounter, evaluate herb-drug contraindications, seal with zk-SNARK, and generate ABDM FHIR bundle
+ * Finalize the consultation: interaction check, FHIR bundle, digital signature, and close the visit.
+ *
+ * The prescriber is always the signed-in doctor/vaidya; names in the request body are ignored.
+ * A vaidya prescribes Ayurvedic medicines and a doctor prescribes modern medicines; the other list
+ * is recorded as the patient's ongoing medicines (checked for interactions, not prescribed).
  */
-doctorRouter.post('/prescribe', async (req: Request, res: Response): Promise<void> => {
+doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Request, res: Response): Promise<void> => {
   try {
+    const staff = req.staff!;
     const {
       sessionId,
-      patientId,
-      doctorId,
-      doctorName,
-      department,
       symptoms,
       pariksha,
       vitals,
@@ -424,20 +479,48 @@ doctorRouter.post('/prescribe', async (req: Request, res: Response): Promise<voi
       allopathicPrescription,
       ayushPrescription,
       investigationsOrdered,
-      doctorNotes
-    } = req.body;
+      doctorNotes,
+      pathya,
+      apathya,
+      advice,
+      followUpDays,
+      adviceLocal,
+      adviceLanguage,
+      amend
+    } = req.body || {};
+
+    const session: any = sessionId ? db.prepare('SELECT id, patient_id, status, department FROM sessions WHERE id = ?').get(sessionId) : null;
+    if (!session) {
+      res.status(404).json({ error: 'This visit was not found. Refresh the queue and try again.' });
+      return;
+    }
+    const existing: any = db.prepare('SELECT id FROM encounters WHERE session_id = ? ORDER BY created_at DESC LIMIT 1').get(sessionId);
+    if (existing && !amend) {
+      res.status(409).json({ error: 'A prescription was already finalized for this visit.', code: 'ALREADY_FINALIZED', encounterId: existing.id });
+      return;
+    }
+
+    const careStream = staff.role === 'vaidya' ? 'AYURVEDA' : 'ALLOPATHY';
+    const allo = asArray(allopathicPrescription);
+    const ayush = asArray(ayushPrescription);
+    const prescribed = careStream === 'AYURVEDA' ? ayush : allo;
+    const ongoing = careStream === 'AYURVEDA' ? allo : ayush;
+    if (prescribed.length === 0 && !cleanText(advice).trim()) {
+      res.status(400).json({ error: 'Add at least one medicine or written advice before finalizing.' });
+      return;
+    }
+    const followUp = Number(followUpDays);
+    if (followUpDays !== undefined && followUpDays !== null && followUpDays !== '' && (!Number.isInteger(followUp) || followUp < 0 || followUp > 365)) {
+      res.status(400).json({ error: 'Follow-up must be between 0 and 365 days.' });
+      return;
+    }
 
     const encounterId = uuidv4();
     const now = new Date().toISOString();
 
-    // 1. Evaluate Truth Engine contraindications
-    const conflictAlerts = TruthEngineService.evaluatePrescriptions(
-      allopathicPrescription || [],
-      ayushPrescription || []
-    );
-
-    // 2. Viruddha Ahara Check
-    const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayushPrescription || []);
+    // 1. Interaction check over everything the patient will be taking (prescribed + ongoing).
+    const conflictAlerts = TruthEngineService.evaluatePrescriptions(allo, ayush);
+    const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayush);
     for (const w of viruddhaWarnings) {
       conflictAlerts.push({
         alertId: `viruddha-${uuidv4().substring(0, 6)}`,
@@ -450,66 +533,78 @@ doctorRouter.post('/prescribe', async (req: Request, res: Response): Promise<voi
       });
     }
 
-    // 3. Construct master ConsultationRecord
+    const deptCode = session.department as DepartmentCode | undefined;
+    const department = staff.department && DEPARTMENT_ROOMS[staff.department as DepartmentCode]
+      ? DEPARTMENT_ROOMS[staff.department as DepartmentCode].name
+      : deptCode && DEPARTMENT_ROOMS[deptCode] ? DEPARTMENT_ROOMS[deptCode].name : (staff.department || 'OPD');
+
+    // 2. The consultation record.
     const consultationRecord: ConsultationRecord = {
       encounterId,
-      sessionId: sessionId || uuidv4(),
-      patientId: patientId || 'pat-default',
-      doctorId: doctorId || 'doc-001',
-      doctorName: doctorName || 'Dr. Vaidya Consulting Officer',
-      department: department || 'Kaya Chikitsa (Ayurvedic Internal Medicine)',
-      symptoms: symptoms || [],
-      pariksha: pariksha || {},
+      sessionId,
+      patientId: session.patient_id,
+      doctorId: staff.id,
+      doctorName: staff.displayName,
+      department,
+      symptoms: asArray(symptoms),
+      pariksha: careStream === 'AYURVEDA' ? (pariksha || {}) : {} as any,
       vitals: vitals || {},
-      diagnoses: diagnoses || [],
-      allopathicPrescription: allopathicPrescription || [],
-      ayushPrescription: ayushPrescription || [],
-      investigationsOrdered: investigationsOrdered || [],
+      diagnoses: asArray(diagnoses),
+      allopathicPrescription: careStream === 'ALLOPATHY' ? allo : [],
+      ayushPrescription: careStream === 'AYURVEDA' ? ayush : [],
+      investigationsOrdered: asArray(investigationsOrdered).map(String),
       conflictAlerts,
-      doctorNotes: doctorNotes || '',
+      doctorNotes: cleanText(doctorNotes),
       createdAt: now
     };
+    Object.assign(consultationRecord as any, {
+      careStream,
+      doctorQualification: staff.qualification || '',
+      doctorRegistration: staff.registrationNo || '',
+      ongoingMedicines: ongoing,
+      pathya: careStream === 'AYURVEDA' ? asArray(pathya).map(String) : [],
+      apathya: careStream === 'AYURVEDA' ? asArray(apathya).map(String) : [],
+      advice: cleanText(advice),
+      adviceLocal: cleanText(adviceLocal) || undefined,
+      adviceLanguage: typeof adviceLanguage === 'string' ? adviceLanguage.slice(0, 5) : undefined,
+      followUpDays: Number.isFinite(followUp) && followUp > 0 ? followUp : undefined,
+      amendsEncounterId: existing ? existing.id : undefined
+    });
 
-    // 4. Generate ABDM FHIR R4 Bundle
+    // 3. ABDM FHIR R4 bundle.
     const fhirBundle = FhirGeneratorService.buildBundle(consultationRecord);
     consultationRecord.fhirBundleId = fhirBundle.id;
 
-    // 5. Generate Groth16 zk-SNARK proof badge
-    const zkpBadge = await ZkProofService.generateProofBadge(consultationRecord);
-    consultationRecord.zkpProofBadge = zkpBadge;
+    // 4. Digital signature (Ed25519 over the canonical record) + hash-chained provenance node.
+    const signature = signRecord(consultationRecord, staff.id);
+    ZkProofService.recordEncounterMerkleNode(encounterId, session.patient_id, consultationRecord);
 
-    // 6. Persist in database
-    const insertEncounter = db.prepare(`
-      INSERT INTO encounters (id, session_id, patient_id, doctor_id, doctor_name, department, case_sheet_json, fhir_bundle_json, zkp_proof_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO encounters (id, session_id, patient_id, doctor_id, doctor_name, department, case_sheet_json, fhir_bundle_json, zkp_proof_json, created_at, signature_json, care_stream)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
+      `).run(encounterId, sessionId, session.patient_id, staff.id, staff.displayName, department,
+        JSON.stringify(consultationRecord), JSON.stringify(fhirBundle), now, JSON.stringify(signature), careStream);
+      db.prepare(`UPDATE sessions SET status = 'COMPLETED', completed_at = ?, consult_started_at = COALESCE(consult_started_at, ?) WHERE id = ?`).run(now, now, sessionId);
+    })();
 
-    insertEncounter.run(
-      encounterId,
-      sessionId || '',
-      patientId || 'pat-default',
-      consultationRecord.doctorId,
-      consultationRecord.doctorName,
-      consultationRecord.department,
-      JSON.stringify(consultationRecord),
-      JSON.stringify(fhirBundle),
-      JSON.stringify(zkpBadge),
-      now
-    );
+    audit(req, existing ? 'prescription.amended' : 'prescription.finalized', encounterId, {
+      sessionId, patientId: session.patient_id, items: prescribed.length, warnings: conflictAlerts.length
+    });
+    publish({ type: 'queue.changed', reason: 'completed', sessionId });
 
-    // Update session status to COMPLETED
-    if (sessionId) {
-      db.prepare(`UPDATE sessions SET status = 'COMPLETED' WHERE id = ?`).run(sessionId);
-    }
+    // 5. Optional SMS to the patient (only with their consent and a configured gateway).
+    const sms = await SmsService.notifyPrescriptionReady(session.patient_id, sessionId).catch(() => ({ sent: false, reason: 'error' }));
 
     res.json({
       success: true,
       encounterId,
       consultationRecord,
       fhirBundle,
-      zkpBadge,
+      signature,
+      sms,
       hasCriticalContraindications: conflictAlerts.some(a => a.severity === 'CRITICAL_CONTRAINDICATION'),
-      message: 'Consultation record finalized, tri-coded, and cryptographically sealed under DPDP Act 2023.'
+      message: 'Prescription finalized and digitally signed.'
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

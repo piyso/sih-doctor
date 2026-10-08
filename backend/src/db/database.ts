@@ -166,6 +166,11 @@ try { db.exec('ALTER TABLE patients ADD COLUMN is_pregnant INTEGER DEFAULT 0;');
 try { db.exec('ALTER TABLE patients ADD COLUMN gestational_weeks INTEGER;'); } catch {}
 try { db.exec('ALTER TABLE patients ADD COLUMN is_lactating INTEGER DEFAULT 0;'); } catch {}
 try { db.exec('ALTER TABLE patients ADD COLUMN weight_kg REAL;'); } catch {}
+// Which kind of doctor the patient chose at the kiosk (AYURVEDA / ALLOPATHY / UNDECIDED) and their
+// self-reported history (chronic conditions, allergies, current medicines).
+try { db.exec("ALTER TABLE sessions ADD COLUMN care_stream TEXT DEFAULT 'UNDECIDED';"); } catch {}
+try { db.exec('ALTER TABLE sessions ADD COLUMN history_json TEXT;'); } catch {}
+try { db.exec('ALTER TABLE sessions ADD COLUMN language TEXT;'); } catch {}
 
 
 // Create Virtual Table for FTS5 Trigram Pharmacopoeia Search

@@ -1,0 +1,11 @@
+# HTTPS reverse proxy for the hospital LAN.
+# `tls internal` issues a certificate from Caddy's own CA; trust that CA on each device once.
+# With a public domain, replace `tls internal` by nothing and Caddy obtains a Let's Encrypt cert.
+{$HOSPITAL_HOSTNAME} {
+	tls internal
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy frontend:80 {
+		flush_interval -1
+	}
+}

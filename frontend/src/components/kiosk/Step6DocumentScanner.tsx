@@ -32,7 +32,9 @@ import {
   ShieldAlert,
   Zap
 } from 'lucide-react';
-import Tesseract from 'tesseract.js';
+import { recognizeOnDevice, warmUpOcr, OcrTimeoutError } from '../../utils/ocrEngine';
+import { BCP47, kioskText, normalizeLang } from '../../utils/kioskLocalization';
+import { RegisterNav, useStepNav } from './kioskNav';
 import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
 import { ConflictAlert } from '../../types/api';
@@ -47,8 +49,7 @@ interface Step6DocumentScannerProps {
   vitals?: any;
   pariksha?: any;
   selectedBodyRegion?: string;
-  onNext: () => void;
-  onBack: () => void;
+  registerNav?: RegisterNav;
 }
 
 // -------------------------------------------------------------
@@ -142,9 +143,15 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
   vitals,
   pariksha,
   selectedBodyRegion,
-  onNext,
-  onBack
+  registerNav
 }) => {
+  const lang = normalizeLang(language);
+  const tx = kioskText(lang);
+  const [showDetails, setShowDetails] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const ocrAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => { warmUpOcr(); }, []);
   // Navigation & Multi-Doc Selection State
   const [activeDocIndex, setActiveDocIndex] = useState<number>(0);
 
@@ -209,56 +216,34 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
 
   // Active Document
   const currentDoc = scannedDocs[activeDocIndex] || scannedDocs[0];
-  const langCode = (language || 'hi').toLowerCase().substring(0, 2);
-  const backLabel =
-    langCode === 'en' ? 'Back' :
-    langCode === 'mr' ? 'मागे (Back)' :
-    langCode === 'bn' ? 'পূর্ববর্তী (Back)' :
-    langCode === 'ta' ? 'பின்செல் (Back)' :
-    langCode === 'te' ? 'వెనుకకు (Back)' :
-    'पिछला (Back)';
-
-  const skipContinueLabel =
-    langCode === 'en' ? 'Continue without documents (Skip)' :
-    langCode === 'mr' ? 'दस्ताऐवज नाहीत / पुढे जा (Skip & Continue)' :
-    langCode === 'bn' ? 'নথি ছাড়াই এগিয়ে যান (Skip & Continue)' :
-    langCode === 'ta' ? 'ஆவணங்கள் இன்றி தொடர்க (Skip & Continue)' :
-    langCode === 'te' ? 'పత్రాలు లేకుండా కొనసాగండి (Skip & Continue)' :
-    'आगे बढ़ें (दस्तावेज़ नहीं हैं / Skip & Continue)';
-
-  const confirmProceedLabel =
-    langCode === 'en' ? 'Confirm & Get Token (Proceed)' :
-    langCode === 'mr' ? 'पुष्टी करा व टोकन मिळवा (Confirm & Proceed)' :
-    langCode === 'bn' ? 'নিশ্চিত করুন ও টোকেন নিন (Confirm & Proceed)' :
-    langCode === 'ta' ? 'உறுதிசெய்து டோக்கன் பெறுக (Confirm & Proceed)' :
-    langCode === 'te' ? 'నిర్ధారించి టోకెన్ పొందండి (Confirm & Proceed)' :
-    'पुष्टि करें एवं टोकन प्राप्त करें (Confirm & Proceed)';
-
   // -----------------------------------------------------------
   // Camera Lifecycle & Controls
   // -----------------------------------------------------------
   const startCamera = async (deviceId?: string) => {
+    setCameraError(null);
+    // getUserMedia only exists on https:// or localhost.
+    if (typeof window !== 'undefined' && (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)) {
+      setCameraError(tx('s6CameraInsecure'));
+      return;
+    }
+    setCameraStarting(true);
     try {
-      setCameraError(null);
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(t => t.stop());
       }
-
       const constraints: MediaStreamConstraints = {
-        video: deviceId 
+        video: deviceId
           ? { deviceId: { exact: deviceId } }
-          : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false
       };
-
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (constraintErr) {
-        console.warn('[Camera] Exact constraints failed, falling back to basic video stream:', constraintErr);
+      } catch (constraintErr: any) {
+        if (constraintErr?.name === 'NotAllowedError') throw constraintErr;
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
-
       mediaStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -266,18 +251,22 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
       }
       setIsCameraOpen(true);
       sovereignSound.playMechanicalSnap();
-
-      // Enumerate available cameras
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevs = devices.filter(d => d.kind === 'videoinput');
       setCameraDevices(videoDevs);
-      if (videoDevs.length > 0 && !selectedCameraId) {
-        setSelectedCameraId(videoDevs[0].deviceId);
-      }
+      if (videoDevs.length > 0 && !selectedCameraId) setSelectedCameraId(videoDevs[0].deviceId);
     } catch (err: any) {
       console.warn('[Camera] Failed to access webcam stream:', err);
-      setCameraError('Camera access unavailable. Please use file upload or demo records.');
+      const name = err?.name || '';
+      setCameraError(
+        name === 'NotAllowedError' || name === 'SecurityError' ? tx('s6CameraDenied')
+          : name === 'NotFoundError' || name === 'OverconstrainedError' ? tx('s6CameraMissing')
+          : name === 'NotReadableError' || name === 'AbortError' ? tx('s6CameraBusy')
+          : tx('s6CameraDenied')
+      );
       setIsCameraOpen(false);
+    } finally {
+      setCameraStarting(false);
     }
   };
 
@@ -740,149 +729,146 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
   // Camera Snapshot Capture
   // -----------------------------------------------------------
   const handleCaptureSnapshot = async () => {
-    if (!videoRef.current) return;
-    sovereignSound.playMechanicalSnap();
-    setIsScanning(true);
-    setOcrProgress(15);
-    setOcrStatusText('Capturing high-resolution camera frame...');
-
     const video = videoRef.current;
+    if (!video || !video.videoWidth || video.readyState < 2) {
+      setCameraError(tx('s6CameraStarting'));
+      return;
+    }
+    sovereignSound.playMechanicalSnap();
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const rawDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-
-    // Generate binarized image preview
-    const binarizedDataUrl = await preprocessImageCanvas(canvas, canvas.width, canvas.height);
-
-    // Stop camera after capture
     stopCamera();
-
-    await processImageBlob(rawDataUrl, `Camera_Capture_${Date.now()}.jpg`, binarizedDataUrl);
+    setIsScanning(true);
+    setOcrProgress(5);
+    try {
+      const binarizedDataUrl = await preprocessImageCanvas(canvas, canvas.width, canvas.height);
+      await processImageBlob(rawDataUrl, `Camera_${new Date().toLocaleTimeString()}.jpg`, binarizedDataUrl);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   // -----------------------------------------------------------
   // Image Processing & OCR Pipeline (Edge Native + Cold Start Guard)
   // -----------------------------------------------------------
+  const addManualReviewDoc = (fileName: string, dataUrl: string | null, binarizedUrl?: string) => {
+    const fallbackDoc = {
+      documentId: 'doc-' + Date.now(),
+      fileName,
+      docType: 'MANUAL_REVIEW_REQUIRED',
+      extractedMeds: [],
+      extractedLabs: [],
+      extractedDiagnoses: [],
+      rawText: '',
+      confidenceScore: 0,
+      previewUrl: dataUrl,
+      binarizedPreviewUrl: binarizedUrl || null,
+      piiRedacted: true,
+      humanReviewRequired: true,
+      reviewReason: 'Could not be read automatically. Please review the original paper.',
+      engineUsed: 'MANUAL_HUMAN_GATE',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setScannedDocs(prev => {
+      const updated = [...prev, fallbackDoc];
+      setActiveDocIndex(updated.length - 1);
+      return updated;
+    });
+  };
+
+  /**
+   * 1. Hospital server OCR (native Tesseract) — 15 s limit.
+   * 2. Otherwise read on this kiosk with self-hosted Tesseract.js — explicit start-up / reading stages.
+   * 3. Parse the text into medicines / lab values (server, or the on-device parser if offline).
+   * Every stage has a time limit, so the progress bar can never get stuck.
+   */
   const processImageBlob = async (dataUrl: string, fileName: string, binarizedUrl?: string) => {
+    const controller = new AbortController();
+    ocrAbortRef.current = controller;
     setIsScanning(true);
-    setOcrProgress(30);
-    setOcrStatusText('Routing to Native Edge Hardware OCR Engine...');
+    setOcrProgress(10);
+    setOcrStatusText(tx('ocrStageUpload'));
 
     try {
-      // Try Native Server-Side Tesseract Endpoint with 12-second timeout guard
       try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SERVER_TIMEOUT_COLD_START')), 12000)
-        );
         const parsedData: any = await Promise.race([
-          api.processDocumentImage(
-            dataUrl,
-            fileName,
-            'pat-kiosk-session',
-            'OLD_PRESCRIPTION'
-          ),
-          timeoutPromise
+          api.processDocumentImage(dataUrl, fileName, 'pat-kiosk-session', 'OLD_PRESCRIPTION'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SERVER_OCR_TIMEOUT')), 15000))
         ]);
+        if (controller.signal.aborted) return;
         setOcrProgress(100);
-        setOcrStatusText('Biochemical Unit Normalization & Stoichiometric Audit...');
+        setOcrStatusText(tx('ocrDone'));
         processExtractedPayload(parsedData, fileName, dataUrl, binarizedUrl);
         return;
       } catch (serverErr) {
-        console.warn('[OCR] Edge server native OCR timeout/fallback to client-side WASM:', serverErr);
-        api.checkHealth().catch(() => {});
+        if (controller.signal.aborted) return;
+        console.warn('[OCR] Server OCR unavailable, reading on this kiosk:', serverErr);
       }
 
-      // Client-Side WASM Fallback (Zero Mock Data)
-      setOcrProgress(52);
-      setOcrStatusText('Executing client-side WASM OCR engine...');
-
-      const progressInterval = setInterval(() => {
-        setOcrProgress(p => (p < 88 ? p + 4 : p));
-      }, 400);
-
-      const res = await fetch(binarizedUrl || dataUrl);
-      const blob = await res.blob();
-
+      setOcrProgress(20);
+      setOcrStatusText(tx('ocrStageEngine'));
+      const blob = await (await fetch(binarizedUrl || dataUrl)).blob();
       let extractedText = '';
-      const localLangPath = typeof window !== 'undefined' ? `${window.location.origin}/tessdata` : undefined;
-      const ocrTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('TESSERACT_TIMEOUT')), 6000)
-      );
-
       try {
-        const tessPromise = Tesseract.recognize(blob, 'eng', {
-          langPath: localLangPath,
-          gzip: false,
-          logger: (m) => {
-            if (m.status === 'recognizing text') {
-              const pct = Math.min(95, Math.round(m.progress * 40) + 50);
-              setOcrProgress(pct);
-              setOcrStatusText(`Neural character recognition: ${pct}%`);
+        extractedText = await recognizeOnDevice(
+          blob,
+          (stage, progress) => {
+            if (stage === 'engine') {
+              setOcrProgress(20 + Math.round(progress * 20));
+              setOcrStatusText(tx('ocrStageEngine'));
+            } else {
+              const pct = Math.round(progress * 100);
+              setOcrProgress(40 + Math.round(progress * 45));
+              setOcrStatusText(tx('ocrStageReading', { pct }));
             }
-          }
-        });
-        const result = await Promise.race([tessPromise, ocrTimeout]);
-        extractedText = result.data?.text || '';
-      } catch (tessErr) {
-        console.warn('[OCR] Client Tesseract worker notice:', tessErr);
-        extractedText = '';
-      } finally {
-        clearInterval(progressInterval);
+          },
+          controller.signal
+        );
+      } catch (tessErr: any) {
+        if (controller.signal.aborted || tessErr?.name === 'AbortError') return;
+        console.warn('[OCR] On-device OCR failed:', tessErr instanceof OcrTimeoutError ? 'timeout' : tessErr);
       }
 
       if (!extractedText.trim()) {
-        extractedText = `[Optical Scan: ${fileName}]\n(Low optical contrast or handwritten cursive. Transmitted for visual physician examination in Doctor Cockpit.)`;
+        setOcrStatusText(tx('ocrUnreadable'));
+        addManualReviewDoc(fileName, dataUrl, binarizedUrl);
+        return;
       }
 
-      // Try server-side OCR normalization with timeout
+      setOcrProgress(90);
+      setOcrStatusText(tx('ocrStageAnalysing'));
       try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('OCR_PARSE_TIMEOUT')), 4500)
-        );
         const parsedData: any = await Promise.race([
           api.processDocumentOcr(extractedText, 'pat-kiosk-session', 'OLD_PRESCRIPTION', clinicalPrior),
-          timeoutPromise
+          new Promise((_, reject) => setTimeout(() => reject(new Error('OCR_PARSE_TIMEOUT')), 6000))
         ]);
-        setOcrProgress(100);
         processExtractedPayload(parsedData, fileName, dataUrl, binarizedUrl);
       } catch (backendParseErr) {
-        console.warn('[OCR] Server-side parsing notice, using client-side engine:', backendParseErr);
-        const clientParsed = parseClientSideDocument(extractedText, clinicalPrior);
-        setOcrProgress(100);
-        processExtractedPayload(clientParsed, fileName, dataUrl, binarizedUrl);
+        console.warn('[OCR] Server parsing unavailable, using on-device parser:', backendParseErr);
+        processExtractedPayload(parseClientSideDocument(extractedText, clinicalPrior), fileName, dataUrl, binarizedUrl);
       }
-
-    } catch (err: any) {
-      console.warn('OCR processing failure:', err);
-      setOcrStatusText('Manual Clinical Review Flagged');
-      const fallbackDoc = {
-        documentId: 'doc-' + Date.now(),
-        fileName,
-        docType: 'MANUAL_REVIEW_REQUIRED',
-        extractedMeds: [],
-        extractedLabs: [],
-        extractedDiagnoses: [],
-        rawText: `[Optical Document: ${fileName}]\nOptical clarity or cursive handwriting requires direct physician confirmation.`,
-        confidenceScore: 0.50,
-        previewUrl: dataUrl,
-        binarizedPreviewUrl: binarizedUrl || null,
-        piiRedacted: true,
-        humanReviewRequired: true,
-        reviewReason: 'Optical scan illegible or cursive handwriting unverified. Hand original paper to doctor.',
-        engineUsed: 'MANUAL_HUMAN_GATE',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setScannedDocs(prev => [...prev, fallbackDoc]);
-      setActiveDocIndex(scannedDocs.length);
-    } finally {
-      setIsScanning(false);
       setOcrProgress(100);
+      setOcrStatusText(tx('ocrDone'));
+    } catch (err) {
+      console.warn('[OCR] Processing failure:', err);
+      setOcrStatusText(tx('ocrUnreadable'));
+      addManualReviewDoc(fileName, dataUrl, binarizedUrl);
+    } finally {
+      if (ocrAbortRef.current === controller) ocrAbortRef.current = null;
+      setIsScanning(false);
     }
+  };
+
+  const cancelOcr = () => {
+    ocrAbortRef.current?.abort();
+    ocrAbortRef.current = null;
+    setIsScanning(false);
+    setOcrProgress(0);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -898,6 +884,10 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
       setOcrProgress(Math.round((i / fileList.length) * 80) + 10);
 
       try {
+        if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+          addManualReviewDoc(file.name, null);
+          continue;
+        }
         const rawUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
@@ -944,7 +934,8 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
       const parsed = await api.processDocumentOcr(text, 'pat-kiosk-session', docType as any, clinicalPrior);
       processExtractedPayload(parsed, fileName);
     } catch (e) {
-      console.error(e);
+      console.warn('[OCR] Demo document parsed on device (server unavailable):', e);
+      processExtractedPayload(parseClientSideDocument(text, clinicalPrior), fileName);
     } finally {
       setIsScanning(false);
       setOcrProgress(100);
@@ -1071,22 +1062,20 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
   // -----------------------------------------------------------
   const playAudioGuidance = () => {
     sovereignSound.playMechanicalSnap();
-    const prompts: Record<string, string> = {
-      hi: 'कृपया अपना पुराना पर्चा या लैब रिपोर्ट कैमरा के सामने रखें या फ़ाइल चुनें। दवाइयाँ एवं रक्त जाँच स्वतः डिजिटल हो जाएँगी।',
-      en: 'Please align your previous prescription or laboratory slip within the camera frame or upload a file. Medications and test results will be extracted automatically.',
-      bn: 'দয়া করে আপনার পুরানো প্রেসক্রিপশন বা ল্যাব রিপোর্ট ক্যামেরার সামনে রাখুন। ওষুধ এবং রক্ত পরীক্ষা স্বয়ংক্রিয়ভাবে স্ক্যান হবে।',
-      ta: 'தயவுசெய்து உங்கள் பழைய மருந்து சீட்டு அல்லது ஆய்வக அறிக்கையை கேமராவின் முன் வைக்கவும். மருந்துகள் தானாகவே பிரித்தெடுக்கப்படும்.',
-      te: 'దయచేసి మీ పాత ప్రిస్క్రిప్షన్ లేదా ల్యాబ్ నివేదికను కెమెరా ఫ్రేమ్‌లో ఉంచండి. మందుల వివరాలు ఆటోమేటిక్‌గా స్కాన్ చేయబడతాయి.',
-      mr: 'कृपया आपला जुना प्रिस्क्रिप्शन किंवा लॅब रिपोर्ट कॅमेऱ्यासमोर ठेवा. औषधे आणि तपासण्या आपोआप डिजिटल केल्या जातील.',
-      gu: 'કૃપા કરીને તમારો જૂનો પ્રિસ્ક્રિપ્શન અથવા લેબ રિપોર્ટ કેમેરા સામે રાખો. દવાઓ અને ટેસ્ટ આપમેળે ડિજિટલ થઈ જશે.'
-    };
-    const message = prompts[language] || prompts['hi'];
-    sovereignSound.speakGuidance(message);
+    sovereignSound.speakGuidance(tx('s6Audio'), BCP47[lang]);
   };
 
   // Calculate Aggregated Metrics Across All Documents
   const totalMedsCount = scannedDocs.reduce((acc, d) => acc + (d.extractedMeds?.length || 0), 0);
   const totalLabsCount = scannedDocs.reduce((acc, d) => acc + (d.extractedLabs?.length || 0), 0);
+
+  useEffect(() => () => { ocrAbortRef.current?.abort(); }, []);
+
+  useStepNav(registerNav, {
+    canNext: !isScanning,
+    busy: isScanning,
+    nextLabel: scannedDocs.length > 0 ? tx('finishBtn') : tx('s6Skip')
+  });
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '4px 0 24px 0' }}>
@@ -1113,11 +1102,11 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
             fontFamily: 'var(--font-sans)'
           }}
         >
-          पुराने पर्चे एवं जाँच रिपोर्ट · Prior Rx & Clinical Documents
+          {tx('s6Title')}
         </h2>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <p style={{ fontSize: 13, color: '#64748b', margin: 0, fontFamily: 'var(--font-sans)' }}>
-            Hardware-accelerated edge OCR with Sauvola binarization, SI calibration, & dual-pharmacology collision check
+            {tx('s6Sub')}
           </p>
           <button
             type="button"
@@ -1137,49 +1126,9 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
             }}
           >
             <Volume2 style={{ width: 13, height: 13 }} />
-            <span>मार्गदर्शन सुनें (Audio Guide)</span>
+            <span>{tx('listenBtn')}</span>
           </button>
         </div>
-      </div>
-
-      {/* Cross-Step Bayesian Clinical Prior Indicator Banner */}
-      <div 
-        style={{ 
-          margin: '0 auto 16px auto',
-          maxWidth: 960,
-          background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
-          border: '1px solid #bfdbfe',
-          borderRadius: 10,
-          padding: '8px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 8,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Zap size={14} color="#1e40af" style={{ flexShrink: 0 }} /> Cross-Step Bayesian Clinical Prior:
-          </span>
-          <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-            Locus: {clinicalPrior.bodyRegion}
-          </span>
-          {vitals?.bp && (
-            <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-              BP: {vitals.bp}
-            </span>
-          )}
-          {patient?.pregnancy && (
-            <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
-              Pregnancy Safety Gate Active (Teratogenic Block Active)
-            </span>
-          )}
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 8px', borderRadius: 4 }}>
-          Candidate Entropy Reduced by 99.4% (Sub-ms Prior Match)
-        </span>
       </div>
 
       {/* Master Aggregate Metrics Strip (If Documents Exist) */}
@@ -1202,7 +1151,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
           {/* Document Tabs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-              Scanned Slips ({scannedDocs.length}):
+              {tx('s6Added')} ({scannedDocs.length}):
             </span>
             {scannedDocs.map((doc, idx) => (
               <div
@@ -1268,39 +1217,20 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
               }}
             >
               <Plus size={13} />
-              <span>+ Scan Another Slip</span>
+              <span>{tx('s6AddAnother')}</span>
             </button>
           </div>
 
-          {/* Aggregate Telemetry Badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>
-            <span style={{ color: '#0f172a' }}>
-              <strong>{totalMedsCount}</strong> Medications
-            </span>
-            <span style={{ color: '#64748b' }}>•</span>
-            <span style={{ color: '#0f172a' }}>
-              <strong>{totalLabsCount}</strong> Lab Markers
-            </span>
-            <span style={{ color: '#64748b' }}>•</span>
-            <span style={{ 
-              color: collisionAlerts.length > 0 ? '#dc2626' : '#16a34a',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4
-            }}>
-              {collisionAlerts.length > 0 ? (
-                <>
-                  <ShieldAlert size={13} color="#dc2626" />
-                  <span>{collisionAlerts.length} Cross-Collisions</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={13} color="#16a34a" />
-                  <span>Zero Collisions</span>
-                </>
-              )}
-            </span>
+          {/* Plain-language summary */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#0f172a', fontWeight: 600 }}>
+            <span>{tx('s6Found', { meds: totalMedsCount, labs: totalLabsCount })}</span>
+            <button
+              type="button"
+              onClick={() => setShowDetails(v => !v)}
+              style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '4px 10px', borderRadius: 8, cursor: 'pointer' }}
+            >
+              {showDetails ? tx('s6HideDetails') : tx('s6Details')}
+            </button>
           </div>
         </div>
       )}
@@ -1323,13 +1253,10 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#991b1b', letterSpacing: '-0.01em' }}>
-                गंभीर हर्ब-ड्रग परस्पर विरोध पाया गया · Critical Dual-Pharmacology Collision Intercepted
-              </div>
-              <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 2 }}>
-                The digitized prior prescription contains concurrent Allopathic and Ayurvedic co-prescriptions with decisive evidence of severe clinical risk:
+                {tx('s6Interaction')}
               </div>
 
-              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8 }}>
+              <div style={{ marginTop: 10, display: showDetails ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8 }}>
                 {collisionAlerts.map((alert, idx) => (
                   <div
                     key={idx}
@@ -1348,7 +1275,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                       <strong>Consequence:</strong> {alert.clinicalConsequence}
                     </div>
                     <div style={{ color: '#475569', marginTop: 3, fontSize: 10.5, fontFamily: 'var(--font-mono)' }}>
-                      Bayes Factor: BF₁₀ &gt; 100 • Action: {alert.recommendedAction}
+                      Action: {alert.recommendedAction}
                     </div>
                   </div>
                 ))}
@@ -1438,7 +1365,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    Hold Document Steady Inside Frame
+                    {tx('s6CameraHint')}
                   </div>
                 </div>
               </div>
@@ -1476,7 +1403,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                   style={{ padding: '10px 24px', fontSize: 13.5 }}
                 >
                   <Scan size={16} />
-                  <span>फोटो खींचे एवं स्कैन करें (Snap & Scan)</span>
+                  <span>{tx('s6Capture')}</span>
                 </button>
 
                 <button
@@ -1486,7 +1413,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                   style={{ padding: '10px 18px', fontSize: 13 }}
                 >
                   <CameraOff size={15} />
-                  <span>Cancel</span>
+                  <span>{tx('s6CloseCamera')}</span>
                 </button>
               </div>
             </div>
@@ -1509,29 +1436,21 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                 <UploadCloud size={26} color="#0284c7" />
               </div>
 
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>
-                पर्चा या लैब रिपोर्ट यहाँ स्कैन अथवा अपलोड करें
-              </h3>
-              <p style={{ fontSize: 13, color: '#64748b', maxWidth: 520, margin: '0 auto 18px auto' }}>
-                Use hardware kiosk camera, upload document image/PDF, or test with statutory clinical datasets
-              </p>
-
-              {cameraError && (
-                <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 14 }}>
-                  {cameraError}
-                </div>
-              )}
+              <div role="alert" style={{ minHeight: 22, color: '#b91c1c', fontSize: 13, fontWeight: 600, maxWidth: 560, margin: '0 auto 12px auto' }}>
+                {cameraError || ''}
+              </div>
 
               {/* Primary Ingestion Buttons */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
                 <button
                   type="button"
                   onClick={() => startCamera(selectedCameraId)}
+                  disabled={cameraStarting || isScanning}
                   className="sovereign-button-primary"
                   style={{ padding: '11px 22px', fontSize: 13.5 }}
                 >
                   <Camera size={16} />
-                  <span>लाइव कैमरा प्रारंभ करें (Live Camera)</span>
+                  <span>{cameraStarting ? tx('s6CameraStarting') : tx('s6Camera')}</span>
                 </button>
 
                 <button
@@ -1544,7 +1463,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                   style={{ padding: '11px 20px', fontSize: 13 }}
                 >
                   <Scan size={15} />
-                  <span>फ़ाइल अपलोड करें (Upload File)</span>
+                  <span>{tx('s6Upload')}</span>
                 </button>
 
                 <button
@@ -1557,15 +1476,15 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                   style={{ padding: '11px 18px', fontSize: 13 }}
                 >
                   <Smartphone size={15} color="#9333ea" />
-                  <span>स्मार्टफोन से स्कैन (BYOD QR)</span>
+                  <span>{tx('s6Phone')}</span>
                 </button>
               </div>
 
               {/* Verified Clinical Benchmarks */}
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
-                  Statutory & Adversarial Verification Batteries
-                </div>
+              <details style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8, cursor: 'pointer' }}>
+                  {tx('s6Demo')}
+                </summary>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     type="button"
@@ -1574,7 +1493,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                     style={{ padding: '7px 14px', fontSize: 12 }}
                   >
                     <Sparkles size={13} color="#d97706" />
-                    <span>AIIMS Clinical Discharge</span>
+                    <span>Discharge summary</span>
                   </button>
 
                   <button
@@ -1584,7 +1503,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                     style={{ padding: '7px 14px', fontSize: 12 }}
                   >
                     <FileText size={13} color="#0284c7" />
-                    <span>CGHS Orphan Page & SI Units</span>
+                    <span>Lab report (SI units)</span>
                   </button>
 
                   <button
@@ -1594,7 +1513,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                     style={{ padding: '7px 14px', fontSize: 12 }}
                   >
                     <Cpu size={13} color="#16a34a" />
-                    <span>Faded Thermal (Decimal Safeguard)</span>
+                    <span>Faded pharmacy slip</span>
                   </button>
 
                   <button
@@ -1604,62 +1523,37 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                     style={{ padding: '7px 14px', fontSize: 12, border: '1px solid #fca5a5', background: '#fff1f2', color: '#be123c' }}
                   >
                     <Flame size={13} color="#e11d48" />
-                    <span>Lethal Collision Battery (Warfarin+Guggulu)</span>
+                    <span>Warfarin + Guggulu interaction</span>
                   </button>
                 </div>
-              </div>
+              </details>
             </>
           )}
 
-          {/* Scanning Progress Bar */}
+          {/* Scanning progress — every stage has a time limit, so it cannot get stuck */}
           {isScanning && (
-            <div style={{ marginTop: 22, maxWidth: 500, margin: '22px auto 0 auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#0284c7', marginBottom: 6, fontFamily: 'var(--font-mono)' }}>
+            <div style={{ maxWidth: 520, margin: '22px auto 0 auto' }} aria-live="polite">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, fontSize: 13, color: '#0369a1', marginBottom: 6, fontWeight: 600 }}>
                 <span>{ocrStatusText}</span>
-                <span>{ocrProgress}%</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>{ocrProgress}%</span>
               </div>
               <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${ocrProgress}%`,
-                    height: '100%',
-                    background: '#0284c7',
-                    transition: 'width 0.2s ease'
-                  }}
-                />
+                <div style={{ width: `${ocrProgress}%`, height: '100%', background: '#0284c7', transition: 'width 0.25s ease' }} />
               </div>
+              <button
+                type="button"
+                onClick={cancelOcr}
+                style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: '#475569', background: '#fff', border: '1px solid #cbd5e1', padding: '5px 12px', borderRadius: 8, cursor: 'pointer' }}
+              >
+                {tx('ocrCancel')}
+              </button>
             </div>
           )}
         </div>
       ) : null}
 
-      {/* Persistent Navigation Bar when no doc scanned yet */}
-      {!currentDoc && !isCameraOpen && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, paddingTop: 18, borderTop: '1px solid #e2e8f0' }}>
-          <button
-            type="button"
-            onClick={onBack}
-            className="sovereign-button-secondary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px' }}
-          >
-            <ArrowLeft size={16} />
-            <span>{backLabel}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onNext}
-            className="sovereign-button-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 28px' }}
-          >
-            <span>{skipContinueLabel}</span>
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      )}
-
       {/* Scanned Document Extraction Preview: Side-by-Side Verification Desk */}
-      {currentDoc && !isCameraOpen && (
+      {currentDoc && !isCameraOpen && showDetails && (
         <div
           style={{
             padding: 22,
@@ -1819,7 +1713,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                   </strong>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
-                  MATHEMATICALLY VERIFIED
+                  AUTOMATIC CHECK — CONFIRM WITH LAB REPORT
                 </span>
               </div>
 
@@ -2426,7 +2320,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                             {lab.plausibilityWarning && (
                               <div style={{ fontSize: 9.5, color: '#d97706', marginTop: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
                                 <AlertTriangle size={10} color="#d97706" />
-                                <span>Decimal Verified</span>
+                                <span>Check the decimal point</span>
                               </div>
                             )}
                           </>
@@ -2451,28 +2345,6 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
             </div>
           </div>
 
-          {/* Navigation Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 22, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
-            <button
-              type="button"
-              onClick={onBack}
-              className="sovereign-button-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px' }}
-            >
-              <ArrowLeft size={16} />
-              <span>{backLabel}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onNext}
-              className="sovereign-button-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 28px' }}
-            >
-              <span>{confirmProceedLabel}</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
         </div>
       )}
 
@@ -2527,11 +2399,8 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                 <QrCode size={24} color="#9333ea" />
               </div>
               <h3 style={{ fontSize: 16.5, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                स्मार्टफोन कैमरा से स्कैन करें (BYOD Mobile Ingest)
+                {tx('s6PhoneTitle')}
               </h3>
-              <p style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
-                Connect to Kiosk Wi-Fi: <strong>AIIA-Sovereign-OPD</strong>
-              </p>
             </div>
 
             {/* Authentic Local Optical QR Code */}
@@ -2556,15 +2425,10 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                 title="Scan to open BYOD Mobile Document Scanner"
               />
 
-              <div style={{ fontSize: 11, color: '#475569', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                GATE NONCE: 0x{Date.now().toString(16).toUpperCase().slice(-8)} (TTL: 60s)
-              </div>
             </div>
 
-            <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.45, marginBottom: 16 }}>
-              1. Open your phone camera while connected to the geofenced OPD Wi-Fi.<br />
-              2. Scan the QR code above to open the mobile intake lens.<br />
-              3. Snap your medical documents; they will sync to this kiosk automatically over local WebSocket.
+            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5, marginBottom: 16 }}>
+              {tx('s6PhoneSteps')}
             </div>
 
             <button
@@ -2576,7 +2440,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
               className="sovereign-button-primary"
               style={{ width: '100%', padding: '10px 0', fontSize: 13 }}
             >
-              <span>Load BYOD Peer Scanned Document</span>
+              <span>{tx('s6PhoneDemo')}</span>
             </button>
           </div>
         </div>

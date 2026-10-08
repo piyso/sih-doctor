@@ -16,7 +16,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 
-export type ActiveViewMode = 'portal' | 'kiosk' | 'doctor' | 'pharmacy' | 'asha' | 'admin' | 'matrix' | 'byod';
+export type ActiveViewMode = 'portal' | 'kiosk' | 'doctor' | 'nurse' | 'pharmacy' | 'display' | 'asha' | 'admin' | 'matrix' | 'byod';
 
 interface HeaderProps {
   activeView: ActiveViewMode;

@@ -25,9 +25,9 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro"', 'system-ui', 'Inter', '"Segoe UI"', 'Roboto', '"Kohinoor Devanagari"', '"Noto Sans Devanagari"', 'sans-serif'],
-        heading: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"SF Pro"', 'system-ui', 'Inter', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        mono: ['"SF Mono"', 'SFMono-Regular', '"JetBrains Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro"', '"Inter Variable"', 'Inter', '"Segoe UI"', 'Roboto', '"Noto Sans Devanagari"', '"Noto Sans Bengali"', '"Noto Sans Tamil"', '"Noto Sans Telugu"', '"Noto Sans Gujarati"', '"Noto Sans Kannada"', '"Noto Sans Malayalam"', '"Noto Sans Gurmukhi"', '"Noto Sans Oriya"', '"Nirmala UI"', 'sans-serif'],
+        heading: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"SF Pro"', '"Inter Variable"', 'Inter', '"Segoe UI"', 'Roboto', '"Noto Sans Devanagari"', '"Noto Sans Bengali"', '"Noto Sans Tamil"', '"Noto Sans Telugu"', '"Noto Sans Gujarati"', '"Noto Sans Kannada"', '"Noto Sans Malayalam"', '"Noto Sans Gurmukhi"', '"Noto Sans Oriya"', '"Nirmala UI"', 'sans-serif'],
+        mono: ['"SF Mono"', 'SFMono-Regular', '"JetBrains Mono Variable"', '"JetBrains Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
         devanagari: ['"Kohinoor Devanagari"', '"Noto Sans Devanagari"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         serif: ['"New York"', 'Charter', '"Cormorant Garamond"', 'Georgia', 'serif'],
       },

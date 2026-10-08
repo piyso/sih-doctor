@@ -1,15 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { ActiveViewMode } from './components/common/Header';
 import { HospitalOsGateway } from './modules/portal/HospitalOsGateway';
 import { LeverModal } from './components/common/LeverModal';
 import { ByodProximityModal } from './components/kiosk/ByodProximityModal';
-import { KioskContainer } from './components/kiosk/KioskContainer';
-import { DoctorDeskContainer } from './components/doctor/DoctorDeskContainer';
-import { ArchitectureDefenseMatrix } from './components/admin/ArchitectureDefenseMatrix';
-import { PharmacyDeskView } from './modules/pharmacy/PharmacyDeskView';
-import { AshaFieldView } from './modules/asha/AshaFieldView';
-import { CommandCenterView } from './modules/admin/CommandCenterView';
+// Each terminal is loaded on demand so a kiosk tablet never downloads the doctor desk, admin
+// dashboards or 3D engine it does not use.
+const KioskContainer = lazy(() => import('./components/kiosk/KioskContainer').then(m => ({ default: m.KioskContainer })));
+const DoctorDeskContainer = lazy(() => import('./components/doctor/DoctorDeskContainer').then(m => ({ default: m.DoctorDeskContainer })));
+const ArchitectureDefenseMatrix = lazy(() => import('./components/admin/ArchitectureDefenseMatrix').then(m => ({ default: m.ArchitectureDefenseMatrix })));
+const PharmacyDeskView = lazy(() => import('./modules/pharmacy/PharmacyDeskView').then(m => ({ default: m.PharmacyDeskView })));
+const AshaFieldView = lazy(() => import('./modules/asha/AshaFieldView').then(m => ({ default: m.AshaFieldView })));
+const AdminConsoleView = lazy(() => import('./modules/admin/AdminConsoleView').then(m => ({ default: m.AdminConsoleView })));
+const NurseStationView = lazy(() => import('./modules/nurse/NurseStationView').then(m => ({ default: m.NurseStationView })));
+const QueueDisplayView = lazy(() => import('./modules/display/QueueDisplayView').then(m => ({ default: m.QueueDisplayView })));
+
+const ViewLoading: React.FC = () => (
+  <div className="flex items-center justify-center py-24 text-sm font-semibold text-muted-foreground" role="status">
+    Loading…
+  </div>
+);
 import { Button } from './components/ui/button';
+import { StaffGate, StaffChip } from './components/auth/StaffGate';
+import { KioskShell, isKioskLocked } from './components/kiosk/KioskShell';
 import { sovereignSound } from './utils/audio';
 import { api } from './services/api';
 import { ArrowLeft, Smartphone } from 'lucide-react';
@@ -21,12 +33,15 @@ export function App() {
       const mode = params.get('mode')?.toLowerCase();
       const step = params.get('step');
       if (step) return 'kiosk';
-      if (mode === 'doctor' || mode === 'opd') return 'doctor';
+      if (mode === 'doctor' || mode === 'opd' || mode === 'vaidya') return 'doctor';
+      if (mode === 'nurse' || mode === 'station' || mode === 'triage-desk') return 'nurse';
+      if (mode === 'display' || mode === 'board' || mode === 'tv') return 'display';
       if (mode === 'pharmacy' || mode === 'dispensary' || mode === 'rx') return 'pharmacy';
       if (mode === 'asha' || mode === 'anm' || mode === 'field') return 'asha';
       if (mode === 'admin' || mode === 'heatmap' || mode === 'triage' || mode === 'noc') return 'admin';
       if (mode === 'matrix' || mode === 'patent' || mode === 'defense') return 'matrix';
       if (mode === 'kiosk') return 'kiosk';
+      if (isKioskLocked()) return 'kiosk';
       if (mode === 'byod') return 'byod';
       if (mode === 'portal' || mode === 'gateway') return 'portal';
     } catch (e) {}
@@ -34,6 +49,8 @@ export function App() {
   };
 
   const [activeView, setActiveView] = useState<ActiveViewMode>(getInitialView);
+  const [kioskLocked, setKioskLockedState] = useState(isKioskLocked);
+  const lockedKiosk = activeView === 'kiosk' && kioskLocked;
   const [isLeverModalOpen, setIsLeverModalOpen] = useState(false);
   const [isByodModalOpen, setIsByodModalOpen] = useState(false);
 
@@ -57,7 +74,7 @@ export function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-      if (isInput) return;
+      if (isInput || lockedKiosk) return;
 
       const launch = (mode: ActiveViewMode) => {
         try { sovereignSound.playMechanicalSnap(); } catch {}
@@ -67,22 +84,19 @@ export function App() {
       if (e.key === 'Escape') {
         launch('portal');
       } else if (activeView === 'portal' || e.altKey) {
-        if (e.key === '1') launch('kiosk');
-        else if (e.key === '2') launch('doctor');
-        else if (e.key === '3') launch('pharmacy');
-        else if (e.key === '4') launch('asha');
-        else if (e.key === '5') launch('admin');
-        else if (e.key === '6') launch('matrix');
+        const order: ActiveViewMode[] = ['kiosk', 'doctor', 'nurse', 'pharmacy', 'display', 'asha', 'admin', 'matrix'];
+        const idx = Number(e.key) - 1;
+        if (idx >= 0 && idx < order.length) launch(order[idx]);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeView]);
+  }, [activeView, lockedKiosk]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
       {/* Top Utility Bar for Standalone Terminals */}
-      {activeView !== 'portal' && (
+      {activeView !== 'portal' && !lockedKiosk && (
         <div className="no-print sticky top-0 z-50 glass border-b border-border/70 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 shadow-2xs">
           <Button
             variant="outline"
@@ -110,15 +124,14 @@ export function App() {
               <span className="font-semibold text-foreground/90">Sovereign Hospital OS</span>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60 border border-border/80 text-muted-foreground text-[11px] font-mono font-medium shadow-2xs">
-              <span>LIVE SQLite WAL</span>
-            </div>
+            <StaffChip />
           </div>
         </div>
       )}
 
       {/* Main Terminal View Container */}
-      <main className={`flex-1 ${activeView === 'portal' ? '' : 'pb-10'}`}>
+      <main className={`flex-1 ${activeView === 'portal' || activeView === 'display' ? '' : 'pb-10'}`}>
+        <Suspense fallback={<ViewLoading />}>
         {activeView === 'portal' && (
           <HospitalOsGateway
             onLaunchTerminal={(terminal) => {
@@ -129,23 +142,41 @@ export function App() {
         )}
 
         {activeView === 'kiosk' && (
-          <KioskContainer onGoToDoctorDesk={() => setActiveView('doctor')} />
+          <KioskShell locked={kioskLocked} onExit={() => { setKioskLockedState(false); setActiveView('portal'); }}>
+            <KioskContainer />
+          </KioskShell>
         )}
 
         {activeView === 'doctor' && (
-          <DoctorDeskContainer />
+          <StaffGate roles={['doctor', 'vaidya', 'nurse', 'admin']} terminalName="Doctor / Vaidya desk">
+            <DoctorDeskContainer />
+          </StaffGate>
         )}
 
+        {activeView === 'nurse' && (
+          <StaffGate roles={['nurse', 'doctor', 'vaidya', 'admin', 'reception']} terminalName="Nurse station">
+            <NurseStationView />
+          </StaffGate>
+        )}
+
+        {activeView === 'display' && <QueueDisplayView />}
+
         {activeView === 'pharmacy' && (
-          <PharmacyDeskView />
+          <StaffGate roles={['pharmacist', 'admin']} terminalName="Pharmacy counter">
+            <PharmacyDeskView />
+          </StaffGate>
         )}
 
         {activeView === 'asha' && (
-          <AshaFieldView />
+          <StaffGate roles={['asha', 'nurse', 'doctor', 'vaidya', 'admin']} terminalName="ASHA field app">
+            <AshaFieldView />
+          </StaffGate>
         )}
 
         {activeView === 'admin' && (
-          <CommandCenterView />
+          <StaffGate roles={['admin', 'doctor', 'vaidya', 'nurse']} terminalName="Hospital administration">
+            <AdminConsoleView />
+          </StaffGate>
         )}
 
         {activeView === 'matrix' && (
@@ -183,6 +214,7 @@ export function App() {
             </div>
           </div>
         )}
+        </Suspense>
       </main>
 
       <LeverModal

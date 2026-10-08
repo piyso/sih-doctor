@@ -24,6 +24,21 @@ export interface SocratesSymptom {
   duration?: string;
   durationDays?: number;
   isNegated?: boolean;
+  /** Stable key for kiosk-structured entries (chip / voice / area) so they can be toggled and deduped. */
+  key?: string;
+  /** Patient-language label shown back on the kiosk; `name` stays the English clinical label. */
+  labelLocal?: string;
+  source?: 'area' | 'chip' | 'voice' | 'parser' | 'ai';
+  isEmergency?: boolean;
+}
+
+/** Which kind of doctor the patient is routed to / the logged-in doctor practises. */
+export type CareStream = 'AYURVEDA' | 'ALLOPATHY' | 'UNDECIDED';
+
+export interface PatientHistory {
+  conditions: string[];
+  allergies: string;
+  currentMedicines: string;
 }
 
 export interface VitalsData {
@@ -89,7 +104,7 @@ export interface ConflictAlert {
   clinicalConsequence: string;
   clinicalAction?: string;
   recommendedAction: string;
-  bayesianConfidence: number;
+  bayesianConfidence?: number;
   statutoryReference?: string;
   evidenceScore?: number;
   citation?: string;
@@ -132,8 +147,15 @@ export interface PatientQueueItem {
   vitals: VitalsData;
   registeredAt: string;
   primaryComplaint?: string;
+  careStream?: CareStream;
   socratesScore?: number;
   queuePosition?: number;
+  /** Server-issued token, e.g. GENMED-014, and the room it is called to. */
+  tokenNo?: string;
+  department?: string;
+  room?: string;
+  calledAt?: string;
+  callCount?: number;
   normalizedLabMarkers?: Array<{
     marker: string;
     originalValue?: string;
@@ -165,6 +187,8 @@ export interface SessionDetail {
   weightKg?: number;
   abhaId?: string;
   existingEncounter?: any;
+  careStream?: CareStream;
+  history?: PatientHistory;
   parikshaAdvisory?: any;
   provisionalDiagnoses?: any[];
   concordance?: {
@@ -371,26 +395,51 @@ export interface PharmacyDispenseItem {
     digitalSignatureDigest?: string;
     statutoryRule: string;
   };
-  dispenseStatus: 'PENDING_VERIFICATION' | 'DISPENSED' | 'FLAGGED_ALERT';
+  dispenseStatus: 'PENDING_VERIFICATION' | 'DISPENSED' | 'PARTIAL' | 'NOT_DISPENSED' | 'REFERRED_BACK' | 'FLAGGED_ALERT';
+  language?: string;
+  department?: string;
+  careStream?: CareStream;
+  ongoingMedicines?: any[];
+  advice?: string;
+  followUpDays?: number | null;
+  conflictAlerts?: ConflictAlert[];
+  signature?: { keyId: string; recordSha256: string; signedAt: string } | null;
+  dispensedBy?: string | null;
+  dispensedAt?: string | null;
+  dispenseNote?: string | null;
 }
 
+export interface AshaRiskFlag {
+  level: 'URGENT' | 'REFER' | 'WATCH';
+  code: string;
+  text: string;
+}
+
+/** One ASHA/ANM field visit. `synced` is false until the server has accepted this version. */
 export interface AshaFieldRecord {
   id: string;
-  villageName: string;
-  ashaWorkerName: string;
+  version: number;
+  ashaName?: string;
+  village: string;
+  household?: string | null;
   patientName: string;
-  age: number;
+  age: number | null;
   gender: 'MALE' | 'FEMALE' | 'OTHER';
   isPregnant: boolean;
-  gestationalWeeks?: number;
-  hemoglobinGdl?: number;
-  bloodPressure?: string;
-  traditionalHomeRemedies: string[];
-  highRiskPregnancyFlags: string[];
-  crdtStateVersion: number;
-  merkleNodeHash: string;
-  createdAt: string;
-  syncedToPhc: boolean;
+  gestationalWeeks?: number | null;
+  hemoglobinGdl?: number | null;
+  bloodPressure?: string | null;
+  weightKg?: number | null;
+  dangerSigns: string[];
+  homeRemedies: string[];
+  notes?: string | null;
+  riskFlags: AshaRiskFlag[];
+  referral: 'NONE' | 'ADVISED' | 'REFERRED' | 'ACCOMPANIED';
+  visitAt: string;
+  clientUpdatedAt: string;
+  receivedAt?: string;
+  synced: boolean;
+  syncError?: string;
 }
 
 export interface NocOpdRoomTelemetry {

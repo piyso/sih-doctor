@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { sovereignSound } from '../../utils/audio';
 
+export type TerminalId = 'kiosk' | 'doctor' | 'nurse' | 'pharmacy' | 'display' | 'asha' | 'admin' | 'matrix';
+
 interface TerminalOption {
-  id: 'kiosk' | 'doctor' | 'pharmacy' | 'asha' | 'admin' | 'matrix';
+  id: TerminalId;
   code: string;
   shortcutKey: string;
   title: string;
@@ -31,95 +33,75 @@ interface TerminalOption {
   DeviceIcon: React.ReactNode;
 }
 
-const TERMINAL_OPTIONS: TerminalOption[] = [
+export const TERMINAL_OPTIONS: TerminalOption[] = [
   {
-    id: 'kiosk',
-    code: '01',
-    shortcutKey: '1',
-    title: 'Patient MediKiosk',
-    shortTitle: 'MediKiosk',
-    hindiTitle: 'मरीज़ कियोस्क',
-    role: 'Lobby Patient / Caregiver',
-    device: '32" Touchscreen',
-    summary: '35-second ATM touch intake in 22 languages with 3D body mannequin & instant thermal ticket.',
-    liveMetric: '35s Intake · 22 Lang',
-    icon: <User size={20} strokeWidth={2} />,
-    DeviceIcon: <Monitor size={12} />
+    id: 'kiosk', code: '01', shortcutKey: '1',
+    title: 'Patient Check-in Kiosk', shortTitle: 'Kiosk', hindiTitle: 'मरीज़ कियोस्क',
+    role: 'Patients & caregivers', device: 'Touchscreen kiosk',
+    summary: 'Self check-in in 11 Indian languages: body map, voice, vitals, history and documents. Prints a token with room and wait time.',
+    liveMetric: 'No sign-in needed',
+    icon: <User size={20} strokeWidth={2} />, DeviceIcon: <Monitor size={12} />
   },
   {
-    id: 'doctor',
-    code: '02',
-    shortcutKey: '2',
-    title: 'Doctor Clinical Cockpit',
-    shortTitle: 'Doctor Desk',
-    hindiTitle: 'चिकित्सक परामर्श',
-    role: 'OPD Resident / Vaidya',
-    device: 'Chamber All-in-One PC',
-    summary: '90-second calm consultation studio with ambient bilingual scribe, lethal clash interlock, & Spacebar print.',
-    liveMetric: 'Room 14 Active',
-    icon: <Activity size={20} strokeWidth={2} />,
-    DeviceIcon: <Laptop size={12} />
+    id: 'doctor', code: '02', shortcutKey: '2',
+    title: 'Doctor / Vaidya Desk', shortTitle: 'Doctor Desk', hindiTitle: 'चिकित्सक परामर्श',
+    role: 'Doctors and vaidyas', device: 'Consultation-room PC',
+    summary: 'Queue with priorities, pre-visit summary, call patient to the room, interaction checks, signed prescription and ABDM record.',
+    liveMetric: 'Staff sign-in',
+    icon: <Activity size={20} strokeWidth={2} />, DeviceIcon: <Laptop size={12} />
   },
   {
-    id: 'pharmacy',
-    code: '03',
-    shortcutKey: '3',
-    title: 'Dispensary Counter POS',
-    shortTitle: 'Pharmacy POS',
-    hindiTitle: 'औषधालय काउंटर',
-    role: 'Dispensary Pharmacist',
-    device: 'Barcode POS + Label Printer',
-    summary: 'Optical barcode scan gate, sound-alike (LASA) siren interlock, & peel-and-stick labels with Anupana.',
-    liveMetric: 'LASA Interlock Active',
-    icon: <BoxSelect size={20} strokeWidth={2} />,
-    DeviceIcon: <BoxSelect size={12} />
+    id: 'nurse', code: '03', shortcutKey: '3',
+    title: 'Nurse Station', shortTitle: 'Nurse Station', hindiTitle: 'नर्स स्टेशन',
+    role: 'Nurses & triage staff', device: 'Nurse-station PC',
+    summary: 'Live SOS alarms from kiosks with acknowledge and resolve, and measured vitals entry for waiting patients.',
+    liveMetric: 'Live alerts',
+    icon: <ShieldAlert size={20} strokeWidth={2} />, DeviceIcon: <Laptop size={12} />
   },
   {
-    id: 'asha',
-    code: '04',
-    shortcutKey: '4',
-    title: 'Frontline ASHA Outreach',
-    shortTitle: 'ASHA Field',
-    hindiTitle: 'आशा ग्रामीण सेवा',
-    role: 'Rural ASHA / ANM Worker',
-    device: '8" Rugged Field Tablet',
-    summary: 'Sunlight-readable outdoor mode, rapid 3-field maternal intake, & 1.8s offline Merkle DAG sync.',
-    liveMetric: '1.8s Offline Sync',
-    icon: <HeartPulse size={20} strokeWidth={2} />,
-    DeviceIcon: <Tablet size={12} />
+    id: 'pharmacy', code: '04', shortcutKey: '4',
+    title: 'Pharmacy Counter', shortTitle: 'Pharmacy', hindiTitle: 'औषधालय काउंटर',
+    role: 'Pharmacists', device: 'Counter PC + label printer',
+    summary: 'Signed prescriptions arrive automatically. Check the signature, review interaction warnings, and record what was dispensed.',
+    liveMetric: 'Staff sign-in',
+    icon: <BoxSelect size={20} strokeWidth={2} />, DeviceIcon: <BoxSelect size={12} />
   },
   {
-    id: 'admin',
-    code: '05',
-    shortcutKey: '5',
-    title: 'Command & Outbreak NOC',
-    shortTitle: 'Command NOC',
-    hindiTitle: 'निगरानी केंद्र',
-    role: 'Hospital Director / CMO',
-    device: 'Executive Multi-Monitor Wall',
-    summary: 'Live room flow, doctor burnout pacing (<45s), 1-click reserve dispatch, & IDSP disease radar.',
-    liveMetric: 'IDSP Radar Active',
-    icon: <ActivitySquare size={20} strokeWidth={2} />,
-    DeviceIcon: <Monitor size={12} />
+    id: 'display', code: '05', shortcutKey: '5',
+    title: 'Waiting-room Display', shortTitle: 'Queue Display', hindiTitle: 'कतार डिस्प्ले',
+    role: 'Waiting hall TV', device: 'TV / large screen',
+    summary: 'Now serving and next tokens per room, with spoken announcements in local languages. Shows token numbers only, never names.',
+    liveMetric: 'No names shown',
+    icon: <Monitor size={20} strokeWidth={2} />, DeviceIcon: <Monitor size={12} />
   },
   {
-    id: 'matrix',
-    code: '06',
-    shortcutKey: '6',
-    title: 'System Defense Matrix',
-    shortTitle: 'Audit Matrix',
-    hindiTitle: 'सुरक्षा प्रमाण',
-    role: 'Statutory Technical Auditor',
-    device: 'Air-Gapped Audit Terminal',
-    summary: 'Zero cloud egress verification, Groth16 zk-SNARK cryptographic curve checks, & Verhoeff D5 audits.',
-    liveMetric: 'Zero Cloud Egress',
-    icon: <Fingerprint size={20} strokeWidth={2} />,
-    DeviceIcon: <ShieldAlert size={12} />
+    id: 'asha', code: '06', shortcutKey: '6',
+    title: 'ASHA Field App', shortTitle: 'ASHA Field', hindiTitle: 'आशा ग्रामीण सेवा',
+    role: 'ASHA / ANM workers', device: 'Phone or tablet',
+    summary: 'Record village visits and pregnancy risk screening without network; records sync to the hospital when back in range.',
+    liveMetric: 'Works offline',
+    icon: <HeartPulse size={20} strokeWidth={2} />, DeviceIcon: <Tablet size={12} />
+  },
+  {
+    id: 'admin', code: '07', shortcutKey: '7',
+    title: 'Hospital Administration', shortTitle: 'Admin', hindiTitle: 'प्रशासन',
+    role: 'Medical superintendent / admin', device: 'Office PC',
+    summary: 'Today\'s numbers from real records, staff accounts, kiosk enrolment, audit trail, patient data requests and backups.',
+    liveMetric: 'Staff sign-in',
+    icon: <ActivitySquare size={20} strokeWidth={2} />, DeviceIcon: <Monitor size={12} />
+  },
+  {
+    id: 'matrix', code: '08', shortcutKey: '8',
+    title: 'Architecture Notes', shortTitle: 'Architecture', hindiTitle: 'तकनीकी विवरण',
+    role: 'Technical reviewers', device: 'Any',
+    summary: 'How the system is built: data flow, security controls and the research components behind it.',
+    liveMetric: 'Reference',
+    icon: <Fingerprint size={20} strokeWidth={2} />, DeviceIcon: <ShieldAlert size={12} />
   }
 ];
 
 interface HospitalOsGatewayProps {
-  onLaunchTerminal: (terminalId: 'kiosk' | 'doctor' | 'pharmacy' | 'asha' | 'admin' | 'matrix' | 'byod') => void;
+  onLaunchTerminal: (terminalId: TerminalId | 'byod') => void;
   onOpenByodModal?: () => void;
 }
 
@@ -198,7 +180,7 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
             {!isMobile && (
               <div className="gateway-status-pill">
                 <span className="gateway-status-dot" />
-                <span>Air-Gapped Node</span>
+                <span>On-premise server</span>
               </div>
             )}
 
@@ -222,10 +204,10 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
             <span>CLINICAL TERMINAL GATEWAY</span>
           </div>
           <h1 style={{ fontSize: isMobile ? 20 : 25, fontWeight: 700, color: '#090d16', letterSpacing: '-0.035em', margin: '6px 0 0 0' }}>
-            Hospital Workstation Matrix
+            Choose this computer's role
           </h1>
           <p style={{ fontSize: isMobile ? 12.5 : 13.5, color: '#64748b', margin: '4px auto 0 auto', maxWidth: 480, lineHeight: 1.5, fontWeight: 500 }}>
-            Dedicated air-gapped clinical consoles. Press <kbd className="gateway-kbd">1</kbd> to <kbd className="gateway-kbd">6</kbd> for quick launch.
+            Open the screen for this computer's job. Press <kbd className="gateway-kbd">1</kbd> to <kbd className="gateway-kbd">8</kbd> for quick launch.
           </p>
         </div>
 
@@ -302,11 +284,11 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
       <footer className="gateway-footer">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
           <ShieldCheck size={13} color="#475569" />
-          <span>Sovereign Hospital OS · Air-Gapped Network</span>
+          <span>Sovereign Hospital OS · runs on the hospital's own server</span>
         </div>
         {!isMobile && (
           <div style={{ fontSize: 11, color: '#64748b' }}>
-            Keys <kbd className="gateway-kbd">1</kbd>–<kbd className="gateway-kbd">6</kbd> to launch · <kbd className="gateway-kbd">Esc</kbd> for Gateway
+            Keys <kbd className="gateway-kbd">1</kbd>–<kbd className="gateway-kbd">8</kbd> to launch · <kbd className="gateway-kbd">Esc</kbd> for Gateway
           </div>
         )}
       </footer>

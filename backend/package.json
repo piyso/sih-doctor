@@ -15,7 +15,10 @@
     "test:fhir": "tsx tests/fhir_validation.test.ts",
     "test:zkp": "tsx tests/zkp_verification.test.ts",
     "test:stress": "tsx tests/stress_100k.test.ts",
-    "benchmark:efficiency": "tsx tests/deep_system_efficiency_benchmark.ts"
+    "benchmark:efficiency": "tsx tests/deep_system_efficiency_benchmark.ts",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "restore-backup": "tsx scripts/restore-backup.ts",
+    "backup": "tsx -e \"require('./src/services/backup.service').runBackup().then(r=>{console.log(r);process.exit(0)})\""
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

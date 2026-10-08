@@ -1,480 +1,432 @@
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle2, User, ArrowLeft, ArrowRight, Sparkles, CreditCard, Lock, Smartphone, Check, Volume2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, User, CreditCard, Smartphone, Volume2, Sparkles, Leaf, Pill, HelpCircle } from 'lucide-react';
 import { VerhoeffD5 } from '../../utils/verhoeff';
 import { sovereignSound } from '../../utils/audio';
-import { getKioskTranslations } from '../../utils/kioskLocalization';
+import { BCP47, kioskText, normalizeLang } from '../../utils/kioskLocalization';
+import { CareStream } from '../../types/api';
+import { RegisterNav, useStepNav } from './kioskNav';
+import { KioskConsent } from '../../services/api';
+import { useDemoMode } from '../../services/runtimeMode';
+import { ConsentCard } from './ConsentCard';
 
-interface Step2AbhaAuthProps {
-  patient: {
-    name: string;
-    age: number;
-    gender: 'MALE' | 'FEMALE' | 'OTHER';
-    phone?: string;
-    aadhaar?: string;
-    abhaId?: string;
-    isPregnant?: boolean;
-    isLactating?: boolean;
-    weightKg?: number;
-  };
-  setPatient: React.Dispatch<React.SetStateAction<any>>;
-  language?: string;
-  onNext: () => void;
-  onBack: () => void;
+export interface KioskPatient {
+  name: string;
+  age?: number;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  phone?: string;
+  aadhaar?: string;
+  abhaId?: string;
+  isPregnant?: boolean;
+  isLactating?: boolean;
+  weightKg?: number;
+  careStream: CareStream;
 }
 
-export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({
-  patient,
-  setPatient,
-  language = 'hi',
-  onNext,
-  onBack
-}) => {
-  const t = getKioskTranslations(language);
-  const [authMethod, setAuthMethod] = useState<'abha' | 'aadhaar' | 'guest'>('abha');
+interface Step2AbhaAuthProps {
+  patient: KioskPatient;
+  setPatient: React.Dispatch<React.SetStateAction<KioskPatient>>;
+  language?: string;
+  registerNav?: RegisterNav;
+  consent: KioskConsent;
+  setConsent: (c: KioskConsent) => void;
+}
+
+const DEMO_OTP = '4829';
+const digits = (v?: string) => (v || '').replace(/\D/g, '');
+
+/** Fixed-height slot under a field so error messages never push the layout around. */
+const FieldError: React.FC<{ message?: string | null }> = ({ message }) => (
+  <p className={`min-h-[18px] mt-1 text-xs font-semibold ${message ? 'text-rose-600 dark:text-rose-400' : 'text-transparent'}`} role={message ? 'alert' : undefined}>
+    {message || '·'}
+  </p>
+);
+
+export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatient, language = 'hi', registerNav, consent, setConsent }) => {
+  const tx = kioskText(language);
+  // Sample patients and the demo OTP exist only on demo servers; real ABHA/Aadhaar OTP needs ABDM.
+  const demoMode = useDemoMode();
+  const [authMethod, setAuthMethod] = useState<'abha' | 'aadhaar' | 'walkin'>(patient.aadhaar ? 'aadhaar' : patient.abhaId ? 'abha' : 'walkin');
   const [otpSent, setOtpSent] = useState(false);
-  const [otpValue, setOtpValue] = useState('4829');
+  const [otpValue, setOtpValue] = useState('');
+  const [otpError, setOtpError] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const cleanAadhaar = (patient.aadhaar || '').replace(/\D/g, '');
-  const aadhaarDigitCount = Math.min(cleanAadhaar.length, 12);
-  const aadhaarRadius = 14;
-  const aadhaarCircumference = 2 * Math.PI * aadhaarRadius;
-  const aadhaarDashoffset = aadhaarCircumference - (aadhaarDigitCount / 12) * aadhaarCircumference;
-  const isAadhaarComplete = aadhaarDigitCount === 12;
-  const isAadhaarValid = patient.aadhaar ? VerhoeffD5.validate(patient.aadhaar) : false;
-  const aadhaarRingColor = !isAadhaarComplete ? '#06b6d4' : (isAadhaarValid ? '#10b981' : '#f43f5e');
-  const isAbhaValid = patient.abhaId ? patient.abhaId.length >= 14 : false;
+  const update = (patch: Partial<KioskPatient>) => setPatient(prev => ({ ...prev, ...patch }));
 
-  const handleSendOtp = () => {
-    sovereignSound.playMechanicalSnap();
-    setOtpSent(true);
+  // ---------------------------------------------------------------- validation
+  const aadhaarDigits = digits(patient.aadhaar);
+  const abhaDigits = digits(patient.abhaId);
+  const phoneDigits = digits(patient.phone);
+  const errors = {
+    name: patient.name.trim().length < 2 ? tx('errName') : null,
+    age: patient.age === undefined || Number.isNaN(Number(patient.age)) || Number(patient.age) < 0 || Number(patient.age) > 120 ? tx('errAge') : null,
+    abha: authMethod === 'abha' && abhaDigits.length > 0 && abhaDigits.length !== 14 ? tx('errAbha') : null,
+    aadhaar: authMethod === 'aadhaar' && aadhaarDigits.length > 0 && (aadhaarDigits.length !== 12 || !VerhoeffD5.validate(aadhaarDigits)) ? tx('errAadhaar') : null,
+    phone: phoneDigits.length > 0 && phoneDigits.length !== 10 ? tx('errPhone') : null
+  };
+  const isValid = Object.values(errors).every(e => !e) && consent.purposes.care;
+  const visibleError = (field: keyof typeof errors) => (showErrors || touched[field] ? errors[field] : null);
+
+  // Without a phone number there is nowhere to send SMS, so drop that consent.
+  React.useEffect(() => {
+    if (phoneDigits.length !== 10 && consent.purposes.sms) setConsent({ ...consent, purposes: { ...consent.purposes, sms: false } });
+  }, [phoneDigits.length, consent, setConsent]);
+
+  useStepNav(registerNav, {
+    canNext: isValid,
+    blockedHint: Object.values(errors).every(e => !e) ? tx('consentNeeded') : tx('s2FixErrors'),
+    onBlockedNext: () => setShowErrors(true)
+  });
+
+  const handleQuickSelectPreset = (preset: Partial<KioskPatient>) => {
+    sovereignSound.playCrystalChime();
+    setPatient(prev => ({ ...prev, isPregnant: false, isLactating: false, ...preset }));
+    setAuthMethod('abha');
+    setVerified(true);
   };
 
   const handleVerifyOtp = () => {
     setIsVerifyingOtp(true);
     setTimeout(() => {
       setIsVerifyingOtp(false);
-      setVerified(true);
-      sovereignSound.playCrystalChime();
-    }, 450);
+      if (otpValue.trim() === DEMO_OTP) {
+        setVerified(true);
+        setOtpError(false);
+        sovereignSound.playCrystalChime();
+      } else {
+        setOtpError(true);
+        sovereignSound.playClinicalAlert();
+      }
+    }, 400);
   };
 
-  const handleQuickSelectPreset = (name: string, age: number, gender: any, abha: string, aadhaar: string, isPregnant = false, weightKg = 58) => {
-    sovereignSound.playCrystalChime();
-    setPatient({
-      ...patient,
-      name,
-      age,
-      gender,
-      abhaId: abha,
-      aadhaar,
-      isPregnant,
-      weightKg
-    });
-    setVerified(true);
-  };
+  const inputClass = (hasError: boolean) =>
+    `w-full px-3.5 py-2.5 rounded-xl bg-background border text-foreground text-sm outline-none focus:ring-2 ${
+      hasError ? 'border-rose-500 focus:ring-rose-500/30' : 'border-border focus:ring-sky-500/30 focus:border-sky-500'
+    }`;
+
+  const streams: Array<{ id: CareStream; title: string; sub: string; icon: React.ComponentType<{ size?: number; className?: string }>; tone: string }> = [
+    { id: 'AYURVEDA', title: tx('streamAyurveda'), sub: tx('streamAyurvedaSub'), icon: Leaf, tone: 'emerald' },
+    { id: 'ALLOPATHY', title: tx('streamAllopathy'), sub: tx('streamAllopathySub'), icon: Pill, tone: 'sky' },
+    { id: 'UNDECIDED', title: tx('streamUnsure'), sub: tx('streamUnsureSub'), icon: HelpCircle, tone: 'slate' }
+  ];
 
   return (
     <div className="max-w-4xl mx-auto py-3 px-1 sm:px-4">
-      {/* Title Header */}
-      <div className="text-center mb-5 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">
-          {t.step2Title}
-        </h2>
-        <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-          {t.step2Subtitle}
-        </p>
-
-        {/* Audio Guidance Accessibility */}
+      <div className="text-center mb-5">
+        <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">{tx('s2Title')}</h2>
+        <p className="text-sm text-muted-foreground mb-3">{tx('s2Sub')}</p>
         <button
           type="button"
-          onClick={() => {
-            sovereignSound.playMechanicalSnap();
-            sovereignSound.speakGuidance(t.step2AudioPrompt, t.bcp47);
-          }}
-          className="tactile-btn text-xs font-semibold px-3 py-1 rounded-full gap-1.5 text-sky-600 dark:text-sky-400 border-sky-500/30 bg-sky-500/10 cursor-pointer"
+          onClick={() => { sovereignSound.playMechanicalSnap(); sovereignSound.speakGuidance(tx('s2Audio'), BCP47[normalizeLang(language)]); }}
+          className="tactile-btn text-xs font-semibold px-3 py-1 rounded-full gap-1.5 text-sky-700 dark:text-sky-300 border-sky-500/30 bg-sky-500/10"
         >
           <Volume2 size={13} />
-          <span>{t.audioGuidanceBtn}</span>
+          <span>{tx('listenBtn')}</span>
         </button>
       </div>
 
-      {/* Preset Fast-Triage Selector */}
-      <div className="physical-card p-4 sm:p-5 rounded-2xl mb-4">
-        <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
-          <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles size={13} />
-            Quick Evaluator Profiles
-          </span>
+      {/* Demo profiles for testing the prototype (demo servers only) */}
+      {demoMode && <div className="physical-card p-4 rounded-2xl mb-4">
+        <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
+          <Sparkles size={13} />
+          {tx('s2Demo')}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <button
-            type="button"
-            onClick={() => handleQuickSelectPreset('Smt. Shanti Devi', 58, 'FEMALE', '14-8921-0428-9102', '543298761234', false, 62)}
-            className="p-3 rounded-xl text-left border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 transition-all cursor-pointer group"
-          >
-            <div className="text-xs sm:text-sm font-bold text-foreground">Smt. Shanti Devi (58 F)</div>
-            <div className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">Critical Cardiac Emergency (Chest Pain)</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickSelectPreset('Shri Rajesh Sharma', 46, 'MALE', '91-2384-5912-7014', '789123456012', false, 74)}
-            className="p-3 rounded-xl text-left border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-all cursor-pointer group"
-          >
-            <div className="text-xs sm:text-sm font-bold text-foreground">Shri Rajesh Sharma (46 M)</div>
-            <div className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">Metabolic &amp; Sandhivata (Joint Pain)</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickSelectPreset('Priya Verma', 28, 'FEMALE', '32-9014-7281-5541', '901234567890', true, 58)}
-            className="p-3 rounded-xl text-left border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all cursor-pointer group"
-          >
-            <div className="text-xs sm:text-sm font-bold text-foreground">Priya Verma (28 F)</div>
-            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Prasuti Tantra (Antenatal Regimen)</div>
-          </button>
+          {[
+            { name: 'Shanti Devi', age: 58, gender: 'FEMALE' as const, abhaId: '14-8921-0428-9102', careStream: 'ALLOPATHY' as CareStream, weightKg: 62 },
+            { name: 'Rajesh Sharma', age: 46, gender: 'MALE' as const, abhaId: '91-2384-5912-7014', careStream: 'AYURVEDA' as CareStream, weightKg: 74 },
+            { name: 'Priya Verma', age: 28, gender: 'FEMALE' as const, abhaId: '32-9014-7281-5541', careStream: 'AYURVEDA' as CareStream, isPregnant: true, weightKg: 58 }
+          ].map(p => (
+            <button
+              key={p.name}
+              type="button"
+              onClick={() => handleQuickSelectPreset({ ...p, aadhaar: '' })}
+              className="p-3 rounded-xl text-left border border-border/80 bg-muted/30 hover:bg-muted/60 transition-colors"
+            >
+              <div className="text-sm font-bold text-foreground">{p.name}</div>
+              <div className="text-xs text-muted-foreground">{p.age} · {p.gender === 'FEMALE' ? tx('s2Female') : tx('s2Male')} · {p.careStream === 'AYURVEDA' ? tx('streamAyurveda') : tx('streamAllopathy')}</div>
+            </button>
+          ))}
         </div>
-      </div>
+      </div>}
 
-      {/* Main Verification Card */}
       <div className="physical-card p-5 sm:p-6 rounded-2xl mb-5">
-        {/* Method Selector Tabs */}
-        <div className="flex gap-1.5 bg-muted/50 p-1 rounded-xl border border-border/60 mb-5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => {
-              sovereignSound.playMechanicalSnap();
-              setAuthMethod('abha');
-            }}
-            className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all ${
-              authMethod === 'abha'
-                ? 'bg-background text-foreground shadow-xs font-bold border border-border/80'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <CreditCard size={14} className={authMethod === 'abha' ? 'text-sky-500' : 'text-muted-foreground'} />
-            <span>ABHA 2.0 ID</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              sovereignSound.playMechanicalSnap();
-              setAuthMethod('aadhaar');
-            }}
-            className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all ${
-              authMethod === 'aadhaar'
-                ? 'bg-background text-foreground shadow-xs font-bold border border-border/80'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <ShieldCheck size={14} className={authMethod === 'aadhaar' ? 'text-sky-500' : 'text-muted-foreground'} />
-            <span>Aadhaar Verhoeff D5</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              sovereignSound.playMechanicalSnap();
-              setAuthMethod('guest');
-            }}
-            className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all ${
-              authMethod === 'guest'
-                ? 'bg-background text-foreground shadow-xs font-bold border border-border/80'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <User size={14} className={authMethod === 'guest' ? 'text-emerald-500' : 'text-muted-foreground'} />
-            <span>Emergency Fast-Intake</span>
-          </button>
+        {/* ID method */}
+        <div className="flex gap-1.5 bg-muted/50 p-1 rounded-xl border border-border/60 mb-5 flex-wrap" role="tablist">
+          {([
+            { id: 'abha', label: tx('s2TabAbha'), icon: CreditCard },
+            { id: 'aadhaar', label: tx('s2TabAadhaar'), icon: ShieldCheck },
+            { id: 'walkin', label: tx('s2TabWalkin'), icon: User }
+          ] as const).map(tab => {
+            const Icon = tab.icon;
+            const active = authMethod === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => { sovereignSound.playMechanicalSnap(); setAuthMethod(tab.id); setOtpSent(false); setVerified(false); }}
+                className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-colors ${
+                  active ? 'bg-background text-foreground shadow-xs border border-border/80' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Icon size={15} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Form Inputs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-          {/* Patient Full Name */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
-              {t.fullNameLabel} *
-            </label>
+            <label className="block text-sm font-semibold text-foreground/90 mb-1.5" htmlFor="kiosk-name">{tx('s2Name')} *</label>
             <input
+              id="kiosk-name"
               type="text"
+              autoComplete="off"
               value={patient.name}
-              onChange={(e) => setPatient({ ...patient, name: e.target.value })}
-              placeholder="e.g. Smt. Shanti Devi"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+              onChange={e => update({ name: e.target.value })}
+              onBlur={() => setTouched(t => ({ ...t, name: true }))}
+              placeholder={tx('s2NamePh')}
+              className={inputClass(!!visibleError('name'))}
             />
+            <FieldError message={visibleError('name')} />
           </div>
 
-          {/* ABHA or Aadhaar Input */}
           {authMethod === 'abha' && (
             <div>
               <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-semibold text-foreground/80">
-                  ABHA 2.0 ID (14 Digits) *
-                </label>
-                {isAbhaValid && (
-                  <span className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1">
-                    <CheckCircle2 size={12} /> FORMAT VALID
-                  </span>
-                )}
+                <label className="text-sm font-semibold text-foreground/90" htmlFor="kiosk-abha">{tx('s2Abha')}</label>
+                <span className={`text-xs font-mono font-bold ${abhaDigits.length === 14 ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                  {abhaDigits.length === 14 ? `✓ ${tx('s2Valid')}` : tx('s2DigitsCount', { n: abhaDigits.length, total: 14 })}
+                </span>
               </div>
               <input
-                type="text"
+                id="kiosk-abha"
+                inputMode="numeric"
                 value={patient.abhaId || ''}
-                onChange={(e) => {
-                  setPatient({ ...patient, abhaId: e.target.value });
-                  if (e.target.value.length >= 14) sovereignSound.playDialNotch();
-                }}
+                onChange={e => update({ abhaId: e.target.value.replace(/[^\d-\s]/g, '').slice(0, 17) })}
+                onBlur={() => setTouched(t => ({ ...t, abha: true }))}
                 placeholder="14-8921-0428-9102"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-mono tracking-wider outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+                className={`${inputClass(!!visibleError('abha'))} font-mono tracking-wider`}
               />
+              <FieldError message={visibleError('abha')} />
             </div>
           )}
 
           {authMethod === 'aadhaar' && (
             <div>
               <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-semibold text-foreground/80">
-                  Aadhaar (12 Digits) · Verhoeff D5 Check
-                </label>
-                {patient.aadhaar && (
-                  <span className={`text-[10.5px] font-mono font-bold flex items-center gap-1 ${
-                    isAadhaarValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                  }`}>
-                    {isAadhaarValid ? 'D5 VALID (0 ERRORS)' : isAadhaarComplete ? 'D5 CHECKSUM FAILED' : `${aadhaarDigitCount}/12 DIGITS`}
-                  </span>
-                )}
+                <label className="text-sm font-semibold text-foreground/90" htmlFor="kiosk-aadhaar">{tx('s2Aadhaar')}</label>
+                <span className={`text-xs font-mono font-bold ${aadhaarDigits.length === 12 && !errors.aadhaar ? 'text-emerald-600' : aadhaarDigits.length === 12 ? 'text-rose-600' : 'text-muted-foreground'}`}>
+                  {aadhaarDigits.length === 12 && !errors.aadhaar ? `✓ ${tx('s2Valid')}` : tx('s2DigitsCount', { n: aadhaarDigits.length, total: 12 })}
+                </span>
               </div>
-              <div className="relative flex items-center">
-                <input
-                  type="text"
-                  value={patient.aadhaar || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setPatient({ ...patient, aadhaar: val });
-                    const digits = val.replace(/\D/g, '');
-                    if (digits.length === 12) {
-                      if (VerhoeffD5.validate(digits)) {
-                        sovereignSound.playCrystalChime();
-                      } else {
-                        sovereignSound.playClinicalAlert();
-                      }
-                    } else if (digits.length > 0) {
-                      sovereignSound.playDialNotch();
-                    }
-                  }}
-                  placeholder="5432 9876 1234"
-                  className="w-full px-3.5 pr-10 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-mono tracking-wider outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
-                />
-                <div className="absolute right-3 flex items-center justify-center pointer-events-none">
-                  <svg width="24" height="24" viewBox="0 0 36 36" className="-rotate-90">
-                    <circle cx="18" cy="18" r={aadhaarRadius} stroke="currentColor" strokeWidth="2.5" fill="none" className="text-border" />
-                    <circle
-                      cx="18"
-                      cy="18"
-                      r={aadhaarRadius}
-                      stroke={aadhaarRingColor}
-                      strokeWidth="2.5"
-                      strokeDasharray={aadhaarCircumference}
-                      strokeDashoffset={aadhaarDashoffset}
-                      strokeLinecap="round"
-                      fill="none"
-                      className="transition-all duration-300"
-                    />
-                  </svg>
-                </div>
-              </div>
+              <input
+                id="kiosk-aadhaar"
+                inputMode="numeric"
+                value={patient.aadhaar || ''}
+                onChange={e => {
+                  const val = e.target.value.replace(/[^\d\s]/g, '').slice(0, 14);
+                  update({ aadhaar: val });
+                  const d = digits(val);
+                  if (d.length === 12) {
+                    if (VerhoeffD5.validate(d)) sovereignSound.playCrystalChime();
+                    else sovereignSound.playClinicalAlert();
+                  }
+                }}
+                onBlur={() => setTouched(t => ({ ...t, aadhaar: true }))}
+                placeholder="5432 9876 1234"
+                className={`${inputClass(!!(visibleError('aadhaar') || (aadhaarDigits.length === 12 && errors.aadhaar)))} font-mono tracking-wider`}
+              />
+              <FieldError message={visibleError('aadhaar') || (aadhaarDigits.length === 12 ? errors.aadhaar : null)} />
             </div>
           )}
 
-          {/* Age & Gender */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
-                {t.ageLabel} *
+          {(
+            <div>
+              <label className="block text-sm font-semibold text-foreground/90 mb-1.5" htmlFor="kiosk-phone">
+                {tx('s2Phone')} <span className="font-normal text-muted-foreground">({tx('optional')})</span>
               </label>
               <input
+                id="kiosk-phone"
+                inputMode="tel"
+                value={patient.phone || ''}
+                onChange={e => update({ phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                onBlur={() => setTouched(t => ({ ...t, phone: true }))}
+                placeholder="98765 43210"
+                className={`${inputClass(!!visibleError('phone'))} font-mono`}
+              />
+              <FieldError message={visibleError('phone')} />
+            </div>
+          )}
+
+          <div>
+          <div className="flex gap-3">
+            <div className="w-36 shrink-0">
+              <label className="block text-sm font-semibold text-foreground/90 mb-1.5" htmlFor="kiosk-age">{tx('s2Age')} *</label>
+              <input
+                id="kiosk-age"
                 type="number"
-                value={patient.age}
-                onChange={(e) => setPatient({ ...patient, age: parseInt(e.target.value, 10) || 0 })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 font-mono"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                value={patient.age ?? ''}
+                onChange={e => update({ age: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })}
+                onBlur={() => setTouched(t => ({ ...t, age: true }))}
+                className={`${inputClass(!!visibleError('age'))} font-mono`}
               />
             </div>
-
-            <div className="flex-1.4">
-              <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
-                {t.genderLabel} *
-              </label>
-              <select
-                value={patient.gender}
-                onChange={(e) => setPatient({ ...patient, gender: e.target.value as any })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 cursor-pointer"
-              >
-                <option value="MALE">{t.maleOption}</option>
-                <option value="FEMALE">{t.femaleOption}</option>
-                <option value="OTHER">{t.otherOption}</option>
-              </select>
+            <div className="flex-1">
+              <span className="block text-sm font-semibold text-foreground/90 mb-1.5">{tx('s2Gender')} *</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['MALE', 'FEMALE', 'OTHER'] as const).map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => update({ gender: g, ...(g !== 'FEMALE' ? { isPregnant: false, isLactating: false } : {}) })}
+                    aria-pressed={patient.gender === g}
+                    className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                      patient.gender === g ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'
+                    }`}
+                  >
+                    {g === 'MALE' ? tx('s2Male') : g === 'FEMALE' ? tx('s2Female') : tx('s2Other')}
+                  </button>
+                ))}
+              </div>
             </div>
+          </div>
+          <FieldError message={visibleError('age')} />
           </div>
         </div>
 
-        {/* Maternal-Fetal Pharmacology Guard */}
+        {/* Which kind of doctor */}
+        <div className="mt-2">
+          <span className="block text-sm font-semibold text-foreground/90 mb-2">{tx('s2Stream')}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5" role="radiogroup">
+            {streams.map(s => {
+              const Icon = s.icon;
+              const active = patient.careStream === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => { sovereignSound.playDialNotch(); update({ careStream: s.id }); }}
+                  className={`p-3 rounded-xl text-left border transition-colors flex items-start gap-2.5 ${
+                    active ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-border/80 bg-background hover:bg-muted/50'
+                  }`}
+                >
+                  <Icon size={18} className={`shrink-0 mt-0.5 ${s.tone === 'emerald' ? 'text-emerald-600' : s.tone === 'sky' ? 'text-sky-600' : 'text-muted-foreground'}`} />
+                  <span className="flex flex-col min-w-0">
+                    <span className="text-sm font-bold text-foreground">{s.title}</span>
+                    <span className="text-xs text-muted-foreground leading-snug">{s.sub}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {patient.gender === 'FEMALE' && (
-          <div className="mt-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col gap-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className="text-rose-600 dark:text-rose-400" />
-                <span className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-300">
-                  {t.maternalGuardTitle}
-                </span>
+          <div className="mt-4 p-4 rounded-2xl bg-rose-500/5 border border-rose-500/30 flex flex-col gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-rose-700 dark:text-rose-300">
+                <ShieldCheck size={16} />
+                <span>{tx('maternalTitle')}</span>
               </div>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                Gates Classical Emmenagogues &amp; Teratogens
-              </span>
+              <p className="text-xs text-muted-foreground mt-1">{tx('maternalSub')}</p>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Pregnancy Toggle */}
-              <div className="bg-background/80 p-3 rounded-xl border border-border/80">
-                <label className="block text-xs font-semibold text-foreground/80 mb-2">
-                  {t.pregnantLabel}
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sovereignSound.playMechanicalSnap();
-                      setPatient({ ...patient, isPregnant: true });
-                    }}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all border ${
-                      patient.isPregnant
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                        : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
-                    }`}
-                  >
-                    {t.yesBtn}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sovereignSound.playMechanicalSnap();
-                      setPatient({ ...patient, isPregnant: false, gestationalWeeks: undefined });
-                    }}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all border ${
-                      !patient.isPregnant
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                        : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
-                    }`}
-                  >
-                    {t.noBtn}
-                  </button>
+              {([
+                { field: 'isPregnant', label: tx('pregnantQ') },
+                { field: 'isLactating', label: tx('lactatingQ') }
+              ] as const).map(q => (
+                <div key={q.field} className="bg-background/80 p-3 rounded-xl border border-border/80">
+                  <span className="block text-sm font-semibold text-foreground/90 mb-2">{q.label}</span>
+                  <div className="flex gap-2">
+                    {[true, false].map(val => (
+                      <button
+                        key={String(val)}
+                        type="button"
+                        onClick={() => { sovereignSound.playMechanicalSnap(); update({ [q.field]: val } as Partial<KioskPatient>); }}
+                        aria-pressed={!!patient[q.field] === val}
+                        className={`flex-1 py-1.5 text-sm font-bold rounded-lg border transition-colors ${
+                          !!patient[q.field] === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
+                        }`}
+                      >
+                        {val ? tx('yes') : tx('no')}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              {/* Lactation Toggle */}
-              <div className="bg-background/80 p-3 rounded-xl border border-border/80">
-                <label className="block text-xs font-semibold text-foreground/80 mb-2">
-                  {t.lactatingLabel}
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sovereignSound.playMechanicalSnap();
-                      setPatient({ ...patient, isLactating: true });
-                    }}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all border ${
-                      patient.isLactating
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                        : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
-                    }`}
-                  >
-                    {t.yesBtn}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sovereignSound.playMechanicalSnap();
-                      setPatient({ ...patient, isLactating: false });
-                    }}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all border ${
-                      !patient.isLactating
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                        : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
-                    }`}
-                  >
-                    {t.noBtn}
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
-
-            {patient.isPregnant && (
-              <div className="flex items-center gap-2 bg-muted/80 p-2.5 rounded-xl border border-border/80 text-foreground text-xs font-semibold">
-                <ShieldCheck size={14} className="text-primary shrink-0" />
-                <span>{t.maternalGuardSub}</span>
-              </div>
-            )}
           </div>
         )}
 
-        {/* OTP Simulation Trigger */}
-        {authMethod !== 'guest' && !verified && (
+        {!demoMode && authMethod !== 'walkin' && (abhaDigits.length === 14 || (aadhaarDigits.length === 12 && !errors.aadhaar)) && (
+          <div className="mt-4 p-3 rounded-xl bg-muted/40 border border-border/80 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+            <ShieldCheck size={15} className="shrink-0" /> {tx('abhaUnverified')}
+          </div>
+        )}
+
+        {/* OTP (demo servers only — real OTP verification needs the ABDM gateway) */}
+        {demoMode && authMethod !== 'walkin' && !verified && (abhaDigits.length === 14 || (aadhaarDigits.length === 12 && !errors.aadhaar)) && (
           <div className="mt-4 p-3.5 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-500 shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-600 shrink-0">
                 <Smartphone size={16} />
               </div>
               <div>
-                <div className="text-xs font-bold text-foreground">Aadhaar/ABHA OTP Challenge</div>
-                <div className="text-[11px] text-muted-foreground">Sends cryptographic OTP to linked mobile device</div>
+                <div className="text-sm font-bold text-foreground">{tx('otpTitle')}</div>
+                <div className="text-xs text-muted-foreground">{otpSent ? tx('otpDemoHint') : tx('otpSub')}</div>
+                {otpError && <div className="text-xs font-semibold text-rose-600 mt-0.5">{tx('otpWrong')}</div>}
               </div>
             </div>
-
             {!otpSent ? (
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                className="btn btn-secondary text-xs px-3.5 py-1.5 rounded-lg"
-              >
-                Send Verification OTP
+              <button type="button" onClick={() => { sovereignSound.playMechanicalSnap(); setOtpSent(true); }} className="btn btn-secondary text-sm px-3.5 py-1.5 rounded-lg">
+                {tx('otpSend')}
               </button>
             ) : (
               <div className="flex items-center gap-2">
                 <input
-                  type="text"
+                  inputMode="numeric"
                   value={otpValue}
-                  onChange={(e) => setOtpValue(e.target.value)}
-                  className="w-20 px-2.5 py-1.5 text-center font-mono font-bold text-sm bg-background border-2 border-sky-500 rounded-lg text-foreground outline-none"
+                  onChange={e => { setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(false); }}
+                  className="w-24 px-2.5 py-1.5 text-center font-mono font-bold text-sm bg-background border-2 border-sky-500 rounded-lg text-foreground outline-none"
+                  aria-label={tx('otpTitle')}
                 />
-                <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  className="btn btn-primary text-xs px-3.5 py-1.5 rounded-lg"
-                >
-                  {isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
+                <button type="button" onClick={handleVerifyOtp} disabled={otpValue.length < 4 || isVerifyingOtp} className="btn btn-primary text-sm px-3.5 py-1.5 rounded-lg disabled:opacity-50">
+                  {isVerifyingOtp ? tx('otpVerifying') : tx('otpVerify')}
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {verified && (
-          <div className="mt-4 p-3.5 rounded-xl bg-card border border-border/80 flex items-center gap-3">
-            <CheckCircle2 size={18} className="text-primary shrink-0" />
-            <div>
-              <div className="text-xs font-mono font-bold text-foreground">
-                ABDM SOVEREIGN RECORD VERIFIED &amp; AIR-GAPPED
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Local Verhoeff cryptographic token created with zero foreign cloud data transmission.
-              </div>
-            </div>
+        {demoMode && verified && (
+          <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            <CheckCircle2 size={17} className="shrink-0" />
+            <span>{tx('otpDone')}</span>
           </div>
         )}
       </div>
+
+      <ConsentCard
+        consent={consent}
+        setConsent={setConsent}
+        language={language}
+        hasPhone={phoneDigits.length === 10}
+        hasAbha={abhaDigits.length === 14}
+        showError={showErrors}
+      />
     </div>
   );
 };

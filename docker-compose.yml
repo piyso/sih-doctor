@@ -1,52 +1,107 @@
 # ==============================================================================
-# AIIA Sovereign MediKiosk & Hospital OS - Production Compose Orchestration
-# Air-Gapped Zero-Cloud Multi-Container Deployment
+# Hospital OS — on-premise production stack
+#
+#   cp .env.example .env            # set SETUP_CODE, HOSPITAL_HOSTNAME, keys…
+#   docker compose up -d --build                     # backend + frontend
+#   docker compose --profile https up -d             # + HTTPS (needed for kiosk camera/mic)
+#   docker compose --profile ai up -d                # + on-premise AI service
+#
+# Data, signing keys and backups live in the `hospital-data` volume. Back it up off-site.
 # ==============================================================================
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: aiia-medikiosk-backend
     restart: unless-stopped
-    ports:
-      - "8001:8001"
     environment:
-      - PORT=8001
-      - NODE_ENV=production
-      - DB_PATH=/app/data/hospital.db
-      - USE_MOCK=false
-      - CORS_ORIGIN=*
+      PORT: "8001"
+      NODE_ENV: production
+      DB_PATH: /app/data/hospital.db
+      DATA_DIR: /app/data
+      TRUST_PROXY: "true"
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      ALLOW_DEMO_DATA: ${ALLOW_DEMO_DATA:-false}
+      KIOSK_OPEN: ${KIOSK_OPEN:-false}
+      SETUP_CODE: ${SETUP_CODE:?Set SETUP_CODE in .env (needed for first-time admin setup)}
+      HOSPITAL_TIMEZONE: ${HOSPITAL_TIMEZONE:-Asia/Kolkata}
+      HOSPITAL_SHORT_NAME: ${HOSPITAL_SHORT_NAME:-Hospital}
+      CLINICAL_RETENTION_YEARS: ${CLINICAL_RETENTION_YEARS:-3}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_DIR: /app/backups
+      SMS_PROVIDER: ${SMS_PROVIDER:-log}
+      MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+      MSG91_TEMPLATE_TOKEN_ISSUED: ${MSG91_TEMPLATE_TOKEN_ISSUED:-}
+      MSG91_TEMPLATE_RX_READY: ${MSG91_TEMPLATE_RX_READY:-}
+      MSG91_TEMPLATE_FOLLOW_UP: ${MSG91_TEMPLATE_FOLLOW_UP:-}
+      SMS_WEBHOOK_URL: ${SMS_WEBHOOK_URL:-}
+      THERMAL_PRINTER_HOST: ${THERMAL_PRINTER_HOST:-}
+      EDGE_AI_URL: http://edge-ai:8090
+      EDGE_AI_TOKEN: ${EDGE_AI_TOKEN:-}
+      ABDM_CLIENT_ID: ${ABDM_CLIENT_ID:-}
+      ABDM_CLIENT_SECRET: ${ABDM_CLIENT_SECRET:-}
     volumes:
-      - medikiosk-data:/app/data
+      - hospital-data:/app/data
+      - ${BACKUP_HOST_DIR:-./backups}:/app/backups
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/health"]
       interval: 15s
       timeout: 3s
       retries: 3
-      start_period: 5s
-    networks:
-      - medikiosk-net
+      start_period: 10s
+    networks: [hospital-net]
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: aiia-medikiosk-frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
-      - "80:80"
+      - "${HTTP_PORT:-80}:80"
     depends_on:
       backend:
         condition: service_healthy
-    networks:
-      - medikiosk-net
+    networks: [hospital-net]
+
+  # HTTPS for the hospital LAN (browsers allow camera/microphone and offline mode only on HTTPS).
+  # Uses Caddy's internal CA: install its root certificate on kiosks/PCs once (see docs/DEPLOYMENT.md).
+  https:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    environment:
+      HOSPITAL_HOSTNAME: ${HOSPITAL_HOSTNAME:-hospital.local}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [frontend]
+    networks: [hospital-net]
+
+  # On-premise AI (speech, voice, translation, small LLM, OCR). Models are mounted from ./models.
+  edge-ai:
+    build:
+      context: ./edge-ai
+    profiles: ["ai"]
+    restart: unless-stopped
+    environment:
+      EDGE_AI_TOKEN: ${EDGE_AI_TOKEN:-}
+      ASR_MODEL: ${ASR_MODEL:-}
+      TTS_MODEL: ${TTS_MODEL:-}
+      TRANSLATE_MODEL: ${TRANSLATE_MODEL:-}
+      LLM_GGUF: ${LLM_GGUF:-}
+      OCR_ENGINE: ${OCR_ENGINE:-}
+      HF_HOME: /models/hf
+    volumes:
+      - ${MODELS_DIR:-./models}:/models
+    networks: [hospital-net]
 
 volumes:
-  medikiosk-data:
-    driver: local
+  hospital-data:
+  caddy-data:
 
 networks:
-  medikiosk-net:
+  hospital-net:
     driver: bridge

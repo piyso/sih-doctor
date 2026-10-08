@@ -4,7 +4,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { sovereignSound } from '../../utils/audio';
-import { BASE_URL } from '../../services/api';
+import { kioskText, regionName } from '../../utils/kioskLocalization';
 import {
 
   RotateCw,
@@ -29,7 +29,6 @@ import {
   getMeshMetadata,
   getMeshesForRegion,
   getMeshesForSystem,
-  CAMERA_REGION_PRESETS,
   REGION_CHROMATIC_PALETTE,
   DEFAULT_REGION_COLOR
 } from '../../utils/anatomicalModelMapping';
@@ -437,9 +436,9 @@ export const MACRO_ZONE_DATA: Record<MacroZone, {
     label: 'Head & Face',
     hindiLabel: 'सिर व चेहरा',
     enLabel: 'Head, Face & Neck',
-    centroid: [0, 1.05, 0.04],
-    cameraPos: [0, 1.05, 1.6],
-    lookAt: [0, 1.05, 0.04],
+    centroid: [0, 1.02, 0.04],
+    cameraPos: [0, 1.02, 1.6],
+    lookAt: [0, 1.02, 0.04],
     fov: 32,
     defaultYaw: 0
   },
@@ -448,9 +447,9 @@ export const MACRO_ZONE_DATA: Record<MacroZone, {
     label: 'Chest & Lungs',
     hindiLabel: 'सीना व हृदय',
     enLabel: 'Thorax & Lungs',
-    centroid: [0, 0.55, 0.04],
-    cameraPos: [0, 0.55, 1.8],
-    lookAt: [0, 0.55, 0.04],
+    centroid: [0, 0.66, 0.04],
+    cameraPos: [0, 0.66, 2.0],
+    lookAt: [0, 0.66, 0.04],
     fov: 34,
     defaultYaw: 0
   },
@@ -459,9 +458,9 @@ export const MACRO_ZONE_DATA: Record<MacroZone, {
     label: 'Abdomen & Pelvis',
     hindiLabel: 'पेट व पेडू',
     enLabel: 'Abdomen & Viscera',
-    centroid: [0, 0.05, 0.04],
-    cameraPos: [0, 0.05, 1.9],
-    lookAt: [0, 0.05, 0.04],
+    centroid: [0, 0.18, 0.04],
+    cameraPos: [0, 0.18, 2.1],
+    lookAt: [0, 0.18, 0.04],
     fov: 34,
     defaultYaw: 0
   },
@@ -470,9 +469,9 @@ export const MACRO_ZONE_DATA: Record<MacroZone, {
     label: 'Spine & Back',
     hindiLabel: 'रीढ़ व पीठ',
     enLabel: 'Spine & Back',
-    centroid: [0, 0.20, -0.06],
-    cameraPos: [0, 0.20, -2.4],
-    lookAt: [0, 0.20, -0.06],
+    centroid: [0, 0.45, -0.06],
+    cameraPos: [0, 0.45, 2.7],
+    lookAt: [0, 0.45, 0],
     fov: 34,
     defaultYaw: Math.PI
   },
@@ -481,9 +480,9 @@ export const MACRO_ZONE_DATA: Record<MacroZone, {
     label: 'Arms & Hands',
     hindiLabel: 'हाथ व बांह',
     enLabel: 'Arms & Hands',
-    centroid: [0, 0.35, 0.04],
-    cameraPos: [0, 0.35, 2.3],
-    lookAt: [0, 0.35, 0.04],
+    centroid: [0, 0.36, 0.04],
+    cameraPos: [0, 0.36, 2.7],
+    lookAt: [0, 0.36, 0.04],
     fov: 36,
     defaultYaw: 0
   },
@@ -492,9 +491,9 @@ export const MACRO_ZONE_DATA: Record<MacroZone, {
     label: 'Legs & Feet',
     hindiLabel: 'पैर व जोड़',
     enLabel: 'Legs & Feet',
-    centroid: [0, -0.70, 0.04],
-    cameraPos: [0, -0.70, 2.2],
-    lookAt: [0, -0.70, 0.04],
+    centroid: [0, -0.62, 0.04],
+    cameraPos: [0, -0.62, 2.6],
+    lookAt: [0, -0.62, 0.04],
     fov: 36,
     defaultYaw: 0
   },
@@ -550,7 +549,7 @@ export const LOCUS_TO_MACRO_ZONE: Record<string, MacroZone> = {
   'Upper Back / Thoracic': 'spine',
   'Lumbar Spine (Kati)': 'spine',
   'Sacral / Sciatica Origin': 'spine',
-  'Sciatic Pathway / Calves': 'spine',
+  'Sciatic Pathway / Calves': 'legs',
 
   'Left Shoulder': 'arms',
   'Right Shoulder': 'arms',
@@ -1055,197 +1054,128 @@ export const ANATOMICAL_LOCI_3D: AnatomicalLocus3D[] = MICRO_LOCI_CATALOG.map(m 
   isPosterior: m.isPosterior
 }));
 
-// Canonical Vitruvian Raycasting Spatial Classifier (Normalized model coordinates)
-export const classifyHitToRegion = (localHit: THREE.Vector3 | { x: number; y: number; z: number }): string => {
-  const x = localHit.x;
-  const y = localHit.y;
-  const z = localHit.z;
+// ------------------------------------------------------------------------------------------------
+// Calibrated body-region classifier
+//
+// The GLB is scaled so the source model (0 cm at the soles → 170.4 cm at the crown) spans local
+// y ∈ [-1.205, +1.245]. Landmarks from the mesh database (centres in cm): patella 44, femur head 88,
+// iliac crest ~101, xiphoid ~124, heart 129, clavicle 141, thyroid cartilage 148, mandible 154,
+// frontal bone 165; shoulders at x ≈ ±17, elbows ±21, wrists ±25. +X is the patient's LEFT.
+// ------------------------------------------------------------------------------------------------
+const MODEL_HEIGHT_CM = 170.4;
+const LOCAL_FEET_Y = -1.205;
+const LOCAL_HEIGHT = 2.45;
+const CM_PER_UNIT = MODEL_HEIGHT_CM / LOCAL_HEIGHT;
 
-  // Canonical Normalized Height: [0.0 = Feet Soles (-1.205), 1.0 = Crown Vertex (+1.245)]
-  const yNorm = Math.max(0, Math.min(1, (y + 1.205) / 2.450));
-  
-  // Depth / Anterior-Posterior Determination
-  const isPosterior = z < -0.035;
-  
-  // Lateral Symmetry (+X is Patient Left, -X is Patient Right)
-  const isLeft = x > 0.025;
-  const isRight = x < -0.025;
-  const absX = Math.abs(x);
+/** Converts a model-local point to centimetres above the soles / from the midline. */
+export const localToBodyCm = (p: { x: number; y: number; z: number }) => ({
+  h: (p.y - LOCAL_FEET_Y) * CM_PER_UNIT,
+  x: p.x * CM_PER_UNIT,
+  z: p.z * CM_PER_UNIT
+});
 
-  // Anatomical Spatial Classification
-  if (yNorm > 0.93) {
-    // Cranial / Forehead / Vertex / Occiput
-    if (isPosterior) return 'Head';
-    if (absX > 0.14) return 'Ear';
-    return 'Head';
-  }
-  
-  if (yNorm > 0.86) {
-    // Facial Profile / Sinuses / Eyes / Ears / Nape
-    if (isPosterior) return 'Cervical Spine';
-    if (absX > 0.13) return 'Ear';
-    return 'Face & Sinus';
-  }
-  
-  if (yNorm > 0.78) {
-    // Cervical Neck / Larynx / Cervical Spine
-    if (isPosterior) return 'Cervical Spine';
-    return 'Neck';
-  }
-  
-  if (yNorm > 0.63) {
-    // Thoracic / Chest / Shoulders / Scapular Upper Back
-    if (absX > 0.28) {
-      return isLeft ? 'Left Shoulder' : 'Right Shoulder';
-    }
-    if (isPosterior) {
-      return 'Upper Back / Thoracic';
-    }
-    return isLeft ? 'Left Chest / Precordium' : 'Right Chest';
-  }
-  
-  if (yNorm > 0.54) {
-    // Epigastrium / Upper Abdomen / Arms / Mid-Back
-    if (absX > 0.30) {
-      return isLeft ? 'Left Arm' : 'Right Arm';
-    }
-    if (isPosterior) {
-      return 'Upper Back / Thoracic';
-    }
-    return 'Epigastrium';
-  }
-  
-  if (yNorm > 0.45) {
-    // Umbilicus / Mid-Abdomen / Lumbar Spine (Kati) / Forearms
-    if (absX > 0.32) {
-      return isLeft ? 'Left Arm' : 'Right Arm';
-    }
-    if (isPosterior) {
-      return 'Lumbar Spine (Kati)';
-    }
-    return 'Umbilicus / Mid-Abdomen';
-  }
-  
-  if (yNorm > 0.37) {
-    // Lower Abdomen / Pelvis / RLQ / LLQ / Sacrum / Hands / Hips
-    if (absX > 0.34) {
-      return isLeft ? 'Left Hand' : 'Right Hand';
-    }
-    if (isPosterior) {
-      return 'Sacral / Sciatica Origin';
-    }
-    if (absX > 0.16) {
-      return isLeft ? 'Left Hip' : 'Right Hip';
-    }
-    if (absX > 0.04) {
-      return isLeft ? 'Left Lower Quadrant (LLQ)' : 'Right Lower Quadrant (RLQ)';
-    }
-    return 'Pelvic / Hypogastrium';
-  }
-  
-  if (yNorm > 0.30) {
-    // Hips / Pelvic Articulation
-    if (isPosterior) {
-      return 'Sacral / Sciatica Origin';
-    }
-    if (absX > 0.10) {
-      return isLeft ? 'Left Hip' : 'Right Hip';
-    }
-    return 'Pelvic / Hypogastrium';
-  }
-  
-  if (yNorm > 0.23) {
-    // Thighs / Femoral Segment
-    return isLeft ? 'Left Leg' : 'Right Leg';
-  }
-  
-  if (yNorm > 0.17) {
-    // Knees / Patellar Joint
-    return isLeft ? 'Left Knee' : 'Right Knee';
-  }
-  
-  if (yNorm > 0.05) {
-    // Calves / Shins / Sciatic Pathway
-    if (isPosterior) {
-      return 'Sciatic Pathway / Calves';
-    }
-    return isLeft ? 'Left Leg' : 'Right Leg';
-  }
-  
-  // Feet & Ankles
-  return isLeft ? 'Left Foot' : 'Right Foot';
-};
+/** Inverse of `localToBodyCm` for placing markers and camera targets. */
+export const bodyCmToLocal = (h: number, x = 0, z = 0): [number, number, number] => [
+  x / CM_PER_UNIT,
+  LOCAL_FEET_Y + h / CM_PER_UNIT,
+  z / CM_PER_UNIT
+];
 
 /**
- * High-Precision Mesh-First Region Resolver (4-Strategy Cascade)
- *
- * The previous implementation used ONLY spatial coordinate classification,
- * which has imprecise boundaries (e.g., ear vs head, shoulder vs chest).
- * This function uses the actual mesh identity from the 1,744-mesh anatomical
- * database as the PRIMARY signal, falling back to spatial only when needed.
- *
- * Strategy cascade:
- *  1. Direct mesh record regionId (highest precision for specific structures)
- *  2. Spatial hit-point classification (for large spanning meshes like
- *     trapezius, rectus abdominis, sciatic nerve that cross multiple zones)
- *  3. Multi-hit consensus voting (top 5 intersections agree on a region)
- *  4. Pure spatial coordinate fallback (unmapped meshes / procedural model)
+ * Maps a point on (or inside) the body to a clinical region.
+ * `posterior` should come from the surface normal for taps, or from depth for mesh centres.
+ */
+export const classifyBodyPoint = (h: number, x: number, posterior: boolean): string => {
+  const ax = Math.abs(x);
+  const side = x >= 0 ? 'Left' : 'Right';
+
+  if (h >= 150) {
+    if (ax >= 6.8 && h <= 163) return 'Ear';
+    if (posterior) return h >= 156 ? 'Head' : 'Cervical Spine';
+    return h >= 159 ? 'Head' : 'Face & Sinus';
+  }
+  if (h >= 141) {
+    if (ax >= 9.5) return `${side} Shoulder`;
+    return posterior ? 'Cervical Spine' : 'Neck';
+  }
+
+  // Upper limbs hang outside the torso outline.
+  const torsoHalfWidth = h >= 118 ? 14.5 : h >= 95 ? 13 : 15.5;
+  const inArmColumn = (h >= 80 && ax >= torsoHalfWidth + 1.5) || (h >= 60 && h < 80 && ax >= 20);
+  if (inArmColumn || (h >= 128 && ax >= 12.5)) {
+    if (h >= 126) return `${side} Shoulder`;
+    if (h >= 88) return `${side} Arm`;
+    return `${side} Hand`;
+  }
+
+  if (h >= 118) return posterior ? 'Upper Back / Thoracic' : x >= -1 ? 'Left Chest / Precordium' : 'Right Chest';
+  if (h >= 107) return posterior ? 'Upper Back / Thoracic' : 'Epigastrium';
+  if (h >= 96) return posterior ? 'Lumbar Spine (Kati)' : 'Umbilicus / Mid-Abdomen';
+  if (h >= 80) {
+    if (posterior) return h >= 92 ? 'Lumbar Spine (Kati)' : 'Sacral / Sciatica Origin';
+    if (ax >= 11) return `${side} Hip`;
+    if (ax >= 3.5 && h >= 84) return x >= 0 ? 'Left Lower Quadrant (LLQ)' : 'Right Lower Quadrant (RLQ)';
+    return 'Pelvic / Hypogastrium';
+  }
+  if (h >= 72 && posterior) return 'Sacral / Sciatica Origin';
+  if (h >= 52) return `${side} Hip`;
+  if (h >= 37) return `${side} Knee`;
+  if (h >= 9) return `${side} Leg`;
+  return `${side} Foot`;
+};
+
+/** Backwards-compatible wrapper used by older call sites (assumes a front-facing point). */
+export const classifyHitToRegion = (localHit: THREE.Vector3 | { x: number; y: number; z: number }): string => {
+  const cm = localToBodyCm(localHit);
+  return classifyBodyPoint(cm.h, cm.x, cm.z < -3.5);
+};
+
+const _tmpQuat = new THREE.Quaternion();
+const _tmpNormal = new THREE.Vector3();
+
+/**
+ * Region for a raycast hit. Uses the exact tap point plus the surface normal (front vs back), so the
+ * same spot always gives the same region regardless of which anatomical mesh happened to be on top.
  */
 export const resolveRegionFromHit = (
   topHit: THREE.Intersection,
-  allIntersects: THREE.Intersection[],
+  _allIntersects: THREE.Intersection[],
   humanGroup: THREE.Group
 ): string => {
-  const hitMesh = topHit.object as THREE.Mesh;
-  const record = hitMesh.userData?.record as AnatomicalMeshRecord | undefined;
   const localHit = humanGroup.worldToLocal(topHit.point.clone());
-
-  // Strategy 1 & 2: Mesh database regionId (small mesh = trust it, large mesh = use hit point)
-  if (record?.regionId) {
-    // Large spanning meshes (height > 25cm in original model space) cross multiple
-    // clinical regions. For these, where the user CLICKED matters more than the
-    // mesh's center-based regionId. Example: rectus abdominis spans from chest
-    // to pelvis — clicking the upper portion should yield "Epigastrium" not
-    // "Umbilicus / Mid-Abdomen".
-    const meshHeight = record.size?.[1] ?? 0;
-    if (meshHeight > 25) {
-      return classifyHitToRegion(localHit);
-    }
-    // Small / specific anatomical meshes: the database regionId is more precise
-    // than approximate spatial boundaries. E.g., an ear mesh at the edge of
-    // the spatial "Head" zone correctly returns "Ear".
-    return record.regionId;
+  const cm = localToBodyCm(localHit);
+  let posterior = cm.z < -3;
+  if (topHit.face) {
+    _tmpNormal.copy(topHit.face.normal).transformDirection(topHit.object.matrixWorld);
+    humanGroup.getWorldQuaternion(_tmpQuat).invert();
+    _tmpNormal.applyQuaternion(_tmpQuat);
+    if (Math.abs(_tmpNormal.z) > 0.3) posterior = _tmpNormal.z < 0;
   }
+  return classifyBodyPoint(cm.h, cm.x, posterior);
+};
 
-  // Strategy 3: Pre-computed spatial regionId from model setup (assigned during traversal)
-  if (hitMesh.userData?.spatialRegionId) {
-    return hitMesh.userData.spatialRegionId as string;
-  }
+// Marker positions calibrated to the model's anatomy (see `bodyCmToLocal`).
+const CALIBRATED_LOCI_CM: Record<string, [h: number, x: number, z: number]> = {
+  forehead: [163, 0, 7], face: [154, 0, 8], ear_l: [157, 7.5, 0], ear_r: [157, -7.5, 0], throat: [146, 0, 5],
+  cervical: [148, 0, -6], heart: [129, 4, 8], right_chest: [129, -7, 8], lungs: [132, 0, 8],
+  stomach: [115, 0, 8], navel: [102, 0, 8], pelvis: [86, 0, 7], appendix: [91, -6, 7], llq_kidney: [91, 6, 7],
+  upper_back: [128, 0, -8], lumbar: [101, 0, -7], sacrum: [86, 0, -8], sciatica_path: [28, 0, -5],
+  shoulder_r: [138, -17, 0], shoulder_l: [138, 17, 0], arm_r: [108, -21, 0], arm_l: [108, 21, 0],
+  hand_r: [78, -25, 1], hand_l: [78, 25, 1], hip_r: [70, -10, 3], hip_l: [70, 10, 3],
+  knee_l: [44, 8.5, 3], knee_r: [44, -8.5, 3], leg_l: [24, 8, 3], leg_r: [24, -8, 3], foot_l: [4, 8, 5], foot_r: [4, -8, 5]
+};
+MICRO_LOCI_CATALOG.forEach(locus => {
+  const cm = CALIBRATED_LOCI_CM[locus.subKey];
+  if (cm) locus.position = bodyCmToLocal(cm[0], cm[1], cm[2]);
+});
+// Calves / sciatic pathway are viewed from the back but belong to the leg zone.
+MICRO_LOCI_CATALOG.forEach(locus => {
+  if (locus.subKey === 'sciatica_path') locus.macroZone = 'legs';
+});
 
-  // Strategy 4: Multi-hit consensus (top 5 visible intersections vote on region)
-  const visibleHits = allIntersects.filter(h => h.object.visible).slice(0, 5);
-  const regionVotes = new Map<string, number>();
-  for (const hit of visibleHits) {
-    const rec = (hit.object as any).userData?.record as AnatomicalMeshRecord | undefined;
-    const region = rec?.regionId || (hit.object as any).userData?.spatialRegionId;
-    if (region) {
-      regionVotes.set(region, (regionVotes.get(region) || 0) + 1);
-    }
-  }
-  if (regionVotes.size > 0) {
-    let bestRegion = '';
-    let bestCount = 0;
-    for (const [region, count] of regionVotes) {
-      if (count > bestCount) {
-        bestCount = count;
-        bestRegion = region;
-      }
-    }
-    if (bestRegion) return bestRegion;
-  }
-
-  // Strategy 5: Pure spatial coordinate classification (final fallback)
-  return classifyHitToRegion(localHit);
+/** Camera distance used when focusing on a single region, by zone (keeps zoom consistent). */
+const ZONE_FOCUS_DISTANCE: Record<MacroZone, number> = {
+  full: 4.3, head: 1.45, chest: 1.8, abdomen: 1.8, spine: 2.1, arms: 2.0, legs: 1.9, torso: 2.2, lower: 2.2
 };
 
 // Multi-Strategy Dual Spatial & Semantic Region Matcher
@@ -1461,6 +1391,28 @@ export const isMeshMatchingSelectedRegion = (
   }
 };
 
+// Regions the tap classifier never returns (they are chosen from the list) keep the name-based matcher.
+const NAME_MATCHED_REGIONS = new Set(['Lungs & Respiration', 'Sciatic Pathway / Calves']);
+
+/**
+ * Whether a mesh should light up for the selected region. Uses the same calibrated classifier as
+ * tapping, so the highlighted area always matches what a tap there would select. Very long meshes
+ * (e.g. a spinal muscle running from neck to pelvis) are skipped so they do not light up a whole side.
+ */
+export const meshBelongsToRegion = (
+  mesh: THREE.Mesh,
+  record: AnatomicalMeshRecord | undefined,
+  selectedRegion: string
+): boolean => {
+  if (!selectedRegion) return false;
+  if (NAME_MATCHED_REGIONS.has(selectedRegion)) {
+    return isMeshMatchingSelectedRegion(mesh.name, record, mesh.userData, selectedRegion);
+  }
+  const maxDim = mesh.userData?.maxDimCm ?? 0;
+  if (maxDim > 32) return false;
+  return mesh.userData?.spatialRegionId === selectedRegion;
+};
+
 interface AnatomicalMannequin3DProps {
   selectedRegion?: string;
   onSelectRegion: (regionId: string) => void;
@@ -1476,6 +1428,7 @@ interface AnatomicalMannequin3DProps {
   showAngleControls?: boolean;
   hideHeaderControls?: boolean;
   isFocusMode?: boolean;
+  language?: string;
 }
 
 export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
@@ -1492,13 +1445,15 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
   className,
   showAngleControls = true,
   hideHeaderControls = false,
-  isFocusMode = false
+  isFocusMode = false,
+  language = 'hi'
 }) => {
+  const tx = kioskText(language);
   const mountRef = useRef<HTMLDivElement>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [internalSystemLayer, setInternalSystemLayer] = useState<AnatomicalSystemLayer>('all');
-  const [hoveredMeshInfo, setHoveredMeshInfo] = useState<AnatomicalMeshRecord | null>(null);
+  const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [internalMacroZone, setInternalMacroZone] = useState<MacroZone>('full');
   const [isAutoRotating, setIsAutoRotating] = useState(false);
 
@@ -1593,13 +1548,16 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
   // Dynamic Camera Framing & Multi-Strategy Solid Highlight Effect
   useEffect(() => {
-    // 1. If explicit selectedRegion has a defined camera preset and not in full body overview
-    if (activeMacroZone !== 'full' && selectedRegion && CAMERA_REGION_PRESETS[selectedRegion]) {
-      const preset = CAMERA_REGION_PRESETS[selectedRegion];
-      targetCameraPosRef.current.set(...preset.pos);
-      targetCameraLookAtRef.current.set(...preset.lookAt);
+    // Focus the camera on the selected spot at a zoom level that is fixed per zone, so every region
+    // in a zone is shown at the same scale.
+    const focusLocus = selectedRegion ? MICRO_LOCI_CATALOG.find(l => l.id === selectedRegion) : undefined;
+    if (activeMacroZone !== 'full' && focusLocus) {
+      const dist = ZONE_FOCUS_DISTANCE[activeMacroZone] || 2.0;
+      const y = focusLocus.position[1];
+      targetCameraPosRef.current.set(0, y, dist);
+      targetCameraLookAtRef.current.set(0, y, 0);
       if (cameraRef.current) {
-        cameraRef.current.fov = preset.fov;
+        cameraRef.current.fov = 34;
         cameraRef.current.updateProjectionMatrix();
       }
     } else if (activeMacroZone && MACRO_ZONE_DATA[activeMacroZone]) {
@@ -1614,10 +1572,10 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
         targetRotationYRef.current = zData.defaultYaw;
       }
     } else {
-      targetCameraPosRef.current.set(0, 0.15, 4.3);
-      targetCameraLookAtRef.current.set(0, 0.15, 0);
+      targetCameraPosRef.current.set(0, 0.05, 4.3);
+      targetCameraLookAtRef.current.set(0, 0.05, 0);
       if (cameraRef.current) {
-        cameraRef.current.fov = 40;
+        cameraRef.current.fov = 38;
         cameraRef.current.updateProjectionMatrix();
       }
     }
@@ -1634,78 +1592,49 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       selectedAreaLightRef.current.intensity = 0;
     }
 
-    // Highlight matching meshes directly on the 3D model using Multi-Strategy Matcher
-    const activeHighlightMaterial = selectedRegion ? getRegionHighlightMaterial(selectedRegion) : null;
-
-    meshesRef.current.forEach(({ mesh, origMaterial, record }) => {
-      const isSelected = selectedRegion && activeHighlightMaterial
-        ? isMeshMatchingSelectedRegion(mesh.name, record, mesh.userData, selectedRegion)
-        : false;
-
-      if (isSelected && activeHighlightMaterial) {
-        mesh.material = activeHighlightMaterial;
-        mesh.renderOrder = 1;
-      } else if (selectedRegion) {
-        // Dim non-selected meshes for contrast when a region is active
-        if (!mesh.userData._dimMat) {
-          mesh.userData._dimMat = origMaterial.clone();
-          if (mesh.userData._dimMat instanceof THREE.MeshStandardMaterial) {
-            mesh.userData._dimMat.transparent = true;
-            mesh.userData._dimMat.opacity = 0.35;
-            mesh.userData._dimMat.emissiveIntensity = 0;
-          }
-        }
-        mesh.material = mesh.userData._dimMat;
-        mesh.renderOrder = 0;
-      } else {
-        mesh.material = origMaterial;
-        mesh.renderOrder = 0;
-        if (mesh.userData._dimMat) {
-          mesh.userData._dimMat.dispose();
-          delete mesh.userData._dimMat;
-        }
-      }
-    });
 
   }, [selectedRegion, activeMacroZone, getRegionHighlightMaterial]);
 
-  // Handle Layer Shading, Ghosting (Solid Matte Context - ZERO GLASS EFFECT)
+  // Materials: selected region glows, everything else keeps its layer shading and is dimmed while a
+  // region is selected so the selection stands out. One effect owns all material changes.
   useEffect(() => {
     const activeHighlightMaterial = selectedRegion ? getRegionHighlightMaterial(selectedRegion) : null;
+    const isLayerTarget = (mesh: THREE.Mesh, record: AnatomicalMeshRecord | undefined) => {
+      switch (activeSystemLayer) {
+        case 'muscular': return record?.system === 'muscular' || record?.system === 'ligament' || /muscle|deltoid|biceps|gluteus|gastrocnemius|rectus|oblique|trapezius|latissimus|pectoral/i.test(mesh.name);
+        case 'skeletal': return record?.system === 'skeletal' || record?.system === 'cartilage' || /bone|vertebra|rib|skull|femur|tibia|fibula|humerus|radius|ulna|scapula|clavicle|pelvis|patell/i.test(mesh.name);
+        case 'vascular': return record?.system === 'vascular' || /artery|vein|cava|aort|carotid|jugular|sinus/i.test(mesh.name);
+        case 'visceral': return record?.system === 'visceral' || /heart|stomach|liver|kidney|bladder|lung|aort|cava|splen|ren|gastric|pancrea|duoden|ileum|colon/i.test(mesh.name);
+        default: return true;
+      }
+    };
 
     meshesRef.current.forEach(({ mesh, origMaterial, record }) => {
-      const isSelected = selectedRegion && activeHighlightMaterial
-        ? isMeshMatchingSelectedRegion(mesh.name, record, mesh.userData, selectedRegion)
-        : false;
-
-      if (isSelected && activeHighlightMaterial) {
+      mesh.visible = true;
+      if (activeHighlightMaterial && meshBelongsToRegion(mesh, record, selectedRegion!)) {
         mesh.material = activeHighlightMaterial;
-        mesh.visible = true;
+        mesh.renderOrder = 1;
         return;
       }
-
-      if (activeSystemLayer === 'all') {
+      mesh.renderOrder = 0;
+      if (!isLayerTarget(mesh, record)) {
+        mesh.material = ghostMaterialRef.current;
+        return;
+      }
+      if (selectedRegion) {
+        if (!mesh.userData._dimMat) {
+          const dim = origMaterial.clone() as THREE.MeshStandardMaterial;
+          dim.transparent = true;
+          dim.opacity = 0.35;
+          if ('emissiveIntensity' in dim) dim.emissiveIntensity = 0;
+          mesh.userData._dimMat = dim;
+        }
+        mesh.material = mesh.userData._dimMat;
+      } else {
         mesh.material = origMaterial;
-        mesh.visible = true;
-      } else if (activeSystemLayer === 'muscular') {
-        const isTarget = record?.system === 'muscular' || record?.system === 'ligament' || /muscle|deltoid|biceps|gluteus|gastrocnemius|rectus|oblique|trapezius|latissimus|pectoral/i.test(mesh.name);
-        mesh.material = isTarget ? origMaterial : ghostMaterialRef.current;
-        mesh.visible = true;
-      } else if (activeSystemLayer === 'skeletal') {
-        const isTarget = record?.system === 'skeletal' || record?.system === 'cartilage' || /bone|vertebra|rib|skull|femur|tibia|fibula|humerus|radius|ulna|scapula|clavicle|pelvis|patell/i.test(mesh.name);
-        mesh.material = isTarget ? origMaterial : ghostMaterialRef.current;
-        mesh.visible = true;
-      } else if (activeSystemLayer === 'vascular') {
-        const isTarget = record?.system === 'vascular' || /artery|vein|cava|aort|carotid|jugular|sinus/i.test(mesh.name);
-        mesh.material = isTarget ? origMaterial : ghostMaterialRef.current;
-        mesh.visible = true;
-      } else if (activeSystemLayer === 'visceral') {
-        const isTarget = record?.system === 'visceral' || /heart|stomach|liver|kidney|bladder|lung|aort|cava|splen|ren|gastric|pancrea|duoden|ileum|colon/i.test(mesh.name);
-        mesh.material = isTarget ? origMaterial : ghostMaterialRef.current;
-        mesh.visible = true;
       }
     });
-  }, [activeSystemLayer, selectedRegion, getRegionHighlightMaterial]);
+  }, [activeSystemLayer, selectedRegion, getRegionHighlightMaterial, modelLoaded]);
 
   // Handle external camera targets
   useEffect(() => {
@@ -1980,12 +1909,16 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
           }
           const centerWorld = meshBox.getCenter(new THREE.Vector3());
           const centerLocal = humanGroup.worldToLocal(centerWorld.clone());
-          const spatialRegionId = classifyHitToRegion(centerLocal);
+          const centerCm = localToBodyCm(centerLocal);
+          const sizeLocal = meshBox.getSize(new THREE.Vector3());
+          const maxDimCm = Math.max(sizeLocal.x, sizeLocal.y, sizeLocal.z) * CM_PER_UNIT;
+          const spatialRegionId = classifyBodyPoint(centerCm.h, centerCm.x, centerCm.z < -3.5);
 
           child.userData = {
             record,
             regionId: record?.regionId,
             spatialRegionId,
+            maxDimCm,
             cx: centerLocal.x,
             cy: centerLocal.y,
             cz: centerLocal.z,
@@ -2360,11 +2293,16 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       isDraggingRef.current = false;
     };
 
+    const handlePointerLeave = () => {
+      mouseRef.current.set(-999, -999);
+    };
+
     const domEl = renderer.domElement;
     domEl.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     domEl.addEventListener('pointercancel', handlePointerCancel);
+    domEl.addEventListener('pointerleave', handlePointerLeave);
 
     // 10. Render Loop with Smooth Camera Transitions & Anatomical Pulsing
     let animId: number;
@@ -2400,26 +2338,11 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
 
           if (hoverRegion !== lastHoveredRegionIdRef.current) {
             lastHoveredRegionIdRef.current = hoverRegion;
-            const matchedLocus = MICRO_LOCI_CATALOG.find(l => l.id === hoverRegion);
-            const hitRecord = (topHit.object as any).userData?.record as AnatomicalMeshRecord | undefined;
-            const localHit = humanGroup.worldToLocal(topHit.point.clone());
-
-            setHoveredMeshInfo({
-              name: hitRecord?.name || topHit.object.name || hoverRegion,
-              regionId: hoverRegion,
-              hindiName: hitRecord?.hindiName || (matchedLocus ? matchedLocus.hindiLabel : hoverRegion),
-              system: hitRecord?.system || 'muscular',
-              marma: hitRecord?.marma || matchedLocus?.ayushMarma || '',
-              isLeft: hitRecord?.isLeft ?? localHit.x > 0.025,
-              isRight: hitRecord?.isRight ?? localHit.x < -0.025,
-              center: hitRecord?.center || [localHit.x, localHit.y, localHit.z],
-              size: hitRecord?.size || [0.1, 0.1, 0.1],
-              vertexCount: hitRecord?.vertexCount || 0
-            });
+            setHoveredRegion(hoverRegion);
           }
         } else if (lastHoveredRegionIdRef.current !== null) {
           lastHoveredRegionIdRef.current = null;
-          setHoveredMeshInfo(null);
+          setHoveredRegion(null);
         }
       }
 
@@ -2450,6 +2373,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
       cancelAnimationFrame(animId);
       domEl.removeEventListener('pointerdown', handlePointerDown);
       domEl.removeEventListener('pointercancel', handlePointerCancel);
+      domEl.removeEventListener('pointerleave', handlePointerLeave);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('resize', handleResize);
@@ -2536,29 +2460,18 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
                 className="tactile-btn px-3 py-1.5 text-xs font-semibold rounded-xl bg-card/90 dark:bg-card/90 text-foreground border border-border/80 shadow-xs flex items-center gap-1.5 cursor-pointer hover:bg-muted"
               >
                 <CornerUpLeft size={13} className="text-muted-foreground" />
-                <span>Full Body (संपूर्ण शरीर)</span>
+                <span>{tx('zoneFull')}</span>
               </button>
             ) : null}
 
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-card/90 dark:bg-card/90 backdrop-blur-md rounded-xl border border-border/80 text-xs font-semibold text-foreground shadow-xs">
-              <span>{currentMacroData.hindiLabel}</span>
-              <span className="text-[10.5px] text-muted-foreground font-mono hidden sm:inline">({currentMacroData.enLabel})</span>
-            </div>
-          </div>
-
-          {/* Right: Hospital Lateral Clarifier */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-card/90 dark:bg-card/90 backdrop-blur-md rounded-xl border border-border/80 text-xs font-mono text-foreground shadow-xs">
-            <span className="text-muted-foreground font-medium">Right (दायां)</span>
-            <span className="text-border">|</span>
-            <span className="font-semibold text-foreground">Left / Heart (बायां)</span>
           </div>
         </div>
       )}
 
-      {/* Floating 3D Hover Inspection Tooltip HUD */}
-      {hoveredMeshInfo && (
-        <div className="absolute top-4 right-4 z-30 px-3.5 py-2 rounded-xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md pointer-events-none transition-all text-card-foreground">
-          <div className="text-foreground text-xs sm:text-sm font-heading font-bold">{hoveredMeshInfo.hindiName}</div>
+      {/* Hover hint: which region a tap here would select */}
+      {hoveredRegion && (
+        <div className="absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md pointer-events-none text-xs sm:text-sm font-heading font-bold text-foreground">
+          {regionName(hoveredRegion, language)}
         </div>
       )}
 
@@ -2573,7 +2486,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
                 viewMode === 'front' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
               }`}
             >
-              Front (सामने)
+              {tx('bodyFront')}
             </button>
             <button
               type="button"
@@ -2582,7 +2495,7 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
                 viewMode === 'back' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
               }`}
             >
-              Back (पीछे)
+              {tx('bodyBack')}
             </button>
           </div>
         </div>
@@ -2627,11 +2540,9 @@ export const AnatomicalMannequin3D: React.FC<AnatomicalMannequin3DProps> = ({
             </div>
             <div className="text-center">
               <div className="text-xs font-heading font-bold text-foreground">
-                3D Mannequin Calibration
+                {tx('bodyLoading')}
               </div>
-              <div className="text-[10.5px] text-muted-foreground font-mono mt-0.5">
-                {loadingProgress < 100 ? `Loading Anatomy (${loadingProgress}%)` : 'Rendering Diagnostic Stage...'}
-              </div>
+              <div className="text-[10.5px] text-muted-foreground font-mono mt-0.5">{loadingProgress}%</div>
             </div>
           </div>
           <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden border border-border/60">

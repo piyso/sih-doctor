@@ -1349,11 +1349,21 @@ export class ClinicalParserService {
     if (/lft|kft|liver|kidney/i.test(lower)) investigationsOrdered.push('LFT & KFT Profile');
     if (/usg|ultrasound/i.test(lower)) investigationsOrdered.push('USG Whole Abdomen');
 
+    // One phrase can match both "X" and "Severe X" (e.g. "हाथ में बहुत दर्द"); keep a single entry per
+    // site + complaint, preferring the more specific (severe) one.
+    const dedupedSymptoms: SocratesSymptom[] = [];
+    for (const sym of symptoms) {
+      const base = (sym.name || '').replace(/^severe\s+/i, '').toLowerCase();
+      const idx = dedupedSymptoms.findIndex(d => d.site === sym.site && (d.name || '').replace(/^severe\s+/i, '').toLowerCase() === base && !!d.isNegated === !!sym.isNegated);
+      if (idx === -1) dedupedSymptoms.push(sym);
+      else if (/^severe\s+/i.test(sym.name || '')) dedupedSymptoms[idx] = { ...sym, severityScore: Math.max(sym.severityScore || 0, dedupedSymptoms[idx].severityScore || 0, 8) } as SocratesSymptom;
+    }
+
     return {
       patientId,
       abhaId,
       timestamp: new Date().toISOString(),
-      symptoms,
+      symptoms: dedupedSymptoms,
       vitals,
       pastHistory,
       allopathicPrescriptions,

@@ -1,335 +1,459 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PatientQueueList } from './PatientQueueList';
 import { PreIntakePanel } from './PreIntakePanel';
 import { AmbientScribePanel } from './AmbientScribePanel';
 import { DualPharmacologyPrescriber } from './DualPharmacologyPrescriber';
 import { OfficialAiiaRxModal } from './OfficialAiiaRxModal';
 import { EmergencyBanner } from '../common/EmergencyBanner';
-import { PatientQueueItem, SessionDetail, AllopathicMedication, AyushFormulation } from '../../types/api';
+import { PatientQueueItem, SessionDetail, AllopathicMedication, AyushFormulation, VitalsData } from '../../types/api';
 import { api } from '../../services/api';
-import { Users, Stethoscope, AlertOctagon, Printer, FileText, Sparkles, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { Users, Stethoscope, Printer, CheckCircle2, ChevronLeft, ChevronRight, Activity, Leaf, Pill, X, Megaphone, UserX, Siren, FileText } from 'lucide-react';
 import { sovereignSound } from '../../utils/audio';
-import { cn } from '@/lib/utils';
+import { DOCTOR_PROFILES, departmentName, roomLabel, DepartmentCode, DEPARTMENTS } from '../../utils/hospitalDirectory';
+import { DoctorRole, RxDraft, emptyRxDraft, loadDoctorRole, saveDoctorRole } from './doctorRole';
+import { useStaffUser } from '../auth/StaffGate';
+import { SoapNoteModal } from './SoapNoteModal';
+
+/** Patients a doctor of this role should see (their stream, undecided, and every emergency). */
+export const isPatientForRole = (item: Pick<PatientQueueItem, 'careStream' | 'triagePriority'>, role: DoctorRole) =>
+  item.triagePriority === 'EMERGENCY_RED_FLAG' || !item.careStream || item.careStream === 'UNDECIDED' || item.careStream === role;
 
 export const DoctorDeskContainer: React.FC = () => {
+  const user = useStaffUser();
+  // A doctor always works as modern medicine and a vaidya as Ayurveda; nurses and admins may view either.
+  const fixedRole: DoctorRole | null = user?.role === 'vaidya' ? 'AYURVEDA' : user?.role === 'doctor' ? 'ALLOPATHY' : null;
+  const canPrescribe = user?.role === 'doctor' || user?.role === 'vaidya';
+  const [chosenRole, setRole] = useState<DoctorRole>(loadDoctorRole);
+  const role: DoctorRole = fixedRole || chosenRole;
+  const [sosAlerts, setSosAlerts] = useState<any[]>([]);
+  const [soapOpen, setSoapOpen] = useState(false);
+  const [scribeText, setScribeText] = useState('');
+  const [showAllStreams, setShowAllStreams] = useState(false);
   const [queue, setQueue] = useState<PatientQueueItem[]>([]);
+  const [online, setOnline] = useState(true);
+  const [queueLoaded, setQueueLoaded] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState<SessionDetail | null>(null);
   const [isRxModalOpen, setIsRxModalOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'queue' | 'intake' | 'workspace'>('queue');
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [divertedIds, setDivertedIds] = useState<string[]>([]);
+  // Below 1025 px the desk shows one column at a time (tabs); above it shows all three.
+  const [isWide, setIsWide] = useState(() => typeof window === 'undefined' || window.innerWidth > 1024);
+  useEffect(() => {
+    const onResize = () => setIsWide(window.innerWidth > 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-  const [allopathicMeds, setAllopathicMeds] = useState<AllopathicMedication[]>([]);
-  const [ayushFormulations, setAyushFormulations] = useState<AyushFormulation[]>([]);
+  // Prescription drafts are kept per patient, so switching patients (or the 3.5 s queue refresh)
+  // never throws away what the doctor has written.
+  const draftsRef = useRef<Record<string, RxDraft>>({});
+  const [draft, setDraft] = useState<RxDraft>(emptyRxDraft);
+  const selectedRef = useRef<string | null>(null);
+  const demoRestoreTriedRef = useRef(false);
 
-  const [finalizedNotice, setFinalizedNotice] = useState<string | null>(null);
+  const updateDraft = useCallback((patch: Partial<RxDraft> | ((d: RxDraft) => Partial<RxDraft>)) => {
+    setDraft(prev => {
+      const next = { ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) };
+      if (selectedRef.current) draftsRef.current[selectedRef.current] = next;
+      return next;
+    });
+  }, []);
 
-  const loadQueue = async () => {
-    const q = await api.getQueue();
-    setQueue(q);
-    if (q.length > 0) {
-      const handoffSessionId = sessionStorage.getItem('selected_doctor_session');
-      if (handoffSessionId) {
-        const target = q.find(item => item.sessionId === handoffSessionId);
-        if (target) {
-          sessionStorage.removeItem('selected_doctor_session');
-          handleSelectPatient(target, true);
-          return;
-        }
-      }
-      if (!selectedSessionId || !q.some(item => item.sessionId === selectedSessionId)) {
-        handleSelectPatient(q[0], false);
-      }
-    } else {
+  const setAllopathicMeds: React.Dispatch<React.SetStateAction<AllopathicMedication[]>> = useCallback(
+    value => updateDraft(d => ({ allopathic: typeof value === 'function' ? (value as any)(d.allopathic) : value })),
+    [updateDraft]
+  );
+  const setAyushFormulations: React.Dispatch<React.SetStateAction<AyushFormulation[]>> = useCallback(
+    value => updateDraft(d => ({ ayush: typeof value === 'function' ? (value as any)(d.ayush) : value })),
+    [updateDraft]
+  );
+
+  const visibleQueue = useMemo(
+    () => (showAllStreams ? queue : queue.filter(item => isPatientForRole(item, role))),
+    [queue, role, showAllStreams]
+  );
+
+  const selectPatient = useCallback(async (item: PatientQueueItem | null, isExplicitUserClick = false) => {
+    if (!item) {
+      selectedRef.current = null;
       setSelectedSessionId(null);
       setCurrentSession(null);
-      setAllopathicMeds([]);
-      setAyushFormulations([]);
+      setDraft(emptyRxDraft());
+      return;
     }
-  };
-
-  const handleSelectPatient = async (item: PatientQueueItem, isExplicitUserClick = false) => {
+    selectedRef.current = item.sessionId;
     setSelectedSessionId(item.sessionId);
-    const detail = await api.getSessionDetail(item.sessionId);
-    setCurrentSession(detail);
-    if (isExplicitUserClick && typeof window !== 'undefined' && window.innerWidth <= 1024) {
-      setMobileTab('intake');
-    }
+    setDraft(draftsRef.current[item.sessionId] || emptyRxDraft());
+    if (isExplicitUserClick && typeof window !== 'undefined' && window.innerWidth <= 1024) setMobileTab('intake');
 
-    // Load real prescriptions: from existing finalized SQLite encounter or scanned prior documents
-    if (detail?.existingEncounter) {
-      setAllopathicMeds(detail.existingEncounter.allopathicPrescription || []);
-      setAyushFormulations(detail.existingEncounter.ayushPrescription || []);
-    } else {
-      const docs = detail?.scannedDocs || [];
-      const extractedMedsFromDocs: any[] = [];
-      for (const d of docs) {
-        if (Array.isArray(d.extractedMedications)) {
-          extractedMedsFromDocs.push(...d.extractedMedications);
-        }
-      }
-      if (extractedMedsFromDocs.length > 0) {
-        setAllopathicMeds(extractedMedsFromDocs.map(m => ({
-          name: typeof m === 'string' ? m : (m.name || m.genericName || 'Prescribed Med'),
-          dosage: m.dosage || 'Standard',
-          route: 'ORAL',
-          frequency: m.frequency || 'OD',
-          durationDays: m.durationDays || 30
-        })));
-        setAyushFormulations([]);
+    const detail = await api.getSessionDetail(item.sessionId);
+    if (selectedRef.current !== item.sessionId) return; // the doctor already moved on
+    setCurrentSession(detail);
+
+    // First time this patient is opened: start from an earlier finalized encounter, or from the
+    // medicines found on the documents they scanned at the kiosk.
+    if (!draftsRef.current[item.sessionId] && detail) {
+      const initial = emptyRxDraft();
+      if (detail.existingEncounter) {
+        initial.allopathic = detail.existingEncounter.allopathicPrescription || [];
+        initial.ayush = detail.existingEncounter.ayushPrescription || [];
+        initial.pathya = detail.existingEncounter.pathya || [];
+        initial.apathya = detail.existingEncounter.apathya || [];
+        initial.advice = detail.existingEncounter.advice || '';
       } else {
-        setAllopathicMeds([]);
-        setAyushFormulations([]);
+        const meds = (detail.scannedDocs || []).flatMap((d: any) => (Array.isArray(d.extractedMedications) ? d.extractedMedications : []));
+        initial.allopathic = meds.map((m: any) => ({
+          name: typeof m === 'string' ? m : m.name || m.genericName || 'Medicine from previous prescription',
+          dosage: m.dosage || '',
+          route: 'ORAL',
+          frequency: m.frequency || '',
+          durationDays: m.durationDays || 0,
+          instructions: 'From previous prescription — review'
+        }));
+      }
+      draftsRef.current[item.sessionId] = initial;
+      setDraft(initial);
+    }
+  }, []);
+
+  const loadQueue = useCallback(async () => {
+    const { items, online: isOnline } = await api.getQueueStatus();
+    setOnline(isOnline);
+    setQueueLoaded(true);
+
+    // Empty waiting room on first open: put the demo patients back (never deletes real records).
+    if (isOnline && items.length === 0 && !demoRestoreTriedRef.current) {
+      demoRestoreTriedRef.current = true;
+      if ((await api.restoreDemoQueue()) > 0) {
+        const again = await api.getQueueStatus();
+        setQueue(again.items);
+        return;
       }
     }
-  };
+    demoRestoreTriedRef.current = true;
+    setQueue(items);
+  }, []);
+
+  // Keep the selection valid when the queue or the role filter changes.
+  useEffect(() => {
+    if (!queueLoaded) return;
+    const handoff = (() => { try { return sessionStorage.getItem('selected_doctor_session'); } catch { return null; } })();
+    if (handoff) {
+      const target = queue.find(item => item.sessionId === handoff);
+      if (target) {
+        try { sessionStorage.removeItem('selected_doctor_session'); } catch {}
+        if (selectedRef.current !== target.sessionId) selectPatient(target, true);
+        return;
+      }
+    }
+    const current = selectedRef.current;
+    if (current && visibleQueue.some(item => item.sessionId === current)) return;
+    selectPatient(visibleQueue[0] || null);
+  }, [queue, visibleQueue, queueLoaded, selectPatient]);
+
+  const loadAlerts = useCallback(() => {
+    api.getAlerts().then(a => setSosAlerts(a.filter((x: any) => !x.resolvedAt))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadQueue();
-    const interval = setInterval(loadQueue, 3500);
+    loadAlerts();
+    // Live updates arrive over the event stream; the poll is only a safety net.
+    const interval = setInterval(() => { loadQueue(); loadAlerts(); }, 15000);
+    const stop = api.subscribeStaffEvents(e => {
+      if (e.type === 'queue.changed') loadQueue();
+      if (e.type === 'sos.raised') {
+        try { sovereignSound.playEmergencyCodeRed(); } catch {}
+        loadAlerts();
+      }
+      if (e.type === 'sos.updated') loadAlerts();
+    });
     const handleSync = () => loadQueue();
     window.addEventListener('focus', handleSync);
     window.addEventListener('kiosk_patient_registered', handleSync);
-    window.addEventListener('storage', handleSync);
     return () => {
       clearInterval(interval);
+      stop();
       window.removeEventListener('focus', handleSync);
       window.removeEventListener('kiosk_patient_registered', handleSync);
-      window.removeEventListener('storage', handleSync);
     };
-  }, []);
+  }, [loadQueue, loadAlerts]);
 
-  const handleNextPatient = () => {
-    if (queue.length === 0) return;
-    const currentIndex = queue.findIndex(q => q.sessionId === selectedSessionId);
-    const nextIndex = (currentIndex + 1) % queue.length;
-    handleSelectPatient(queue[nextIndex]);
+  const changeRole = (next: DoctorRole) => {
+    sovereignSound.playMechanicalSnap();
+    setRole(next);
+    saveDoctorRole(next);
+  };
+
+  const stepPatient = (direction: 1 | -1) => {
+    if (visibleQueue.length === 0) return;
+    const idx = visibleQueue.findIndex(q => q.sessionId === selectedSessionId);
+    const next = visibleQueue[(idx + direction + visibleQueue.length) % visibleQueue.length];
+    selectPatient(next, true);
     sovereignSound.playDialNotch();
   };
 
-  const handlePrevPatient = () => {
-    if (queue.length === 0) return;
-    const currentIndex = queue.findIndex(q => q.sessionId === selectedSessionId);
-    const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-    handleSelectPatient(queue[prevIndex]);
-    sovereignSound.playDialNotch();
+  const handleSaveVitals = async (vitals: VitalsData) => {
+    if (!currentSession) return false;
+    const ok = await api.updateSessionVitals(currentSession.sessionId, vitals);
+    if (ok) {
+      setCurrentSession(prev => (prev ? { ...prev, vitals: { ...prev.vitals, ...vitals } } : prev));
+      setQueue(prev => prev.map(q => (q.sessionId === currentSession.sessionId ? { ...q, vitals: { ...q.vitals, ...vitals } } : q)));
+    }
+    return ok;
+  };
+
+  const handleCallPatient = async () => {
+    if (!currentSession) return;
+    try {
+      const r = await api.callPatient(currentSession.sessionId);
+      sovereignSound.playCrystalChime();
+      setNotice({ tone: 'success', text: `Token ${r.tokenNo} called to Room ${r.room}${r.callCount > 1 ? ` (call ${r.callCount})` : ''}. It is shown and announced on the waiting-room screen.` });
+      loadQueue();
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e?.message || 'Could not call the patient.' });
+    }
+  };
+
+  const handleNoShow = async () => {
+    if (!currentSession) return;
+    if (!window.confirm(`Mark ${currentSession.patientName} as not present? They leave the queue (they can check in again).`)) return;
+    try {
+      await api.markNoShow(currentSession.sessionId);
+      setNotice({ tone: 'success', text: `${currentSession.patientName} was marked as not present.` });
+      loadQueue();
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e?.message || 'Could not update the queue.' });
+    }
+  };
+
+  const handleSendToEmergency = async () => {
+    if (!currentSession) return;
+    const ok = await api.updateSessionStatus(currentSession.sessionId, 'DIVERTED_EMERGENCY');
+    if (ok) {
+      setDivertedIds(prev => [...prev, currentSession.sessionId]);
+      setNotice({ tone: 'success', text: `${currentSession.patientName} has been sent to the Emergency Room.` });
+      loadQueue();
+    } else {
+      setNotice({ tone: 'error', text: 'Could not update the patient status — the hospital server is not reachable.' });
+    }
   };
 
   const handleAutoExtractFromScribe = async (transcriptText?: string) => {
+    const text = (transcriptText || '').trim();
+    if (!text) {
+      setNotice({ tone: 'error', text: 'The scribe transcript is empty — record or type the consultation first.' });
+      return;
+    }
     try {
       sovereignSound.playCrystalChime();
-      const textToParse = transcriptText && transcriptText.trim().length > 0 ? transcriptText : 'Patient reported clinical symptoms';
-      const parsed = await api.parseAudioTranscript(textToParse, selectedSessionId || undefined);
-      if (parsed) {
-        if (parsed.medications && parsed.medications.length > 0) {
-          setAllopathicMeds((prev) => {
-            const next = [...prev];
-            for (const item of parsed.medications) {
-              const m = item as any;
-              const medObj: AllopathicMedication = {
-                name: typeof m === 'string' ? m : (m.drugName || m.name || m.genericName || 'Prescribed Med'),
-                dosage: typeof m === 'object' && m.dosage ? m.dosage : 'Standard',
-                route: typeof m === 'object' && m.route ? m.route : 'ORAL',
-                frequency: typeof m === 'object' && m.frequency ? m.frequency : 'OD',
-                durationDays: typeof m === 'object' && m.durationDays ? m.durationDays : (typeof m === 'object' && m.duration ? parseInt(m.duration) || 30 : 30)
-              };
-              if (!next.some(existing => existing.name.toLowerCase() === medObj.name.toLowerCase())) {
-                next.push(medObj);
-              }
-            }
-            return next;
-          });
-        }
-        if (parsed.ayushPrescriptions && parsed.ayushPrescriptions.length > 0) {
-          setAyushFormulations((prev) => {
-            const next = [...prev];
-            for (const item of parsed.ayushPrescriptions) {
-              const a = item as any;
-              const ayushObj: AyushFormulation = {
-                classicalName: typeof a === 'string' ? a : (a.formulationName || a.classicalName || a.name || 'Ayurvedic Compound'),
-                dosageForm: typeof a === 'object' && (a.dosageForm || a.category) ? (a.dosageForm || a.category) : 'Vati',
-                dose: typeof a === 'object' && (a.dose || a.dosage) ? (a.dose || a.dosage) : '1 Tab',
-                anupana: typeof a === 'object' && a.anupana ? a.anupana : 'Warm Water',
-                frequency: typeof a === 'object' && a.frequency ? a.frequency : 'OD',
-                durationDays: typeof a === 'object' && a.durationDays ? a.durationDays : (typeof a === 'object' && a.duration ? parseInt(a.duration) || 30 : 30)
-              };
-              if (!next.some(existing => existing.classicalName.toLowerCase() === ayushObj.classicalName.toLowerCase())) {
-                next.push(ayushObj);
-              }
-            }
-            return next;
-          });
-        }
+      const parsed = await api.parseAudioTranscript(text, selectedSessionId || undefined);
+      const meds = parsed.medications || [];
+      const ayush = parsed.ayushPrescriptions || [];
+      if (meds.length === 0 && ayush.length === 0) {
+        setNotice({ tone: 'error', text: 'No medicines were recognised in the transcript.' });
+        return;
       }
+      updateDraft(d => {
+        const allopathic = [...d.allopathic];
+        for (const m of meds as any[]) {
+          const name = typeof m === 'string' ? m : m.drugName || m.name || m.genericName;
+          if (!name || allopathic.some(e => e.name.toLowerCase() === name.toLowerCase())) continue;
+          allopathic.push({ name, dosage: m.dosage || '', route: m.route || 'ORAL', frequency: m.frequency || '', durationDays: m.durationDays || parseInt(m.duration, 10) || 0 });
+        }
+        const ayushList = [...d.ayush];
+        for (const a of ayush as any[]) {
+          const name = typeof a === 'string' ? a : a.formulationName || a.classicalName || a.name;
+          if (!name || ayushList.some(e => e.classicalName.toLowerCase() === name.toLowerCase())) continue;
+          ayushList.push({ classicalName: name, dosageForm: a.dosageForm || a.category || '', dose: a.dose || a.dosage || '', anupana: a.anupana || '', frequency: a.frequency || '', durationDays: a.durationDays || parseInt(a.duration, 10) || 0 });
+        }
+        return { allopathic, ayush: ayushList };
+      });
     } catch (e) {
       console.warn('Auto-extract transcript error:', e);
+      setNotice({ tone: 'error', text: 'The transcript could not be analysed — the hospital server is not reachable.' });
     }
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-      if (isInput) return;
-
-      // Space = Finalize Rx
-      if (e.code === 'Space' && !isRxModalOpen) {
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return;
+      if (e.code === 'Space' && !isRxModalOpen && currentSession && canPrescribe) {
         e.preventDefault();
-        sovereignSound.playMechanicalSnap();
         setIsRxModalOpen(true);
       } else if (e.key === '[') {
         e.preventDefault();
-        handlePrevPatient();
+        stepPatient(-1);
       } else if (e.key === ']') {
         e.preventDefault();
-        handleNextPatient();
+        stepPatient(1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRxModalOpen, queue, selectedSessionId]);
+  });
+
+  const fallbackProfile = DOCTOR_PROFILES[role];
+  const userDept = user?.department && (user.department in DEPARTMENTS) ? (user.department as DepartmentCode) : fallbackProfile.department;
+  const profile = canPrescribe && user
+    ? { name: user.displayName, title: user.qualification || '', registration: user.registrationNo || 'Registration not set', department: userDept }
+    : { ...fallbackProfile, name: `${user?.displayName || 'Staff'} (viewing ${role === 'AYURVEDA' ? 'Ayurveda' : 'modern medicine'} queue)`, title: canPrescribe ? fallbackProfile.title : 'cannot prescribe' };
+  const isEmergency = currentSession?.triagePriority === 'EMERGENCY_RED_FLAG';
+  const selectedQueueItem = queue.find(q => q.sessionId === selectedSessionId);
 
   return (
     <div className={`main-wrapper doctor-desk-container show-${mobileTab}`}>
-      {currentSession && currentSession.triagePriority === 'EMERGENCY_RED_FLAG' && (
+      {sosAlerts.length > 0 && (
+        <div className="no-print mb-4 p-3 rounded-2xl border-2 border-rose-600 bg-rose-500/10 flex items-center justify-between gap-3 flex-wrap" role="alert">
+          <div className="flex items-center gap-2.5 text-sm font-bold text-rose-800 dark:text-rose-200 min-w-0">
+            <Siren size={18} className="shrink-0" />
+            <span className="truncate">SOS: {sosAlerts[0].message}{sosAlerts[0].location ? ` — ${sosAlerts[0].location}` : ''}{sosAlerts.length > 1 ? ` (+${sosAlerts.length - 1} more)` : ''}</span>
+          </div>
+          <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">{sosAlerts[0].acknowledgedAt ? `${sosAlerts[0].acknowledgedBy} is attending` : 'Not yet acknowledged — nurse station alerted'}</span>
+        </div>
+      )}
+      {currentSession && isEmergency && (
         <EmergencyBanner
           redFlags={currentSession.redFlags}
           patientName={currentSession.patientName}
+          onDivertClick={handleSendToEmergency}
+          isDiverted={divertedIds.includes(currentSession.sessionId) || currentSession.status === 'DIVERTED_EMERGENCY'}
         />
       )}
 
-      {/* Persistent Prescription Finalization Confirmation Banner */}
-      {finalizedNotice && (
-        <div className="no-print p-4 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/50 mb-4 shadow-sm flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
-              <Sparkles size={16} />
-            </div>
-            <span className="font-heading font-bold text-xs sm:text-sm text-foreground">
-              {finalizedNotice}
-            </span>
+      {notice && (
+        <div className={`no-print p-3.5 rounded-2xl mb-4 flex items-center justify-between gap-3 border ${notice.tone === 'success' ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-rose-500/10 border-rose-500/50'}`} role="status">
+          <div className="flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <CheckCircle2 size={17} className={notice.tone === 'success' ? 'text-emerald-600' : 'text-rose-600'} />
+            <span>{notice.text}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setFinalizedNotice(null)}
-            className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2 py-1 rounded-lg hover:bg-muted"
-          >
-            Dismiss
+          <button type="button" onClick={() => setNotice(null)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground" aria-label="Dismiss">
+            <X size={15} />
           </button>
         </div>
       )}
 
-      {/* Dedicated Doctor Chamber Bar - Sovereign Clean */}
-      <div 
-        className="no-print glass rounded-2xl border border-border/70 p-3.5 sm:px-5 mb-5 shadow-xs flex items-center justify-between flex-wrap gap-3"
-      >
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-brand/10 text-brand border border-brand/20 flex items-center justify-center shrink-0">
-            <Stethoscope size={18} />
+      {/* Doctor header: who is consulting and which kind of practice */}
+      <div className="no-print glass rounded-2xl border border-border/70 p-3.5 sm:px-5 mb-5 shadow-xs flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border ${role === 'AYURVEDA' ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30' : 'bg-sky-500/10 text-sky-700 border-sky-500/30'}`}>
+            {role === 'AYURVEDA' ? <Leaf size={18} /> : <Stethoscope size={18} />}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-heading font-bold text-sm tracking-tight text-foreground">
-              Dr. Ananya Sharma, MD
-            </span>
-            <span className="text-xs text-muted-foreground">•</span>
-            <span className="text-xs text-muted-foreground font-sans">
-              Room 14 (General Medicine)
-            </span>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-muted-foreground">
-              DMC-98421
-            </span>
+          <div className="min-w-0">
+            <div className="font-heading font-bold text-sm text-foreground truncate">{profile.name} · <span className="font-medium text-muted-foreground">{profile.title}</span></div>
+            <div className="text-xs text-muted-foreground truncate">
+              {roomLabel(profile.department, 'en')} · {departmentName(profile.department, 'en')} · {profile.registration}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-            <span><strong className="text-foreground">{queue.length}</strong> in queue</span>
-          </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {!fixedRole && <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border/70" role="radiogroup" aria-label="Doctor type">
+            {([
+              { id: 'AYURVEDA', label: 'Ayurveda (Vaidya)', icon: Leaf },
+              { id: 'ALLOPATHY', label: 'Modern medicine', icon: Pill }
+            ] as const).map(opt => {
+              const Icon = opt.icon;
+              const active = role === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => changeRole(opt.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${active ? 'bg-card text-foreground shadow-xs border border-border' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon size={13} />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>}
+          {currentSession && (
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={handleCallPatient} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5" title="Show and announce this token on the waiting-room screen">
+                <Megaphone size={13} /> {selectedQueueItem?.calledAt ? 'Call again' : 'Call to room'}{selectedQueueItem?.tokenNo ? ` · ${selectedQueueItem.tokenNo}` : ''}
+              </button>
+              <button type="button" onClick={handleNoShow} className="h-8 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5" title="Patient did not come when called">
+                <UserX size={13} /> Not present
+              </button>
+            </div>
+          )}
+          <span className="text-xs font-mono text-muted-foreground"><strong className="text-foreground">{visibleQueue.length}</strong> waiting</span>
           <div className="flex items-center gap-1 font-mono">
-            <button
-              onClick={handlePrevPatient}
-              title="Previous Patient (Shortcut: [ )"
-              className="px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 border border-border/60 text-xs font-medium text-foreground transition-colors flex items-center gap-1"
-            >
-              <ChevronLeft size={13} />
-              <span>[</span>
+            <button onClick={() => stepPatient(-1)} title="Previous patient ( [ )" className="px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 border border-border/60 text-xs font-medium flex items-center gap-1">
+              <ChevronLeft size={13} /><span>[</span>
             </button>
-            <button
-              onClick={handleNextPatient}
-              title="Next Patient (Shortcut: ] )"
-              className="px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 border border-border/60 text-xs font-medium text-foreground transition-colors flex items-center gap-1"
-            >
-              <span>]</span>
-              <ChevronRight size={13} />
+            <button onClick={() => stepPatient(1)} title="Next patient ( ] )" className="px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 border border-border/60 text-xs font-medium flex items-center gap-1">
+              <span>]</span><ChevronRight size={13} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile/Tablet Adaptive View Switcher (<=1024px) */}
+      {/* Tablet / phone tabs */}
       <div className="mobile-desk-toggle">
-        <button
-          type="button"
-          className={mobileTab === 'queue' ? 'active' : ''}
-          onClick={() => {
-            sovereignSound.playDialNotch();
-            setMobileTab('queue');
-          }}
-        >
-          <Users size={13} />
-          <span>Queue ({queue.length})</span>
-        </button>
-        <button
-          type="button"
-          className={mobileTab === 'intake' ? 'active' : ''}
-          onClick={() => {
-            sovereignSound.playDialNotch();
-            setMobileTab('intake');
-          }}
-        >
-          <Activity size={13} />
-          <span>Intake & Vitals</span>
-        </button>
-        <button
-          type="button"
-          className={mobileTab === 'workspace' ? 'active' : ''}
-          onClick={() => {
-            sovereignSound.playDialNotch();
-            setMobileTab('workspace');
-          }}
-        >
-          <Stethoscope size={13} />
-          <span>Prescribe & Notes</span>
-        </button>
+        {([
+          { id: 'queue', label: `Queue (${visibleQueue.length})`, icon: Users },
+          { id: 'intake', label: 'Intake & vitals', icon: Activity },
+          { id: 'workspace', label: 'Prescribe', icon: Stethoscope }
+        ] as const).map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button key={tab.id} type="button" className={mobileTab === tab.id ? 'active' : ''} onClick={() => { sovereignSound.playDialNotch(); setMobileTab(tab.id); }}>
+              <Icon size={13} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Main Responsive 3-Column Grid Layout */}
       <div className="doctor-desk-grid">
-        {/* Column 1: Left Sidebar Queue */}
         <div className="doctor-desk-sidebar">
           <PatientQueueList
-            queue={queue}
+            queue={visibleQueue}
+            totalCount={queue.length}
             selectedSessionId={selectedSessionId}
-            onSelectPatient={(item) => handleSelectPatient(item, true)}
+            onSelectPatient={item => selectPatient(item, true)}
             onRefresh={loadQueue}
+            online={online}
+            loaded={queueLoaded}
+            role={role}
+            showAllStreams={showAllStreams}
+            onToggleShowAll={() => setShowAllStreams(v => !v)}
+            onLoadDemo={async () => {
+              const n = await api.restoreDemoQueue();
+              setNotice(n > 0 ? { tone: 'success', text: `${n} demo patients added to the queue.` } : { tone: 'error', text: 'Demo patients could not be added.' });
+              loadQueue();
+            }}
           />
         </div>
 
-        {/* Column 2: Pre-Intake Anamnesis & Vitals */}
         <div className="doctor-desk-preintake">
-          <PreIntakePanel session={currentSession} />
+          <PreIntakePanel session={currentSession} role={role} onSaveVitals={handleSaveVitals} />
         </div>
 
-        {/* Column 3: Live Clinical Studio (Scribe + Dual-Pharmacology Rx) */}
         <div className="doctor-desk-workspace">
-          {/* Ambient Audio Scribe */}
-          <AmbientScribePanel onAutoExtract={handleAutoExtractFromScribe} />
-
-          {/* Dual-Pharmacology Rx Prescriber */}
+          <AmbientScribePanel onAutoExtract={handleAutoExtractFromScribe} onTranscriptChange={setScribeText} />
+          {currentSession && (
+            <div className="no-print mb-4 flex justify-end">
+              <button type="button" onClick={() => setSoapOpen(true)} className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold inline-flex items-center gap-1.5">
+                <FileText size={14} /> Draft visit note (SOAP)
+              </button>
+            </div>
+          )}
           <DualPharmacologyPrescriber
-            allopathicMeds={allopathicMeds}
+            role={role}
+            allopathicMeds={draft.allopathic}
             setAllopathicMeds={setAllopathicMeds}
-            ayushFormulations={ayushFormulations}
+            ayushFormulations={draft.ayush}
             setAyushFormulations={setAyushFormulations}
+            draft={draft}
+            updateDraft={updateDraft}
             sessionId={selectedSessionId || ''}
             session={currentSession}
             onOpenRxModal={() => setIsRxModalOpen(true)}
@@ -337,103 +461,57 @@ export const DoctorDeskContainer: React.FC = () => {
         </div>
       </div>
 
-      {/* Persistent Bottom Action Dock (1-Click Space Execution) */}
-      <aside 
-        aria-label="Clinical Action Dock" 
-        className="doctor-persistent-dock no-print fixed bottom-5 right-6 z-40 glass border border-border/80 shadow-2xl rounded-full px-5 py-2.5 flex items-center gap-3 animate-fade-in"
-      >
-        <div className="flex items-center gap-2.5">
-          <Activity size={14} className={currentSession?.triagePriority === 'EMERGENCY_RED_FLAG' ? "text-rose-500 shrink-0" : "text-primary shrink-0"} />
-          <span className="text-sm font-bold font-sans text-foreground">
-            {currentSession ? currentSession.patientName : 'No Patient Selected'}
-          </span>
-          {currentSession && (
-            <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-muted border border-border/60 text-muted-foreground">
-              Token #{(currentSession as any).queuePosition || currentSession.sessionId}
-            </span>
-          )}
+      {/* Bottom action dock */}
+      <aside aria-label="Clinical action dock" className="doctor-persistent-dock no-print fixed bottom-5 right-6 z-40 glass border border-border/80 shadow-2xl rounded-full px-5 py-2.5 flex items-center gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Activity size={14} className={isEmergency ? 'text-rose-500 shrink-0' : 'text-primary shrink-0'} />
+          <span className="text-sm font-bold text-foreground truncate max-w-[180px]">{currentSession ? currentSession.patientName : 'No patient selected'}</span>
         </div>
-
-        <div className="hidden sm:flex items-center gap-3">
-          <div className="w-px h-5 bg-border/80" />
-
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-sans">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/60 font-mono text-[10px] text-foreground font-semibold">
-              Space
-            </kbd>
-            <span>Finalize Rx</span>
-          </div>
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+          <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/60 font-mono text-[10px] text-foreground font-semibold">Space</kbd>
+          <span>Finalize</span>
         </div>
-
-        {/* Mobile-Adaptive or Desktop Primary Action Button */}
-        {mobileTab === 'intake' ? (
-          <button
-            onClick={() => {
-              sovereignSound.playDialNotch();
-              setMobileTab('workspace');
-            }}
-            className="btn btn-primary"
-            style={{
-              padding: '6px 16px',
-              borderRadius: 9999,
-              fontSize: 12,
-              fontWeight: 700,
-              gap: 5
-            }}
-          >
-            <span>Proceed to Prescribe</span>
-            <ChevronRight size={13} />
+        {!isWide && mobileTab === 'queue' ? (
+          <button onClick={() => setMobileTab('intake')} className="btn btn-primary" style={{ padding: '6px 16px', borderRadius: 9999, fontSize: 12 }}>
+            <span>View intake</span><ChevronRight size={13} />
           </button>
-        ) : mobileTab === 'queue' ? (
-          <button
-            onClick={() => {
-              sovereignSound.playDialNotch();
-              setMobileTab('intake');
-            }}
-            className="btn btn-primary"
-            style={{
-              padding: '6px 16px',
-              borderRadius: 9999,
-              fontSize: 12,
-              fontWeight: 700,
-              gap: 5
-            }}
-          >
-            <span>View Intake</span>
-            <ChevronRight size={13} />
+        ) : !isWide && mobileTab === 'intake' ? (
+          <button onClick={() => setMobileTab('workspace')} className="btn btn-primary" style={{ padding: '6px 16px', borderRadius: 9999, fontSize: 12 }}>
+            <span>Prescribe</span><ChevronRight size={13} />
           </button>
         ) : (
-          <button
-            onClick={() => {
-              sovereignSound.playMechanicalSnap();
-              setIsRxModalOpen(true);
-            }}
-            className="btn btn-primary"
-            style={{
-              padding: '7px 18px',
-              borderRadius: 9999,
-              fontSize: 12,
-              fontWeight: 700,
-              gap: 6
-            }}
-          >
-            <Printer size={13} />
-            <span>Finalize & Print Rx</span>
+          <button onClick={() => currentSession && setIsRxModalOpen(true)} disabled={!currentSession || !canPrescribe} title={canPrescribe ? '' : 'Only a doctor or vaidya can sign a prescription'} className="btn btn-primary" style={{ padding: '7px 18px', borderRadius: 9999, fontSize: 12 }}>
+            <Printer size={13} /><span>{canPrescribe ? 'Finalize & print Rx' : 'Doctor signs Rx'}</span>
           </button>
         )}
       </aside>
 
-      {/* Official Government of India & AIIA Prescription Modal */}
+      {soapOpen && currentSession && (
+        <SoapNoteModal
+          session={currentSession}
+          transcript={scribeText}
+          draft={draft}
+          onClose={() => setSoapOpen(false)}
+          onInsert={note => {
+            updateDraft(d => ({ notes: d.notes ? `${d.notes}\n\n${note}` : note }));
+            setSoapOpen(false);
+            setNotice({ tone: 'success', text: 'Visit note added to the prescription notes. Review it before finalizing.' });
+          }}
+        />
+      )}
+
       <OfficialAiiaRxModal
-        isOpen={isRxModalOpen}
+        isOpen={isRxModalOpen && canPrescribe}
         onClose={() => setIsRxModalOpen(false)}
         session={currentSession}
-        allopathicMeds={allopathicMeds}
-        ayushFormulations={ayushFormulations}
-        onFinalize={() => {
-          setIsRxModalOpen(false);
-          setFinalizedNotice(`✓ पर्ची सफलतापूर्वक प्रमाणित एवं प्रेषित (Prescription finalized for ${currentSession?.patientName || 'Patient'} • Transmitted to Hospital Dispensary POS & ABDM Gateway)`);
-          setTimeout(() => setFinalizedNotice(null), 9000);
+        role={role}
+        allopathicMeds={draft.allopathic}
+        ayushFormulations={draft.ayush}
+        draft={draft}
+        prescriber={canPrescribe && user ? { name: user.displayName, title: user.qualification || '', registration: user.registrationNo || '', department: userDept } : null}
+        onFinalized={() => {
+          setNotice({ tone: 'success', text: `Prescription for ${currentSession?.patientName || 'the patient'} was saved and sent to the pharmacy.` });
+          if (selectedRef.current) delete draftsRef.current[selectedRef.current];
           loadQueue();
         }}
       />

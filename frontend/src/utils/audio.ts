@@ -393,7 +393,8 @@ class SovereignAudioEngine {
                     lang === 'gu' ? 'gu-IN' :
                     lang === 'kn' ? 'kn-IN' :
                     lang === 'pa' ? 'pa-IN' :
-                    lang === 'ml' ? 'ml-IN' : lang;
+                    lang === 'ml' ? 'ml-IN' :
+                    lang === 'or' ? 'or-IN' : lang;
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = bcp47;

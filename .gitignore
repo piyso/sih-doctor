@@ -61,3 +61,26 @@ deck_assets/
 *dossier_previews/
 *_deck_previews/
 
+
+# Server secrets and backups (never commit)
+backend/data/keys/
+backend/data/backups/
+**/data/keys/
+**/data/backups/
+.env
+!.env.example
+
+# Documentation kept in the repo
+!docs/*.md
+!edge-ai/README.md
+!.env.example
+backups/
+models/
+e2e/test-results/
+e2e/node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/

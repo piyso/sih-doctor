@@ -23,6 +23,8 @@ import { sovereignSound } from '../../utils/audio';
 
 interface AmbientScribePanelProps {
   onAutoExtract: (transcriptText?: string) => void;
+  /** Receives the full consultation transcript whenever it changes (used for the visit-note draft). */
+  onTranscriptChange?: (text: string) => void;
 }
 
 export type AcousticMode = 'far_field_cabin' | 'whisper_boost' | 'standard';
@@ -36,11 +38,13 @@ export interface TranscriptEntry {
   tags?: string[];
 }
 
-export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoExtract }) => {
+export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoExtract, onTranscriptChange }) => {
   const [isListening, setIsListening] = useState(false);
   const isListeningRef = useRef(false);
 
-  const [inputMode, setInputMode] = useState<'real_mic' | 'simulated'>('real_mic');
+  // Only the real microphone is used: a scripted stream must never enter a real patient's record.
+  const inputMode = 'real_mic' as const;
+  const [micError, setMicError] = useState<string | null>(null);
   const [acousticMode, setAcousticMode] = useState<AcousticMode>('far_field_cabin');
   const [micLanguage, setMicLanguage] = useState<'hi-IN' | 'en-IN'>('hi-IN');
   const [hasWebSpeech, setHasWebSpeech] = useState<boolean>(false);
@@ -64,6 +68,10 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
+  useEffect(() => {
+    onTranscriptChange?.(transcriptLines.map(t => `${t.speaker}: ${t.text}`).join('\n'));
+  }, [transcriptLines, onTranscriptChange]);
 
   const extractEntitiesFromText = useCallback((text: string) => {
     const entities: string[] = [];
@@ -337,8 +345,11 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
             recognition.onerror = (err: any) => {
               console.warn('[AmbientScribe] Speech Recognition warning:', err.error);
               if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
-                console.warn('[AmbientScribe] Mic permission denied. Switching to autonomous simulation.');
-                setInputMode('simulated');
+                setMicError('Microphone permission was denied. Allow microphone access in the browser to use the scribe, or type notes manually.');
+                isListeningRef.current = false;
+                setIsListening(false);
+              } else if (err.error === 'network') {
+                setMicError('Speech recognition needs a network connection on this browser. Type notes manually instead.');
               }
             };
 
@@ -357,7 +368,10 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
             recognitionRef.current = recognition;
           } catch (e) {
             console.warn('[AmbientScribe] Native speech recognition init failed:', e);
+            setMicError('The microphone could not be started on this device.');
           }
+        } else {
+          setMicError('Live transcription is not supported in this browser (use Chrome or Edge). The audio meter still works.');
         }
       } else {
         // Simulated Autonomous OPD Stream
@@ -396,13 +410,11 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
 
   const toggleListening = () => {
     sovereignSound(isListening ? 'shutter' : 'chime');
+    if (!isListening) setMicError(null);
     setIsListening(!isListening);
   };
 
-  const handleModeChange = (mode: 'real_mic' | 'simulated') => {
-    sovereignSound('notch');
-    setInputMode(mode);
-  };
+
 
   const handleAcousticModeChange = (mode: AcousticMode) => {
     sovereignSound('notch');
@@ -413,58 +425,6 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
     sovereignSound('chime');
     const fullTranscript = transcriptLines.map(t => `${t.speaker}: ${t.text}`).join('\n') + (liveInterimText ? `\nPatient: ${liveInterimText}` : '');
     onAutoExtract(fullTranscript);
-  };
-
-  const injectQuickSimulation = (scenario: 'knee_osteo' | 'chest_ami' | 'gastritis') => {
-    sovereignSound('notch');
-    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-    if (scenario === 'knee_osteo') {
-      setTranscriptLines((prev) => [
-        ...prev,
-        {
-          speaker: 'Patient (Far-Field)',
-          text: 'डॉक्टर साहब, 2 महीने से दोनों घुटनों में कट-कट आवाज़ और चलने में तीव्र दर्द है। (Bilateral knee crepitus & pain.)',
-          timestamp: now,
-          isWhisper: true
-        },
-        {
-          speaker: 'Doctor (Desk)',
-          text: 'यह संधिगत वात (Sandhigata Vata) के लक्षण हैं। हम योगराज गुग्गुलु 500mg सुबह-शाम गुनगुने पानी से शुरू करेंगे। (Prescribing Yogaraja Guggulu 1-0-1 with warm water.)',
-          timestamp: now
-        }
-      ]);
-    } else if (scenario === 'chest_ami') {
-      setTranscriptLines((prev) => [
-        ...prev,
-        {
-          speaker: 'Patient (Far-Field)',
-          text: 'डॉक्टर साहब, 3 घंटे से सीने में बहुत भारी दबाव और पसीना आ रहा है। (Substernal crushing chest pain since 3 hours.)',
-          timestamp: now,
-          isWhisper: true
-        },
-        {
-          speaker: 'Doctor (Desk)',
-          text: 'बीपी 160/100 है। यह एक्यूट कोरोनरी सिंड्रोम का रेड फ्लैग है। तुरंत ईसीजी और इमरजेंसी प्रोटोकॉल सक्रिय करें।',
-          timestamp: now
-        }
-      ]);
-    } else {
-      setTranscriptLines((prev) => [
-        ...prev,
-        {
-          speaker: 'Patient (Far-Field)',
-          text: 'पेट में खट्टी डकारें और सीने में जलन हो रही है। (Amlapitta / Acid reflux.)',
-          timestamp: now,
-          isWhisper: true
-        },
-        {
-          speaker: 'Doctor (Desk)',
-          text: 'अविपत्तिकर चूर्ण 3 ग्राम भोजन से पहले और पैंटोप्रोजोल 40mg खाली पेट लें। (Avipattikar Churna + Pantoprazole.)',
-          timestamp: now
-        }
-      ]);
-    }
   };
 
   // Calculate VU meter percentage
@@ -583,6 +543,12 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
           </button>
         </div>
       </div>
+
+      {micError && (
+        <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 600 }}>
+          {micError}
+        </div>
+      )}
 
       {/* Live Acoustic Telemetry & VU Status HUD */}
       {isListening && inputMode === 'real_mic' && (

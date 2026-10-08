@@ -6,6 +6,10 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db/database';
 import { AyushEngineService } from '../services/ayushEngine.service';
 import { FhirGeneratorService } from '../services/fhirGenerator.service';
+import { AbdmClient } from '../services/abdm.client';
+import { requireKioskOrStaff, requireStaff } from '../security/middleware';
+import { CLINICIAN_ROLES } from '../security/config';
+import { audit } from '../security/audit';
 
 export const abdmRouter = Router();
 
@@ -13,46 +17,40 @@ export const abdmRouter = Router();
  * POST /api/abdm/abha/verify
  * Verify 14-digit ABHA ID or username@abdm address
  */
-abdmRouter.post('/abha/verify', (req: Request, res: Response): void => {
+abdmRouter.post('/abha/verify', requireKioskOrStaff, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { abhaNumber, abhaAddress } = req.body;
-
+    const { abhaNumber, abhaAddress } = req.body || {};
     if (!abhaNumber && !abhaAddress) {
       res.status(400).json({ error: 'Either abhaNumber or abhaAddress is required' });
       return;
     }
-
-    // Format validation
-    let isValidFormat = false;
-    if (abhaNumber) {
-      const clean = abhaNumber.replace(/[\-\s]/g, '');
-      isValidFormat = /^\d{14}$/.test(clean);
-    } else if (abhaAddress) {
-      isValidFormat = /^[a-zA-Z0-9_\.]{3,32}@(abdm|sbx)$/i.test(abhaAddress);
-    }
-
+    const clean = abhaNumber ? String(abhaNumber).replace(/[\-\s]/g, '') : '';
+    const isValidFormat = abhaNumber ? /^\d{14}$/.test(clean) : /^[a-zA-Z0-9_.]{3,32}@(abdm|sbx)$/i.test(String(abhaAddress));
     if (!isValidFormat) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid ABHA format. Expected 14-digit number (XX-XXXX-XXXX-XXXX) or username@abdm'
+      res.status(400).json({ success: false, error: 'Invalid ABHA format. Expected a 14-digit number or username@abdm' });
+      return;
+    }
+    if (!AbdmClient.isConfigured || !clean) {
+      // Honest answer: the format is right, but nobody has checked it with NHA.
+      res.json({
+        success: true,
+        verified: false,
+        mode: AbdmClient.mode,
+        data: { abhaNumber: clean || null, abhaAddress: abhaAddress || null, formatValid: true },
+        message: 'ABHA format is valid. It has not been verified with NHA because ABDM is not connected on this server.'
       });
       return;
     }
-
+    const found = await AbdmClient.searchAbha(clean);
+    audit(req, 'abdm.abha_lookup', null, { found: !!found });
     res.json({
       success: true,
-      verified: true,
-      data: {
-        abhaNumber: abhaNumber || '91-4567-8901-2345',
-        abhaAddress: abhaAddress || 'ramesh.kumar@abdm',
-        status: 'ACTIVE',
-        kycStatus: 'VERIFIED',
-        authMethods: ['AADHAAR_OTP', 'DEMOGRAPHIC', 'MOBILE_OTP'],
-        message: 'ABHA record verified against National Health Authority (NHA) registry.'
-      }
+      verified: !!found && found.status === 'ACTIVE',
+      mode: AbdmClient.mode,
+      data: found ? { abhaNumber: clean, status: found.status, abhaAddress: found.abhaAddress } : { abhaNumber: clean, status: 'NOT_FOUND' }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(502).json({ error: `ABDM could not be reached: ${err.message}` });
   }
 });
 
@@ -60,7 +58,7 @@ abdmRouter.post('/abha/verify', (req: Request, res: Response): void => {
  * GET /api/abdm/namaste/codes
  * Search and retrieve official NAMASTE morbidity A-Codes with tri-coding
  */
-abdmRouter.get('/namaste/codes', (req: Request, res: Response): void => {
+abdmRouter.get('/namaste/codes', requireKioskOrStaff, (req: Request, res: Response): void => {
   try {
     const { q } = req.query;
     let entries = AyushEngineService.getAllNamasteEntries();
@@ -90,7 +88,7 @@ abdmRouter.get('/namaste/codes', (req: Request, res: Response): void => {
  * POST /api/abdm/fhir/generate
  * Generate standalone ABDM FHIR R4 Bundle from input case sheet
  */
-abdmRouter.post('/fhir/generate', (req: Request, res: Response): void => {
+abdmRouter.post('/fhir/generate', requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
   try {
     const record = req.body;
     const bundle = FhirGeneratorService.buildBundle(record);
@@ -106,7 +104,7 @@ abdmRouter.post('/fhir/generate', (req: Request, res: Response): void => {
  * GET /api/abdm/fhir-bundle/:sessionId
  * Retrieve or dynamically construct real-time ABDM FHIR R4 Bundle from SQLite session
  */
-abdmRouter.get('/fhir-bundle/:sessionId', (req: Request, res: Response): void => {
+abdmRouter.get('/fhir-bundle/:sessionId', requireStaff(...CLINICIAN_ROLES, 'pharmacist'), (req: Request, res: Response): void => {
   try {
     const { sessionId } = req.params;
     const sessionRow: any = db.prepare(`
@@ -119,6 +117,15 @@ abdmRouter.get('/fhir-bundle/:sessionId', (req: Request, res: Response): void =>
     if (!sessionRow) {
       res.status(404).json({ error: 'Session not found' });
       return;
+    }
+
+    // A finalized visit already has the signed bundle (with medicines) — return that one.
+    const encounterRow: any = db.prepare(`SELECT fhir_bundle_json FROM encounters WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`).get(sessionId);
+    if (encounterRow?.fhir_bundle_json) {
+      try {
+        res.json({ success: true, bundle: JSON.parse(encounterRow.fhir_bundle_json), finalized: true });
+        return;
+      } catch { /* fall through and rebuild */ }
     }
 
     const symptoms = JSON.parse(sessionRow.symptoms_json || '[]');
@@ -148,10 +155,11 @@ abdmRouter.get('/fhir-bundle/:sessionId', (req: Request, res: Response): void =>
       pariksha,
       vitals,
       diagnoses: provisionalDiagnoses,
+      doctorName: 'Consulting doctor (not yet finalized)',
       createdAt: sessionRow.created_at
     };
 
-    const bundle = FhirGeneratorService.buildBundle(record);
+    const bundle = FhirGeneratorService.buildBundle(record as any);
     res.json({
       success: true,
       bundle

@@ -1,533 +1,355 @@
-import React from 'react';
-import { ArrowLeft, ArrowRight, AlertTriangle, Activity, AlertOctagon, HeartPulse, Volume2, ShieldAlert, CheckCircle2, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, AlertOctagon, HeartPulse, ShieldCheck, Volume2, Thermometer, Wind } from 'lucide-react';
 import { SocratesSymptom, VitalsData } from '../../types/api';
 import { sovereignSound } from '../../utils/audio';
-import { getClinicalProfile } from '../../utils/clinicalOntology';
-import { getKioskTranslations } from '../../utils/kioskLocalization';
+import { BCP47, KioskTextKey, PAIN_CHARACTERS, kioskText, normalizeLang, regionName } from '../../utils/kioskLocalization';
+import {
+  VITAL_LIMITS, VitalStatus, STATUS_TONE, bpStatus, diaStatus, isCritical, normaliseTempF, parseBp, parseNumber,
+  pulseStatus, spo2Status, sysStatus, tempStatus
+} from '../../utils/vitals';
+import { RegisterNav, useStepNav } from './kioskNav';
 
 interface Step4SocratesProps {
   symptoms: SocratesSymptom[];
   setSymptoms: React.Dispatch<React.SetStateAction<SocratesSymptom[]>>;
   vitals: VitalsData;
   setVitals: React.Dispatch<React.SetStateAction<VitalsData>>;
-  redFlags: string[];
   selectedBodyRegion?: string;
   language?: string;
-  onNext: () => void;
-  onBack: () => void;
-  onEmergencyDivert?: () => void;
+  registerNav?: RegisterNav;
+  onEmergency: () => void;
 }
+
+const DURATIONS: Array<{ en: string; key: KioskTextKey }> = [
+  { en: 'Since today', key: 'durToday' },
+  { en: '2–3 days', key: 'dur23' },
+  { en: 'About a week', key: 'durWeek' },
+  { en: '1 month or more', key: 'durMonth' }
+];
+
+const FACES: Array<{ score: number; key: KioskTextKey }> = [
+  { score: 0, key: 'face0' }, { score: 2, key: 'face2' }, { score: 4, key: 'face4' },
+  { score: 6, key: 'face6' }, { score: 8, key: 'face8' }, { score: 10, key: 'face10' }
+];
+
+const STATUS_KEY: Record<VitalStatus, KioskTextKey> = {
+  empty: 'vNotEntered', invalid: 'vCheck', normal: 'vNormal', low: 'vLow', veryLow: 'vVeryLow',
+  high: 'vHigh', veryHigh: 'vVeryHigh', fever: 'vFever'
+};
+
+const FaceIcon: React.FC<{ score: number; selected: boolean }> = ({ score, selected }) => {
+  const stroke = score === 0 ? '#16a34a' : score === 2 ? '#059669' : score === 4 ? '#d97706' : score === 6 ? '#ea580c' : score === 8 ? '#dc2626' : '#991b1b';
+  return (
+    <svg width="28" height="28" viewBox="0 0 36 36" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" aria-hidden="true" className="mx-auto">
+      <circle cx="18" cy="18" r="15" fill={selected ? '#e0f2fe' : '#ffffff'} />
+      {score < 8 ? (<><circle cx="13" cy="14" r="1.5" fill={stroke} /><circle cx="23" cy="14" r="1.5" fill={stroke} /></>) : (<><path d="M11 13 L15 15 M11 15 L15 13 M21 13 L25 15 M21 15 L25 13" /></>)}
+      {score === 0 && <path d="M12 22 Q18 28 24 22" />}
+      {score === 2 && <path d="M13 23 Q18 26 23 23" />}
+      {score === 4 && <line x1="13" y1="23" x2="23" y2="23" />}
+      {score === 6 && <path d="M13 24 Q18 21 23 24" />}
+      {score === 8 && <path d="M12 25 Q18 19 24 25" />}
+      {score === 10 && <path d="M12 26 Q18 18 24 26" />}
+    </svg>
+  );
+};
 
 export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   symptoms,
   setSymptoms,
   vitals,
   setVitals,
-  redFlags,
   selectedBodyRegion,
   language = 'hi',
-  onNext,
-  onBack,
-  onEmergencyDivert
+  registerNav,
+  onEmergency
 }) => {
-  const t = getKioskTranslations(language);
-  const clinicalProfile = getClinicalProfile(selectedBodyRegion || '');
-  const defaultCharacter = clinicalProfile.defaultPainCharacter || 'Dull aching (Bheda)';
+  const lang = normalizeLang(language);
+  const tx = kioskText(lang);
 
-  const currentSymptom: SocratesSymptom = symptoms[0] || {
-    site: selectedBodyRegion || '',
-    onset: '',
-    character: defaultCharacter,
-    radiation: '',
-    associations: [],
-    timing: '',
-    exacerbatingFactors: [],
-    relievingFactors: [],
-    severityScore: 0
+  const primary: SocratesSymptom = symptoms[0] || {
+    key: 'manual:general',
+    site: selectedBodyRegion || 'General',
+    onset: '', character: '', radiation: '', associations: [], timing: '',
+    exacerbatingFactors: [], relievingFactors: [], severityScore: 0
   };
 
-  // Seamless bi-directional synchronization from Step 3 3D Mannequin & Voice Intake
-  React.useEffect(() => {
-    if (symptoms.length === 0 && selectedBodyRegion) {
-      setSymptoms([{
-        site: selectedBodyRegion,
-        onset: '',
-        character: defaultCharacter,
-        radiation: '',
-        associations: [],
-        timing: '',
-        exacerbatingFactors: [],
-        relievingFactors: [],
-        severityScore: 0
-      }]);
-    }
-  }, [selectedBodyRegion, symptoms.length, setSymptoms, defaultCharacter]);
-
-  const updateCurrentSymptom = (field: keyof SocratesSymptom, value: any) => {
-    const updated = { ...currentSymptom, [field]: value };
-    setSymptoms([updated]);
+  const updatePrimary = (patch: Partial<SocratesSymptom>) => {
+    setSymptoms(prev => {
+      const base = prev[0] || primary;
+      return [{ ...base, ...patch }, ...prev.slice(1)];
+    });
   };
 
-  const handleSliderChange = (newVal: number) => {
-    sovereignSound.playDialNotch();
-    updateCurrentSymptom('severityScore', newVal);
+  // ---------------------------------------------------------------- Vitals (local text so typing is never fought)
+  const initialBp = parseBp(vitals.bp);
+  const [sysText, setSysText] = useState(initialBp.sys?.toString() || '');
+  const [diaText, setDiaText] = useState(initialBp.dia?.toString() || '');
+  const [pulseText, setPulseText] = useState(parseNumber(vitals.pulse)?.toString() || '');
+  const [spo2Text, setSpo2Text] = useState(parseNumber(vitals.spo2)?.toString() || '');
+  const [tempText, setTempText] = useState(parseNumber(vitals.temp)?.toString() || '');
+
+  const sys = parseNumber(sysText);
+  const dia = parseNumber(diaText);
+  const pulse = parseNumber(pulseText);
+  const spo2 = parseNumber(spo2Text);
+  const tempF = normaliseTempF(tempText);
+
+  const status = {
+    sys: sysStatus(sys),
+    dia: diaStatus(dia),
+    bp: bpStatus(sys, dia),
+    pulse: pulseStatus(pulse),
+    spo2: spo2Status(spo2),
+    temp: tempStatus(tempF)
   };
 
-  const severityColor =
-    currentSymptom.severityScore >= 8 ? '#f43f5e' :
-    currentSymptom.severityScore >= 5 ? '#f59e0b' :
-    currentSymptom.severityScore > 0 ? '#10b981' : '#64748b';
+  // Push only valid values to the shared record; invalid/partial input stays local with an error.
+  useEffect(() => {
+    setVitals(prev => {
+      const next: VitalsData = { ...prev };
+      next.bp = status.bp !== 'invalid' && status.bp !== 'empty' ? `${sys}/${dia}` : undefined;
+      next.pulse = status.pulse !== 'invalid' && pulse !== null ? Math.round(pulse) : undefined;
+      next.spo2 = status.spo2 !== 'invalid' && spo2 !== null ? `${Math.round(spo2)}%` : undefined;
+      next.temp = status.temp !== 'invalid' && tempF !== null ? `${tempF}°F` : undefined;
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sysText, diaText, pulseText, spo2Text, tempText]);
 
-  const WongBakerFace: React.FC<{ score: number; isSelected: boolean }> = ({ score, isSelected }) => {
-    const strokeColor =
-      score === 0 ? '#16a34a' :
-      score === 2 ? '#059669' :
-      score === 4 ? '#d97706' :
-      score === 6 ? '#ea580c' :
-      score === 8 ? '#dc2626' : '#991b1b';
+  const fieldError = (s: VitalStatus, limits: readonly [number, number]) =>
+    s === 'invalid' ? tx('vInvalid', { min: limits[0], max: limits[1] }) : null;
+  const bpError = status.sys === 'invalid'
+    ? tx('vInvalid', { min: VITAL_LIMITS.sys[0], max: VITAL_LIMITS.sys[1] })
+    : status.dia === 'invalid'
+    ? tx('vInvalid', { min: VITAL_LIMITS.dia[0], max: VITAL_LIMITS.dia[1] })
+    : sys !== null && dia !== null && sys <= dia
+    ? tx('vBpOrder')
+    : (sys === null) !== (dia === null) && (sysText || diaText)
+    ? tx('vNotEntered')
+    : null;
 
-    return (
-      <svg
-        width="26"
-        height="26"
-        viewBox="0 0 36 36"
-        fill="none"
-        stroke={strokeColor}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{
-          display: 'block',
-          margin: '0 auto',
-          transition: 'all 0.2s ease'
-        }}
-      >
-        <circle cx="18" cy="18" r="15" fill={isSelected ? '#e0f2fe' : '#ffffff'} />
-        {score < 8 ? (
-          <>
-            <circle cx="13" cy="14" r="1.5" fill={strokeColor} />
-            <circle cx="23" cy="14" r="1.5" fill={strokeColor} />
-          </>
-        ) : score === 8 ? (
-          <>
-            <line x1="11" y1="13" x2="15" y2="15" />
-            <line x1="11" y1="15" x2="15" y2="13" />
-            <line x1="21" y1="13" x2="25" y2="15" />
-            <line x1="21" y1="15" x2="25" y2="13" />
-          </>
-        ) : (
-          <>
-            <path d="M11 15 L14 13 L11 11" />
-            <path d="M25 15 L22 13 L25 11" />
-            <path d="M12 18 C12 20 10 21 10 23 C10 24.1 10.9 25 12 25 C13.1 25 14 24.1 14 23 C14 21 12 20 12 18 Z" fill="#0284c7" stroke="#0284c7" strokeWidth="0.5" />
-          </>
-        )}
-        {score === 0 && <path d="M12 22 Q18 28 24 22" />}
-        {score === 2 && <path d="M13 23 Q18 26 23 23" />}
-        {score === 4 && <line x1="13" y1="23" x2="23" y2="23" />}
-        {score === 6 && <path d="M13 24 Q18 21 23 24" />}
-        {score === 8 && <path d="M12 25 Q18 19 24 25" />}
-        {score === 10 && <path d="M12 26 Q18 18 24 26" />}
-      </svg>
-    );
+  useStepNav(registerNav, { canNext: true });
+
+  // ---------------------------------------------------------------- Status / emergency (fixed slot)
+  const score = primary.severityScore || 0;
+  const vitalCritical = [status.bp, status.pulse, status.spo2, status.temp].some(isCritical);
+  const isChest = /chest|precordium|heart/i.test(primary.site) || /chest/i.test(primary.name || '');
+  const isHead = /^head$/i.test(primary.site) || /headache/i.test(primary.name || '');
+  const isEmergency = score >= 8 || vitalCritical;
+
+  const playGuidance = () => {
+    sovereignSound.playMechanicalSnap();
+    sovereignSound.speakGuidance(tx('s4Audio'), BCP47[lang]);
   };
 
-  const painFaces = [
-    { score: 0, label: 'No Hurt' },
-    { score: 2, label: 'Hurts Little' },
-    { score: 4, label: 'Hurts More' },
-    { score: 6, label: 'Even More' },
-    { score: 8, label: 'Whole Lot' },
-    { score: 10, label: 'Worst Hurt' }
-  ];
+  const vitalInput = (
+    id: string,
+    value: string,
+    onChange: (v: string) => void,
+    placeholder: string,
+    hasError: boolean,
+    width = 'w-full'
+  ) => (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={value}
+      onChange={e => onChange(e.target.value.replace(/[^\d.]/g, '').slice(0, 5))}
+      placeholder={placeholder}
+      className={`${width} px-3 py-2 rounded-xl bg-background border text-lg font-mono font-bold text-foreground outline-none focus:ring-2 ${hasError ? 'border-rose-500 focus:ring-rose-500/30' : 'border-border focus:ring-sky-500/30 focus:border-sky-500'}`}
+    />
+  );
+
+  const statusPill = (s: VitalStatus) => (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs font-bold ${STATUS_TONE[s]}`}>{tx(STATUS_KEY[s])}</span>
+  );
 
   return (
     <div className="max-w-5xl mx-auto py-2 px-1 sm:px-4">
-      {/* Clean Header */}
       <div className="text-center mb-5">
-        <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">
-          {t.step4Title}
-        </h2>
-        <div className="flex justify-center items-center gap-3">
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {t.step4Subtitle}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              sovereignSound.playMechanicalSnap();
-              sovereignSound.speakGuidance(t.step4AudioPrompt, t.bcp47);
-            }}
-            className="tactile-btn text-[11px] font-semibold px-2.5 py-0.5 rounded-full gap-1 text-primary border-primary/30 bg-primary/10 cursor-pointer"
-          >
+        <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground tracking-tight mb-1">{tx('s4Title')}</h2>
+        <div className="flex justify-center items-center gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground">{tx('s4Sub')}</p>
+          <button type="button" onClick={playGuidance} className="tactile-btn text-xs font-semibold px-2.5 py-1 rounded-full gap-1 text-primary border-primary/30 bg-primary/10">
             <Volume2 size={12} />
-            <span>{t.listenBtn}</span>
+            <span>{tx('listenBtn')}</span>
           </button>
         </div>
       </div>
 
-      {/* Emergency Red Flag Callout Banner */}
-      {redFlags.length > 0 && (
-        <div className="p-3 sm:p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 mb-4 flex items-center gap-2.5">
-          <AlertOctagon size={18} className="text-rose-600 dark:text-rose-400 shrink-0" />
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400 uppercase">
-              Red Flag Alert:
-            </span>
-            <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">
-              {redFlags.join(' • ')}
-            </span>
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* About the pain */}
+        <div className="physical-card p-5 rounded-2xl flex flex-col gap-4">
+          <h3 className="text-sm font-bold text-foreground border-b border-border/70 pb-2">{tx('s4PainCard')}</h3>
 
-      {/* Code-Red Emergency Intercept */}
-      {currentSymptom.severityScore >= 8 && currentSymptom.site && (
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-rose-500/15 border border-rose-500/50 mb-4 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2.5">
-            <HeartPulse size={20} className="text-rose-600 dark:text-rose-400 shrink-0" />
-            <div>
-              <div className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-200">
-                {/chest|precordium|heart|सीने|छाती|हृदय|বুক|நெஞ்சு|மார்பு|ఛాతీ|గుండె/i.test(currentSymptom.site)
-                  ? 'EMERGENCY CODE-RED INTERCEPT: Suspected Acute Coronary Syndrome'
-                  : /head|brain|cervical|सिर|माथा|मस्तिष्क|डोके|মাথা|தலை|తల/i.test(currentSymptom.site)
-                  ? 'EMERGENCY CODE-RED INTERCEPT: Acute Neurological / Stroke Event'
-                  : 'EMERGENCY TRIAGE INTERCEPT: Severe Acuity Level 2 Event'}
+          <div>
+            <span className="block text-sm font-semibold text-foreground/90 mb-1.5">{tx('s4Site')}</span>
+            {primary.site && primary.site !== 'General' && !/side not stated/.test(primary.site) ? (
+              <div className="px-3 py-2 rounded-xl bg-muted/40 border border-border/70 text-sm font-bold text-foreground">
+                {regionName(primary.site, lang) || primary.site}
               </div>
-              <div className="text-[11px] text-rose-600 dark:text-rose-300">
-                Severity {currentSymptom.severityScore}/10 at {currentSymptom.site} → Route to Room 01 (Resuscitation Bay)
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              sovereignSound.playEmergencyCodeRed();
-              if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate([300, 100, 300, 100, 500]);
-              }
-              if (onEmergencyDivert) {
-                onEmergencyDivert();
-              } else {
-                onNext();
-              }
-            }}
-            className="btn btn-danger text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <Activity size={14} />
-            <span>DIVERT TO ROOM 01 NOW</span>
-          </button>
-        </div>
-      )}
-
-      {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-        {/* Card 1: SOCRATES Symptom Characteristics */}
-        <div className="physical-card p-4 sm:p-5 rounded-2xl flex flex-col gap-3">
-          <div className="border-b border-border/70 pb-2">
-            <h4 className="text-xs sm:text-sm font-bold text-sky-600 dark:text-sky-400 uppercase tracking-tight">
-              {language === 'en' ? '1. Site & Pain Character' :
-               language === 'bn' ? '১. ব্যথার স্থান ও প্রকৃতি (Site & Character)' :
-               language === 'ta' ? '1. வலி இடம் மற்றும் தன்மை (Site & Character)' :
-               language === 'te' ? '1. నొప్పి ప్రాంతం & స్వభావం (Site & Character)' :
-               language === 'mr' ? '१. वेदनेचे स्थान आणि स्वरूप (Site & Character)' :
-               '1. दर्द का स्थान व प्रकार (Site & Character)'}
-            </h4>
+            ) : (
+              <input
+                type="text"
+                value={primary.location || ''}
+                onChange={e => updatePrimary({ location: e.target.value })}
+                placeholder={tx('s4SitePh')}
+                className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-sm font-semibold outline-none focus:ring-2 focus:ring-sky-500/30"
+              />
+            )}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Site ({language === 'en' ? 'Where it hurts' :
-                     language === 'bn' ? 'কোথায় ব্যথা' :
-                     language === 'ta' ? 'எங்கே வலி' :
-                     language === 'te' ? 'ఎక్కడ నొప్పి' :
-                     language === 'mr' ? 'कुठे दुखते' :
-                     'कहाँ दर्द है'})
-            </label>
-            <input
-              type="text"
-              value={currentSymptom.site || ''}
-              onChange={(e) => updateCurrentSymptom('site', e.target.value)}
-              placeholder="e.g. Left Knee, Precordium, Epigastrium, Head..."
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 placeholder:text-muted-foreground/40"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Character ({language === 'en' ? 'How it feels' :
-                          language === 'bn' ? 'ব্যথার অনুভূতি কেমন' :
-                          language === 'ta' ? 'வலி எப்படி உணர்கிறது' :
-                          language === 'te' ? 'నొప్పి ఎలా అనిపిస్తుంది' :
-                          language === 'mr' ? 'वेदना कशी जाणवते' :
-                          'दर्द कैसा महसूस होता है'})
-            </label>
+            <label className="block text-sm font-semibold text-foreground/90 mb-1.5" htmlFor="s4-character">{tx('s4Character')}</label>
             <select
-              value={currentSymptom.character || 'Dull aching (Bheda)'}
-              onChange={(e) => {
-                sovereignSound.playDialNotch();
-                updateCurrentSymptom('character', e.target.value);
-              }}
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 cursor-pointer"
+              id="s4-character"
+              value={primary.character || ''}
+              onChange={e => { sovereignSound.playDialNotch(); updatePrimary({ character: e.target.value }); }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-sm font-semibold outline-none focus:ring-2 focus:ring-sky-500/30"
             >
-              <option value="Dull aching (Bheda)">{t.characters.dull}</option>
-              <option value="Sharp pricking (Toda)">{t.characters.sharp}</option>
-              <option value="Crushing heaviness">{t.characters.crushing}</option>
-              <option value="Burning sensation (Daha)">{t.characters.burning}</option>
-              <option value="Throbbing / Pulsatile">{t.characters.throbbing}</option>
-              <option value="Stiffness / Stambha">{t.characters.stiffness}</option>
+              <option value="">{tx('s4CharacterPh')}</option>
+              {PAIN_CHARACTERS.map(c => <option key={c.value} value={c.value}>{tx(c.key)}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Radiation ({language === 'en' ? 'Does pain spread' :
-                          language === 'bn' ? 'ব্যথা কোন দিকে ছড়ায়' :
-                          language === 'ta' ? 'வலி பரவுகிறதா' :
-                          language === 'te' ? 'నొప్పి వ్యాపిస్తుందా' :
-                          language === 'mr' ? 'वेदना पसरते का' :
-                          'दर्द किस तरफ फैलता है'})
-            </label>
-            <input
-              type="text"
-              value={currentSymptom.radiation || ''}
-              onChange={(e) => updateCurrentSymptom('radiation', e.target.value)}
-              placeholder="e.g. Left arm, neck, groin, down the leg (or None)"
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 placeholder:text-muted-foreground/40"
-            />
+            <span className="block text-sm font-semibold text-foreground/90 mb-1.5">{tx('s4Onset')}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {DURATIONS.map(d => (
+                <button
+                  key={d.en}
+                  type="button"
+                  onClick={() => updatePrimary({ onset: primary.onset === d.en ? '' : d.en })}
+                  aria-pressed={primary.onset === d.en}
+                  className={`py-2 px-1 rounded-xl text-sm font-semibold border transition-colors ${primary.onset === d.en ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'}`}
+                >
+                  {tx(d.key)}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Onset &amp; Duration ({language === 'en' ? 'When did it start' :
-                                   language === 'bn' ? 'কখন ও কিভাবে শুরু' :
-                                   language === 'ta' ? 'எப்போது தொடங்கியது' :
-                                   language === 'te' ? 'ఎప్పుడు ప్రారంభమైంది' :
-                                   language === 'mr' ? 'कधी आणि कसे सुरू झाले' :
-                                   'कब और कैसे शुरू हुआ'})
-            </label>
+            <label className="block text-sm font-semibold text-foreground/90 mb-1.5" htmlFor="s4-radiation">{tx('s4Radiation')}</label>
             <input
+              id="s4-radiation"
               type="text"
-              value={currentSymptom.onset || ''}
-              onChange={(e) => updateCurrentSymptom('onset', e.target.value)}
-              placeholder="e.g. 2 weeks, 3 days, sudden onset..."
-              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-xs sm:text-sm font-semibold outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 placeholder:text-muted-foreground/40"
+              value={primary.radiation || ''}
+              onChange={e => updatePrimary({ radiation: e.target.value })}
+              placeholder={tx('s4RadiationPh')}
+              className="w-full px-3 py-2 bg-background border border-border rounded-xl text-foreground text-sm font-semibold outline-none focus:ring-2 focus:ring-sky-500/30 placeholder:text-muted-foreground/60"
             />
           </div>
         </div>
 
-        {/* Card 2: Wong-Baker Pain Scale & Digital Vitals Instruments */}
-        <div className="physical-card p-4 sm:p-5 rounded-2xl flex flex-col justify-between gap-3">
+        {/* Pain level + vitals */}
+        <div className="physical-card p-5 rounded-2xl flex flex-col gap-4">
+          <div className="p-3 rounded-xl bg-muted/30 border border-border/70">
+            <div className="flex justify-between items-center mb-2 gap-2">
+              <span className="text-sm font-semibold text-foreground/90">{tx('s4Severity')}</span>
+              <span className="text-lg font-mono font-extrabold tabular-nums w-[132px] text-right shrink-0" style={{ color: score >= 8 ? '#e11d48' : score >= 5 ? '#d97706' : score > 0 ? '#059669' : '#64748b' }}>
+                {score}/10 <span className="text-xs font-sans font-semibold">{score === 0 ? tx('painNone') : score >= 8 ? tx('painSevere') : score >= 5 ? tx('painModerate') : tx('painMild')}</span>
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              value={score}
+              onChange={e => { sovereignSound.playDialNotch(); updatePrimary({ severityScore: parseInt(e.target.value, 10) }); }}
+              className="w-full h-2 cursor-pointer mb-2"
+              aria-label={tx('s4Severity')}
+            />
+            <div className="grid grid-cols-6 gap-1 text-center">
+              {FACES.map(f => (
+                <button
+                  key={f.score}
+                  type="button"
+                  onClick={() => { sovereignSound.playDialNotch(); updatePrimary({ severityScore: f.score }); }}
+                  aria-pressed={score === f.score}
+                  className={`p-1 rounded-lg border transition-colors ${score === f.score ? 'bg-background border-sky-500/50 ring-1 ring-sky-500/40' : 'border-transparent hover:bg-muted/40'}`}
+                >
+                  <FaceIcon score={f.score} selected={score === f.score} />
+                  <div className="text-[10px] font-mono text-muted-foreground">{f.score}</div>
+                  <div className="text-[10px] font-semibold text-foreground/80 leading-tight h-6 overflow-hidden">{tx(f.key)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Vitals */}
           <div>
-            <div className="border-b border-border/70 pb-2 mb-3">
-              <h4 className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">
-                {language === 'en' ? '2. Pain Severity & Vitals' :
-                 language === 'bn' ? '২. ব্যথার তীব্রতা ও ভাইটালস (Severity & Vitals)' :
-                 language === 'ta' ? '2. வலி தீவிரம் & வைட்டல்ஸ் (Severity & Vitals)' :
-                 language === 'te' ? '2. నొప్పి తీవ్రత & వైటల్స్ (Severity & Vitals)' :
-                 language === 'mr' ? '२. वेदनेची तीव्रता आणि व्हायटल्स (Severity & Vitals)' :
-                 '2. दर्द की तीव्रता व वाइटल्स (Severity & Vitals)'}
-              </h4>
-            </div>
-
-            {/* Tactile Wong-Baker Slider Container */}
-            <div className="p-3 rounded-xl bg-muted/30 border border-border/70 mb-3">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-semibold text-muted-foreground">
-                  Pain Severity:
-                </span>
-                <span style={{ color: severityColor }} className="text-base sm:text-lg font-mono font-extrabold">
-                  {currentSymptom.severityScore} / 10
-                  <span className="text-xs font-sans font-semibold ml-1.5 opacity-90">
-                    {currentSymptom.severityScore >= 8 ? '(Severe)' : currentSymptom.severityScore >= 5 ? '(Moderate)' : currentSymptom.severityScore > 0 ? '(Mild)' : '(No Pain)'}
-                  </span>
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min="0"
-                max="10"
-                value={currentSymptom.severityScore || 0}
-                onChange={(e) => handleSliderChange(parseInt(e.target.value, 10))}
-                className="w-full cursor-pointer h-1.5 rounded-lg mb-2"
-                style={{ accentColor: severityColor }}
-              />
-
-              {/* Wong-Baker FACES Markers */}
-              <div className="grid grid-cols-6 gap-1 text-center">
-                {painFaces.map((f) => (
-                  <div
-                    key={f.score}
-                    onClick={() => handleSliderChange(f.score)}
-                    className={`cursor-pointer p-1.5 rounded-lg transition-all ${
-                      currentSymptom.severityScore === f.score
-                        ? 'bg-background shadow-xs border border-border ring-1 ring-sky-500/40'
-                        : 'hover:bg-muted/40'
-                    }`}
-                  >
-                    <WongBakerFace score={f.score} isSelected={currentSymptom.severityScore === f.score} />
-                    <div className="text-[9px] font-mono text-muted-foreground mt-0.5">{f.score}</div>
-                    <div className="text-[8.5px] font-semibold text-foreground/80 leading-tight">{f.label}</div>
+            <h3 className="text-sm font-bold text-foreground">{tx('vitalsTitle')}</h3>
+            <p className="text-xs text-muted-foreground mb-3">{tx('vitalsHint')}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2 p-3 rounded-xl border border-border/80 bg-card">
+                <div className="flex items-center justify-between mb-1.5 gap-2">
+                  <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5" htmlFor="v-sys"><Activity size={14} className="text-primary" /> {tx('vBp')} <span className="text-xs font-normal text-muted-foreground">mmHg</span></label>
+                  {statusPill(status.bp === 'invalid' && !bpError ? 'empty' : status.bp)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <span className="block text-[11px] text-muted-foreground mb-0.5">{tx('vSys')}</span>
+                    {vitalInput('v-sys', sysText, setSysText, '120', status.sys === 'invalid' || !!(bpError && sys !== null && dia !== null))}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Bedside Vitals Telemetry Tiles */}
-            <div className="grid grid-cols-2 gap-2">
-              {/* 1. Blood Pressure */}
-              <div className="p-3 rounded-2xl text-left border border-border/80 bg-card shadow-2xs hover:border-border transition-all">
-                <div className="flex items-center gap-1.5">
-                  <Activity size={13} className="text-primary" />
-                  <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider">BP</span>
-                </div>
-                <input
-                  type="text"
-                  value={vitals.bp || ''}
-                  placeholder="120/80"
-                  onChange={(e) => setVitals({ ...vitals, bp: e.target.value })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5 placeholder:text-muted-foreground/30"
-                />
-                <div className="text-[9.5px] text-muted-foreground font-mono">mmHg</div>
-              </div>
-
-              {/* 2. Heart Rate */}
-              <div className="p-3 rounded-2xl text-left border border-border/80 bg-card shadow-2xs hover:border-border transition-all">
-                <div className="flex items-center gap-1.5">
-                  <HeartPulse size={13} className="text-rose-500" />
-                  <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider">Pulse</span>
-                </div>
-                <input
-                  type="number"
-                  value={vitals.pulse && vitals.pulse > 0 ? vitals.pulse : ''}
-                  placeholder="72"
-                  onChange={(e) => setVitals({ ...vitals, pulse: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5 placeholder:text-muted-foreground/30"
-                />
-                <div className="text-[9.5px] text-muted-foreground font-mono">BPM</div>
-              </div>
-
-              {/* 3. SpO2 Saturation */}
-              <div className="p-3 rounded-2xl text-left border border-border/80 bg-card shadow-2xs hover:border-border transition-all">
-                <div className="flex items-center gap-1.5">
-                  <Activity size={13} className="text-primary" />
-                  <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider">SpO2</span>
-                </div>
-                <input
-                  type="text"
-                  value={vitals.spo2 || ''}
-                  placeholder="98%"
-                  onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-hidden mt-0.5 placeholder:text-muted-foreground/30"
-                />
-                <div className="text-[9.5px] text-muted-foreground font-mono">% O2</div>
-              </div>
-
-              {/* 4. Body Temperature */}
-              <div className="p-3 rounded-2xl text-left border border-border/80 bg-card shadow-2xs hover:border-border transition-all">
-                <div className="flex items-center gap-1.5">
-                  <Activity size={13} className="text-amber-500" />
-                  <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider">Temp</span>
-                </div>
-                <input
-                  type="text"
-                  value={vitals.temp || ''}
-                  placeholder="98.6°F"
-                  onChange={(e) => setVitals({ ...vitals, temp: e.target.value })}
-                  className="w-full bg-transparent border-none text-lg sm:text-xl font-mono font-extrabold text-foreground outline-none mt-0.5 placeholder:text-muted-foreground/30"
-                />
-                <div className="text-[9.5px] text-muted-foreground font-mono">°F</div>
-              </div>
-            </div>
-
-            {/* Autonomous Biometric Concordance */}
-            {(() => {
-              const pulseNum = Number(vitals.pulse) || 0;
-              const sbp = parseInt((vitals.bp || '').split('/')[0], 10) || 0;
-              const spo2Num = parseInt((vitals.spo2 || '').replace('%', ''), 10) || 0;
-              const isSeverePain = currentSymptom.severityScore >= 8;
-              const isModeratePain = currentSymptom.severityScore >= 4;
-              const isLowPain = currentSymptom.severityScore <= 3 && currentSymptom.severityScore > 0;
-              const hasVitalsRecorded = pulseNum > 0 || sbp > 0 || spo2Num > 0;
-
-              if (!hasVitalsRecorded && currentSymptom.severityScore === 0) {
-                return (
-                  <div className="mt-3 p-2.5 rounded-xl bg-card border border-border/80 flex items-center gap-2 shadow-2xs">
-                    <ShieldCheck size={14} className="text-muted-foreground shrink-0" />
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      वाइटल्स एवं दर्द पैमाना प्रविष्टि की प्रतीक्षा है (Awaiting Biometric &amp; Pain Matrix Entry) · ESI Level 4 (Routine)
-                    </span>
+                  <span className="text-2xl font-mono text-muted-foreground mt-4">/</span>
+                  <div className="flex-1">
+                    <span className="block text-[11px] text-muted-foreground mb-0.5">{tx('vDia')}</span>
+                    {vitalInput('v-dia', diaText, setDiaText, '80', status.dia === 'invalid' || !!(bpError && sys !== null && dia !== null))}
                   </div>
-                );
-              }
+                </div>
+                <p className={`min-h-[18px] mt-1 text-xs font-semibold ${bpError ? 'text-rose-600' : 'text-transparent'}`}>{bpError || '·'}</p>
+              </div>
 
-              const hasAutonomicInstability = pulseNum > 105 || (pulseNum > 0 && pulseNum < 50) || sbp > 150 || (sbp > 0 && sbp < 90) || (spo2Num > 0 && spo2Num < 92);
-              const isHighPainNormalVitals = isSeverePain && pulseNum >= 60 && pulseNum <= 80 && sbp >= 110 && sbp <= 128 && (spo2Num >= 98 || spo2Num === 0);
-              const isLowPainSevereInstability = isLowPain && hasAutonomicInstability;
-
-              if (isHighPainNormalVitals) {
+              {([
+                { id: 'v-pulse', label: tx('vPulse'), unit: 'bpm', icon: HeartPulse, value: pulseText, set: setPulseText, ph: '72', s: status.pulse, limits: VITAL_LIMITS.pulse },
+                { id: 'v-spo2', label: tx('vSpo2'), unit: '%', icon: Wind, value: spo2Text, set: setSpo2Text, ph: '98', s: status.spo2, limits: VITAL_LIMITS.spo2 },
+                { id: 'v-temp', label: tx('vTemp'), unit: '°F / °C', icon: Thermometer, value: tempText, set: setTempText, ph: '98.6', s: status.temp, limits: VITAL_LIMITS.temp }
+              ] as const).map(f => {
+                const Icon = f.icon;
+                const err = fieldError(f.s, f.limits);
                 return (
-                  <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
-                    <ShieldAlert size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                    <div className="text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
-                      <strong>बायोमेट्रिक संतुलन अंशांकन:</strong> वाइटल्स स्थिर हैं (HR {pulseNum || 'Norm'}, SpO2 {spo2Num || 'Norm'}%). क्लिनिकल ट्राइएज संतुलित किया जाएगा।
+                  <div key={f.id} className="p-3 rounded-xl border border-border/80 bg-card">
+                    <div className="flex items-center justify-between mb-1.5 gap-2">
+                      <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5" htmlFor={f.id}><Icon size={14} className="text-primary" /> {f.label} <span className="text-xs font-normal text-muted-foreground">{f.unit}</span></label>
+                      {statusPill(f.s)}
                     </div>
+                    {vitalInput(f.id, f.value, f.set, f.ph, !!err)}
+                    <p className={`min-h-[18px] mt-1 text-xs font-semibold ${err ? 'text-rose-600' : 'text-transparent'}`}>{err || '·'}</p>
                   </div>
                 );
-              }
-
-              if (isLowPainSevereInstability) {
-                return (
-                  <div className="mt-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2">
-                    <AlertOctagon size={15} className="text-rose-600 dark:text-rose-400 shrink-0" />
-                    <div className="text-[11px] text-rose-700 dark:text-rose-300 leading-snug">
-                      <strong>मौन फिजियोलॉजिकल विचलन:</strong> कम दर्द के बावजूद वाइटल्स में विचलन है (HR {pulseNum}, BP {vitals.bp}). आपातकालीन ट्राइएज सक्रिय है।
-                    </div>
-                  </div>
-                );
-              }
-
-              const esiLevel = isSeverePain ? '2 (Emergent)' : isModeratePain ? '3 (Urgent)' : '4 (Standard)';
-
-              return (
-                <div className="mt-3 p-2 rounded-xl bg-card border border-border/80 flex items-center gap-2 shadow-2xs">
-                  <ShieldCheck size={14} className="text-primary shrink-0" />
-                  <span className="text-[11px] text-foreground font-semibold">
-                    वाइटल्स एवं लक्षण सुसंगत (Biometric Telemetry Concordant) · ESI Level {esiLevel}
-                  </span>
-                </div>
-              );
-            })()}
+              })}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Step 4 Action Navigation Bar */}
-      <div className="flex items-center justify-between gap-4 pt-3 border-t border-border/70">
-        <button
-          type="button"
-          onClick={() => {
-            try { sovereignSound.playMechanicalSnap(); } catch {}
-            onBack();
-          }}
-          className="tactile-btn px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground border border-border/80 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
-        >
-          <ArrowLeft size={16} />
-          <span>पिछला: लक्षण (Back: Symptoms)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            try { sovereignSound.playMechanicalSnap(); } catch {}
-            onNext();
-          }}
-          className="btn btn-primary px-7 py-3.5 rounded-2xl text-xs sm:text-sm font-heading font-extrabold flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all active:scale-95"
-        >
-          <span>आगे बढ़ें: पाचन व स्वास्थ्य (Next: Health)</span>
-          <ArrowRight size={16} />
-        </button>
+      {/* Reserved status slot — always the same height so nothing jumps */}
+      <div className="mt-4 min-h-[76px]" aria-live="polite">
+        {isEmergency ? (
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/50 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <AlertOctagon size={20} className="text-rose-600 shrink-0 mt-0.5" />
+              <div className="text-sm text-rose-800 dark:text-rose-200">
+                <div className="font-bold">
+                  {score >= 8 ? (isChest ? tx('emergencyChest') : isHead ? tx('emergencyHead') : tx('emergencyGeneral')) : tx('statusVitalsAlert')}
+                </div>
+                {score >= 8 && vitalCritical && <div className="text-xs mt-0.5">{tx('statusVitalsAlert')}</div>}
+              </div>
+            </div>
+            <button type="button" onClick={() => { sovereignSound.playEmergencyCodeRed(); onEmergency(); }} className="btn btn-danger text-sm font-bold px-4 py-2 rounded-xl shrink-0">
+              {tx('emergencyAction')}
+            </button>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-2xl bg-card border border-border/80 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <ShieldCheck size={18} className="text-primary shrink-0" />
+            <span>
+              {score === 0 ? tx('statusWaiting') : [status.bp, status.pulse, status.spo2, status.temp].some(s => s === 'low' || s === 'high' || s === 'fever') ? tx('statusVitalsAlert') : score >= 6 ? tx('statusUrgent') : tx('statusRoutine')}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
