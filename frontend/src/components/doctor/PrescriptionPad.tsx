@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileCode, Leaf, Pill, X, Sparkles, FileText, CalendarDays } from 'lucide-react';
+import { Leaf, Pill, X, Sparkles, FileText, CalendarDays } from 'lucide-react';
 import { AllopathicMedication, AyushFormulation, AyushFormularyHit, FormularyHit, OrderSet, SafetyEvaluation, SessionDetail, TimelineEncounter } from '../../types/api';
 import { DoctorRole, RxDraft } from './doctorRole';
 import { MedicineSearch } from './MedicineSearch';
@@ -9,7 +9,6 @@ import { InvestigationPicker } from './InvestigationPicker';
 import { SafetyPanel } from './SafetyPanel';
 import { ClinicalExamPanel } from './ClinicalExamPanel';
 import { OrderSetBar } from './OrderSetBar';
-import { AbdmFhirExportModal } from './AbdmFhirExportModal';
 import { getDynamicDietaryGuidance } from '../../utils/clinicalPathya';
 import { api } from '../../services/api';
 
@@ -33,11 +32,11 @@ interface PrescriptionPadProps {
 const SOURCE_LABEL: Record<string, string> = { order_set: 'from order set', favourite: 'favourite', repeat: 'repeated', dictation: 'from dictation — confirm dose', scanned_document: 'from a scanned prescription — review', reported: 'reported by patient' };
 
 /** A numbered step of the prescription, so the pad reads in clinical order at a glance. */
-const Step: React.FC<{ n: number; title: string; hint?: React.ReactNode; children: React.ReactNode }> = ({ n, title, hint, children }) => (
-  <section className="flex flex-col gap-3 pt-4 border-t border-border/70">
+const Step: React.FC<{ n: number; title: string; hint?: React.ReactNode; children: React.ReactNode; first?: boolean }> = ({ n, title, hint, children, first }) => (
+  <section className={`flex flex-col gap-3 ${first ? '' : 'pt-4 border-t border-border/70'}`}>
     <div className="flex items-center justify-between gap-2 flex-wrap">
       <h4 className="m-0 text-[13px] font-bold text-foreground flex items-center gap-2">
-        <span className="h-5 w-5 rounded-full bg-foreground text-background text-[10.5px] font-bold inline-flex items-center justify-center">{n}</span>
+        <span className="h-5 w-5 rounded-full bg-foreground text-background text-[11px] font-bold inline-flex items-center justify-center">{n}</span>
         {title}
       </h4>
       {hint}
@@ -79,9 +78,8 @@ const ayushFromHit = (h: AyushFormularyHit | { name: string; custom: true }, sou
   return { classicalName: h.name, dosageForm: 'custom' in h ? '' : h.form, dose: d?.dose || '', anupana: d?.anupana || '', frequency: d?.frequency || '', durationDays: d?.durationDays || 0, source };
 };
 
-/** The prescription, in clinical order: diagnosis → tests → medicines → advice and follow-up → notes. */
+/** The visit, in clinical order: examination and notes → diagnosis and tests → medicines → advice and follow-up. */
 export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, updateDraft, session, safety, checking, canPrescribe, onDraftNote, searchRef, suggestions, onClearSuggestions }) => {
-  const [showFhir, setShowFhir] = useState(false);
   const isAyurveda = role === 'AYURVEDA';
   const alloOffset = 0;
   const ayushOffset = draft.allopathic.length;
@@ -124,7 +122,7 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
     <section className={`flex flex-col gap-2 ${secondary ? 'rounded-xl bg-muted/30 border border-border/70 p-3' : ''}`}>
       {secondary && <span className="text-xs font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
         <Pill size={15} /> {secondary ? 'Modern medicines the patient already takes' : 'Medicines'}
-        <span className="text-[10.5px] font-bold px-1.5 rounded-full bg-sky-500/10">{draft.allopathic.length}</span>
+        <span className="text-[11px] font-bold px-1.5 rounded-full bg-sky-500/10">{draft.allopathic.length}</span>
       </span>}
       {secondary && <p className="text-[11px] text-muted-foreground -mt-1">Recorded so your prescription is checked against them; not prescribed here.</p>}
       <MedicineSearch ref={secondary ? undefined : searchRef} stream="ALLOPATHY" compact={secondary} placeholder={secondary ? 'Add a medicine the patient takes…' : undefined} onPickAllopathic={h => addAllo(alloFromHit(h, secondary ? 'reported' : 'doctor'))} onPickAyush={() => {}} />
@@ -143,7 +141,7 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
     <section className={`flex flex-col gap-2 ${secondary ? 'rounded-xl bg-muted/30 border border-border/70 p-3' : ''}`}>
       {secondary && <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
         <Leaf size={15} /> {secondary ? 'Ayurvedic / herbal medicines the patient already takes' : 'Classical formulations'}
-        <span className="text-[10.5px] font-bold px-1.5 rounded-full bg-emerald-500/10">{draft.ayush.length}</span>
+        <span className="text-[11px] font-bold px-1.5 rounded-full bg-emerald-500/10">{draft.ayush.length}</span>
       </span>}
       {secondary && <p className="text-[11px] text-muted-foreground -mt-1">Recorded so your prescription is checked against them; not prescribed here.</p>}
       <MedicineSearch ref={secondary ? undefined : searchRef} stream="AYURVEDA" compact={secondary} placeholder={secondary ? 'Add an Ayurvedic medicine the patient takes…' : undefined} onPickAyush={h => addAyush(ayushFromHit(h, secondary ? 'reported' : 'doctor'))} onPickAllopathic={() => {}} />
@@ -162,27 +160,24 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
   const pendingSuggestions = suggestions && (suggestions.allopathic.length + suggestions.ayush.length) > 0;
 
   return (
-    <div className="physical-card p-4 flex flex-col gap-4">
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-bold text-foreground m-0">Prescription</h3>
-          <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${isAyurveda ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300' : 'bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300'}`}>
-            {isAyurveda ? <Leaf size={11} /> : <Pill size={11} />} {isAyurveda ? 'Ayurveda' : 'Modern medicine'}
-          </span>
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setShowFhir(true)} disabled={!session} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 11.5 }} title="Preview the ABDM FHIR record for this visit">
-            <FileCode size={13} /> <span>ABDM record</span>
-          </button>
-        </div>
-      </div>
+    <div className="rounded-2xl border border-border/80 bg-card p-4 flex flex-col gap-4">
+      <Step n={1} first title="Examination & notes">
+        <ClinicalExamPanel role={role} value={draft.examination} onChange={examination => updateDraft({ examination })} kioskPariksha={session?.pariksha as any} />
 
-      <Step n={1} title="Diagnosis & tests">
+        <section className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground">Clinical notes</span>
+            <button type="button" onClick={onDraftNote} disabled={!session} className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-border bg-card hover:bg-muted inline-flex items-center gap-1"><FileText size={12} /> Draft a SOAP note</button>
+          </div>
+          <textarea value={draft.notes} onChange={e => updateDraft({ notes: e.target.value })} rows={3} placeholder="History, examination, assessment and plan — saved in the signed record (not printed on the patient copy)." className="px-2.5 py-2 text-xs rounded-lg border border-border bg-background resize-y" />
+        </section>
+      </Step>
+      <Step n={2} title="Diagnosis & tests">
         <DiagnosisPicker role={role} value={draft.diagnoses} onChange={diagnoses => updateDraft({ diagnoses })} suggestions={session?.provisionalDiagnoses || []} />
         <InvestigationPicker value={draft.investigations} onChange={investigations => updateDraft({ investigations })} />
       </Step>
 
-      <Step n={2} title={isAyurveda ? 'Formulations' : 'Medicines'} hint={<span className="text-[11px] font-semibold text-muted-foreground">{(isAyurveda ? draft.ayush : draft.allopathic).length} on this prescription</span>}>
+      <Step n={3} title={isAyurveda ? 'Formulations' : 'Medicines'} hint={<span className="text-[11px] font-semibold text-muted-foreground">{(isAyurveda ? draft.ayush : draft.allopathic).length} on this prescription</span>}>
         <OrderSetBar role={role} canPrescribe={canPrescribe} lastEncounter={session?.previousEncounters?.[0]} onApplySet={applySet} onAddFavourite={addFavourite} onRepeat={repeatLast} onSaveCurrent={saveCurrent} hasItems={(isAyurveda ? draft.ayush : draft.allopathic).length > 0} />
         {pendingSuggestions && (
           <section className="rounded-xl border border-dashed border-primary/50 bg-primary/5 p-3 flex flex-col gap-2">
@@ -208,7 +203,7 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
         {isAyurveda ? alloSection(true) : ayushSection(true)}
       </Step>
 
-      <Step n={3} title={isAyurveda ? 'Pathya, advice & follow-up' : 'Advice & follow-up'}>
+      <Step n={4} title={isAyurveda ? 'Pathya, advice & follow-up' : 'Advice & follow-up'}>
         {isAyurveda && (
           <section className="p-3.5 rounded-xl bg-muted/30 border border-border flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -241,19 +236,7 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
         </section>
       </Step>
 
-      <Step n={4} title="Examination & notes">
-        <ClinicalExamPanel role={role} value={draft.examination} onChange={examination => updateDraft({ examination })} kioskPariksha={session?.pariksha as any} />
 
-        <section className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-foreground">Clinical notes</span>
-            <button type="button" onClick={onDraftNote} disabled={!session} className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-border bg-card hover:bg-muted inline-flex items-center gap-1"><FileText size={12} /> Draft a SOAP note</button>
-          </div>
-          <textarea value={draft.notes} onChange={e => updateDraft({ notes: e.target.value })} rows={3} placeholder="History, examination, assessment and plan — saved in the signed record (not printed on the patient copy)." className="px-2.5 py-2 text-xs rounded-lg border border-border bg-background resize-y" />
-        </section>
-      </Step>
-
-      {showFhir && session && <AbdmFhirExportModal sessionId={session.sessionId} session={session} role={role} draft={draft} onClose={() => setShowFhir(false)} />}
     </div>
   );
 };

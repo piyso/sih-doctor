@@ -213,7 +213,7 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
         const s = result.symptoms[0];
         if (!prev.length) return [{ ...s, key: `interview:${s.name}` } as any];
         const [first, ...rest] = prev;
-        return [{ ...first, onset: first.onset || s.onset, character: first.character || s.character, radiation: first.radiation || s.radiation, timing: first.timing || s.timing, severityScore: first.severityScore || s.severityScore, associations: Array.from(new Set([...(first.associations || []), ...(s.associated || [])])) } as any, ...rest];
+        return [{ ...first, onset: first.onset || s.onset, character: first.character || s.character, radiation: first.radiation || s.radiation, timing: first.timing || s.timing, severityScore: first.severityScore || s.severityScore, associations: Array.from(new Set([...(first.associations || []), ...(s.associations || (s as any).associated || [])])) } as any, ...rest];
       });
     }
     if (result.redFlags.length) setRedFlags(prev => Array.from(new Set([...prev, ...result.redFlags.map(f => f.label)])));

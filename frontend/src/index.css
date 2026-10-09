@@ -1250,3 +1250,45 @@
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* ===== Pharmacy counter + doctor desk (owned by the clinical-desks redesign; see PharmacyDeskView / DoctorDeskContainer) ===== */
+/* A single column must be allowed to shrink below its content (long tokens / names), or the page scrolls sideways. */
+@media (max-width: 1120px) {
+  .pharmacy-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* On a phone the action footer would cover half the prescription: it sits at the end instead. */
+@media (max-width: 640px) {
+  .pharmacy-actions { position: static; }
+}
+/* Doctor desk: queue | patient summary | visit. The sign bar is docked in the visit column, so no room is kept for a floating dock. */
+.doctor-desk-grid { grid-template-columns: 272px minmax(320px, 380px) minmax(0, 1fr); }
+.doctor-desk-workspace { padding-bottom: 0; gap: 12px; }
+.doctor-desk-preintake { gap: 12px; }
+@media (max-width: 1360px) and (min-width: 1025px) {
+  .doctor-desk-grid { grid-template-columns: 264px minmax(280px, 320px) minmax(0, 1fr); gap: 12px; }
+}
+@media (max-width: 1024px) {
+  .desk-toast { bottom: 16px; }
+  .doctor-desk-container { padding-bottom: 24px; }
+}
+@media (max-width: 768px) {
+  .doctor-desk-container { padding: 8px 12px 24px 12px; }
+}
+/* Vitals sit two by two in the summary column (four across clipped their status tags). */
+.doctor-desk-preintake .vitals-4-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 769–1024 px: patient summary and visit side by side (the queue is the other tab). */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .doctor-desk-container.show-intake .doctor-desk-grid,
+  .doctor-desk-container.show-workspace .doctor-desk-grid { display: grid !important; grid-template-columns: minmax(270px, 320px) minmax(0, 1fr); gap: 12px; }
+  .doctor-desk-container.show-intake .doctor-desk-workspace,
+  .doctor-desk-container.show-workspace .doctor-desk-preintake { display: flex !important; }
+  .doctor-desk-container.show-intake .doctor-desk-preintake,
+  .doctor-desk-container.show-workspace .doctor-desk-preintake {
+    position: sticky; top: calc(var(--app-bar-h) + var(--desk-banner-h, 0px) + 12px);
+    max-height: calc(100dvh - var(--app-bar-h) - var(--desk-banner-h, 0px) - 24px); overflow-y: auto;
+  }
+}
+/* Phones: the patient bar scrolls away with the page instead of covering a quarter of the screen. */
+@media (max-width: 640px) {
+  .doctor-safety-banner { position: static; }
+}

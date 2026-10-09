@@ -16,9 +16,17 @@ export interface RuntimeMode {
 }
 
 let state: RuntimeMode | null = null;
+/** Whether the last call to the server got an answer (null until the first attempt finishes). */
+let reachable: boolean | null = null;
 let pending: Promise<RuntimeMode | null> | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach(l => l());
+
+function setReachable(v: boolean) {
+  if (reachable === v) return;
+  reachable = v;
+  emit();
+}
 
 function apply(next: RuntimeMode) {
   const changed = !state || state.demoMode !== next.demoMode || state.demoToggle !== next.demoToggle || state.changedAt !== next.changedAt;
@@ -31,11 +39,14 @@ function apply(next: RuntimeMode) {
 
 export function refreshRuntimeMode(): Promise<RuntimeMode | null> {
   if (!pending) {
-    pending = fetch(`${BASE_URL}/api/system/mode`)
-      .then(r => (r.ok ? r.json() : null))
+    // A sleeping free-tier cloud server can take up to a minute to answer its first request.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 70000);
+    pending = fetch(`${BASE_URL}/api/system/mode`, { signal: ctrl.signal })
+      .then(r => { setReachable(true); return r.ok ? r.json() : null; })
       .then(j => { if (j?.data) apply(j.data as RuntimeMode); return state; })
-      .catch(() => state)
-      .finally(() => { pending = null; });
+      .catch(() => { setReachable(false); return state; })
+      .finally(() => { clearTimeout(timer); pending = null; });
   }
   return pending;
 }
@@ -46,7 +57,13 @@ function start() {
   started = true;
   refreshRuntimeMode();
   window.addEventListener('focus', () => { refreshRuntimeMode(); });
-  setInterval(() => { if (document.visibilityState === 'visible') refreshRuntimeMode(); }, 30000);
+  // Every 30 s while visible; every 5 s while the server is not answering, so screens recover by themselves.
+  let last = 0;
+  setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if (reachable === false || now - last >= 30000) { last = now; refreshRuntimeMode(); }
+  }, 5000);
 }
 
 function subscribe(listener: () => void) {
@@ -58,6 +75,11 @@ function subscribe(listener: () => void) {
 /** The current mode, or null until the server has answered. */
 export function useRuntimeMode(): RuntimeMode | null {
   return useSyncExternalStore(subscribe, () => state, () => null);
+}
+
+/** Whether the hospital server is answering: null while the first check runs. */
+export function useServerReachable(): boolean | null {
+  return useSyncExternalStore(subscribe, () => reachable, () => null);
 }
 
 /** Kept for existing callers: resolves to whether demo data is on. */

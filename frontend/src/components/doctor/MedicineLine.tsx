@@ -55,38 +55,38 @@ export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChan
           <div className="text-sm font-bold text-foreground flex items-center gap-1.5 flex-wrap">
             <span className={kind === 'allo' ? 'uppercase tracking-wide' : ''}>{fields.title}</span>
             {showGeneric && <span className="text-[11px] font-semibold text-muted-foreground normal-case">= {generic}</span>}
-            {resolved?.aware?.map(a => <span key={a} className={`px-1 rounded border text-[9.5px] font-bold ${a === 'ACCESS' ? 'border-emerald-500/40 text-emerald-700' : a === 'WATCH' ? 'border-amber-500/50 text-amber-800' : 'border-rose-500/40 text-rose-700'}`}>AWaRe {a}</span>)}
-            {resolved?.schedule?.map(s => <span key={s} className="px-1 rounded border border-border text-[9.5px] font-bold">{s === 'NDPS' ? 'NDPS' : `Sch ${s}`}</span>)}
-            {resolved?.scheduleE1?.length ? <span className="px-1 rounded border border-amber-500/50 text-amber-800 text-[9.5px] font-bold" title="Drugs & Cosmetics Rules Schedule E(1): dispense only against prescription; caution label">Schedule E(1): {resolved.scheduleE1.join(', ')}</span> : null}
-            {resolved && resolved.unresolved.length > 0 && <span className="px-1 rounded border border-dashed border-muted-foreground/50 text-[9.5px] text-muted-foreground" title="Not in the safety database: interactions, doses and allergies could not be checked for this line">not checked</span>}
-            {sourceLabel && <span className="text-[9.5px] text-muted-foreground font-normal">· {sourceLabel}</span>}
+            {resolved?.aware?.map(a => <span key={a} className={`px-1 rounded border text-[11px] font-bold ${a === 'ACCESS' ? 'border-emerald-500/40 text-emerald-700' : a === 'WATCH' ? 'border-amber-500/50 text-amber-800' : 'border-rose-500/40 text-rose-700'}`}>AWaRe {a}</span>)}
+            {resolved?.schedule?.map(s => <span key={s} className="px-1 rounded border border-border text-[11px] font-bold">{s === 'NDPS' ? 'NDPS' : `Sch ${s}`}</span>)}
+            {resolved?.scheduleE1?.length ? <span className="px-1 rounded border border-amber-500/50 text-amber-800 text-[11px] font-bold" title="Drugs & Cosmetics Rules Schedule E(1): dispense only against prescription; caution label">Schedule E(1): {resolved.scheduleE1.join(', ')}</span> : null}
+            {resolved && resolved.unresolved.length > 0 && <span className="px-1 rounded border border-dashed border-muted-foreground/50 text-[11px] text-muted-foreground" title="Not in the safety database: interactions, doses and allergies could not be checked for this line">not checked</span>}
+            {sourceLabel && <span className="text-[11px] text-muted-foreground font-normal">· {sourceLabel}</span>}
           </div>
           {readOnlyNote && <div className="text-[11px] text-muted-foreground">{readOnlyNote}</div>}
         </div>
-        <button type="button" onClick={onRemove} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 shrink-0" aria-label={`Remove ${fields.title}`}>
+        <button type="button" onClick={onRemove} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 shrink-0" aria-label={`Remove ${fields.title}`}>
           <Trash2 size={14} />
         </button>
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-0.5 w-28">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Dose</span>
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">Dose</span>
           <input value={fields.dose} onChange={e => onChange({ dose: e.target.value })} placeholder={kind === 'allo' ? '500 mg' : '3 g'} className="px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
         </label>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase">When (1-0-1)</span>
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">When (1-0-1)</span>
           <div className="flex items-center gap-1">
             {[0, 1, 2].map(i => (
               <button key={i} type="button" onClick={() => setPattern(i)} title={`${PATTERN_LABELS[i]}: tap to change (0 → 1 → 2)`}
                 className={`w-9 h-8 rounded-lg border text-xs font-bold ${sig.pattern && sig.pattern[i] > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground'}`}>
-                <span className="block text-[8.5px] font-semibold leading-none opacity-80">{PATTERN_LABELS[i].slice(0, 3)}</span>
+                <span className="block text-[11px] font-semibold leading-none opacity-80">{PATTERN_LABELS[i].slice(0, 3)}</span>
                 {sig.pattern ? (sig.pattern[i] === 0.5 ? '½' : sig.pattern[i] ?? 0) : 0}
               </button>
             ))}
           </div>
         </div>
         <label className="flex flex-col gap-0.5 min-w-[110px] flex-1">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Or other / food</span>
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">Or other / food</span>
           <div className="flex gap-1">
             <input value={sig.pattern ? '' : sig.other} onChange={e => onChange({ frequency: formatSig({ pattern: null, other: e.target.value, food: sig.food }) })} placeholder={sig.pattern ? formatSig(sig) : 'SOS, weekly…'} className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
             <select value={sig.food} onChange={e => onChange({ frequency: formatSig({ ...sig, food: e.target.value as FoodTiming }) })} className="px-1.5 py-1.5 text-xs rounded-lg border border-border bg-background" aria-label="Food timing">
@@ -96,20 +96,20 @@ export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChan
         </label>
         {kind === 'ayush' && (
           <label className="flex flex-col gap-0.5 flex-1 min-w-[120px]">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Anupana</span>
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase">Anupana</span>
             <input value={fields.anupana || ''} onChange={e => onChange({ anupana: e.target.value })} placeholder="Lukewarm water" className="px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
           </label>
         )}
         <label className="flex flex-col gap-0.5 w-16">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Days</span>
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">Days</span>
           <input type="number" min={0} value={fields.durationDays || ''} onChange={e => onChange({ durationDays: Math.max(0, parseInt(e.target.value, 10) || 0) })} className="px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
         </label>
-        {kind === 'allo' && <div className="text-[10.5px] text-muted-foreground pb-1.5" title="Quantity to dispense">{qty ? `Qty ${qty}` : ''}</div>}
+        {kind === 'allo' && <div className="text-[11px] text-muted-foreground pb-1.5" title="Quantity to dispense">{qty ? `Qty ${qty}` : ''}</div>}
       </div>
 
       {kind === 'allo' && isAntibiotic && (
         <label className="flex items-center gap-2 text-xs">
-          <span className={`text-[10px] font-semibold uppercase shrink-0 ${fields.indication ? 'text-muted-foreground' : 'text-amber-800'}`}>Indication</span>
+          <span className={`text-[11px] font-semibold uppercase shrink-0 ${fields.indication ? 'text-muted-foreground' : 'text-amber-800'}`}>Indication</span>
           <input value={fields.indication || ''} onChange={e => onChange({ indication: e.target.value })} placeholder="Why this antibiotic? (required — MoHFW 2024)" className="flex-1 px-2 py-1 text-xs rounded-lg border border-border bg-background" />
         </label>
       )}
@@ -123,7 +123,7 @@ export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChan
             return (
               <div key={key} className="text-[11.5px]">
                 <button type="button" onClick={() => setOpen(open === key ? null : key)} className="w-full text-left flex items-start gap-1.5">
-                  <span className={`px-1.5 rounded text-[9.5px] font-bold shrink-0 mt-0.5 ${TIER_STYLE[t].chip}`}>{t}</span>
+                  <span className={`px-1.5 rounded text-[11px] font-bold shrink-0 mt-0.5 ${TIER_STYLE[t].chip}`}>{t}</span>
                   <Icon size={13} className={`shrink-0 mt-0.5 ${t === 'STOP' ? 'text-rose-600' : t === 'WARN' ? 'text-amber-600' : 'text-sky-600'}`} />
                   <span className="text-foreground font-semibold">{a.itemA} × {a.itemB}</span>
                   {open === key ? <ChevronUp size={12} className="ml-auto shrink-0" /> : <ChevronDown size={12} className="ml-auto shrink-0" />}
@@ -132,7 +132,7 @@ export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChan
                   <div className="pl-7 pt-1 text-muted-foreground space-y-0.5">
                     <div><strong className="text-foreground">Why:</strong> {a.mechanism}</div>
                     <div><strong className="text-foreground">Do:</strong> {a.clinicalAction || a.recommendedAction}</div>
-                    <div className="text-[10.5px]">{a.evidence ? `Evidence: ${a.evidence}. ` : ''}{a.citation ? `Source: ${a.citation}` : ''}</div>
+                    <div className="text-[11px]">{a.evidence ? `Evidence: ${a.evidence}. ` : ''}{a.citation ? `Source: ${a.citation}` : ''}</div>
                   </div>
                 )}
               </div>

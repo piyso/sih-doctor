@@ -44,13 +44,13 @@ export const QualityPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                   <div key={i.id} className={`rounded-xl border p-3 ${ok === null ? 'border-border' : ok ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-amber-500/50 bg-amber-500/5'}`}>
                     <div className="text-[11px] text-muted-foreground">{i.label}</div>
                     <div className="text-xl font-extrabold text-foreground">{i.value === null ? '—' : `${i.value}${i.unit}`}</div>
-                    <div className="text-[10.5px] text-muted-foreground">WHO target {i.target}{i.unit}</div>
+                    <div className="text-[11px] text-muted-foreground">WHO target {i.target}{i.unit}</div>
                   </div>
                 );
               })}
             </div>
             <div className="text-xs">AWaRe antibiotics: <strong className="text-emerald-700">Access {data.aware.access}</strong> · <strong className="text-amber-700">Watch {data.aware.watch}</strong> · <strong className="text-rose-700">Reserve {data.aware.reserve}</strong></div>
-            <div className="text-[10.5px] text-muted-foreground">{data.source}. Indian OPD audits report 2.3–4.9 medicines per encounter and 1–66% generic naming; generic names are printed in capitals on this desk.</div>
+            <div className="text-[11px] text-muted-foreground">{data.source}. Indian OPD audits report 2.3–4.9 medicines per encounter and 1–66% generic naming; generic names are printed in capitals on this desk.</div>
           </>
         )}
       </div>

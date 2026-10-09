@@ -61,10 +61,10 @@ export const SafetyPanel: React.FC<SafetyPanelProps> = ({ safety, checking, line
         const isStop = g.some(x => x.tier === 'STOP');
         return (
           <div key={a.groupKey} className={`rounded-lg border p-2 text-[11.5px] ${isStop ? 'border-rose-500 bg-rose-500/5' : 'border-amber-500/50 bg-amber-500/5'}`}>
-            <div className="font-bold text-foreground"><span className={`px-1.5 mr-1.5 rounded text-[9.5px] text-white ${isStop ? 'bg-rose-600' : 'bg-amber-500'}`}>{isStop ? 'STOP' : 'WARN'}</span>{a.itemA} × {a.itemB}</div>
+            <div className="font-bold text-foreground"><span className={`px-1.5 mr-1.5 rounded text-[11px] text-white ${isStop ? 'bg-rose-600' : 'bg-amber-500'}`}>{isStop ? 'STOP' : 'WARN'}</span>{a.itemA} × {a.itemB}</div>
             <div className="text-muted-foreground mt-0.5"><strong className="text-foreground">Why:</strong> {a.mechanism}</div>
             <div className="text-muted-foreground"><strong className="text-foreground">Do:</strong> {a.clinicalAction || a.recommendedAction}</div>
-            <div className="text-[10px] text-muted-foreground">{a.evidence ? `Evidence: ${a.evidence}. ` : ''}{a.citation || ''}</div>
+            <div className="text-[11px] text-muted-foreground">{a.evidence ? `Evidence: ${a.evidence}. ` : ''}{a.citation || ''}</div>
           </div>
         );
       })}
@@ -81,7 +81,7 @@ export const SafetyPanel: React.FC<SafetyPanelProps> = ({ safety, checking, line
           )}
         </div>
       )}
-      {cov?.reviewStatus && <div className="text-[10px] text-muted-foreground">{cov.reviewStatus}</div>}
+      {cov?.reviewStatus && <div className="text-[11px] text-muted-foreground">{cov.reviewStatus}</div>}
     </section>
   );
 };

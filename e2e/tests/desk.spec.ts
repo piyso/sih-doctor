@@ -70,6 +70,8 @@ test.describe('Doctor desk', () => {
 
     await uiLogin(page, 'doctor', 'dr.sharma');
     await page.getByText(adult).first().click();
+    // The scribe sits behind "Dictate" in the visit column (it stays open across patients once opened).
+    await page.getByRole('button', { name: 'Dictate' }).click();
     const room = page.getByTestId('scribe-room');
     await expect(room).toContainText('needs the patient’s consent');
     await page.getByTestId('scribe-consent-ask').click();

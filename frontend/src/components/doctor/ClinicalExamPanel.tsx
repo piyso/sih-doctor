@@ -31,7 +31,7 @@ export const ClinicalExamPanel: React.FC<ClinicalExamPanelProps> = ({ role, valu
     <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
       {rows.map(([k, label, ph]) => (
         <label key={k} className="flex flex-col gap-0.5">
-          <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+          <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
           <input value={(value[part] as any)?.[k] || ''} placeholder={ph || ''} onChange={e => onChange({ ...value, [part]: { ...(value[part] || {}), [k]: e.target.value } })} className="px-2 py-1 text-xs rounded-lg border border-border bg-background" />
         </label>
       ))}
@@ -39,9 +39,9 @@ export const ClinicalExamPanel: React.FC<ClinicalExamPanelProps> = ({ role, valu
   );
   return (
     <section className="rounded-xl border border-border p-3 flex flex-col gap-2" aria-label="Examination">
-      <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center justify-between text-xs font-extrabold text-foreground">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="min-h-8 -my-1 flex items-center justify-between text-xs font-extrabold text-foreground">
         <span className="flex items-center gap-1.5">{role === 'AYURVEDA' ? <Leaf size={13} className="text-emerald-600" /> : <Stethoscope size={13} />} Examination {role === 'AYURVEDA' ? '(Ashtavidha / Dashavidha / Samprapti)' : ''}</span>
-        <span className="flex items-center gap-1 text-[10.5px] font-semibold text-muted-foreground">{filled ? `${filled} recorded` : 'not recorded'} {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
+        <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">{filled ? `${filled} recorded` : 'not recorded'} {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
       </button>
       {open && (
         <>
@@ -49,13 +49,13 @@ export const ClinicalExamPanel: React.FC<ClinicalExamPanelProps> = ({ role, valu
           {role === 'AYURVEDA' && (
             <>
               {kioskPariksha && (kioskPariksha.prakriti || kioskPariksha.agni) && (
-                <div className="text-[10.5px] text-muted-foreground">Patient-reported at the kiosk: {[kioskPariksha.prakriti && `Prakriti ${kioskPariksha.prakriti}`, kioskPariksha.agni && `Agni ${kioskPariksha.agni}`, kioskPariksha.sara && `Sara ${kioskPariksha.sara}`].filter(Boolean).join(' · ')} — confirm on examination.</div>
+                <div className="text-[11px] text-muted-foreground">Patient-reported at the kiosk: {[kioskPariksha.prakriti && `Prakriti ${kioskPariksha.prakriti}`, kioskPariksha.agni && `Agni ${kioskPariksha.agni}`, kioskPariksha.sara && `Sara ${kioskPariksha.sara}`].filter(Boolean).join(' · ')} — confirm on examination.</div>
               )}
-              <span className="text-[10.5px] font-bold text-emerald-700 uppercase">Ashtavidha Pariksha</span>
+              <span className="text-[11px] font-bold text-emerald-700 uppercase">Ashtavidha Pariksha</span>
               {grid(ASHTAVIDHA, 'ashtavidha')}
-              <span className="text-[10.5px] font-bold text-emerald-700 uppercase">Dashavidha Pariksha</span>
+              <span className="text-[11px] font-bold text-emerald-700 uppercase">Dashavidha Pariksha</span>
               {grid(DASHAVIDHA.map(([k, l]) => [k, l, ''] as [typeof k, string, string]), 'dashavidha')}
-              <span className="text-[10.5px] font-bold text-emerald-700 uppercase">Samprapti ghataka</span>
+              <span className="text-[11px] font-bold text-emerald-700 uppercase">Samprapti ghataka</span>
               {grid(SAMPRAPTI.map(([k, l]) => [k, l, ''] as [typeof k, string, string]), 'samprapti')}
             </>
           )}

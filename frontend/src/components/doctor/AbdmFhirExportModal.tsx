@@ -218,7 +218,7 @@ export const AbdmFhirExportModal: React.FC<AbdmFhirExportModalProps> = ({ sessio
                           <div className="font-semibold">{displayName(c)}</div>
                           <div className="flex flex-wrap gap-1 mt-0.5">
                             {codingsOf(c).filter(k => k.code).map((k, j) => (
-                              <span key={j} className="text-[10.5px] font-mono px-1.5 py-0.5 rounded bg-muted border border-border">{codeSystemName(k.system)} {k.code}</span>
+                              <span key={j} className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-muted border border-border">{codeSystemName(k.system)} {k.code}</span>
                             ))}
                           </div>
                         </li>

@@ -1,17 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PatientQueueList } from './PatientQueueList';
 import { PreIntakePanel } from './PreIntakePanel';
 import { SimilarCasesPanel } from './SimilarCasesPanel';
 import { AmbientScribePanel } from './AmbientScribePanel';
 import { PrescriptionPad, TranscriptSuggestions } from './PrescriptionPad';
 import { OfficialAiiaRxModal } from './OfficialAiiaRxModal';
-import { PatientSafetyBanner } from './PatientSafetyBanner';
+import { PatientSafetyBanner, RoomRecordingState } from './PatientSafetyBanner';
+import { AbdmFhirExportModal } from './AbdmFhirExportModal';
 import { AdrReportModal } from './AdrReportModal';
 import { QualityPanel } from './QualityPanel';
-import { EmergencyBanner } from '../common/EmergencyBanner';
 import { PatientQueueItem, SessionDetail, VitalsData, SafetyEvaluation, SeenTodayItem } from '../../types/api';
 import { api } from '../../services/api';
-import { Users, Stethoscope, CheckCircle2, ChevronLeft, ChevronRight, Activity, Leaf, Pill, X, Megaphone, UserX, Siren, PenLine, BarChart3, Volume2, VolumeX, TriangleAlert } from 'lucide-react';
+import { Users, Stethoscope, CheckCircle2, Activity, Leaf, Pill, X, Megaphone, UserX, Siren, PenLine, BarChart3, Volume2, VolumeX, TriangleAlert, Mic, FileCode, MoreHorizontal, ClipboardList, Loader2 } from 'lucide-react';
 import { DOCTOR_PROFILES, departmentName, roomLabel, DepartmentCode, DEPARTMENTS } from '../../utils/hospitalDirectory';
 import { DoctorRole, RxDraft, emptyRxDraft, loadDoctorRole, saveDoctorRole, normaliseDraft } from './doctorRole';
 import { useStaffUser } from '../auth/StaffGate';
@@ -53,18 +54,48 @@ export const DoctorDeskContainer: React.FC = () => {
   const [detailFailed, setDetailFailed] = useState(false);
   const [isRxModalOpen, setIsRxModalOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'queue' | 'intake' | 'workspace'>('queue');
+  /** Dictation / scribe panel: opened by the doctor, and always open while the room is being recorded. */
+  const [scribeOpen, setScribeOpen] = useState(false);
+  const [roomState, setRoomState] = useState<RoomRecordingState>('off');
+  const [roomSince, setRoomSince] = useState<number | null>(null);
+  const scribeRef = useRef<HTMLDivElement>(null);
+  const onRoomStateChange = useCallback((state: RoomRecordingState) => {
+    setRoomState(state);
+    setRoomSince(prev => (state === 'off' ? null : prev ?? Date.now()));
+  }, []);
+  const showScribe = useCallback(() => {
+    setScribeOpen(true);
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) setMobileTab('workspace');
+    requestAnimationFrame(() => scribeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
+  const [fhirOpen, setFhirOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setMoreOpen(false); (moreRef.current?.querySelector('button') as HTMLButtonElement | null)?.focus(); } };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [moreOpen]);
+  /** Tablet / small laptop (769–1024 px): the queue is one tab, the patient's summary and visit share the other. */
+  const [midWidth, setMidWidth] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 769px) and (max-width: 1024px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 769px) and (max-width: 1024px)');
+    const on = () => setMidWidth(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  /** The app bar's context slot (App.tsx): who is at this desk and the desk-wide tools sit there, not in a bar of their own. */
+  const [appBarSlot, setAppBarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setAppBarSlot(document.getElementById('app-bar-context')); }, []);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string; action?: { label: string; run: () => void } } | null>(null);
   const [divertedIds, setDivertedIds] = useState<string[]>([]);
   const [safety, setSafety] = useState<SafetyEvaluation>(EMPTY_SAFETY);
   const [checking, setChecking] = useState(false);
   const [sounds, setSounds] = useState(soundsEnabled);
   const [consultStart, setConsultStart] = useState<number | null>(null);
-  const [isWide, setIsWide] = useState(() => typeof window === 'undefined' || window.innerWidth > 1024);
-  useEffect(() => {
-    const onResize = () => setIsWide(window.innerWidth > 1024);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   // Drafts are kept per patient in memory, mirrored to this browser and to the server, so switching
   // patients, the queue refresh, a page reload or another workstation never loses work.
@@ -383,20 +414,45 @@ export const DoctorDeskContainer: React.FC = () => {
   const claimedByOther = currentSession?.claimedBy && currentSession.claimedBy.id !== user?.id ? currentSession.claimedBy.name : null;
   const stopCount = safety.stopGroups.length;
 
+  // Who is at this desk and the desk-wide tools (in the app bar; compact).
+  const deskContext = (
+    <div className="hidden sm:flex items-center gap-1.5 min-w-0">
+      <span className="hidden xl:inline-flex items-center gap-1.5 text-xs text-muted-foreground truncate" title={`${profile.name} · ${profile.title}${profile.registration ? ` · ${profile.registration}` : ''}`}>
+        {role === 'AYURVEDA' ? <Leaf size={13} className="text-emerald-600 shrink-0" /> : <Stethoscope size={13} className="text-sky-600 shrink-0" />}
+        <span className="truncate">{roomLabel(profile.department, 'en')} · {departmentName(profile.department, 'en')}</span>
+      </span>
+      {!fixedRole && <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border/70" role="radiogroup" aria-label="Doctor type">
+        {([{ id: 'AYURVEDA', label: 'Ayurveda', icon: Leaf }, { id: 'ALLOPATHY', label: 'Modern', icon: Pill }] as const).map(opt => {
+          const Icon = opt.icon;
+          const active = role === opt.id;
+          return (
+            <button key={opt.id} type="button" role="radio" aria-checked={active} onClick={() => changeRole(opt.id)}
+              className={`h-7 px-2 rounded-md text-[11.5px] font-bold flex items-center gap-1 transition-colors ${active ? 'bg-card text-foreground shadow-xs border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
+              <Icon size={12} />{opt.label}
+            </button>
+          );
+        })}
+      </div>}
+      {canPrescribe && <button type="button" onClick={() => setQualityOpen(true)} className="h-8 w-8 rounded-lg border border-border/80 bg-background hover:bg-muted inline-flex items-center justify-center text-muted-foreground" title="My prescribing indicators (WHO/INRUD, AWaRe)" aria-label="My prescribing indicators"><BarChart3 size={14} /></button>}
+      <button type="button" onClick={() => { setSoundsEnabled(!sounds); setSounds(!sounds); }} className="h-8 w-8 rounded-lg border border-border/80 bg-background hover:bg-muted inline-flex items-center justify-center text-muted-foreground" title={sounds ? 'Desk sounds on (emergencies always sound)' : 'Desk sounds off (emergencies always sound)'} aria-label={sounds ? 'Turn desk sounds off' : 'Turn desk sounds on'} aria-pressed={sounds}>
+        {sounds ? <Volume2 size={14} /> : <VolumeX size={14} />}
+      </button>
+    </div>
+  );
+  const scribeVisible = scribeOpen || roomState !== 'off';
+  const isDiverted = !!currentSession && (divertedIds.includes(currentSession.sessionId) || currentSession.status === 'DIVERTED_EMERGENCY');
+
   return (
     <div className={`main-wrapper doctor-desk-container show-${mobileTab}`}>
+      {appBarSlot && createPortal(deskContext, appBarSlot)}
       {sosAlerts.length > 0 && (
-        <div className="no-print mb-4 p-3 rounded-2xl border-2 border-rose-600 bg-rose-500/10 flex items-center justify-between gap-3 flex-wrap" role="alert">
-          <div className="flex items-center gap-2.5 text-sm font-bold text-rose-800 dark:text-rose-200 min-w-0">
-            <Siren size={18} className="shrink-0" />
+        <div className="no-print mb-3 px-3 py-2 rounded-xl border border-rose-500/60 border-l-[6px] border-l-rose-600 bg-rose-500/[0.07] flex items-center justify-between gap-3 flex-wrap" role="alert">
+          <div className="flex items-center gap-2 text-sm font-bold text-rose-800 min-w-0">
+            <Siren size={16} className="shrink-0" />
             <span className="truncate">SOS: {sosAlerts[0].message}{sosAlerts[0].location ? ` — ${sosAlerts[0].location}` : ''}{sosAlerts.length > 1 ? ` (+${sosAlerts.length - 1} more)` : ''}</span>
           </div>
-          <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">{sosAlerts[0].acknowledgedAt ? `${sosAlerts[0].acknowledgedBy} is attending` : 'Not yet acknowledged — nurse station alerted'}</span>
+          <span className="text-xs font-semibold text-rose-700">{sosAlerts[0].acknowledgedAt ? `${sosAlerts[0].acknowledgedBy} is attending` : 'Not yet acknowledged — nurse station alerted'}</span>
         </div>
-      )}
-      {currentSession && isEmergency && (
-        <EmergencyBanner redFlags={currentSession.redFlags} patientName={currentSession.patientName} onDivertClick={handleSendToEmergency}
-          isDiverted={divertedIds.includes(currentSession.sessionId) || currentSession.status === 'DIVERTED_EMERGENCY'} />
       )}
 
       {notice && (
@@ -406,75 +462,53 @@ export const DoctorDeskContainer: React.FC = () => {
             <span>{notice.text}</span>
             {notice.action && <button type="button" onClick={notice.action.run} className="ml-2 px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-bold">{notice.action.label}</button>}
           </div>
-          <button type="button" onClick={() => setNotice(null)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground" aria-label="Dismiss"><X size={15} /></button>
+          <button type="button" onClick={() => setNotice(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" aria-label="Dismiss"><X size={15} /></button>
         </div>
       )}
 
-      {/* Who is at this desk, and desk-wide tools. Patient actions live in the patient bar below. */}
-      <div className="no-print rounded-2xl border border-border/70 bg-card px-3.5 py-2 mb-3 flex items-center justify-between flex-wrap gap-x-3 gap-y-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border ${role === 'AYURVEDA' ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30' : 'bg-sky-500/10 text-sky-700 border-sky-500/30'}`}>
-            {role === 'AYURVEDA' ? <Leaf size={15} /> : <Stethoscope size={15} />}
-          </div>
-          <div className="min-w-0 text-xs truncate" title={`${profile.registration}${(user as any)?.hprId ? ` · HPR ${(user as any).hprId}` : ''}`}>
-            <span className="font-heading font-bold text-sm text-foreground">{profile.name}</span>
-            <span className="text-muted-foreground"> · {profile.title} · {roomLabel(profile.department, 'en')} · {departmentName(profile.department, 'en')}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {!fixedRole && <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border/70" role="radiogroup" aria-label="Doctor type">
-            {([{ id: 'AYURVEDA', label: 'Ayurveda (Vaidya)', icon: Leaf }, { id: 'ALLOPATHY', label: 'Modern medicine', icon: Pill }] as const).map(opt => {
-              const Icon = opt.icon;
-              const active = role === opt.id;
-              return (
-                <button key={opt.id} type="button" role="radio" aria-checked={active} onClick={() => changeRole(opt.id)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors ${active ? 'bg-card text-foreground shadow-xs border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
-                  <Icon size={13} />{opt.label}
-                </button>
-              );
-            })}
-          </div>}
-          {canPrescribe && <button type="button" onClick={() => setQualityOpen(true)} className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5" title="My prescribing indicators (WHO/INRUD, AWaRe)"><BarChart3 size={13} /> My prescribing</button>}
-          <button type="button" onClick={() => { setSoundsEnabled(!sounds); setSounds(!sounds); }} className="h-7 w-7 rounded-lg border border-border bg-background hover:bg-muted inline-flex items-center justify-center" title={sounds ? 'Desk sounds on (emergencies always sound)' : 'Desk sounds off (emergencies always sound)'} aria-label="Toggle desk sounds">
-            {sounds ? <Volume2 size={14} /> : <VolumeX size={14} />}
+      {/* The one bar about the patient in front of the doctor: identity, safety facts, emergency, recording, actions. */}
+      {currentSession && <PatientSafetyBanner session={currentSession} claimedByOther={claimedByOther}
+        emergency={isEmergency ? { flags: currentSession.redFlags || [], diverted: isDiverted, onDivert: handleSendToEmergency } : undefined}
+        recording={{ state: roomState, since: roomSince, onShow: showScribe }}
+        actions={<>
+          <button type="button" onClick={handleCallPatient} className={`h-8 px-3 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${isEmergency && !isDiverted ? 'border border-border bg-background hover:bg-muted text-foreground' : 'bg-primary text-primary-foreground'}`} title="Show and announce this token on the waiting-room screen; you take the patient">
+            <Megaphone size={13} /> {selectedQueueItem?.calledAt ? 'Call again' : 'Call to room'}{selectedQueueItem?.tokenNo ? ` · ${selectedQueueItem.tokenNo}` : ''}
           </button>
-          <div className="flex items-center gap-1 pl-1.5 ml-0.5 border-l border-border/70">
-            <button onClick={() => stepPatient(-1)} title="Previous patient ( [ )" aria-label="Previous patient" className="h-7 w-7 rounded-lg border border-border/60 bg-muted hover:bg-muted/80 inline-flex items-center justify-center"><ChevronLeft size={14} /></button>
-            <span className="text-xs font-mono text-muted-foreground px-1"><strong className="text-foreground">{visibleQueue.length}</strong> waiting</span>
-            <button onClick={() => stepPatient(1)} title="Next patient ( ] )" aria-label="Next patient" className="h-7 w-7 rounded-lg border border-border/60 bg-muted hover:bg-muted/80 inline-flex items-center justify-center"><ChevronRight size={14} /></button>
+          <button type="button" onClick={handleNoShow} className="h-8 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5" title="Patient did not come when called">
+            <UserX size={13} /> Not present
+          </button>
+          <div ref={moreRef} className="relative">
+            <button type="button" onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen} aria-haspopup="true" aria-label="More actions for this patient" className="h-8 w-8 rounded-lg border border-border bg-background hover:bg-muted inline-flex items-center justify-center"><MoreHorizontal size={15} /></button>
+            {moreOpen && (
+              <div className="absolute right-0 mt-1.5 w-64 rounded-xl border border-border bg-card shadow-xl p-1.5 z-[60]">
+                <button type="button" onClick={() => { setMoreOpen(false); setAdrOpen(true); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2" title="Report a suspected adverse drug reaction (PvPI / Ayush Suraksha)"><Siren size={14} className="text-muted-foreground" /> Report adverse drug reaction (ADR)</button>
+                <button type="button" onClick={() => { setMoreOpen(false); setFhirOpen(true); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2" title="Preview the ABDM FHIR record for this visit"><FileCode size={14} className="text-muted-foreground" /> ABDM record (FHIR)</button>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        </>} />}
 
-      {currentSession && <PatientSafetyBanner session={currentSession} claimedByOther={claimedByOther} actions={<>
-        <button type="button" onClick={handleCallPatient} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5" title="Show and announce this token on the waiting-room screen; you take the patient">
-          <Megaphone size={13} /> {selectedQueueItem?.calledAt ? 'Call again' : 'Call to room'}{selectedQueueItem?.tokenNo ? ` · ${selectedQueueItem.tokenNo}` : ''}
-        </button>
-        <button type="button" onClick={handleNoShow} className="h-8 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5" title="Patient did not come when called">
-          <UserX size={13} /> Not present
-        </button>
-        <button type="button" onClick={() => setAdrOpen(true)} className="h-8 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5" title="Report a suspected adverse drug reaction (PvPI / Ayush Suraksha)">
-          <Siren size={13} /> ADR
-        </button>
-      </>} />}
-
-      {/* Tablet / phone tabs */}
-      <div className="mobile-desk-toggle">
-        {([{ id: 'queue', label: `Queue (${visibleQueue.length})`, icon: Users }, { id: 'intake', label: 'Intake & vitals', icon: Activity }, { id: 'workspace', label: 'Prescribe', icon: Stethoscope }] as const).map(tab => {
+      {/* Tablet / phone: one pane at a time */}
+      <div className="mobile-desk-toggle" role="tablist" aria-label="Desk panes">
+        {(midWidth
+          ? [{ id: 'queue', label: `Queue (${visibleQueue.length})`, icon: Users }, { id: 'workspace', label: currentSession ? currentSession.patientName : 'Patient', icon: Stethoscope }] as const
+          : [{ id: 'queue', label: `Queue (${visibleQueue.length})`, icon: Users }, { id: 'intake', label: 'Summary', icon: ClipboardList }, { id: 'workspace', label: 'Visit', icon: Stethoscope }] as const
+        ).map(tab => {
           const Icon = tab.icon;
-          return <button key={tab.id} type="button" className={mobileTab === tab.id ? 'active' : ''} onClick={() => setMobileTab(tab.id)}><Icon size={13} /><span>{tab.label}</span></button>;
+          const active = midWidth ? (tab.id === 'queue' ? mobileTab === 'queue' : mobileTab !== 'queue') : mobileTab === tab.id;
+          return <button key={tab.id} type="button" role="tab" aria-selected={active} className={active ? 'active' : ''} onClick={() => setMobileTab(tab.id)}><Icon size={13} /><span className="truncate">{tab.label}</span></button>;
         })}
       </div>
 
       <div className="doctor-desk-grid">
-        <div className="doctor-desk-sidebar">
+        <nav className="doctor-desk-sidebar" aria-label="Patient queue">
           <PatientQueueList
             queue={visibleQueue}
             totalCount={queue.length}
             selectedSessionId={selectedSessionId}
             onSelectPatient={item => selectPatient(item, true)}
             onRefresh={loadQueue}
+            onStep={stepPatient}
             online={online}
             loaded={queueLoaded}
             role={role}
@@ -488,35 +522,60 @@ export const DoctorDeskContainer: React.FC = () => {
               loadQueue();
             }}
           />
-        </div>
+        </nav>
 
-        <div className="doctor-desk-preintake">
+        <section className="doctor-desk-preintake" aria-label="Patient summary">
           <PreIntakePanel session={currentSession} role={role} onSaveVitals={handleSaveVitals} />
           <SimilarCasesPanel sessionId={currentSession?.sessionId ?? null} />
-        </div>
+        </section>
 
-        <div className="doctor-desk-workspace">
+        <main className="doctor-desk-workspace" aria-label="Visit">
           {currentSession && (
-            <AmbientScribePanel
-              key={currentSession.sessionId}
-              sessionId={currentSession.sessionId}
-              patientAge={currentSession.age}
-              patientLanguage={currentSession.language}
-              clinicianName={user?.displayName || 'the clinician'}
-              consent={currentSession.recordingConsent || null}
-              onConsentChange={c => setCurrentSession(prev => (prev ? { ...prev, recordingConsent: c } : prev))}
-              onAutoExtract={handleAutoExtractFromScribe}
-              onTranscriptChange={onScribeTranscript}
-              onInsertNotes={insertScribeNotes}
-              onWithdrawn={removeRoomDerivedNotes}
-            />
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="m-0 text-[15px] font-bold text-foreground flex items-center gap-2">
+                Visit
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${role === 'AYURVEDA' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700' : 'bg-sky-500/10 border-sky-500/30 text-sky-700'}`}>
+                  {role === 'AYURVEDA' ? <Leaf size={11} /> : <Pill size={11} />} {role === 'AYURVEDA' ? 'Ayurveda' : 'Modern medicine'}
+                </span>
+              </h2>
+              <button type="button" onClick={() => (scribeVisible && roomState === 'off' ? setScribeOpen(false) : showScribe())} aria-expanded={scribeVisible} aria-controls="desk-scribe"
+                className={`h-8 px-3 rounded-lg border text-xs font-bold inline-flex items-center gap-1.5 ${scribeVisible ? 'border-primary/50 bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted text-foreground'}`}
+                title={roomState !== 'off' ? 'The room is being recorded — the scribe stays open' : 'Dictate notes and medicines (your voice)'}>
+                <Mic size={13} /> {scribeVisible ? (roomState !== 'off' ? 'Scribe (recording)' : 'Hide dictation') : 'Dictate'}
+              </button>
+            </div>
           )}
-          {!selectedSessionId && <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">Select a patient from the queue to prescribe.</div>}
+          {/* Kept mounted while hidden: the transcript and any recording live in its state (one per patient). */}
+          {currentSession && (
+            <div id="desk-scribe" ref={scribeRef} hidden={!scribeVisible}>
+              <AmbientScribePanel
+                key={currentSession.sessionId}
+                sessionId={currentSession.sessionId}
+                patientAge={currentSession.age}
+                patientLanguage={currentSession.language}
+                clinicianName={user?.displayName || 'the clinician'}
+                consent={currentSession.recordingConsent || null}
+                onConsentChange={c => setCurrentSession(prev => (prev ? { ...prev, recordingConsent: c } : prev))}
+                onAutoExtract={handleAutoExtractFromScribe}
+                onTranscriptChange={onScribeTranscript}
+                onInsertNotes={insertScribeNotes}
+                onWithdrawn={removeRoomDerivedNotes}
+                onRoomStateChange={onRoomStateChange}
+              />
+            </div>
+          )}
+          {!selectedSessionId && (
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              <Stethoscope size={22} className="mx-auto mb-2 text-muted-foreground/70" />
+              Select a patient from the queue to start the visit.
+              <div className="mt-1 text-xs">Shortcuts: <kbd className="px-1 rounded border border-border font-mono">]</kbd> next patient · <kbd className="px-1 rounded border border-border font-mono">/</kbd> add medicine · <kbd className="px-1 rounded border border-border font-mono">Ctrl ↵</kbd> sign</div>
+            </div>
+          )}
           {!currentSession && selectedSessionId && (
             <div className="rounded-xl border border-border bg-card p-4 text-sm flex items-center justify-between gap-3 flex-wrap" role={detailFailed ? 'alert' : 'status'}>
               {detailFailed
                 ? <span className="font-semibold text-rose-700">Could not load this patient’s record (server not reachable, or the visit was closed). Your draft is kept.</span>
-                : <span className="text-muted-foreground">Loading the patient’s record…</span>}
+                : <span className="text-muted-foreground inline-flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Loading the patient’s record…</span>}
               {detailFailed && <button type="button" onClick={() => { const id = selectedSessionId; selectedRef.current = null; selectPatient({ sessionId: id }, true); }} className="h-8 px-3 rounded-lg border border-border text-xs font-bold hover:bg-muted">Retry</button>}
             </div>
           )}
@@ -534,31 +593,34 @@ export const DoctorDeskContainer: React.FC = () => {
             suggestions={suggestions}
             onClearSuggestions={() => setSuggestions(null)}
           />}
-        </div>
+
+          {/* The visit's one primary action, docked at the foot of this column (not floating over the work). */}
+          {currentSession && (
+            <div className="desk-sign-bar no-print sticky bottom-0 z-20 -mx-1 px-3 py-2.5 rounded-2xl border border-border/80 bg-card/95 backdrop-blur shadow-lg flex items-center justify-between gap-3 flex-wrap" aria-label="Sign the prescription">
+              <div className="flex items-center gap-2 min-w-0 text-xs">
+                <Activity size={14} className={isEmergency ? 'text-rose-500 shrink-0' : 'text-primary shrink-0'} />
+                <span className="font-bold text-foreground truncate max-w-[220px]">{currentSession.patientName}</span>
+                {checking
+                  ? <span className="inline-flex items-center gap-1 text-muted-foreground"><Loader2 size={12} className="animate-spin" /> Checking safety…</span>
+                  : stopCount > 0
+                    ? <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-bold">{stopCount} STOP — reason needed to sign</span>
+                    : <span className="text-muted-foreground">{draft.allopathic.length + draft.ayush.length} medicine{draft.allopathic.length + draft.ayush.length === 1 ? '' : 's'} · {draft.diagnoses.length ? `${draft.diagnoses.length} diagnosis` : 'no diagnosis yet'}</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="hidden lg:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/60 font-mono text-[11px] text-foreground font-semibold">Ctrl ↵</kbd> sign
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/60 font-mono text-[11px] text-foreground font-semibold">/</kbd> add
+                </span>
+                <button type="button" onClick={openSign} disabled={!canPrescribe} title={canPrescribe ? 'Review, give reasons for any STOP, and sign' : 'Only a doctor or vaidya can sign a prescription'} className="h-9 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50">
+                  <PenLine size={13} /><span>{canPrescribe ? 'Review & sign' : 'Doctor signs Rx'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
 
-      {/* Bottom action dock */}
-      <aside aria-label="Clinical action dock" className="doctor-persistent-dock no-print fixed bottom-5 right-6 z-40 glass border border-border/80 shadow-2xl rounded-full px-5 py-2.5 flex items-center gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Activity size={14} className={isEmergency ? 'text-rose-500 shrink-0' : 'text-primary shrink-0'} />
-          <span className="text-sm font-bold text-foreground truncate max-w-[180px]">{currentSession ? currentSession.patientName : 'No patient selected'}</span>
-          {stopCount > 0 && <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10.5px] font-bold">{stopCount} STOP</span>}
-        </div>
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-          <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/60 font-mono text-[10px] text-foreground font-semibold">Ctrl ↵</kbd><span>Sign</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/60 font-mono text-[10px] text-foreground font-semibold">/</kbd><span>Add</span>
-        </div>
-        {!isWide && mobileTab === 'queue' ? (
-          <button onClick={() => setMobileTab('intake')} className="btn btn-primary" style={{ padding: '6px 16px', borderRadius: 9999, fontSize: 12 }}><span>View intake</span><ChevronRight size={13} /></button>
-        ) : !isWide && mobileTab === 'intake' ? (
-          <button onClick={() => setMobileTab('workspace')} className="btn btn-primary" style={{ padding: '6px 16px', borderRadius: 9999, fontSize: 12 }}><span>Prescribe</span><ChevronRight size={13} /></button>
-        ) : (
-          <button onClick={openSign} disabled={!currentSession || !canPrescribe} title={canPrescribe ? 'Review, give reasons for any STOP, and sign' : 'Only a doctor or vaidya can sign a prescription'} className="btn btn-primary" style={{ padding: '7px 18px', borderRadius: 9999, fontSize: 12 }}>
-            <PenLine size={13} /><span>{canPrescribe ? 'Review & sign' : 'Doctor signs Rx'}</span>
-          </button>
-        )}
-      </aside>
-
+      {fhirOpen && currentSession && <AbdmFhirExportModal sessionId={currentSession.sessionId} session={currentSession} role={role} draft={draft} onClose={() => setFhirOpen(false)} />}
       {soapOpen && currentSession && (
         <SoapNoteModal
           session={currentSession}

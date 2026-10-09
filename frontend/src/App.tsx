@@ -23,9 +23,10 @@ import { Button } from './components/ui/button';
 import { StaffGate, StaffChip } from './components/auth/StaffGate';
 import { KioskShell, isKioskLocked } from './components/kiosk/KioskShell';
 import { DemoModeBadge } from './components/common/DemoModeControl';
+import { useServerReachable, refreshRuntimeMode } from './services/runtimeMode';
 import { sovereignSound } from './utils/audio';
 import { api } from './services/api';
-import { ArrowLeft, Smartphone, MonitorSmartphone, Stethoscope, HeartPulse, Pill, Tv, Footprints, LayoutDashboard, Network } from 'lucide-react';
+import { ArrowLeft, Loader2, Smartphone, MonitorSmartphone, Stethoscope, HeartPulse, Pill, Tv, Footprints, LayoutDashboard, Network } from 'lucide-react';
 
 /** Each terminal's name in the top bar, so staff always know which screen they are on. */
 const TERMINAL_META: Partial<Record<ActiveViewMode, { name: string; icon: React.ComponentType<{ size?: number; className?: string }> }>> = {
@@ -67,6 +68,7 @@ export function App() {
   const lockedKiosk = activeView === 'kiosk' && kioskLocked;
   const [isLeverModalOpen, setIsLeverModalOpen] = useState(false);
   const [isByodModalOpen, setIsByodModalOpen] = useState(false);
+  const reachable = useServerReachable();
 
   // Silent background wake-up ping for Render free tier backend container
   useEffect(() => {
@@ -129,6 +131,9 @@ export function App() {
                 </div>
               </div>
             </div>
+
+            {/* A terminal may portal a compact context (e.g. the doctor desk's room and queue pager) here. */}
+            <div id="app-bar-context" className="flex-1 min-w-0 flex items-center justify-end gap-2" />
 
             <div className="flex items-center gap-2 shrink-0">
               <DemoModeBadge />
@@ -225,6 +230,18 @@ export function App() {
         )}
         </Suspense>
       </main>
+
+      {/* The server is not answering (often a free cloud server waking up). Every screen retries on its own. */}
+      {reachable === false && (
+        <div className="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-[1300] max-w-[calc(100vw-24px)] rounded-xl border border-amber-500/50 bg-card shadow-xl px-3.5 py-2.5 flex items-center gap-3 text-xs" role="status">
+          <Loader2 size={15} className="animate-spin text-amber-600 shrink-0" />
+          <span className="text-foreground">
+            <strong>Connecting to the hospital server…</strong>
+            <span className="text-muted-foreground"> A free cloud server can take up to a minute to wake. Retrying automatically.</span>
+          </span>
+          <button type="button" onClick={() => refreshRuntimeMode()} className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted font-semibold shrink-0">Retry</button>
+        </div>
+      )}
 
       <LeverModal
         isOpen={isLeverModalOpen}

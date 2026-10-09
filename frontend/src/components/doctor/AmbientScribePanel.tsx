@@ -52,6 +52,8 @@ interface AmbientScribePanelProps {
   onInsertNotes: (text: string, fromRoom: boolean) => void;
   /** Consent was withdrawn: the desk removes room-derived text from the unsigned notes and says how much. */
   onWithdrawn: () => void;
+  /** Room recording state, so the desk can keep a running or paused recording visible (never collapse it away). */
+  onRoomStateChange?: (state: 'off' | 'recording' | 'paused') => void;
 }
 
 const CHIP: Record<ScribeChipKind, string> = {
@@ -81,7 +83,7 @@ const mmss = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}
 const newId = () => Math.random().toString(36).slice(2, 10);
 
 export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({
-  sessionId, patientAge, patientLanguage, clinicianName, consent, onConsentChange, onAutoExtract, onTranscriptChange, onInsertNotes, onWithdrawn
+  sessionId, patientAge, patientLanguage, clinicianName, consent, onConsentChange, onAutoExtract, onTranscriptChange, onInsertNotes, onWithdrawn, onRoomStateChange
 }) => {
   const [caps, setCaps] = useState<{ asr: boolean; asrLanguages: string[] } | null>(null);
   const [dictLang, setDictLang] = useState(() => stored(DICT_LANG_KEY, 'en'));
@@ -134,6 +136,8 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({
     const hasRoom = lines.some(l => l.mode === 'room');
     onTranscriptChange?.(lines.map(l => `${l.mode === 'room' ? `Room recording${l.who ? ` (${WHO_LABEL[l.who]}, as marked by the clinician)` : ' (speaker not identified)'}` : 'Dictation (clinician)'}: ${l.text}`).join('\n'), hasRoom);
   }, [lines, onTranscriptChange]);
+
+  useEffect(() => { onRoomStateChange?.(room); }, [room, onRoomStateChange]);
 
   // Room clock, the 15-minute limit, and pausing when the desk goes to the background.
   useEffect(() => {

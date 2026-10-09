@@ -88,7 +88,7 @@ export const SimilarCasesPanel: React.FC<{ sessionId: string | null }> = ({ sess
                 </div>
                 <span className="shrink-0 text-[11px] font-mono font-bold tabular-nums" title="cosine similarity">{Math.round(Math.max(0, c.similarity) * 100)}%</span>
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-muted-foreground">
+              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                 <span>{c.department || 'Department not recorded'}</span>
                 <span>{c.ageBand} · {c.sex.toLowerCase()}</span>
                 {c.medicines.length > 0 && <span>Rx: {c.medicines.slice(0, 3).join(', ')}</span>}
@@ -100,13 +100,13 @@ export const SimilarCasesPanel: React.FC<{ sessionId: string | null }> = ({ sess
         </ol>
       )}
       {data && data.results.length > 3 && (
-        <button type="button" onClick={() => setShowAll(v => !v)} className="mt-2 text-[11px] font-semibold text-primary hover:underline">
+        <button type="button" onClick={() => setShowAll(v => !v)} className="mt-1 min-h-8 px-1 text-[11px] font-semibold text-primary hover:underline">
           {showAll ? 'Show fewer' : `Show ${data.results.length - 3} more`}
         </button>
       )}
 
       {data && d && (
-        <footer className="mt-3 pt-2 border-t border-border/60 text-[10.5px] text-muted-foreground space-y-0.5">
+        <footer className="mt-3 pt-2 border-t border-border/60 text-[11px] text-muted-foreground space-y-0.5">
           <div className="flex items-center gap-1.5">
             {d.mode === 'HE' ? <Lock size={11} /> : <ShieldCheck size={11} />}
             <span>

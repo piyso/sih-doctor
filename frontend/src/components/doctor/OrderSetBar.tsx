@@ -42,14 +42,14 @@ export const OrderSetBar: React.FC<OrderSetBarProps> = ({ role, canPrescribe, la
               {sets.map(s => (
                 <div key={s.id} className="rounded-lg border border-border p-2">
                   <button type="button" onClick={() => { onApplySet(s); setOpen(false); }} className="w-full text-left">
-                    <div className="text-xs font-bold text-foreground">{s.name}{s.mine ? <span className="ml-1 text-[9.5px] text-primary">mine</span> : null}</div>
-                    <div className="text-[10.5px] text-muted-foreground">{s.medicines.map((m: any) => m.name || m.classicalName).join(', ') || '—'}</div>
-                    {s.source && <div className="text-[10px] text-muted-foreground italic">{s.source}</div>}
+                    <div className="text-xs font-bold text-foreground">{s.name}{s.mine ? <span className="ml-1 text-[11px] text-primary">mine</span> : null}</div>
+                    <div className="text-[11px] text-muted-foreground">{s.medicines.map((m: any) => m.name || m.classicalName).join(', ') || '—'}</div>
+                    {s.source && <div className="text-[11px] text-muted-foreground italic">{s.source}</div>}
                   </button>
                   {s.steps && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {s.steps.map(st => (
-                        <button key={st.step} type="button" onClick={() => { onApplySet(s, st.medicines); setOpen(false); }} className="px-1.5 py-0.5 rounded border border-sky-500/40 text-[10.5px] font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-500/10" title={`Step ${st.step}`}>
+                        <button key={st.step} type="button" onClick={() => { onApplySet(s, st.medicines); setOpen(false); }} className="px-1.5 py-0.5 rounded border border-sky-500/40 text-[11px] font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-500/10" title={`Step ${st.step}`}>
                           {st.step}. {st.label}
                         </button>
                       ))}

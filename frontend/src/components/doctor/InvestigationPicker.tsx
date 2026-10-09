@@ -33,7 +33,7 @@ export const InvestigationPicker: React.FC<InvestigationPickerProps> = ({ value,
           {value.map((v, i) => (
             <span key={`${v.id || v.display}`} className="pl-2.5 pr-1 py-1 rounded-lg text-xs border border-border bg-card flex items-center gap-1.5">
               {v.display}
-              <button type="button" onClick={() => onChange(value.map((x, j) => (j === i ? { ...x, urgency: x.urgency === 'urgent' ? 'routine' : 'urgent' } : x)))} className={`px-1.5 rounded text-[9.5px] font-bold border ${v.urgency === 'urgent' ? 'bg-rose-600 text-white border-rose-600' : 'border-border text-muted-foreground'}`}>{v.urgency === 'urgent' ? 'Urgent' : 'Routine'}</button>
+              <button type="button" onClick={() => onChange(value.map((x, j) => (j === i ? { ...x, urgency: x.urgency === 'urgent' ? 'routine' : 'urgent' } : x)))} className={`px-1.5 rounded text-[11px] font-bold border ${v.urgency === 'urgent' ? 'bg-rose-600 text-white border-rose-600' : 'border-border text-muted-foreground'}`}>{v.urgency === 'urgent' ? 'Urgent' : 'Routine'}</button>
               <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="h-5 w-5 rounded flex items-center justify-center hover:bg-muted" aria-label={`Remove ${v.display}`}><X size={11} /></button>
             </span>
           ))}
@@ -46,7 +46,7 @@ export const InvestigationPicker: React.FC<InvestigationPickerProps> = ({ value,
           <div className="absolute z-30 left-0 right-0 mt-1 rounded-xl border border-border bg-card shadow-xl p-1 flex flex-col gap-0.5">
             {hits.map(h => (
               <button key={h.id} type="button" onClick={() => add(h)} className="text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted">
-                {h.display}{h.loinc ? <span className="text-[10px] text-muted-foreground font-mono"> · LOINC {h.loinc}</span> : null}
+                {h.display}{h.loinc ? <span className="text-[11px] text-muted-foreground font-mono"> · LOINC {h.loinc}</span> : null}
               </button>
             ))}
           </div>

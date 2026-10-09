@@ -44,19 +44,19 @@ export const DiagnosisPicker: React.FC<DiagnosisPickerProps> = ({ role, value, o
     <section className="flex flex-col gap-2" aria-label="Diagnosis">
       <div className="flex items-center justify-between">
         <span className="text-xs font-extrabold text-foreground">Diagnosis</span>
-        {value.length === 0 && <span className="text-[10.5px] text-amber-800 font-semibold">Not recorded yet</span>}
+        {value.length === 0 && <span className="text-[11px] text-amber-800 font-semibold">Not recorded yet</span>}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {value.map((d, i) => (
           <span key={d.display} className={`pl-2.5 pr-1 py-1 rounded-lg text-xs border flex items-center gap-1.5 ${d.status === 'final' ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-card border-border'}`}>
             <span className="font-semibold text-foreground">{d.display}</span>
-            {d.icd10 && <span className="font-mono text-[9.5px] text-muted-foreground">ICD-10 {d.icd10}</span>}
-            {d.system === 'NAMASTE' && d.code && d.codeVerified && <span className="font-mono text-[9.5px] text-muted-foreground">NAMASTE {d.code}</span>}
+            {d.icd10 && <span className="font-mono text-[11px] text-muted-foreground">ICD-10 {d.icd10}</span>}
+            {d.system === 'NAMASTE' && d.code && d.codeVerified && <span className="font-mono text-[11px] text-muted-foreground">NAMASTE {d.code}</span>}
             <button type="button" onClick={() => onChange(value.map((v, j) => (j === i ? { ...v, status: v.status === 'final' ? 'provisional' : 'final' } : v)))}
-              className={`px-1.5 rounded text-[9.5px] font-bold border ${d.status === 'final' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-border text-muted-foreground'}`} title="Toggle provisional / final">
+              className={`px-1.5 rounded text-[11px] font-bold border ${d.status === 'final' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-border text-muted-foreground'}`} title="Toggle provisional / final">
               {d.status === 'final' ? 'Final' : 'Provisional'}
             </button>
-            <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="h-5 w-5 rounded flex items-center justify-center hover:bg-muted" aria-label={`Remove ${d.display}`}><X size={11} /></button>
+            <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted" aria-label={`Remove ${d.display}`}><X size={11} /></button>
           </span>
         ))}
       </div>
@@ -64,7 +64,7 @@ export const DiagnosisPicker: React.FC<DiagnosisPickerProps> = ({ role, value, o
         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="text-muted-foreground">Suggested from the kiosk intake:</span>
           {pendingSuggestions.map(s => (
-            <button key={s.display} type="button" onClick={() => add(s)} className="px-2 py-0.5 rounded-lg border border-dashed border-emerald-500/50 text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-500/10 flex items-center gap-1">
+            <button key={s.display} type="button" onClick={() => add(s)} className="min-h-8 px-2 py-1 rounded-lg border border-dashed border-emerald-500/50 text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-500/10 flex items-center gap-1">
               <Check size={11} /> {s.display}{s.icd10 ? ` · ${s.icd10}` : ''}
             </button>
           ))}
@@ -93,7 +93,7 @@ export const DiagnosisPicker: React.FC<DiagnosisPickerProps> = ({ role, value, o
               <button key={`${h.system}-${h.code}`} type="button" onClick={() => add({ display: h.display, system: h.system, code: h.code, codeVerified: h.codeVerified, icd10: h.icd10, snomed: h.snomed, english: h.english, status: 'provisional', source: 'doctor' })}
                 className="text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted">
                 <strong className="text-foreground">{h.display}</strong>
-                <span className="block text-[10.5px] text-muted-foreground">
+                <span className="block text-[11px] text-muted-foreground">
                   {[h.icd10 && `ICD-10 ${h.icd10}`, h.icd11 && `ICD-11 ${h.icd11}`, h.codeVerified ? `${h.system} ${h.code}` : null].filter(Boolean).join(' · ') || h.system}
                   {!h.codeVerified && ' · demo term (official NAMASTE code not imported)'}
                 </span>

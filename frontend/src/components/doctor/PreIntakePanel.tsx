@@ -181,9 +181,9 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
   ) => (
     <div className={`p-2.5 rounded-xl border bg-card flex flex-col gap-1 ${status[key] === 'normal' || status[key] === 'empty' ? 'border-border/80' : status[key] === 'veryHigh' || status[key] === 'veryLow' ? 'border-rose-500/50' : 'border-amber-500/50'}`}>
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[10px] font-mono uppercase text-muted-foreground flex items-center gap-1">{icon}{label}</span>
+        <span className="text-[11px] font-mono uppercase text-muted-foreground flex items-center gap-1">{icon}{label}</span>
         {status[key] !== 'empty' && (editing || status[key] !== 'normal') && (
-          <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${STATUS_TONE[status[key]]}`}>{STATUS_LABEL[status[key]]}</span>
+          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${STATUS_TONE[status[key]]}`}>{STATUS_LABEL[status[key]]}</span>
         )}
       </div>
       {editing ? (
@@ -204,9 +204,9 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
           />
         )
       ) : (
-        <div className="font-mono text-sm font-extrabold text-foreground">{display || '—'} {display && <span className="text-[10px] font-normal text-muted-foreground">{unit}</span>}</div>
+        <div className="font-mono text-sm font-extrabold text-foreground">{display || '—'} {display && <span className="text-[11px] font-normal text-muted-foreground">{unit}</span>}</div>
       )}
-      {(status[key] === 'invalid' || detail) && <div className="text-[9.5px] leading-tight text-muted-foreground">{status[key] === 'invalid' ? `Expected ${VITAL_LIMITS[key === 'bp' ? 'sys' : key][0]}–${VITAL_LIMITS[key === 'bp' ? 'sys' : key][1]}` : detail}</div>}
+      {(status[key] === 'invalid' || detail) && <div className="text-[11px] leading-tight text-muted-foreground">{status[key] === 'invalid' ? `Expected ${VITAL_LIMITS[key === 'bp' ? 'sys' : key][0]}–${VITAL_LIMITS[key === 'bp' ? 'sys' : key][1]}` : detail}</div>}
     </div>
   );
 
@@ -214,7 +214,8 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
     <div className="physical-card p-4 flex flex-col gap-3">
       {/* Who and what kind of visit. Name, age, allergies and pregnancy are in the safety banner above. */}
       <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-        <span className={`px-2 py-0.5 rounded-md border font-mono text-[10px] font-bold uppercase cursor-help ${priority.tone}`} title={priority.help}>{priority.label}</span>
+        {/* Emergency is on the patient bar; here only the other priorities. */}
+        {session.triagePriority !== 'EMERGENCY_RED_FLAG' && <span className={`px-2 py-0.5 rounded-md border font-mono text-[11px] font-bold uppercase cursor-help ${priority.tone}`} title={priority.help}>{priority.label}</span>}
         <span className="flex items-center gap-1">
           {session.careStream === 'AYURVEDA' ? <><Leaf size={11} className="text-emerald-600" /> Wants Ayurveda</> : session.careStream === 'ALLOPATHY' ? <><Pill size={11} className="text-sky-600" /> Wants modern medicine</> : 'No doctor preference'}
         </span>
@@ -225,7 +226,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
       <Section
         title={<>Vitals
             {vitalsAssessment?.applicable && (
-              <span className={`px-1.5 py-0.5 rounded border font-mono text-[9.5px] font-bold normal-case tracking-normal ${NEWS_TONE[vitalsAssessment.band]}`} title={`${vitalsAssessment.clinicalResponse} (${vitalsAssessment.reference})`}>
+              <span className={`px-1.5 py-0.5 rounded border font-mono text-[11px] font-bold normal-case tracking-normal ${NEWS_TONE[vitalsAssessment.band]}`} title={`${vitalsAssessment.clinicalResponse} (${vitalsAssessment.reference})`}>
                 NEWS2 {vitalsAssessment.news2}{vitalsAssessment.selfReported ? ' · unverified' : ''}
               </span>
             )}</>}
@@ -253,14 +254,14 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
         {/* NEWS2 needs respiratory rate, consciousness (AVPU) and oxygen; weight drives children's doses. */}
         {editing ? (
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <label className="flex flex-col gap-0.5 w-20"><span className="text-[10px] font-mono uppercase text-muted-foreground">Resp. rate</span><input inputMode="numeric" aria-label="Respiratory rate" value={form.rr} onChange={e => setForm(f => ({ ...f, rr: e.target.value.replace(/\D/g, '').slice(0, 2) }))} placeholder="16" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
-            <label className="flex flex-col gap-0.5 w-28"><span className="text-[10px] font-mono uppercase text-muted-foreground">AVPU</span>
+            <label className="flex flex-col gap-0.5 w-20"><span className="text-[11px] font-mono uppercase text-muted-foreground">Resp. rate</span><input inputMode="numeric" aria-label="Respiratory rate" value={form.rr} onChange={e => setForm(f => ({ ...f, rr: e.target.value.replace(/\D/g, '').slice(0, 2) }))} placeholder="16" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
+            <label className="flex flex-col gap-0.5 w-28"><span className="text-[11px] font-mono uppercase text-muted-foreground">AVPU</span>
               <select aria-label="Consciousness (AVPU)" value={form.avpu} onChange={e => setForm(f => ({ ...f, avpu: e.target.value }))} className="px-2 py-1 rounded-lg border border-border bg-background">
                 <option value="">—</option><option value="A">Alert</option><option value="C">New confusion</option><option value="V">Voice</option><option value="P">Pain</option><option value="U">Unresponsive</option>
               </select></label>
             <label className="flex items-center gap-1.5 mt-4"><input type="checkbox" checked={form.o2} onChange={e => setForm(f => ({ ...f, o2: e.target.checked }))} /> On oxygen</label>
-            <label className="flex flex-col gap-0.5 w-20"><span className="text-[10px] font-mono uppercase text-muted-foreground">Weight kg</span><input inputMode="decimal" aria-label="Weight" value={form.weight} onChange={e => setForm(f => ({ ...f, weight: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) }))} placeholder="60" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
-            <label className="flex flex-col gap-0.5 w-24"><span className="text-[10px] font-mono uppercase text-muted-foreground">Sugar mg/dL</span><input inputMode="numeric" aria-label="Blood sugar" value={form.sugar} onChange={e => setForm(f => ({ ...f, sugar: e.target.value.replace(/\D/g, '').slice(0, 3) }))} placeholder="110" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
+            <label className="flex flex-col gap-0.5 w-20"><span className="text-[11px] font-mono uppercase text-muted-foreground">Weight kg</span><input inputMode="decimal" aria-label="Weight" value={form.weight} onChange={e => setForm(f => ({ ...f, weight: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) }))} placeholder="60" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
+            <label className="flex flex-col gap-0.5 w-24"><span className="text-[11px] font-mono uppercase text-muted-foreground">Sugar mg/dL</span><input inputMode="numeric" aria-label="Blood sugar" value={form.sugar} onChange={e => setForm(f => ({ ...f, sugar: e.target.value.replace(/\D/g, '').slice(0, 3) }))} placeholder="110" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-mono text-muted-foreground">
@@ -278,7 +279,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
       <Section
         title="Presenting complaints"
         right={primary && primary.severityScore > 0 ? (
-          <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded ${primary.severityScore >= 8 ? 'bg-rose-500/15 text-rose-700' : 'bg-muted text-foreground border border-border/70'}`}>
+          <span className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded ${primary.severityScore >= 8 ? 'bg-rose-500/15 text-rose-700' : 'bg-muted text-foreground border border-border/70'}`}>
             Pain {primary.severityScore}/10
           </span>
         ) : undefined}
@@ -317,8 +318,8 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
             <div className="px-3 py-2 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5">
               <div className="text-sm font-bold text-foreground">{dx.title}</div>
               {dx.subtitle && <div className="text-xs text-muted-foreground">{dx.subtitle}</div>}
-              {dx.codes.length > 0 && <div className="text-[10.5px] font-mono text-muted-foreground mt-0.5">{dx.codes.join(' · ')}</div>}
-              <div className="text-[10.5px] text-muted-foreground mt-1">Generated from the kiosk intake — confirm clinically.</div>
+              {dx.codes.length > 0 && <div className="text-[11px] font-mono text-muted-foreground mt-0.5">{dx.codes.join(' · ')}</div>}
+              <div className="text-[11px] text-muted-foreground mt-1">Generated from the kiosk intake — confirm clinically.</div>
             </div>
           </Section>
         ) : null;
@@ -348,7 +349,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
             {session.previousEncounters!.slice(0, 3).map(e => (
               <div key={e.encounterId} className="text-xs">
                 <div className="flex items-center gap-2 flex-wrap"><strong className="text-foreground">{new Date(e.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</strong><span className="text-muted-foreground">{e.doctorName}</span>
-                  <span className={`px-1.5 rounded border text-[9.5px] font-bold ${e.dispensed === 'DISPENSED' ? 'border-emerald-500/40 text-emerald-700' : 'border-amber-500/40 text-amber-800'}`}>{e.dispensed.replace(/_/g, ' ').toLowerCase()}</span></div>
+                  <span className={`px-1.5 rounded border text-[11px] font-bold ${e.dispensed === 'DISPENSED' ? 'border-emerald-500/40 text-emerald-700' : 'border-amber-500/40 text-amber-800'}`}>{e.dispensed.replace(/_/g, ' ').toLowerCase()}</span></div>
                 {e.diagnoses.length > 0 && <div className="text-muted-foreground">{e.diagnoses.join(', ')}</div>}
                 <div className="text-foreground">{e.medicines.map(m => `${m.name}${m.dosage ? ` ${m.dosage}` : ''}${m.frequency ? ` ${m.frequency}` : ''}`).join(' · ') || 'No medicines'}</div>
               </div>
@@ -366,7 +367,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
           <Section
             title={<><ClipboardList size={12} /> History</>}
             right={summary ? (
-              <span className="text-[10px] font-mono text-muted-foreground" title="Sections answered / asked at the kiosk">
+              <span className="text-[11px] font-mono text-muted-foreground" title="Sections answered / asked at the kiosk">
                 {summary.completeness.answered}/{summary.completeness.asked} answered{summary.completeness.skipped ? ` · ${summary.completeness.skipped} skipped` : ''}
               </span>
             ) : undefined}
@@ -376,12 +377,12 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
                 {asked.map(sec => (
                   <div key={sec.id} className="text-xs text-foreground">
                     <span className="text-muted-foreground">{sec.title}:</span> {sec.text}
-                    {sec.status === 'partial' && <span className={`ml-1.5 px-1 py-px rounded border font-mono text-[9px] uppercase ${SECTION_TONE.partial}`}>partial</span>}
+                    {sec.status === 'partial' && <span className={`ml-1.5 px-1 py-px rounded border font-mono text-[11px] uppercase ${SECTION_TONE.partial}`}>partial</span>}
                   </div>
                 ))}
                 {notAsked.length > 0 && (
                   <div className="text-xs text-muted-foreground">
-                    <span className={`mr-1.5 px-1 py-px rounded border font-mono text-[9px] uppercase ${SECTION_TONE.not_asked}`}>not asked</span>
+                    <span className={`mr-1.5 px-1 py-px rounded border font-mono text-[11px] uppercase ${SECTION_TONE.not_asked}`}>not asked</span>
                     {notAsked.map(sec => sec.title).join(' · ')} — ask the patient.
                   </div>
                 )}
@@ -407,10 +408,10 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
         <Section tone="ayurveda" title={<><Leaf size={12} /> Ayurveda — patient-reported, not examined</>}>
           {hasPariksha ? (
             <div className="pariksha-4-grid text-xs">
-              <div><span className="text-[10px] text-muted-foreground block">Body type (3-question screen)</span><strong className="text-foreground">{session.pariksha?.prakritiScreen?.provisional || '—'}</strong></div>
-              <div><span className="text-[10px] text-muted-foreground block">Digestion (Agni, own answer)</span><strong className="text-foreground">{session.pariksha?.agni ? session.pariksha.agni.charAt(0) + session.pariksha.agni.slice(1).toLowerCase() : '—'}</strong></div>
-              <div><span className="text-[10px] text-muted-foreground block">Energy (own answer)</span><strong className="text-foreground">{session.pariksha?.energySelfReport || '—'}</strong></div>
-              <div><span className="text-[10px] text-muted-foreground block">Prakriti · Sara · Vikriti</span><strong className="text-foreground">{[session.pariksha?.prakriti, session.pariksha?.sara, session.pariksha?.vikriti].filter(Boolean).join(' · ') || 'Vaidya to assess'}</strong></div>
+              <div><span className="text-[11px] text-muted-foreground block">Body type (3-question screen)</span><strong className="text-foreground">{session.pariksha?.prakritiScreen?.provisional || '—'}</strong></div>
+              <div><span className="text-[11px] text-muted-foreground block">Digestion (Agni, own answer)</span><strong className="text-foreground">{session.pariksha?.agni ? session.pariksha.agni.charAt(0) + session.pariksha.agni.slice(1).toLowerCase() : '—'}</strong></div>
+              <div><span className="text-[11px] text-muted-foreground block">Energy (own answer)</span><strong className="text-foreground">{session.pariksha?.energySelfReport || '—'}</strong></div>
+              <div><span className="text-[11px] text-muted-foreground block">Prakriti · Sara · Vikriti</span><strong className="text-foreground">{[session.pariksha?.prakriti, session.pariksha?.sara, session.pariksha?.vikriti].filter(Boolean).join(' · ') || 'Vaidya to assess'}</strong></div>
             </div>
           ) : (
             <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Info size={12} /> The patient chose modern medicine, so the Ayurvedic questions were not asked at the kiosk.</div>

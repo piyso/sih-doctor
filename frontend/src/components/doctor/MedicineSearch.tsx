@@ -100,13 +100,13 @@ export const MedicineSearch = forwardRef<HTMLInputElement, MedicineSearchProps>(
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <strong className="text-foreground uppercase tracking-wide">{a.generic}</strong>
                         {a.matchedBrand && <span className="text-muted-foreground">(“{a.matchedBrand}”)</span>}
-                        {a.aware && <span className={`px-1 rounded border text-[9.5px] font-bold ${AWARE_TONE[a.aware]}`}>AWaRe {a.aware}</span>}
-                        {a.schedule && <span className="px-1 rounded border border-border text-[9.5px] font-bold">Sch {a.schedule}</span>}
-                        {a.ndps && <span className="px-1 rounded border border-rose-500/30 text-rose-700 text-[9.5px] font-bold">NDPS</span>}
-                        {a.highAlert && <span className="px-1 rounded border border-amber-500/40 text-amber-800 text-[9.5px] font-bold flex items-center gap-0.5"><AlertOctagon size={9} />High-alert</span>}
-                        {!a.nlem && <span className="text-[9.5px] text-muted-foreground">not in NLEM</span>}
+                        {a.aware && <span className={`px-1 rounded border text-[11px] font-bold ${AWARE_TONE[a.aware]}`}>AWaRe {a.aware}</span>}
+                        {a.schedule && <span className="px-1 rounded border border-border text-[11px] font-bold">Sch {a.schedule}</span>}
+                        {a.ndps && <span className="px-1 rounded border border-rose-500/30 text-rose-700 text-[11px] font-bold">NDPS</span>}
+                        {a.highAlert && <span className="px-1 rounded border border-amber-500/40 text-amber-800 text-[11px] font-bold flex items-center gap-0.5"><AlertOctagon size={9} />High-alert</span>}
+                        {!a.nlem && <span className="text-[11px] text-muted-foreground">not in NLEM</span>}
                       </div>
-                      <div className="text-[10.5px] text-muted-foreground">{a.defaults ? `Usual: ${a.defaults.dosage} · ${a.defaults.frequency}${a.defaults.food ? ` ${a.defaults.food}` : ''} · ${a.defaults.durationDays} d` : 'Enter dose'}{a.brands.length ? ` · also sold as ${a.brands.slice(0, 3).join(', ')}` : ''}</div>
+                      <div className="text-[11px] text-muted-foreground">{a.defaults ? `Usual: ${a.defaults.dosage} · ${a.defaults.frequency}${a.defaults.food ? ` ${a.defaults.food}` : ''} · ${a.defaults.durationDays} d` : 'Enter dose'}{a.brands.length ? ` · also sold as ${a.brands.slice(0, 3).join(', ')}` : ''}</div>
                     </>
                   );
                 })() : (() => {
@@ -115,12 +115,12 @@ export const MedicineSearch = forwardRef<HTMLInputElement, MedicineSearchProps>(
                     <>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <strong className="text-foreground">{y.name}</strong>
-                        <span className="text-[10px] text-muted-foreground">{y.form}</span>
-                        {y.scheduleE1.length > 0 && <span className="px-1 rounded border border-amber-500/40 text-amber-800 text-[9.5px] font-bold">Schedule E(1): {y.scheduleE1.join(', ')}</span>}
-                        {y.alcohol && <span className="px-1 rounded border border-border text-[9.5px]">contains alcohol</span>}
-                        {y.external && <span className="px-1 rounded border border-border text-[9.5px]">external use</span>}
+                        <span className="text-[11px] text-muted-foreground">{y.form}</span>
+                        {y.scheduleE1.length > 0 && <span className="px-1 rounded border border-amber-500/40 text-amber-800 text-[11px] font-bold">Schedule E(1): {y.scheduleE1.join(', ')}</span>}
+                        {y.alcohol && <span className="px-1 rounded border border-border text-[11px]">contains alcohol</span>}
+                        {y.external && <span className="px-1 rounded border border-border text-[11px]">external use</span>}
                       </div>
-                      <div className="text-[10.5px] text-muted-foreground">{y.defaults ? `Usual: ${y.defaults.dose} · ${y.defaults.frequency} · ${y.defaults.anupana} · ${y.defaults.durationDays} d` : 'Enter dose'}{y.keyConstituents.length ? ` · key constituents: ${y.keyConstituents.slice(0, 4).join(', ')}` : ''}</div>
+                      <div className="text-[11px] text-muted-foreground">{y.defaults ? `Usual: ${y.defaults.dose} · ${y.defaults.frequency} · ${y.defaults.anupana} · ${y.defaults.durationDays} d` : 'Enter dose'}{y.keyConstituents.length ? ` · key constituents: ${y.keyConstituents.slice(0, 4).join(', ')}` : ''}</div>
                     </>
                   );
                 })()}

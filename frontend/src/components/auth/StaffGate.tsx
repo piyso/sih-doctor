@@ -181,8 +181,23 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Keep trying: a free cloud server that was asleep answers after up to a minute.
+  const [attempts, setAttempts] = useState(0);
   useEffect(() => {
-    api.getAuthStatus().then(setStatus).catch(() => setOffline(true));
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const tryOnce = (n: number) => {
+      api.getAuthStatus()
+        .then(st => { if (alive) { setStatus(st); setOffline(false); } })
+        .catch(() => {
+          if (!alive) return;
+          setOffline(true);
+          setAttempts(n + 1);
+          timer = setTimeout(() => tryOnce(n + 1), 4000);
+        });
+    };
+    tryOnce(0);
+    return () => { alive = false; if (timer) clearTimeout(timer); };
   }, []);
 
   const submit = useCallback(async () => {
@@ -219,7 +234,16 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
         </div>
 
         {notice && <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs font-semibold text-amber-800 dark:text-amber-200">{notice}</div>}
-        {offline && <div className="mb-4 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/40 text-xs font-semibold text-rose-700 dark:text-rose-200">The hospital server is not reachable. Check the network and try again.</div>}
+        {offline && (attempts < 20 ? (
+          <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs font-semibold text-amber-800 dark:text-amber-200 flex items-start gap-2" role="status">
+            <Loader2 size={14} className="animate-spin shrink-0 mt-px" />
+            <span>Connecting to the hospital server… A free cloud server can take up to a minute to wake. You can sign in as soon as it answers.</span>
+          </div>
+        ) : (
+          <div className="mb-4 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/40 text-xs font-semibold text-rose-700 dark:text-rose-200" role="alert">
+            The hospital server has not answered for over a minute. Check that the backend is running (on the live demo: the Render service's Events and Logs). Still retrying.
+          </div>
+        ))}
 
         <label className="text-xs font-semibold text-muted-foreground" htmlFor="staff-username">Username</label>
         <input

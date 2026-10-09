@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, AlertOctagon, RefreshCw, Leaf, Pill, WifiOff, Users, UserCheck, Undo2, History, Repeat } from 'lucide-react';
+import { Search, AlertOctagon, Leaf, Pill, WifiOff, Users, UserCheck, Undo2, History, Repeat, ChevronRight } from 'lucide-react';
 import { PatientQueueItem, SeenTodayItem } from '../../types/api';
 import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
@@ -12,6 +12,8 @@ interface PatientQueueListProps {
   selectedSessionId: string | null;
   onSelectPatient: (item: PatientQueueItem) => void;
   onRefresh: () => void;
+  /** Open the next / previous waiting patient (also the ] and [ keys). */
+  onStep?: (direction: 1 | -1) => void;
   online: boolean;
   loaded: boolean;
   role: DoctorRole;
@@ -31,9 +33,12 @@ const PRIORITY_FILTERS = [
   { id: 'ROUTINE', label: 'Routine', title: 'Routine OPD order' }
 ];
 
+/** "12 min", "2 h 5 min"; past 12 hours the clock time it started ("since 9 Oct 14:20") — a 36-hour wait is a stale visit, not a wait. */
 const waitingFor = (iso: string) => {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  const t = new Date(iso).getTime();
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
   if (!Number.isFinite(mins)) return '';
+  if (mins >= 12 * 60) return `since ${new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} ${new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
   return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
 };
 
@@ -43,6 +48,7 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
   selectedSessionId,
   onSelectPatient,
   onRefresh,
+  onStep,
   online,
   loaded,
   role,
@@ -66,18 +72,21 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
   const hiddenByRole = totalCount - queue.length;
 
   const countFor = (id: string) => (id === 'ALL' ? queue.length : queue.filter(item => item.triagePriority === id).length);
-  const tag = (cls: string, children: React.ReactNode) => <span className={`px-1.5 py-px rounded font-bold text-[9.5px] shrink-0 inline-flex items-center gap-0.5 ${cls}`}>{children}</span>;
+  const tag = (cls: string, children: React.ReactNode) => <span className={`px-1.5 py-px rounded font-bold text-[11px] shrink-0 inline-flex items-center gap-0.5 ${cls}`}>{children}</span>;
 
+  void onRefresh; // the desk polls every 15 s; no manual refresh needed here
   return (
-    <div className="physical-card p-3 min-h-0 max-h-full flex flex-col box-border">
-      <div className="flex justify-between items-center gap-2 mb-2.5">
-        <div className="flex-1 flex items-center gap-0.5 p-0.5 rounded-xl bg-muted/60 border border-border/70" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'waiting'} onClick={() => setTab('waiting')} className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold ${tab === 'waiting' ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground'}`}>Waiting <span className="font-mono">{queue.length}</span></button>
-          <button type="button" role="tab" aria-selected={tab === 'seen'} onClick={() => setTab('seen')} className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 ${tab === 'seen' ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground'}`}><History size={11} /> Seen today</button>
+    <div className="rounded-2xl border border-border/80 bg-card p-2.5 min-h-0 max-h-full flex flex-col box-border">
+      <div className="flex items-center gap-1.5 mb-2">
+        <div className="flex-1 flex items-center gap-0.5 p-0.5 rounded-xl bg-muted/60 border border-border/70" role="tablist" aria-label="Queue view">
+          <button type="button" role="tab" aria-selected={tab === 'waiting'} onClick={() => setTab('waiting')} className={`flex-1 h-8 px-2 rounded-lg text-xs font-bold ${tab === 'waiting' ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Waiting <span className="font-mono">{queue.length}</span></button>
+          <button type="button" role="tab" aria-selected={tab === 'seen'} onClick={() => setTab('seen')} className={`flex-1 h-8 px-2 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1 ${tab === 'seen' ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}><History size={12} /> Seen<span className="hidden 2xl:inline">&nbsp;today</span></button>
         </div>
-        <button type="button" onClick={() => { sovereignSound.playMechanicalSnap(); onRefresh(); }} className="h-8 w-8 rounded-lg border border-border/80 bg-card hover:bg-muted inline-flex items-center justify-center text-muted-foreground shrink-0" title="Refresh queue" aria-label="Refresh queue">
-          <RefreshCw size={13} />
-        </button>
+        {onStep && tab === 'waiting' && (
+          <button type="button" onClick={() => { sovereignSound.playMechanicalSnap(); onStep(1); }} className="h-9 px-2.5 rounded-lg border border-border/80 bg-card hover:bg-muted inline-flex items-center gap-1 text-xs font-bold text-foreground shrink-0" title="Open the next waiting patient ( ] )" aria-label="Next patient">
+            Next <ChevronRight size={14} />
+          </button>
+        )}
       </div>
 
       {!online && loaded && (
@@ -94,56 +103,32 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
             <button key={s.encounterId} type="button" onClick={() => onOpenSeen?.(s)} className="text-left px-3 py-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/40">
               <div className="flex justify-between items-center gap-2">
                 <span className="text-xs font-bold text-foreground truncate">{s.tokenNo ? `${s.tokenNo} · ` : ''}{s.patientName}</span>
-                <span className="text-[10px] font-mono text-muted-foreground">{new Date(s.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-[11px] font-mono text-muted-foreground">{new Date(s.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="text-[11px] text-muted-foreground truncate">{s.diagnosis || 'No diagnosis recorded'} · {s.items} item{s.items === 1 ? '' : 's'}{s.amended ? ' · amended' : ''}</div>
-              <div className={`text-[10.5px] font-semibold ${s.dispenseStatus === 'DISPENSED' ? 'text-emerald-700' : s.dispenseStatus === 'REFERRED_BACK' ? 'text-rose-700' : 'text-amber-700'}`}>Pharmacy: {s.dispenseStatus.replace(/_/g, ' ').toLowerCase()}{s.dispenseNote ? ` — ${s.dispenseNote}` : ''}</div>
+              <div className={`text-[11px] font-semibold ${s.dispenseStatus === 'DISPENSED' ? 'text-emerald-700' : s.dispenseStatus === 'REFERRED_BACK' ? 'text-rose-700' : 'text-amber-700'}`}>Pharmacy: {s.dispenseStatus.replace(/_/g, ' ').toLowerCase()}{s.dispenseNote ? ` — ${s.dispenseNote}` : ''}</div>
             </button>
           ))}
         </div>
       )}
       {tab === 'waiting' && <>
-      <div className="relative mb-2">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          placeholder="Search name, complaint or token…"
-          aria-label="Search the queue"
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted/40 border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-1 focus:ring-sky-500"
-        />
-        <Search size={13} className="absolute left-2.5 top-2.5 text-muted-foreground pointer-events-none" />
+      <div className="flex items-center gap-1.5 mb-2">
+        <div className="relative flex-1 min-w-0">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Name, complaint or token"
+            aria-label="Search the queue"
+            className="w-full h-9 pl-8 pr-2 text-xs bg-background border border-border/80 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+          />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        </div>
+        <select value={filterPriority} onChange={e => { sovereignSound.playDialNotch(); setFilterPriority(e.target.value); }} aria-label="Filter by priority"
+          className={`h-9 px-2 rounded-lg border bg-background text-xs font-semibold shrink-0 max-w-[112px] ${filterPriority === 'ALL' ? 'border-border/80 text-foreground' : 'border-primary/60 text-primary'}`}>
+          {PRIORITY_FILTERS.map(p => <option key={p.id} value={p.id} title={p.title}>{p.label} ({countFor(p.id)})</option>)}
+        </select>
       </div>
-
-      <div className="grid grid-cols-4 gap-0.5 mb-2 bg-muted/60 p-0.5 rounded-xl border border-border/70" role="radiogroup" aria-label="Filter by priority">
-        {PRIORITY_FILTERS.map(p => {
-          const active = filterPriority === p.id;
-          const n = countFor(p.id);
-          const tone = p.id === 'EMERGENCY_RED_FLAG' ? 'text-rose-600' : p.id === 'HIGH_PRIORITY' ? 'text-amber-600' : p.id === 'ROUTINE' ? 'text-emerald-600' : 'text-foreground';
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              title={p.title}
-              onClick={() => { sovereignSound.playDialNotch(); setFilterPriority(p.id); }}
-              className={`py-1 px-0.5 rounded-lg text-[10.5px] font-bold leading-tight flex flex-col items-center transition-colors ${active ? 'bg-card shadow-xs' : 'hover:bg-card/60'} ${n === 0 && !active ? 'opacity-50' : ''}`}
-            >
-              <span className={active ? 'text-foreground' : tone}>{p.label}</span>
-              <span className="font-mono text-[11px] text-foreground">{n}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <label className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2.5 cursor-pointer select-none">
-        <input type="checkbox" checked={showAllStreams} onChange={onToggleShowAll} className="accent-sky-600" />
-        <span>
-          Include the {role === 'AYURVEDA' ? 'modern medicine' : 'Ayurveda'} queue
-          {!showAllStreams && hiddenByRole > 0 ? ` (${hiddenByRole} more)` : ''}
-        </span>
-      </label>
 
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5 pr-0.5 no-scrollbar">
         {filtered.map(item => {
@@ -151,59 +136,62 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
           const isEmergency = item.triagePriority === 'EMERGENCY_RED_FLAG';
           const isHigh = item.triagePriority === 'HIGH_PRIORITY';
           const vit = summariseVitals(item.vitals);
+          // Only what changes the order of seeing patients: called, pregnant, back from pharmacy, follow-up.
           const tags = [
-            isEmergency && tag('bg-rose-600 text-white uppercase', 'Emergency'),
-            item.status === 'IN_CONSULTATION' && tag('bg-sky-500/15 text-sky-700 dark:text-sky-300', <>Called{item.callCount && item.callCount > 1 ? ` ×${item.callCount}` : ''}</>),
-            item.isPregnant && tag('bg-pink-500/15 text-pink-700 dark:text-pink-300', 'Pregnant'),
-            item.visitType === 'PHARMACY_REFERRED' && tag('bg-rose-500/15 text-rose-700 dark:text-rose-300', <><Undo2 size={9} />Pharmacy</>),
-            item.visitType === 'FOLLOW_UP' && tag('bg-violet-500/15 text-violet-700 dark:text-violet-300', <><Repeat size={9} />Follow-up</>),
-            item.visitType === 'REVISIT' && tag('bg-muted text-muted-foreground', 'Revisit')
+            item.status === 'IN_CONSULTATION' && tag('bg-sky-500/15 text-sky-800', <>Called{item.callCount && item.callCount > 1 ? ` ×${item.callCount}` : ''}</>),
+            item.isPregnant && tag('bg-pink-500/15 text-pink-800', 'Pregnant'),
+            item.visitType === 'PHARMACY_REFERRED' && tag('bg-rose-500/15 text-rose-800', <><Undo2 size={10} />Pharmacy</>),
+            item.visitType === 'FOLLOW_UP' && tag('bg-violet-500/15 text-violet-800', <><Repeat size={10} />Follow-up</>)
           ].filter(Boolean);
+          const second = isEmergency && item.redFlags?.length ? item.redFlags[0] : item.primaryComplaint || 'Complaint not recorded';
           return (
             <button
               key={item.sessionId}
               type="button"
               onClick={() => { sovereignSound.playDialNotch(); onSelectPatient(item); }}
-              aria-pressed={isSelected}
-              className={`text-left pl-2.5 pr-3 py-2.5 rounded-xl border border-l-4 transition-colors ${
-                isEmergency ? 'border-l-rose-500' : isHigh ? 'border-l-amber-500' : 'border-l-border'
-              } ${isSelected ? 'bg-sky-500/10 border-sky-500 ring-1 ring-sky-500/40' : 'bg-card hover:bg-muted/40 border-border/80'}`}
+              aria-current={isSelected ? 'true' : undefined}
+              aria-label={`${isEmergency ? 'Emergency: ' : isHigh ? 'Priority: ' : ''}${item.patientName}, ${item.age || ''} ${item.gender || ''}, ${second}, waiting ${waitingFor(item.registeredAt)}`}
+              className={`text-left pl-2.5 pr-2.5 py-2 rounded-xl border border-l-4 transition-colors ${
+                isEmergency ? 'border-l-rose-500' : isHigh ? 'border-l-amber-500' : 'border-l-transparent'
+              } ${isSelected ? 'bg-sky-500/10 border-sky-500/70' : 'bg-background hover:bg-muted/40 border-border/70'}`}
             >
               <div className="flex justify-between items-baseline gap-2">
-                <div className="flex items-baseline gap-1.5 min-w-0">
-                  {item.tokenNo && <span className="font-mono font-bold text-[10px] text-muted-foreground shrink-0">{item.tokenNo}</span>}
-                  <span className="text-[13px] font-heading font-bold text-foreground truncate">{item.patientName}</span>
-                </div>
-                <span className="text-[10px] text-muted-foreground font-mono shrink-0">{item.age ? `${item.age}y` : ''} {item.gender?.charAt(0) || ''}</span>
+                <span className="flex items-baseline gap-1.5 min-w-0">
+                  {isEmergency && <AlertOctagon size={12} className="text-rose-600 shrink-0 self-center" aria-hidden="true" />}
+                  <span className="text-[13px] font-bold text-foreground truncate">{item.patientName}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{item.age ? `${item.age}` : ''}{item.gender?.charAt(0) || ''}</span>
+                </span>
+                <span className="text-[11px] text-muted-foreground font-mono shrink-0">{item.tokenNo || ''}</span>
               </div>
-              <div className="flex justify-between items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                <span className="truncate flex items-center gap-1">
+              <div className="flex justify-between items-center gap-2 mt-0.5">
+                <span className={`text-xs truncate flex items-center gap-1 ${isEmergency ? 'text-rose-700 font-semibold' : 'text-muted-foreground'}`}>
                   {item.careStream === 'AYURVEDA' ? <Leaf size={11} className="text-emerald-600 shrink-0" aria-label="Wants an Ayurveda doctor" /> : item.careStream === 'ALLOPATHY' ? <Pill size={11} className="text-sky-600 shrink-0" aria-label="Wants a modern medicine doctor" /> : null}
-                  <span className="truncate">{item.primaryComplaint || 'Complaint not recorded'}</span>
+                  <span className="truncate">{second}</span>
                 </span>
-                <span className="shrink-0 font-mono text-[10px]">{waitingFor(item.registeredAt)}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{waitingFor(item.registeredAt)}</span>
               </div>
-              <div className="flex justify-between items-center gap-2 mt-1">
-                <span className={`text-[10.5px] font-mono ${vit.anyCritical ? 'text-rose-600 font-bold' : vit.anyAbnormal ? 'text-amber-600 font-semibold' : 'text-muted-foreground'}`}>
-                  {vit.anyRecorded ? `BP ${item.vitals?.bp || '—'} · P ${item.vitals?.pulse || '—'}` : 'Vitals not recorded'}
-                </span>
-                {tags.length > 0 && <span className="flex items-center gap-1 flex-wrap justify-end">{tags.map((t, i) => <React.Fragment key={i}>{t}</React.Fragment>)}</span>}
-              </div>
-              {item.claimedBy && item.claimedBy.id !== staffId && (
-                <div className="text-[10.5px] text-sky-800 dark:text-sky-300 mt-1 flex items-center gap-1 font-semibold"><UserCheck size={11} /> With {item.claimedBy.name}</div>
-              )}
-              {item.pharmacyReferral && (
-                <div className="text-[10.5px] text-rose-700 mt-1 font-medium truncate" title={item.pharmacyReferral.note}>Pharmacy ({item.pharmacyReferral.pharmacist}): {item.pharmacyReferral.note}</div>
-              )}
-              {isEmergency && item.redFlags && item.redFlags.length > 0 && (
-                <div className="text-[10.5px] text-rose-700 dark:text-rose-300 mt-1 flex items-center gap-1 font-medium">
-                  <AlertOctagon size={11} className="shrink-0" />
-                  <span className="truncate">{item.redFlags[0]}</span>
+              {(tags.length > 0 || vit.anyAbnormal || vit.anyCritical || (item.claimedBy && item.claimedBy.id !== staffId) || item.pharmacyReferral) && (
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  {(vit.anyAbnormal || vit.anyCritical) && <span className={`text-[11px] font-mono ${vit.anyCritical ? 'text-rose-600 font-bold' : 'text-amber-700 font-semibold'}`}>BP {item.vitals?.bp || '—'} · P {item.vitals?.pulse || '—'}</span>}
+                  {tags.map((t, i) => <React.Fragment key={i}>{t}</React.Fragment>)}
+                  {item.claimedBy && item.claimedBy.id !== staffId && <span className="text-[11px] text-sky-800 inline-flex items-center gap-1 font-semibold"><UserCheck size={11} /> With {item.claimedBy.name}</span>}
+                  {item.pharmacyReferral && <span className="text-[11px] text-rose-700 font-medium truncate max-w-full" title={item.pharmacyReferral.note}>Pharmacy ({item.pharmacyReferral.pharmacist}): {item.pharmacyReferral.note}</span>}
                 </div>
               )}
             </button>
           );
         })}
+
+        {!showAllStreams && hiddenByRole > 0 && (
+          <button type="button" onClick={onToggleShowAll} className="mt-1 text-[11px] font-semibold text-primary hover:underline self-center py-1.5">
+            Also show the {role === 'AYURVEDA' ? 'modern medicine' : 'Ayurveda'} queue ({hiddenByRole} more)
+          </button>
+        )}
+        {showAllStreams && (
+          <button type="button" onClick={onToggleShowAll} className="mt-1 text-[11px] font-semibold text-muted-foreground hover:underline self-center py-1.5">
+            Show only my {role === 'AYURVEDA' ? 'Ayurveda' : 'modern medicine'} queue
+          </button>
+        )}
 
         {loaded && online && queue.length === 0 && (
           <div className="text-center py-8 px-3 text-muted-foreground flex flex-col items-center">
