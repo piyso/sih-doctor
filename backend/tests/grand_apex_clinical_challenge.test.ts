@@ -864,6 +864,9 @@ export function runGrandApexClinicalBenchmark(stressIterations: number = 5000): 
   // ───────────────────────────────────────────────────────────────────────────
   // PART 5: 10,000-CASE BARE-METAL STRESS & LATENCY PERCENTILE PROFILING
   // ───────────────────────────────────────────────────────────────────────────
+  // Leak check: collect garbage before both readings (npm test runs with --expose-gc) so only retained memory counts.
+  const collect = () => { if (typeof (global as any).gc === 'function') (global as any).gc(); };
+  collect();
   const initialMem = process.memoryUsage().heapUsed;
   const latenciesMs: number[] = [];
 
@@ -877,6 +880,7 @@ export function runGrandApexClinicalBenchmark(stressIterations: number = 5000): 
     latenciesMs.push(t1 - t0);
   }
   const tEndStress = performance.now();
+  collect();
   const finalMem = process.memoryUsage().heapUsed;
   const heapDeltaMb = parseFloat(((finalMem - initialMem) / (1024 * 1024)).toFixed(2));
 

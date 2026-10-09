@@ -194,6 +194,13 @@ Yograj Guggulu 2 Vati BD
   console.log('\n------------------------------------------------------------------------');
   console.log(`[PASS] BATTERY 20 PASSED: All ${passedAssertions} assertions verified in ${elapsed} ms.`);
   console.log('------------------------------------------------------------------------\n');
+
+  return {
+    passed: passedAssertions,
+    total: passedAssertions,
+    durationMs: parseFloat(elapsed),
+    isPassed: true
+  };
 }
 
 // Direct execution when run via tsx

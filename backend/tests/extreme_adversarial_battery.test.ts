@@ -291,18 +291,21 @@ export async function runExtremeAdversarialBattery() {
   // =========================================================================
   console.log('\n--- DOMAIN 7: Zero-Knowledge Cryptographic Soundness (ZKP) ---');
 
-  const validZkp = await ZkProofService.verifyProof();
-  assert(validZkp.isValid === true, '7.1 Valid Groth16 zk-SNARK verified over BN128 curve');
+  const zkDir = require('path').resolve(__dirname, '../src/data/zkp_circuit');
+  const sampleProof = JSON.parse(require('fs').readFileSync(require('path').join(zkDir, 'proof.json'), 'utf8'));
+  const samplePublic = JSON.parse(require('fs').readFileSync(require('path').join(zkDir, 'public.json'), 'utf8'));
+  const validZkp = await ZkProofService.verifyProof(sampleProof, samplePublic);
+  assert(validZkp.isValid === true, '7.1 Caller-supplied Groth16 proof verifies over BN128');
+  assert((await ZkProofService.verifyProof(undefined as any, undefined as any)).isValid === false, '7.1b No proof supplied: nothing is verified (no bundled fallback)');
 
-  // Tampered Signal Attack: public input changed from 1 to 0
-  const tamperedSignal = await ZkProofService.verifyProof(undefined, ['0']);
-  assert(tamperedSignal.isValid === false, '7.2 Tampered public signal attack rejected with 100% cryptographic soundness');
+  // Tampered Signal Attack
+  const tamperedSignal = await ZkProofService.verifyProof(sampleProof, ['0']);
+  assert(tamperedSignal.isValid === false, '7.2 Tampered public signal attack rejected');
 
   // Proof Coordinate Tampering Attack
-  const originalProof = ZkProofService.getSampleProof().proof;
-  const perturbedProof = JSON.parse(JSON.stringify(originalProof));
+  const perturbedProof = JSON.parse(JSON.stringify(sampleProof));
   perturbedProof.pi_a[0] = (BigInt(perturbedProof.pi_a[0]) + BigInt(1)).toString();
-  const tamperedProofResult = await ZkProofService.verifyProof(perturbedProof);
+  const tamperedProofResult = await ZkProofService.verifyProof(perturbedProof, samplePublic);
   assert(tamperedProofResult.isValid === false, '7.3 Perturbed proof coordinate attack rejected with 100% soundness');
 
   // =========================================================================

@@ -6,6 +6,8 @@
  *
  * Test set: edge-ai/eval/cases.json (Hindi, Indian English, Hinglish, typed romanised Hindi,
  * emergencies with no catalog card, follow-up visits). Exits non-zero if a text-only gate fails.
+ * The on-device voice extractor (vernacularSpeech.ts) is also scored on edge-ai/eval/extraction_cases.json:
+ * a symptom the patient denied must never appear.
  * Transcript files are JSON lines {key, sent, cond, hyp} written by edge-ai/eval/transcribe.py.
  */
 import { readFileSync } from 'node:fs';
@@ -13,6 +15,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyseComplaint } from '../src/utils/clinicalLexicon';
 import { kioskCatalog, SymptomMatcher, SUGGEST_MIN_SCORE } from '../src/utils/symptomMatcher';
+import { extractSymptomsFromSpeech } from '../src/utils/vernacularSpeech';
 
 type Case = [text: string, expected: string[], redFlag: boolean, kind: string];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -87,7 +90,27 @@ for (const file of process.argv.slice(2)) {
   }
 }
 
+// ---------------------------------------------------------------- On-device voice findings
+// Families the on-device extractor can name (vernacularSpeech.ts rules and "Pain — <area>").
+const VOICE: Record<string, RegExp> = {
+  fever: /^Fever/, cough: /^Cough/, chest_pain: /^Chest/, headache: /^Headache|Pain — Head/, abdominal_pain: /Pain — .*stomach/i,
+  vomiting: /^Vomiting/, nausea: /^Nausea/, diarrhoea: /diarrh/i, breathless: /Breathless/, dizziness: /^Dizz/, weakness: /^Weak/,
+  dysuria: /urine/i, knee_pain: /Knee/, back_pain: /Lumbar|back/i, itching: /^Itch/
+};
+const X = JSON.parse(readFileSync(resolve(root, 'edge-ai/eval/extraction_cases.json'), 'utf8')).cases as Array<{ t: string; p?: string[]; n?: string[] }>;
+let vFound = 0, vWant = 0, vDenied = 0, vDeniedN = 0;
+const vMiss: string[] = [];
+for (const c of X) {
+  const names = extractSymptomsFromSpeech(c.t, /[ऀ-ॿ]/.test(c.t) ? 'hi' : 'en').symptoms.map(s => s.name);
+  for (const f of (c.p || []).filter(f => VOICE[f])) { vWant++; if (names.some(n => VOICE[f].test(n))) vFound++; else vMiss.push(`${c.t} → missing ${f}`); }
+  for (const f of (c.n || []).filter(f => VOICE[f])) { vDeniedN++; if (!names.some(n => VOICE[f].test(n))) vDenied++; else vMiss.push(`${c.t} → reported denied ${f}`); }
+}
+console.log(`\nOn-device voice findings (extraction_cases.json): found ${vFound}/${vWant}   denied symptoms left out ${vDenied}/${vDeniedN}`);
+vMiss.forEach(m => console.log(`    miss: ${m}`));
+
 const failures: string[] = [];
+if (vDenied < vDeniedN) failures.push('the on-device extractor reported a symptom the patient denied');
+if (vFound < 0.9 * vWant) failures.push('on-device voice findings fell below 90%');
 if (hi.rf < hi.rfN || en.rf < en.rfN) failures.push('a red-flag sentence was not flagged');
 if (oocHit < ooc.length) failures.push('an emergency without a catalog card was not flagged');
 if (hi.top3 < 0.95 * hi.n || en.top3 < 0.95 * en.n || typed.top3 < 0.9 * typed.n) failures.push('top-3 accuracy fell below the gate');

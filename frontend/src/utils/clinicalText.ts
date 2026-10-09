@@ -22,11 +22,14 @@
 // ---------------------------------------------------------------- Normalisation and tokens
 /** Lower-case, NFC, nukta dropped, chandrabindu → anusvara, doubled vowel signs collapsed ("बताा" → "बता"). */
 export function normWord(w: string): string {
-  return w.toLowerCase().normalize('NFC')
-    .replace(/़/g, '')
-    .replace(/ँ/g, 'ं')
-    .replace(/[‌‍]/g, '')
-    .replace(/([ा-ौ])\1+/g, '$1')
+  const l = w.toLowerCase();
+  // fast path for plain ASCII words (most English and romanised Hindi)
+  if (/^[\x00-\x7f]*$/.test(l)) return l.includes('`') ? l.replace(/`/g, "'") : l;
+  return l.normalize('NFC')
+    .replace(/\u093C/g, '')
+    .replace(/\u0901/g, '\u0902')
+    .replace(/[\u200C\u200D]/g, '')
+    .replace(/([\u093E-\u094C])\1+/g, '$1')
     .replace(/[’‘`]/g, "'");
 }
 
@@ -34,45 +37,79 @@ export interface Tok { text: string; norm: string; start: number; end: number; p
 
 const TOKEN_RE = /[\p{L}\p{M}\p{N}_']+|[.?!;:,\n।॥|]/gu;
 
-let lastText: string | null = null;
-let lastToks: Tok[] = [];
-/** Words and clause punctuation with their character offsets (memoised for the last text). */
+const tokCache = new Map<string, Tok[]>();
+/** Words and clause punctuation with their character offsets (cached for recently seen texts). */
 export function tokens(text: string): Tok[] {
-  if (text === lastText) return lastToks;
+  const hit = tokCache.get(text);
+  if (hit) return hit;
   const out: Tok[] = [];
   for (const m of text.matchAll(TOKEN_RE)) {
     const t = m[0];
     const punct = !/[\p{L}\p{M}\p{N}]/u.test(t);
     out.push({ text: t, norm: punct ? t : normWord(t.replace(/^'+|'+$/g, '')), start: m.index!, end: m.index! + t.length, punct });
   }
-  lastText = text;
-  lastToks = out;
+  if (tokCache.size > 32) tokCache.delete(tokCache.keys().next().value as string);
+  tokCache.set(text, out);
   return out;
 }
 
 const set = (...words: string[]) => new Set(words.map(normWord));
+/** Unicode word boundaries for regexes (JS \\b does not understand Devanagari). */
+const B = '(?<![\\p{L}\\p{M}\\p{N}])';
+const E = '(?![\\p{L}\\p{M}\\p{N}])';
 
-/** Whole-word, case-insensitive search for a phrase; returns [start, end) of every match. */
+/** Small bounded cache for pure string → result functions (the same clause is read many times per transcript). */
+function memo<T>(fn: (s: string) => T, size = 256): (s: string) => T {
+  const cache = new Map<string, T>();
+  return (s: string) => {
+    if (cache.has(s)) return cache.get(s)!;
+    const v = fn(s);
+    if (cache.size >= size) cache.delete(cache.keys().next().value as string);
+    cache.set(s, v);
+    return v;
+  };
+}
+
+const phraseRe = new Map<string, RegExp>();
+/**
+ * Whole-word, case-insensitive search for a phrase; returns [start, end) of every match. `suffix` lets the
+ * last word carry up to that many extra letters (inflections: "उल्टियां", "coughing").
+ */
 export function findPhrase(text: string, phrase: string, opts: { suffix?: number } = {}): Array<[number, number]> {
-  const esc = normWord(phrase).trim().split(/\s+/).map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-]*');
-  if (!esc) return [];
-  const suffix = opts.suffix ? `[\\p{L}\\p{M}]{0,${opts.suffix}}` : '';
-  const re = new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])${esc}${suffix}(?![\\p{L}\\p{M}\\p{N}])`, 'giu');
+  const key = `${opts.suffix || 0}|${phrase}`;
+  let re = phraseRe.get(key);
+  if (!re) {
+    const esc = normWord(phrase).trim().split(/\s+/).map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-]*');
+    if (!esc) return [];
+    const suffix = opts.suffix ? `[\\p{L}\\p{M}]{0,${opts.suffix}}` : '';
+    re = new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])${esc}${suffix}(?![\\p{L}\\p{M}\\p{N}])`, 'giu');
+    phraseRe.set(key, re);
+  }
   const hay = normForSearch(text);
   return [...hay.text.matchAll(re)].map(m => [hay.map[m.index!], hay.map[m.index! + m[0].length]] as [number, number]);
 }
 
 /** normWord over a whole text, with a map from normalised offsets back to original offsets. */
+let normCache: { src: string; val: { text: string; map: number[] } } | null = null;
 export function normForSearch(text: string): { text: string; map: number[] } {
+  if (normCache && normCache.src === text) return normCache.val;
+  const val = normForSearchUncached(text);
+  normCache = { src: text, val };
+  return val;
+}
+function normForSearchUncached(text: string): { text: string; map: number[] } {
+  // Same folding as normWord(), character by character, keeping a map back to the original offsets.
+  // NFC can shorten the string; offsets are only exact when it does not (always true for recogniser output).
+  const src = text.normalize('NFC');
   let out = '';
   const map: number[] = [];
-  const src = text.normalize('NFC');
-  // NFC can shorten the string; offsets are only exact when it does not (always true for recogniser output).
   for (let i = 0; i < src.length; i++) {
-    const n = normWord(src[i]);
-    // collapse a vowel sign repeated right after itself ("ाा")
-    if (/[ा-ौ]/.test(src[i]) && src[i - 1] === src[i]) continue;
-    for (const ch of n) { out += ch; map.push(i); }
+    const ch = src[i];
+    const code = ch.charCodeAt(0);
+    if (code === 0x93c || code === 0x200c || code === 0x200d) continue;              // nukta, ZWNJ, ZWJ
+    if (code >= 0x93e && code <= 0x94c && src[i - 1] === ch) continue;                // "ाा" → "ा"
+    const o = code === 0x901 ? '\u0902' : code === 0x2019 || code === 0x2018 || code === 0x60 ? "'" : ch.toLowerCase();
+    for (let k = 0; k < o.length; k++) { out += o[k]; map.push(i); }
   }
   map.push(src.length);
   return { text: out, map };
@@ -110,7 +147,7 @@ const INABILITY = set('can', 'could', 'cannot', 'unable');
 const BREAK = set('but', 'however', 'though', 'although', 'except', 'only', 'just', 'whereas', 'par', 'pr', 'lekin', 'magar', 'kintu', 'parantu', 'balki',
   'bas', 'sirf', 'keval', 'kewal', 'पर', 'लेकिन', 'मगर', 'किंतु', 'परंतु', 'बल्कि', 'बस', 'सिर्फ', 'सिर्फ़', 'केवल', 'फिर', 'phir');
 const AND = set('and', 'aur', 'or', 'और', 'evam', 'तथा');
-const PRONOUN = set('i', 'my', 'me', 'mujhe', 'mujhko', 'mera', 'meri', 'mere', 'main', 'mai', 'he', 'she', 'his', 'her', 'it', 'its', 'there', 'uska', 'uski', 'uske',
+const PRONOUN = set('i', "i'm", 'im', "i've", "i'd", 'we', 'you', "he's", "she's", "it's", 'my', 'me', 'mujhe', 'mujhko', 'mera', 'meri', 'mere', 'main', 'mai', 'he', 'she', 'his', 'her', 'it', 'its', 'there', 'uska', 'uski', 'uske',
   'use', 'usko', 'मैं', 'मुझे', 'मुझको', 'मेरा', 'मेरी', 'मेरे', 'उसका', 'उसकी', 'उसके', 'उसे', 'उसको', 'यह', 'वह', 'ye', 'wo', 'vo');
 const DOUBLE_NEG_HEAD = set('aisa', 'aesa', 'aise', 'ऐसा', 'ऐसी', 'ऐसे');
 const KI = set('ki', 'ke', 'kee', 'कि', 'की', 'के', 'that');
@@ -196,7 +233,24 @@ export function negationAt(text: string, start: number, end: number): NegationRe
   // English "pain is not there", "fever isn't present"
   if (!negated) {
     const after = toks.slice(last + 1, Math.min(cb, last + 4) + 1).map(t => t.norm).join(' ');
-    if (/^(?:is |are |was )?(?:not|isn't|isnt) (?:there|present)\b/.test(after)) { negated = true; cue = 'not there'; }
+    if (/^(?:is |are |was )?(?:not|isn't|isnt) (?:there|present|at all)\b/.test(after)) { negated = true; cue = 'not there'; }
+  }
+
+  // Clinical list: "Denies headache, vomiting and blurred vision" — a dictation-style denial reaches over comma-separated
+  // items as long as each item is short and has no verb of its own. Plain "no" does not ("no fever, cough since 2 days"
+  // is ambiguous in speech, so it stays recall-first).
+  if (!negated) {
+    let k = ca - 1;
+    while (k >= 0 && toks[k].text === ',') {
+      const [pa, pb] = clauseBounds(toks, Math.max(0, k - 1));
+      const seg = toks.slice(pa, pb + 1);
+      if (!seg.length || seg[0].punct || BREAK.has(seg[0].norm)) break;
+      const items = toks.slice(pb + 2, cb + 1);
+      if (items.some(t => AFFIRM.has(t.norm) || PRONOUN.has(t.norm)) || items.length > 6) break;
+      const lead = seg.map(t => t.norm).join(' ');
+      if (/^(?:patient\s+|he\s+|she\s+)?(?:denies|denied|deny|without|nil|negative\s+for|no\s+history\s+of|no\s+h\/o|absence\s+of|no\s+complaints?\s+of)\b/.test(lead)) { negated = true; cue = seg[0].text; break; }
+      k = pa - 1;
+    }
   }
 
   // 3. Double negation: "aisa nahi hai ki dard na ho" → the complaint is present.
@@ -218,6 +272,50 @@ export function clauseAt(text: string, pos: number): [number, number] {
   if (toks[i].punct && i > 0) i--;
   const [a, b] = clauseBounds(toks, i);
   return [toks[a].start, toks[b].end];
+}
+
+/**
+ * The words around a mention, within its clause and not past a conjunction. Severity is read here so that
+ * "पेट में बहुत दर्द है और उल्टी हो रही है" makes the pain severe, not the vomiting.
+ */
+export function windowAt(text: string, start: number, end: number, before = 4, after = 8): string {
+  const toks = tokens(text);
+  const r = tokenRange(toks, start, end);
+  if (!r) return text.slice(start, end);
+  const [ca, cb] = clauseBounds(toks, r[0]);
+  let a = r[0], b = r[1];
+  // a qualifier never carries across "और / and / या / or"
+  for (let n = 0; n < before && a > ca && !AND.has(toks[a - 1].norm) && toks[a - 1].norm !== 'ya' && toks[a - 1].norm !== 'या'; n++) a--;
+  for (let n = 0; n < after && b < cb && !AND.has(toks[b + 1].norm) && toks[b + 1].norm !== 'ya' && toks[b + 1].norm !== 'या'; n++) b++;
+  return text.slice(toks[a].start, toks[b].end);
+}
+
+// ---------------------------------------------------------------- Past history vs. current complaint
+// "दो साल पहले हार्ट अटैक हुआ था, आज घुटने में दर्द है": the heart attack is history, the knee pain is today's
+// complaint. A mention is historical when its segment (clause, split again at "अब / आज / now / today") names a
+// distant past. "since last year" is ongoing, and any "फिर से / again" in the text keeps everything current.
+const NOW = set('ab', 'अब', 'aaj', 'आज', 'abhi', 'अभी', 'now', 'today', 'currently', 'presently', 'ajkal', 'आजकल', 'aajkal', 'lately');
+const DISTANT_PAST = new RegExp(
+  `(?:${B}(?:\\d+(?:\\.\\d+)?|a|an|one|few|kuch|कुछ|कई|kai|several)\\s*(?:saal|sal|years?|mahine|mahina|months?|साल|वर्ष|बरस|महीने|महीना)\\s*(?:pehle|pahle|पहले|ago|back)${E})` +
+  `|(?:${B}(?:pichhle|pichle|पिछले|last)\\s+(?:saal|sal|year|साल|वर्ष)${E}(?!\\s*(?:se|से|since)))` +
+  `|(?:${B}(?:in\\s+the\\s+past|bachpan\\s+(?:me|mein)|बचपन\\s+में|years\\s+back)${E})`, 'iu');
+// "पहले" on its own means earlier; after a time span ("एक घंटे पहले", "2 din pehle") it means "ago" — recent, not history.
+const EARLIER = new RegExp(`${B}(?<!(?:ghante|ghanta|din|dino|hafte|minute|mint|घंटे|घंटा|दिन|दिनों|हफ्ते|मिनट|hours?|days?|weeks?|minutes?)\\s+)(?:pehle|pahle|पहले|earlier|previously|formerly|used\\s+to)${E}`, 'iu');
+const PAST_VERB = new RegExp(`${B}(?:था|थी|थे|tha|thi|thhi|used\\s+to|was|were|had)${E}`, 'iu');
+const AGAIN = new RegExp(`${B}(?:फिर\\s+से|phir\\s+se|fir\\s+se|dobara|दोबारा|again|वापस|wapas|recurr\\w*)${E}`, 'iu');
+
+/** `distantOnly`: count only an explicit distant past (years / months ago, last year) — used for emergencies. */
+export function isHistorical(text: string, start: number, end: number, distantOnly = false): boolean {
+  if (AGAIN.test(text)) return false;
+  const toks = tokens(text);
+  const r = tokenRange(toks, start, end);
+  if (!r) return false;
+  let [a, b] = clauseBounds(toks, r[0]);
+  for (let k = r[0] - 1; k >= a; k--) if (NOW.has(toks[k].norm)) { a = k + 1; break; }
+  for (let k = r[1] + 1; k <= b; k++) if (NOW.has(toks[k].norm)) { b = k - 1; break; }
+  const seg = numeralize(text.slice(toks[a].start, toks[b].end));
+  if (/(?:since|से|se)\s*$/iu.test(seg) && !DISTANT_PAST.test(seg)) return false;
+  return DISTANT_PAST.test(seg) || (!distantOnly && EARLIER.test(seg) && PAST_VERB.test(seg));
 }
 
 /** Character span of the sentence around a position (clauses joined by commas and conjunctions). */
@@ -260,7 +358,8 @@ export function numeralize(text: string): string {
 }
 
 /** numeralize() plus, for every character of the result, its offset in the original text. */
-export function numeralizeWithMap(text: string): { text: string; map: number[] } {
+export const numeralizeWithMap = memo(numeralizeWithMapUncached);
+function numeralizeWithMapUncached(text: string): { text: string; map: number[] } {
   const src = toAsciiDigits(text);
   const toks = tokens(src);
   let out = '';
@@ -291,8 +390,12 @@ function readNumber(toks: Tok[], i: number): { value: number; next: number } | n
   if (PLUS_HALF.has(w(j))) { frac = 0.5; j++; } else if (PLUS_QUARTER.has(w(j))) { frac = 0.25; j++; } else if (MINUS_QUARTER.has(w(j))) { frac = -0.25; j++; }
   if (FRACTION[w(j)] !== undefined) { cur = FRACTION[w(j)]; j++; }
   else if (unit(j) !== undefined) { cur = unit(j)! + frac; j++; }
-  else return null;
-  if (frac && cur === undefined) return null;
+  else if (HUNDRED.has(w(j)) && !frac) { cur = 100; j++; }   // a lone "सौ" ("बटा सौ" = over 100)
+  else if (!frac) return null;
+  if (cur === undefined && frac) {
+    if (frac === 0.5) return null; // "साढ़े" always needs a number after it
+    cur = 1 + frac;               // "सवा महीने" = 1.25 months, "पौने" = 0.75
+  }
   for (;;) {
     if (HUNDRED.has(w(j)) && cur !== undefined && cur < 100) { cur = cur * 100; j++; continue; }
     if (THOUSAND.has(w(j)) && cur !== undefined) { total += cur * 1000; cur = undefined; j++; continue; }
@@ -321,8 +424,6 @@ export const toAsciiDigits = (s: string) =>
   });
 
 // ---------------------------------------------------------------- Duration
-const B = '(?<![\\p{L}\\p{M}\\p{N}])';
-const E = '(?![\\p{L}\\p{M}\\p{N}])';
 const UNIT_DAY = 'days?|din|dino|dinon|दिन|दिनों|रोज़?|दिवस|দিন|நாள்?|రోజు?|દિવસ|ದಿನ|ദിവസം?|ਦਿਨ|ଦିନ';
 const UNIT_WEEK = 'weeks?|hafte?|hafton|haftey|हफ्ते|हफ्ता|हफ्तों|सप्ताह|आठवडे?|সপ্তাহ|வாரம்?|వారం|અઠવાડિય[ાું]|ವಾರ|ആഴ്ച|ਹਫ਼?ਤੇ|ସପ୍ତାହ';
 const UNIT_MONTH = 'months?|mahine?|mahina|mahino|mahinon|महीने|महीना|महीनों|महिने|महिना|মাস|மாதம்?|నెల(?:లు)?|મહિન[ાો]|ತಿಂಗಳ|മാസം?|ਮਹੀਨ[ੇਾ]|ମାସ';
@@ -332,15 +433,19 @@ const UNIT_MIN = 'minutes?|mins?|मिनट';
 const UNIT_ANY = `${UNIT_DAY}|${UNIT_WEEK}|${UNIT_MONTH}|${UNIT_YEAR}|${UNIT_HOUR}|${UNIT_MIN}`;
 const DURATION_RE = new RegExp(`${B}(\\d+(?:\\.\\d+)?|an?|one|ek|do|एक|दो|few|couple(?:\\s+of)?|kuch|कुछ|कई|kai|several)\\s*(?:se|से|say|tak|तक|of|from)?\\s*(${UNIT_ANY})${E}`, 'giu');
 const SINCE_RE: Array<[RegExp, string]> = [
-  [new RegExp(`${B}(?:since\\s+yesterday|yesterday|kal\\s+se|कल\\s+से|कल\\s+रात\\s+से|कालपासून|গতকাল|நேற்று|నిన్న|ગઈકાલ|ನಿನ್ನೆ|ഇന്നലെ|ਕੱਲ੍ਹ|ଗତକାଲି)${E}`, 'iu'), '1 day'],
+  [new RegExp(`${B}(?:since\\s+last\\s+night|last\\s+night|kal\\s+raat\\s+se|कल\\s+रात\\s+से|raat\\s+se|रात\\s+से)${E}`, 'iu'), 'since last night'],
+  [new RegExp(`${B}(?:since\\s+yesterday|yesterday|kal\\s+se|कल\\s+से|कालपासून|গতকাল|நேற்று|నిన్న|ગઈકાલ|ನಿನ್ನೆ|ഇന്നലെ|ਕੱਲ੍ਹ|ଗତକାଲି)${E}`, 'iu'), '1 day'],
   [new RegExp(`${B}(?:parso\\s+se|परसों\\s+से|day\\s+before\\s+yesterday)${E}`, 'iu'), '2 days'],
-  [new RegExp(`${B}(?:since\\s+last\\s+night|last\\s+night|raat\\s+se|रात\\s+से)${E}`, 'iu'), 'since last night'],
   [new RegExp(`${B}(?:since\\s+(?:this\\s+)?morning|this\\s+morning|subah\\s+se|सुबह\\s+से|aaj\\s+subah|आज\\s+सुबह)${E}`, 'iu'), 'since this morning'],
   [new RegExp(`${B}(?:since\\s+today|today|aaj\\s+se|आज\\s+से|आजपासून|আজ\\s+থেকে|இன்று|ఈ\\s*రోజు|આજથી|ಇಂದು|ഇന്ന്|ਅੱਜ|ଆଜି)${E}`, 'iu'), 'since today'],
-  [new RegExp(`${B}(?:last\\s+week|pichhle\\s+hafte|pichle\\s+hafte|पिछले\\s+हफ्ते(?!\\s*\\d))${E}`, 'iu'), '1 week'],
-  [new RegExp(`${B}(?:last\\s+month|pichhle\\s+mahine|pichle\\s+mahine|पिछले\\s+महीने(?!\\s*\\d))${E}`, 'iu'), '1 month'],
+  [new RegExp(`${B}(?:(?:the\\s+)?(?:last|past)\\s+week|pichhle\\s+hafte|pichle\\s+hafte|पिछले\\s+हफ्ते(?!\\s*\\d))${E}`, 'iu'), '1 week'],
+  [new RegExp(`${B}(?:(?:the\\s+)?(?:last|past)\\s+month|pichhle\\s+mahine|pichle\\s+mahine|पिछले\\s+महीने(?!\\s*\\d))${E}`, 'iu'), '1 month'],
   [new RegExp(`${B}(?:for\\s+a\\s+long\\s+time|long\\s+time|since\\s+long|bahut\\s+(?:dino|samay)\\s+se|बहुत\\s+(?:दिनों|समय)\\s+से|kaafi\\s+(?:dino|samay)\\s+se|काफी\\s+(?:दिनों|समय)\\s+से|सालों\\s+से|saalon\\s+se|years)${E}`, 'iu'), 'long-standing'],
-  [new RegExp(`${B}(?:since\\s+childhood|bachpan\\s+se|बचपन\\s+से)${E}`, 'iu'), 'since childhood']
+  [new RegExp(`${B}(?:since\\s+childhood|bachpan\\s+se|बचपन\\s+से)${E}`, 'iu'), 'since childhood'],
+  [new RegExp(`${B}(?:हफ्ते|हफ़्ते|hafte)\\s+(?:भर|bhar)${E}`, 'iu'), '1 week'],
+  [new RegExp(`${B}(?:महीने|महीना|mahine|mahina)\\s+(?:भर|bhar)${E}`, 'iu'), '1 month'],
+  [new RegExp(`${B}(?:साल|saal)\\s+(?:भर|bhar)${E}`, 'iu'), '1 year'],
+  [new RegExp(`${B}(?:(?:the\\s+)?(?:last|past)\\s+(?:few|couple\\s+of)\\s+days|pichhle\\s+kuch\\s+dino\\s+se|पिछले\\s+कुछ\\s+दिनों\\s+से|कुछ\\s+दिनों\\s+से|kuch\\s+dino\\s+se)${E}`, 'iu'), 'a few days']
 ];
 
 function unitName(u: string): 'day' | 'week' | 'month' | 'year' | 'hour' | 'minute' {
@@ -356,13 +461,14 @@ function unitName(u: string): 'day' | 'week' | 'month' | 'year' | 'hour' | 'minu
 export interface Found<T> { value: T; start: number; end: number }
 
 /** Every duration in the text, e.g. "3 days", "1.5 months", "1 day" (yesterday), "since this morning". */
-export function findDurations(text: string): Array<Found<string>> {
+export const findDurations = memo(findDurationsUncached);
+function findDurationsUncached(text: string): Array<Found<string>> {
   const { text: t, map } = numeralizeWithMap(text);
   const out: Array<Found<string>> = [];
   const at = (a: number, b: number, value: string) => out.push({ value, start: map[a], end: map[b] });
   for (const m of t.matchAll(DURATION_RE)) {
     // "twice a day", "2 baar din mein", "once a week" are frequencies, not durations
-    if (/(?:times|once|twice|thrice|per|every|baar|बार|प्रति|har|हर)\s*$/iu.test(t.slice(Math.max(0, m.index! - 12), m.index!))) continue;
+    if (/(?<![\p{L}\p{M}])(?:times|once|twice|thrice|per|every|baar|बार|प्रति|har|हर)\s*$/iu.test(t.slice(Math.max(0, m.index! - 12), m.index!))) continue;
     const q = normWord(m[1]).replace(/\s+/g, ' ');
     const n = /^\d/.test(q) ? parseFloat(q) : ['a', 'an', 'one', 'ek', 'एक'].includes(q) ? 1 : ['do', 'दो', 'couple', 'couple of'].includes(q) ? 2 : 0;
     const u = unitName(m[2]);
@@ -383,7 +489,8 @@ const MILD = new RegExp(`${B}(?:mild|slight|slightly|little|a\\s+bit|thoda|thodi
 const MODERATE = new RegExp(`${B}(?:moderate|medium|theek\\s+thaak|मध्यम)${E}`, 'iu');
 
 /** Severity 1–10 stated in a stretch of text ("8 out of 10", "दस में से आठ", "बहुत तेज़", "mild"); 0 if not stated. */
-export function severityIn(text: string): number {
+export const severityIn = memo(severityInUncached, 512);
+function severityInUncached(text: string): number {
   const t = numeralize(normForSearch(text).text);
   const num = t.match(/(?<![\d.])(\d{1,2})\s*(?:out\s*of|outta|\/|by|में\s*से|me\s*se|mein\s*se)\s*10(?!\d)/iu) ||
     t.match(/(?<![\d.])10\s*(?:में\s*से|me\s*se|mein\s*se|में|me|mein|out\s*of\s*which)\s*(\d{1,2})(?!\d)/iu) ||
@@ -402,8 +509,8 @@ export function severityIn(text: string): number {
 // ---------------------------------------------------------------- Vitals
 export interface Vitals { bp?: string; pulse?: number; spo2?: string; temp?: string; bloodSugar?: number; respiratoryRate?: number }
 
-const L_BP = `${B}(?:b\\.?\\s?p\\.?|blood\\s*pressure|pressure|bp|बी\\.?\\s?पी|बीपी|ब्लड\\s*प्रेशर|प्रेशर|रक्तचाप|रक्त\\s*चाप)${E}`;
-const L_PULSE = `${B}(?:pulse(?:\\s*rate)?|heart\\s*rate|heart\\s*beat|heartbeat|hr|nabz|nabj|nadi|naadi|पल्स|नब्ज|नाड़ी|नाडी|धड़कन|धडकन|हार्ट\\s*रेट)${E}`;
+const L_BP = `${B}(?:b\\.?\\s?p\\.?|blood\\s*pressure|pressure|bp|बी\\.?\\s?पी|बीपी|ब्लड\\s*प्रेशर|प्रेशर|रक्तचाप|रक्त\\s*चाप)(?![\\p{L}\\p{M}])`; // may touch the number: "BP130"
+const L_PULSE = `(?:${B}(?:pulse(?:\\s*rate)?|heart\\s*rate|heart\\s*beat|heartbeat|hr|nabz|nabj|nadi|naadi|नब्ज|नाड़ी|नाडी|धड़कन|धडकन|हार्ट\\s*रेट)${E}|(?:पल्स|पलस|पल्‍स)${E})`;
 const L_SPO2 = `(?:${B}(?:sp\\s*o\\s*2|spo2|saturation|sats?|oxygen(?:\\s*(?:level|saturation))?|o2)${E}|(?:ऑक्सीजन|आक्सीजन|ओक्सीजन|ऑक्सिजन|सैचुरेशन|सेचुरेशन))`;
 const L_TEMP = `${B}(?:temp(?:erature)?|fever|bukhar|bukhaar|taap|tapman|बुखार|ताप|तापमान|टेम्परेचर|टेंपरेचर|टेम्प्रेचर)${E}`;
 const L_SUGAR = `${B}(?:(?:blood\\s*)?sugar(?:\\s*level)?|glucose|rbs|fbs|ppbs|grbs|शुगर|शूगर|ग्लूकोज|ब्लड\\s*शुगर)${E}`;
@@ -411,32 +518,45 @@ const L_RR = `${B}(?:respiratory\\s*rate|resp(?:iration)?\\s*rate|breathing\\s*r
 const ANY_LABEL = new RegExp(`${L_BP}|${L_PULSE}|${L_SPO2}|${L_TEMP}|${L_SUGAR}|${L_RR}`, 'iu');
 const GAP = `([^\\d\\n.!?।,;]{0,28}?)`;
 const NUM = '(\\d{1,3}(?:\\.\\d)?)';
-const BP_SEP = `\\s*(?:\\/|by|over|upon|on|बटा|बट्टा|बता|बाई|बाय|ओवर|अपॉन|x)\\s*`;
+const BP_SEP = `\\s*(?:\\/|by|over|upon|on|slash|बटा|बट्टा|बता|बताह|बटाह|बाई|बाय|ओवर|अपॉन|स्लैश|x|,)\\s*`; // ",": "BP130, 80"
 const TIME_AFTER = new RegExp(`^\\s*(?:se\\s+|से\\s+)?(?:${UNIT_ANY}|baar|times|बार|tablet|tablets|goli|गोली|mg(?!\\s*\\/\\s*dl))${E}`, 'iu');
 const MED_WORDS = /dawai|dawa|dava|medicine|tablet|goli|दवा|दवाई|गोली|insulin|इंसुलिन/iu;
 
-function labelledValues(t: string, label: string): Array<{ n: string; gap: string; after: string; index: number; second?: string }> {
+function labelledValues(t: string, label: string): Array<{ n: string; gap: string; after: string; index: number }> {
   const out: Array<{ n: string; gap: string; after: string; index: number }> = [];
-  const re = new RegExp(`(?:${label})${GAP}${NUM}`, 'giu');
-  for (const m of t.matchAll(re)) {
+  const value = new RegExp(`^${GAP}${NUM}`, 'u');
+  // Each label is tried on its own, so "saturation check karne par SpO2 84" still reads SpO2 84.
+  for (const m of t.matchAll(new RegExp(label, 'giu'))) {
+    const rest = t.slice(m.index! + m[0].length);
+    const g = rest.match(value);
     // the stretch between label and number must not name another vital ("sugar normal, pulse 90")
-    if (ANY_LABEL.test(m[1])) continue;
-    out.push({ n: m[2], gap: m[1], after: t.slice(m.index! + m[0].length), index: m.index! });
+    if (!g || ANY_LABEL.test(g[1])) continue;
+    out.push({ n: g[2], gap: g[1], after: rest.slice(g[0].length), index: m.index! });
   }
   return out;
 }
 
 /** Vital signs spoken or typed in the text. Every value is range-checked; anything implausible is dropped. */
 export function parseVitals(text: string): Vitals {
-  const t = numeralize(normForSearch(text).text);
+  return { ...parseVitalsCached(text) };
+}
+/** The recogniser sometimes fuses the BP separator with the number after it ("बतानब्बे" = "बटा नब्बे"). */
+function splitFusedSeparators(text: string): string {
+  return text.replace(/(बट्टा|बटा|बता)([\u0900-\u097F]+)/g, (all, sep: string, rest: string) => (UNITS[normWord(rest)] !== undefined ? `${sep} ${rest}` : all));
+}
+const parseVitalsCached = memo(parseVitalsUncached);
+function parseVitalsUncached(text: string): Vitals {
+  const t = numeralize(splitFusedSeparators(normForSearch(text).text));
   const v: Vitals = {};
 
   // Blood pressure: "BP 150/95", "150 by 95", "एक सौ पचास बटा पचानवे", "upar 150 neeche 95", or a bare "150/95".
-  const bpOk = (s: number, d: number) => s >= 60 && s <= 300 && d >= 30 && d <= 200 && s > d + 5;
-  const bpLabelled = new RegExp(`(?:${L_BP})${GAP}(\\d{2,3})${BP_SEP}(\\d{2,3})(?!\\d)`, 'giu');
-  for (const m of t.matchAll(bpLabelled)) {
-    if (ANY_LABEL.test(m[1])) continue;
-    const s = +m[2], d = +m[3];
+  // pulse pressure under 15 is implausible: a misheard number ("एक सौ सात बटा सौ") is dropped rather than stored
+  const bpOk = (s: number, d: number) => s >= 60 && s <= 300 && d >= 30 && d <= 200 && s >= d + 15;
+  const bpValue = new RegExp(`^${GAP}(\\d{2,3})${BP_SEP}(\\d{2,3})(?!\\d)`, 'iu');
+  for (const m of t.matchAll(new RegExp(L_BP, 'giu'))) {
+    const g = t.slice(m.index! + m[0].length).match(bpValue);
+    if (!g || ANY_LABEL.test(g[1])) continue;
+    const s = +g[2], d = +g[3];
     if (bpOk(s, d)) { v.bp = `${s}/${d}`; break; }
   }
   if (!v.bp) {
@@ -453,7 +573,10 @@ export function parseVitals(text: string): Vitals {
     const n = parseFloat(c.n);
     if (Number.isInteger(n) && n >= 25 && n <= 250 && !TIME_AFTER.test(c.after)) { v.pulse = n; break; }
   }
-  for (const c of labelledValues(t, L_SPO2)) {
+  // "SpO2 98" spoken letter by letter comes back as "SPO, 298": the 2 of the label glued to the reading
+  const glued = t.match(/(?<![\p{L}])sp\s*o[\s,.]*2(\d{2})(?!\d)/iu);
+  if (glued && +glued[1] >= 50 && +glued[1] <= 100) v.spo2 = `${+glued[1]}%`;
+  for (const c of v.spo2 ? [] : labelledValues(t, L_SPO2)) {
     const n = parseFloat(c.n);
     if (n >= 50 && n <= 100 && !TIME_AFTER.test(c.after)) { v.spo2 = `${n}%`; break; }
   }

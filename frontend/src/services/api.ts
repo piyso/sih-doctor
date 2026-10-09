@@ -1,14 +1,13 @@
 /**
  * AIIA MediKiosk Sovereign API Service
  * 100% Live Bare-Metal Connection to Express Backend & WebSocket Server
- * Zero Mocks • Zero Fake Fallbacks • Direct SQLite WAL, Groth16, Judea Pearl DAG & Truth Engine
+ * Zero Mocks • Zero Fake Fallbacks • Direct SQLite WAL, Ed25519 record seals, clinical rules & Truth Engine
  */
 
 import {
   PatientQueueItem,
   SessionDetail,
   ConflictAlert,
-  ZkSnarkProofBadge,
   ExtractionResult,
   LeverDiagnosticsData,
   GateNonce,
@@ -657,42 +656,6 @@ class ApiService {
   }
 
   /**
-   * Real Groth16 / BN128 Zero-Knowledge Proof & Merkle State Verification
-   */
-  public async verifyZkProof(record?: any): Promise<ZkSnarkProofBadge> {
-    const res = await apiFetch(`${BASE_URL}/api/security/verify-zkp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        proof: {
-          pi_a: ['0x1', '0x2'],
-          pi_b: [['0x3', '0x4'], ['0x5', '0x6']],
-          pi_c: ['0x7', '0x8'],
-          protocol: 'groth16',
-          curve: 'bn128'
-        },
-        publicSignals: ['1', '0'],
-        record
-      })
-    });
-    const data = await res.json();
-    if (data.badge) {
-      return {
-        circuit: data.badge.circuitId || 'integrity_check_v1',
-        protocol: data.badge.proofProtocol || 'Groth16/BN128',
-        curve: 'bn128',
-        soundnessProven: data.badge.verificationStatus === 'VERIFIED_VALID',
-        tamperResistant: true,
-        publicSignalsCount: 2,
-        verifiedAt: data.badge.timestamp || new Date().toISOString(),
-        claimsCovered: ['Claim §5.2 (Prescription Integrity)', 'Claim §10.1 (Zero Knowledge State)'],
-        hashVerification: data.badge.recordSha256Hash
-      };
-    }
-    throw new Error(data.error || 'ZKP verification failed');
-  }
-
-  /**
    * Bitemporal Merkle DAG Invariance Verification
    */
   public async verifyMerkleChain(): Promise<{ isValid: boolean; totalNodes: number }> {
@@ -866,7 +829,7 @@ class ApiService {
   }
 
   /**
-   * Offline Groth16 zk-SNARK Pair Verification & Tamper Lockout Simulator
+   * Offline Ed25519 record-seal verification (optionally simulating a tampered payload)
    */
   public async verifyOfflineSeal(proofBadge: any, prescriptionPayload: any, simulateTamper: boolean = false): Promise<OfflineVerificationResult> {
     const res = await apiFetch(`${BASE_URL}/api/security/verify-offline-seal`, {

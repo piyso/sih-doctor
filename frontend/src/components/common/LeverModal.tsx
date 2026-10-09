@@ -163,7 +163,7 @@ export const LeverModal: React.FC<LeverModalProps> = ({ isOpen, onClose }) => {
                 DPDP Act 2023 Air-Gap Sovereign Execution Mode
               </div>
               <div style={{ fontSize: 12, color: '#c7c7cc', marginTop: 2, fontFamily: 'var(--font-sans)' }}>
-                Zero patient health data sent to foreign cloud APIs. Cognitive models, causal DAGs, and ZKP circuits run locally on bare-metal hardware.
+                Zero patient health data sent to foreign cloud APIs. Clinical rules, speech recognition and record signing run locally on the device.
               </div>
             </div>
           </div>
@@ -301,7 +301,7 @@ export const LeverModal: React.FC<LeverModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Subsystem 3: Cryptographic Integrity Arbiter & Evidence Ledger */}
+          {/* Subsystem 3: Record Signatures & Evidence Ledger */}
           <div
             style={{
               background: 'rgba(255, 255, 255, 0.025)',
@@ -316,7 +316,7 @@ export const LeverModal: React.FC<LeverModalProps> = ({ isOpen, onClose }) => {
                   <KeyRound size={18} color="#10b981" />
                 </div>
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: '#ffffff', margin: 0, fontFamily: 'var(--font-sans)' }}>
-                  Subsystem 3: Cryptographic Integrity Arbiter & Evidence Ledger
+                  Subsystem 3: Record Signatures & Evidence Ledger
                 </h3>
               </div>
               <span
@@ -332,7 +332,7 @@ export const LeverModal: React.FC<LeverModalProps> = ({ isOpen, onClose }) => {
                   gap: 4
                 }}
               >
-                <CheckCircle2 size={12} /> GROTH16 / BN128 CIRCUIT
+                <CheckCircle2 size={12} /> ED25519 + SHA-256 CHAIN
               </span>
             </div>
             <div
@@ -347,11 +347,18 @@ export const LeverModal: React.FC<LeverModalProps> = ({ isOpen, onClose }) => {
                 border: '1px solid rgba(255, 255, 255, 0.05)'
               }}
             >
-              Architecture: backend/src/data/zkp_circuit (Groth16 Verifier & BSA §63 Ledger)
+              Architecture: backend/src/security (Ed25519 record signatures, SHA-256 audit and provenance chains)
             </div>
+            {diagnostics?.integrityLedger && (
+              <div style={{ fontSize: 10.5, color: '#c7c7cc', fontFamily: 'var(--font-mono)', marginBottom: 10 }}>
+                Signing key {diagnostics.integrityLedger.signingKeyId ?? 'n/a'} · audit chain{' '}
+                {diagnostics.integrityLedger.auditChain?.valid ? 'intact' : 'BROKEN'} ({diagnostics.integrityLedger.auditChain?.checked ?? 0} entries) · provenance chain{' '}
+                {diagnostics.integrityLedger.provenanceChain?.isValid ? 'intact' : 'BROKEN'} ({diagnostics.integrityLedger.provenanceChain?.totalNodes ?? 0} nodes)
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, fontSize: 11 }}>
               <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', padding: '10px 12px', borderRadius: 8, color: '#c7c7cc' }}>
-                <strong style={{ color: '#10b981' }}>Cryptographic Protocol:</strong> Groth16 zk-SNARK verification on BN128 curve
+                <strong style={{ color: '#10b981' }}>Record signatures:</strong> Ed25519 over canonical JSON; public verify endpoint for offline checks
               </div>
               <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', padding: '10px 12px', borderRadius: 8, color: '#c7c7cc' }}>
                 <strong style={{ color: '#38bdf8' }}>Tamper-Evident Ledger:</strong> BSA 2023 §63 electronic medical evidence hash chain

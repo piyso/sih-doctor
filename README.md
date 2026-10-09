@@ -4,7 +4,7 @@
 **Target Deployment:** Public Health Facilities, District Hospitals, Community Health Centres (CHCs), and Ayushman Arogya Mandirs (PHCs) across Madhya Pradesh and National Health Missions  
 **Statutory Track:** [MPOnline Citizen Health & Digital Infrastructure Initiative](https://innovate.mponline.gov.in/notices) — Focus Areas: Edge Artificial Intelligence, Sovereign Public Health, High-Density Clinical Administration  
 **Statutory Adherence:** Digital Personal Data Protection (DPDP) Act 2023 (§6 & §8) | Ayushman Bharat Digital Mission (ABDM M3) | NRCeS FHIR R4 | Bharatiya Sakshya Adhiniyam (BSA) 2023 §63  
-**Intellectual Property Status:** Proprietary Technology Architecture (Patents Act 1970 & Copyright Act 1957) - All Rights Reserved  
+**Intellectual Property Status:** Software © 2026 Piyush Kumar (Copyright Act 1957). Patent pending for a separate, related technology: Indian application 202531095594 (priority 5 Oct 2025) and PCT/IN2026/052065 (filed 5 Oct 2026), 21 claims, on privacy-preserving distributed retrieval. That application is not part of this repository's code path (see `PATENT_SUBSYSTEM_INTEGRATION_GUIDE.md`)  
 **Live Production Deployment:** [hospitalos-doctor.vercel.app / Live Portal](https://sih-doctor.vercel.app/)  
 **Public Code Repository:** [github.com/piyso/hospitalos-doctor](https://github.com/piyso/sih-doctor)  
 
@@ -21,7 +21,7 @@
    * 2.6 [Legal Risk Elimination & DPDP Act 2023 Compliance](#26-legal-risk-elimination--dpdp-act-2023-compliance)
    * 2.7 [Official References & Bibliographic Sources](#27-official-references--bibliographic-sources)
 3. [Official System Engineering Datasheet](#3-official-system-engineering-datasheet)
-4. [Proprietary Architecture & Core Inventions (In Accessible Terms)](#4-patent-architecture--core-inventions-in-simple-terms)
+4. [Core Technical Approach (In Accessible Terms)](#4-core-technical-approach-in-simple-terms)
 5. [Formal Mathematical Proofs & Scientific Derivations](#5-formal-mathematical-proofs--scientific-derivations)
 6. [Master 22-Battery Empirical Benchmark Scorecard](#6-master-22-battery-empirical-benchmark-scorecard)
 7. [Official Research Corpora & Real Dataset Specifications](#7-official-research-corpora--real-dataset-specifications)
@@ -210,7 +210,7 @@ Below is the consolidated fiscal projection across all 55 districts of Madhya Pr
 ### 2.6 Legal Risk Elimination & DPDP Act 2023 Compliance
 A critical, often unaddressed fiscal exposure in Indian hospital administration is the **Digital Personal Data Protection (DPDP) Act 2023** [19]. Under Section 6, Section 8, and Schedule 1 of the Act, a Data Fiduciary (the hospital or state health society) that fails to implement reasonable security safeguards leading to a breach of personal health information faces statutory penalties of **up to ₹250 Crore per incident** [19].
 
-In current practice, paper slips and unencrypted patient records are routinely photographed and shared over unsecured messaging applications, creating massive legal vulnerabilities. Our system implements Groth16 Zero-Knowledge Cryptography on the Barreto-Naehrig 128-bit pairing curve (BN128) [21, 22]. This allows local kiosks and consultation cabins to mathematically prove the authenticity of a consultation, prescription, and medical license without ever transmitting cleartext patient names, symptoms, or diagnoses outside the hospital walls. The state is fully protected from multi-crore statutory privacy penalties [19].
+In current practice, paper slips and unencrypted patient records are routinely photographed and shared over unsecured messaging applications, creating massive legal vulnerabilities. Our system signs every finalized consultation and prescription with an Ed25519 key held by the hospital and links records in SHA-256 hash chains [21]. Any later edit breaks the signature or the chain, and a second facility can verify a printed prescription offline with the hospital's public key, without any patient data leaving the hospital. The state is fully protected from multi-crore statutory privacy penalties [19].
 
 ---
 
@@ -270,7 +270,7 @@ In current practice, paper slips and unencrypted patient records are routinely p
 | **Cold Boot Latency** | 1.84 seconds from power-on to HTTP/WebSocket ready | Measured on Raspberry Pi 5 NVMe storage |
 | **Memory Footprint** | Peak RSS: 142 MB under load; Idle RSS: 68 MB | Constant memory ceiling over 100,000 cases |
 | **Local Storage Engine** | Embedded SQLite 3.45 in Write-Ahead Logging (WAL) mode | Memory-mapped I/O (`mmap_size = 256MB`), synchronous = NORMAL |
-| **Cryptographic Scheme** | Groth16 zk-SNARK on Barreto-Naehrig 128-bit pairing curve (BN128) | snarkjs v0.7.5 + WebAssembly circuit verifier [22] |
+| **Cryptographic Scheme** | Ed25519 record signatures over canonical JSON; SHA-256 hash-chained audit and provenance logs; AES-256-GCM field encryption with HMAC blind index | Node.js `crypto`; a Groth16/BN128 demo circuit (snarkjs) is kept only as a verifier self-test [22] |
 | **Audio Pipeline** | Far-Field 16 kHz 16-bit PCM Linear Stream with Circular Pre-Roll (500 ms) | Dynamic noise-floor tracking to -57 dBFS, 50Hz hum rejection |
 | **Optical Character Recognition** | Tesseract 5.5.2 NEON SIMD accelerated with Sauvola/Otsu binarization | Hindi (`hin`) + English (`eng`) + OSD scripts [25] |
 | **Healthcare Interoperability** | ABDM FHIR Release 4 (NRCeS Profile M3) | Bundles: Composition, Patient, Condition, MedicationRequest [29] |
@@ -279,9 +279,9 @@ In current practice, paper slips and unencrypted patient records are routinely p
 
 ---
 
-## 4. Patent Architecture & Core Inventions (In Simple Terms)
+## 4. Core Technical Approach (In Simple Terms)
 
-Our proprietary architecture represents a breakthrough in public health engineering. Below is an easy-to-understand explanation of what the technology actually does and why it was built:
+The architecture is built for crowded public-hospital OPDs. Below is an easy-to-understand explanation of what the technology actually does and why it was built:
 
 ### 4.1 What Problem Does This Invention Solve?
 When a rural or urban citizen visits a crowded government hospital in Madhya Pradesh, four major technical breakdowns regularly occur:
@@ -292,16 +292,16 @@ When a rural or urban citizen visits a crowded government hospital in Madhya Pra
 
 ---
 
-### 4.2 How Does Our Patented Technology Fix This?
+### 4.2 How Does the Technology Fix This?
 
-#### 1. Zero-Knowledge Cryptographic Proofs (Absolute Patient Privacy)
-* **In Everyday Words:** Normally, to verify that a medical document is authentic and has not been faked or altered, a hospital has to send the file across the internet to a central cloud server. Our patent uses **Groth16 Zero-Knowledge Cryptography (BN128 curve)** [19, 21, 22]. This allows a local kiosk or phone to mathematically prove that a medical consultation happened, that the doctor was licensed, and that the prescription is genuine—*without revealing the patient's name, illness, or medical history to any outside network*. It is the digital equivalent of proving you have a valid passport without letting anyone read your name or home address [19].
+#### 1. Signed, Hash-Chained Records (Tamper-Evident Patient Records)
+* **In Everyday Words:** To verify that a medical document is authentic, a hospital normally has to trust a central database that an administrator could edit. Our system signs every consultation and prescription with the hospital's Ed25519 key and links records in a SHA-256 hash chain [21]. A kiosk, a phone or another hospital can check a printed prescription offline with the hospital's public key; any altered digit breaks the signature. Patient data stays inside the hospital [19].
 
 #### 2. The Dual-Pharmacology Truth Engine (Stopping Lethal Drug-Herb Interactions)
-* **In Everyday Words:** Our patent includes a specialized Bayesian clinical mathematical engine ($BF_{10}$) [23]. In less than 3 milliseconds, on an offline computer, it cross-references every modern medicine against traditional Ayurvedic herbs, heavy-metal *Bhasmas*, and dietary rules [10, 12, 13, 27, 34–37]. If a patient is prescribed *Warfarin* alongside *Yogaraja Guggulu* (which causes lethal bleeding) [12] or *Digoxin* alongside *Yashtimadhu* (licorice, which causes fatal cardiac arrhythmia) [13], the system immediately flashes an emergency clinical interlock, stopping the mistake before medicine is dispensed.
+* **In Everyday Words:** The system includes a Bayesian clinical mathematical engine ($BF_{10}$) [23]. In less than 3 milliseconds, on an offline computer, it cross-references every modern medicine against traditional Ayurvedic herbs, heavy-metal *Bhasmas*, and dietary rules [10, 12, 13, 27, 34–37]. If a patient is prescribed *Warfarin* alongside *Yogaraja Guggulu* (which causes lethal bleeding) [12] or *Digoxin* alongside *Yashtimadhu* (licorice, which causes fatal cardiac arrhythmia) [13], the system immediately flashes an emergency clinical interlock, stopping the mistake before medicine is dispensed.
 
 #### 3. The Dihedral $D_5$ Error Shield (Eliminating Patient Identity Typos)
-* **In Everyday Words:** Our patent integrates the mathematical **Dihedral Group $D_5$ algorithm** [14]. If a health worker or patient mistypes a single digit or accidentally swaps two adjacent numbers when entering an Aadhaar or ABHA number, the system catches the error 100% of the time, in under 0.001 milliseconds [14]. It prevents medical files from ever being corrupted or swapped.
+* **In Everyday Words:** The system uses the mathematical **Dihedral Group $D_5$ (Verhoeff) algorithm** [14]. If a health worker or patient mistypes a single digit or accidentally swaps two adjacent numbers when entering an Aadhaar or ABHA number, the system catches the error 100% of the time, in under 0.001 milliseconds [14]. It prevents medical files from ever being corrupted or swapped.
 
 #### 4. Far-Field Acoustic Clinical Scribe (Listening Without Cloud Uploads)
 * **In Everyday Words:** While the doctor talks with the patient in Hindi, Hinglish, or regional dialects (Malvi, Bundelkhandi, Nimadi, Bagheli) [39], our embedded audio pipeline listens through an ambient microphone array [15, 38]. It filters out loud hospital background noises and ceiling fan hums, picks up soft patient whispers down to $-42\text{ dBFS}$, and turns the conversation into structured clinical notes—all running locally on the device without sending audio recordings to overseas cloud servers [19, 38].
@@ -313,7 +313,7 @@ When a rural or urban citizen visits a crowded government hospital in Madhya Pra
 
 ## 5. Formal Mathematical Proofs & Scientific Derivations
 
-For technical evaluators, patent examiners, and regulatory authorities, below are the rigorous mathematical proofs underpinning the core engine:
+For technical evaluators and regulatory authorities, below are the rigorous mathematical proofs underpinning the core engine:
 
 ### 5.1 Proof 1: Verhoeff Dihedral Group $D_5$ Transposition Error Detection Theorem
 
@@ -370,24 +370,21 @@ When $BF_{10} \ge 10.0$ (strong evidence threshold on Jeffreys' scale) [23], the
 
 ---
 
-### 5.3 Proof 3: Groth16 Zero-Knowledge Verification on BN128 Bilinear Pairings
+### 5.3 Proof 3: Ed25519 Record Signatures and SHA-256 Hash Chains
 
-* **Cryptographic Reference:** Groth, Jens. *"On the Size of Pairing-based Non-interactive Arguments"*, Advances in Cryptology – EUROCRYPT 2016, Lecture Notes in Computer Science, vol 9666, Springer, pp. 305–326 ([IACR Cryptology ePrint Archive: Report 2016/260](https://eprint.iacr.org/2016/260)) [22].  
-* **Curve Standard:** Barreto-Naehrig Pairing-Friendly Elliptic Curves over Prime Fields ($E(\mathbb{F}_p): y^2 = x^3 + 3$, 254-bit prime order $r$) [22].
+* **Cryptographic Reference:** Bernstein, D. J., Duif, N., Lange, T., Schwabe, P., Yang, B.-Y. (2012). *"High-speed high-security signatures"*, Journal of Cryptographic Engineering 2(2), 77–89 (Ed25519); IETF RFC 8032 (EdDSA); FIPS 180-4 (SHA-256).
+* **Implementation:** `backend/src/security/recordSigning.ts` (signature over the canonical JSON of each finalized record; public-key and `POST /api/security/verify-offline-seal` endpoints in `backend/src/routes/security.routes.ts`), `backend/src/security/audit.ts` (hash-chained audit log) and `backend/src/services/zkProof.service.ts` (per-encounter provenance nodes, `GET /api/security/verify-merkle`).
 
-**Theorem:** The Groth16 zero-knowledge proof verifies consultation record integrity without disclosing patient identity or clinical notes to external audit networks [19, 22].
+**Statement:** A record that verifies under the hospital's Ed25519 public key is byte-for-byte the record that was signed, and any insertion, deletion or edit in the audit or provenance tables is detected by walking the chain.
 
-**Mathematical Formulation:**  
-Let $e: G_1 \times G_2 \to G_T$ be an efficient, non-degenerate bilinear pairing over the Barreto-Naehrig elliptic curve $E(\mathbb{F}_p)$ with order $r$. The proof $\pi$ consists of three group elements:
-$$\pi = (A \in G_1, B \in G_2, C \in G_1)$$
-The verification equation evaluated by our sovereign engine is:
-$$e(A, B) = e(\alpha, \beta) \cdot e(x \cdot \gamma, \delta) \cdot e(C, \gamma)$$
+**Formulation:**  
+For a record $m$ with canonical serialization $c(m)$, the hospital signs $\sigma = \mathrm{Sign}_{sk}(c(m))$ and stores $(m, \sigma, \mathrm{keyId})$. A verifier holding $pk$ accepts iff $\mathrm{Verify}_{pk}(c(m), \sigma) = 1$. Chain rows satisfy $h_i = \mathrm{SHA256}(h_{i-1} \,\|\, \mathrm{row}_i)$ with $h_0$ a fixed genesis value; the chain is valid iff every stored $h_i$ recomputes.
 
 **Security Properties:**
-1. **Completeness:** If the prover honestly executes the arithmetic circuit check $C(\text{ABHA}, \text{Rx}, \text{Timestamp}) = 0$, the pairing equation holds identically.
-2. **Computational Soundness:** Under the $q$-Bi-linear Diffie-Hellman inversion assumption, no polynomial-time adversary can forge a valid proof for an invalid consultation state with probability greater than negligible $\epsilon < 2^{-128}$.
-3. **Zero-Knowledge:** The simulator produces identical distributions on $G_1 \times G_2 \times G_1$ without knowledge of the witness, guaranteeing complete patient privacy under DPDP Act 2023 [19].
-* **Empirical Verification:** Proof verification executes in **5.26 ms** on CPU hardware [22].
+1. **Unforgeability:** Ed25519 is existentially unforgeable under chosen-message attack at the 128-bit security level; a changed dosage field changes $c(m)$ and the signature no longer verifies.
+2. **Tamper-evidence:** altering, removing or reordering any chain row changes every later $h_i$; `verifyAuditChain()` and `verifyFullMerkleChain()` report the first broken row.
+3. **Offline verifiability:** verification needs only $pk$, which can be printed on the prescription or embedded in another facility's kiosk.
+* **Note on zero-knowledge proofs:** the repository also ships a Groth16/BN128 demo circuit (`integrity_check.circom`, $a \cdot b = c$) used solely as a verifier self-test in the test battery [22]. No proof is generated in the product and no proof is bound to a record. Zero-knowledge proofs are not part of this system's security claims.
 
 ---
 
@@ -425,7 +422,7 @@ Across the full suite, **over 140,000 synthetic and real clinical vectors, 269 h
 | **02** | Verhoeff Dihedral $D_5$ Aadhaar KYC | Error-detecting checksum validation over 10,000 UID records | 0.0008 ms/record (100% accuracy) | [14] | [PASS] |
 | **03** | Dual-Pharmacology Truth Engine | Herb-drug cross-reactivity lookup & contraindication detection | 2.50 ms latency (0% false positives) | [10, 12, 13, 23, 27, 34–37] | [PASS] |
 | **04** | ABDM FHIR R4 Interoperability | Complete serialization of Composition, Patient, Condition bundles | 174,241 bundles/second | [29] | [PASS] |
-| **05** | Groth16 zk-SNARK Integrity Seal | Cryptographic zero-knowledge verification over BN128 curve | 5.30 ms proof verification | [19, 22] | [PASS] |
+| **05** | Groth16 verifier self-test (demo circuit) | snarkjs verification of a sample proof and rejection of perturbed proofs; not bound to records | 5.30 ms verification | [22] | [PASS] |
 | **06** | Bare-Metal Concurrency Stress | Continuous heap and event-loop profiling over 100,000 records | 27,415 cases/sec (0 memory leaks) | [17, 40] | [PASS] |
 | **07** | AyushGraph, Hopfield & PAC Gate | Conformal bound evaluation ($1-\alpha = 0.99$) and associative retrieval | 3.90 ms execution latency | [26, 28] | [PASS] |
 | **08** | Core Tri-Subsystem Architecture | Subsystem binding verification across core clinical modules | 7.00 ms initialization | [17, 30] | [PASS] |
@@ -539,7 +536,7 @@ Upon completing an OPD consultation, selecting **"Finalize & Print Official Rx"*
 | **Tri-Coded Diagnosis** | Ayush NAMASTE A-Code, WHO ICD-11 Chapter 26, SNOMED-CT Descriptor | NRCeS Tri-Coding Interoperability [26, 29] |
 | **Formulations & Posology** | Medicine Name, Dosage Form, Frequency (OD/BD/TDS), Timing, *Anupana* | Pharmacopoeia of India (API / IP) [27] |
 | **Lifestyle Guidance** | Prescribed Diet (*Pathya*), Proscribed Diet (*Apathya*), Activity Guidance | Charaka Samhita Swasthavritta [28] |
-| **Cryptographic Seal** | 256-bit SHA-256 Block Hash + Groth16 zk-SNARK BN128 Verification Seal | BSA 2023 §63 [21] & DPDP Act 2023 [19, 22] |
+| **Cryptographic Seal** | SHA-256 record hash, Ed25519 hospital signature, hash-chained provenance node | BSA 2023 §63 [21] & DPDP Act 2023 [19] |
 | **Physical Verification** | 2D QR Code containing ABHA verification URL + Medical Officer Signature | ABDM Scan & Share Compliant [29] |
 
 ---
@@ -582,7 +579,7 @@ Extracted entities are processed locally by the clinical parser to extract sympt
 | **DPDP Act 2023 Compliance** | Non-compliant (Transmits PHI Abroad) | Requires Business Associate Agreements | **Fully Compliant (Zero Egress)** | [19] |
 | **Dual-Pharmacology Safety** | Blind to Classical Formulations | Allopathic Prescriptions Only | **Bayesian Truth Engine ($BF_{10}$)** | [10, 12, 13, 23, 27, 34–37] |
 | **NAMASTE Tri-Coding** | Absent | Absent | **Native (1,941 Morbidity Codes)** | [26] |
-| **Cryptographic Evidence Audit** | Plain text system logs | Centralized Database Logs | **BSA §63 Hash Chain + Groth16** | [21, 22] |
+| **Cryptographic Evidence Audit** | Plain text system logs | Centralized Database Logs | **BSA §63 Hash Chain + Ed25519 Signatures** | [21, 22] |
 | **Peak Transaction Throughput** | 2-5 requests / second | 100-300 requests / second | **16,837 clinical cases / second** | [1, 17] |
 | **Hardware BOM Cost** | Workstation + Cloud OPEX | Enterprise Server Infrastructure | **Rs 13,400 (Raspberry Pi 5)** | [15, 17, 40] |
 | **Monthly Cloud Infrastructure** | Variable (USD 500 - 3,000 / mo) | Enterprise Subscription | **Rs 0 / month** | [15] |
@@ -662,7 +659,7 @@ MPOnline operates the largest citizen service delivery network in Madhya Pradesh
 **ALL RIGHTS RESERVED (C) 2026 PIYUSH KUMAR & NATIONAL HEALTH MISSION (MP) / ALL INDIA INSTITUTE OF AYURVEDA (AIIA).**
 
 ### 15.1 Statutory Intellectual Property Protection
-The technology, algorithmic architectures, zero-knowledge verification circuits, Bayesian Truth Engine, and 3D anatomical models embodied in this repository are protected under:
+The software, algorithmic architectures, Bayesian Truth Engine, and 3D anatomical models embodied in this repository are protected by copyright. A separate patent application is pending (Indian application 202531095594; PCT/IN2026/052065; 21 claims) for a distributed encrypted-retrieval technology that is not part of this repository; no granted patent covers this software. Applicable law:
 * The Patents Act, 1970 (Government of India)
 * The Copyright Act, 1957 (Government of India)
 * The Digital Personal Data Protection Act, 2023 [19]

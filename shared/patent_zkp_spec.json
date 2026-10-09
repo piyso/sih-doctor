@@ -1,39 +1,14 @@
 {
+  "what": "Description of the Groth16/BN128 demo circuit shipped in backend/src/data/zkp_circuit. Not read by application code.",
   "protocol": "Groth16",
   "curve": "bn128",
   "circuitName": "integrity_check",
-  "patentTitle": "Sovereign Clinical Cryptographic Invariance Architecture",
-  "patentClaims": "Statutory Healthcare Cryptographic Verification Architecture",
-  "cryptographicGuarantee": "Proves case-sheet computation and hashing integrity without exposing patient plaintext PHI",
-  "vkSummary": {
-    "protocol": "groth16",
-    "curve": "bn128",
-    "nPublic": 1,
-    "vk_alpha_1": [
-      "0x1cbb321d582b130e9d6efb343ef0ef4c172d113ae8b0e8b233a0ce0bc8351586",
-      "0x0cfec00455db4db5d41cbf4874033b0060fb8f9f0aef4aa3be6f8df784b2eb32",
-      "0x01"
-    ],
-    "vk_beta_2": [
-      [
-        "0x138da7cb920ef0d5d9c7271427c3d2568600c0aa2360a804cefd325cfa790fa1",
-        "0x217d8aeaf664eb28cf1297e6be7781b2382ec2d790d5757d5445778848f0e57e"
-      ],
-      [
-        "0x0d2ffea71cf570d24ff96f8c5b0587289f8eb7d65b2149b01ae20ab160ea3d4d",
-        "0x2b380f2d9193798cf0a9314488b394f4c28f11ecf330ad3c9886a11ec5b8c0aa"
-      ],
-      [
-        "0x01",
-        "0x00"
-      ]
-    ]
-  },
-  "benchmarkMetrics": {
-    "meanVerificationLatencyMs": 4.86,
-    "p95VerificationLatencyMs": 6.09,
-    "p99VerificationLatencyMs": 8.53,
-    "targetCurve": "alt_bn128",
-    "status": "VERIFIED_VALID"
+  "circuitStatement": "a * b == product (2 private inputs, 1 public output; public.json carries 3 signals)",
+  "roleInProduct": "Library self-test for snarkjs verification in backend/tests/zkp_verification.test.ts. The product does not generate proofs and no proof is bound to a clinical record. Record integrity is provided by Ed25519 signatures over canonical JSON and SHA-256 hash chains (backend/src/security, backend/src/services/zkProof.service.ts).",
+  "relationToPatent": "None. The pending application (Indian 202531095594, priority 5 Oct 2025; PCT/IN2026/052065, filed 5 Oct 2026; 21 claims) concerns routing encrypted vector-similarity operations between homomorphic encryption and hardware enclaves across peer nodes. Its claim 18 requires a zero-knowledge proof over the similarity computation executed in an enclave; this demo circuit is not that.",
+  "measured": {
+    "verificationMeanMs_Oct2026_1000trials_AppleM4": 4.7,
+    "verificationP95Ms": 5.41,
+    "source": "complete patent/validation/results/s10_groth16.json"
   }
 }

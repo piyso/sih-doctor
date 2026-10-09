@@ -1,0 +1,561 @@
+{
+ "_about": "HELD-OUT set, written 2026-10-09 after the blind-set fixes and scored without any tuning on it. Fillers and real conversational speech, elderly, women's health, children, ENT, skin, mental health, doctor dictation, chatty Hinglish. Score: npm run test:extraction -- --set holdout Correction after first run: \"कुत्ते ने काट लिया है हाथ पर\" expected rf:false — a dog bite without category-III signs is urgent (same-day vaccine), not an emergency, per the product triage design (e2e flow.spec \"dog bite → HIGH_PRIORITY\").",
+ "cases": [
+  {
+   "t": "हां जी वो क्या है ना मुझे मतलब चार दिन से बुखार आ रहा है",
+   "p": [
+    "fever"
+   ],
+   "d": {
+    "fever": "4 days"
+   }
+  },
+  {
+   "t": "देखिए डॉक्टर साहब पेट में ना बहुत जोर का दर्द है",
+   "p": [
+    "abdominal_pain"
+   ],
+   "sev": {
+    "abdominal_pain": 7
+   }
+  },
+  {
+   "t": "मेरी माताजी हैं इनकी उम्र सत्तर साल है इनको घुटनों में बहुत दर्द रहता है",
+   "p": [
+    "knee_pain"
+   ]
+  },
+  {
+   "t": "बाबूजी को सांस लेने में दिक्कत है और खांसी भी है",
+   "p": [
+    "breathless",
+    "cough"
+   ]
+  },
+  {
+   "t": "इनको बुखार नहीं है लेकिन बदन टूट रहा है",
+   "p": [
+    "bodyache"
+   ],
+   "n": [
+    "fever"
+   ]
+  },
+  {
+   "t": "दो दिन से गले में दर्द है और कान में भी",
+   "p": [
+    "sore_throat",
+    "ear_pain"
+   ],
+   "d": {
+    "sore_throat": "2 days"
+   }
+  },
+  {
+   "t": "आंखों से पानी आ रहा है और खुजली हो रही है",
+   "p": [
+    "eye",
+    "itching"
+   ]
+  },
+  {
+   "t": "सिर घूम रहा है और उल्टी जैसा लग रहा है",
+   "p": [
+    "dizziness",
+    "nausea"
+   ]
+  },
+  {
+   "t": "बार बार पेशाब आता है और प्यास बहुत लगती है",
+   "p": []
+  },
+  {
+   "t": "मेरे बच्चे को तीन दिन से दस्त हैं और वो कुछ खा नहीं रहा",
+   "p": [
+    "diarrhoea"
+   ],
+   "d": {
+    "diarrhoea": "3 days"
+   }
+  },
+  {
+   "t": "बच्ची को रात से तेज बुखार है और बहुत सुस्त है",
+   "p": [
+    "fever"
+   ],
+   "rf": true
+  },
+  {
+   "t": "मेरी वाइफ प्रेग्नेंट है उसको खून आ रहा है",
+   "rf": true
+  },
+  {
+   "t": "पीठ में दर्द है जो पैर तक जाता है",
+   "p": [
+    "back_pain"
+   ]
+  },
+  {
+   "t": "कंधे में दर्द है हाथ ऊपर नहीं उठता",
+   "p": []
+  },
+  {
+   "t": "मन बहुत उदास रहता है नींद नहीं आती",
+   "p": [
+    "insomnia"
+   ]
+  },
+  {
+   "t": "घबराहट होती है और दिल जोर से धड़कता है",
+   "p": [
+    "palpitations"
+   ]
+  },
+  {
+   "t": "चेहरे पर दाने हो गए हैं",
+   "p": [
+    "rash"
+   ]
+  },
+  {
+   "t": "मुंह में छाले हैं खाना खाने में दिक्कत",
+   "p": []
+  },
+  {
+   "t": "पैर में मोच आ गई है सूजन है",
+   "p": [
+    "swelling"
+   ]
+  },
+  {
+   "t": "हाथ कट गया है खून नहीं रुक रहा",
+   "rf": true
+  },
+  {
+   "t": "मुझे खांसी नहीं है, बुखार नहीं है, सिर्फ नाक बह रही है",
+   "p": [
+    "cold"
+   ],
+   "n": [
+    "cough",
+    "fever"
+   ]
+  },
+  {
+   "t": "उल्टी दस्त कुछ नहीं, बस भूख नहीं लगती",
+   "p": [
+    "appetite_loss"
+   ],
+   "n": [
+    "vomiting",
+    "diarrhoea"
+   ]
+  },
+  {
+   "t": "सीने में दर्द तो नहीं है पर भारीपन सा लगता है",
+   "p": [
+    "chest_pain"
+   ],
+   "rf": true
+  },
+  {
+   "t": "दर्द कम नहीं हो रहा दवा खाने के बाद भी पेट में",
+   "p": [
+    "abdominal_pain"
+   ]
+  },
+  {
+   "t": "बुखार बार बार आता है ठंड लगकर",
+   "p": [
+    "fever"
+   ]
+  },
+  {
+   "t": "हफ्ते भर से कमजोरी है",
+   "p": [
+    "weakness"
+   ],
+   "d": {
+    "weakness": "1 week"
+   }
+  },
+  {
+   "t": "छह महीने से जोड़ों में दर्द और सूजन है",
+   "p": [
+    "joint_pain"
+   ],
+   "d": {
+    "joint_pain": "6 months"
+   }
+  },
+  {
+   "t": "बीपी एक सौ नब्बे बटा एक सौ दस आया है और सिर फट रहा है",
+   "v": {
+    "bp": "190/110"
+   },
+   "p": [
+    "headache"
+   ],
+   "rf": true
+  },
+  {
+   "t": "शुगर चार सौ पचास है",
+   "v": {
+    "bloodSugar": 450
+   }
+  },
+  {
+   "t": "बुखार एक सौ तीन था कल रात",
+   "v": {
+    "temp": "103°F"
+   },
+   "p": [
+    "fever"
+   ]
+  },
+  {
+   "t": "पल्स एक सौ चालीस है और घबराहट है",
+   "v": {
+    "pulse": 140
+   }
+  },
+  {
+   "t": "पांच साल से शुगर की दवा चल रही है",
+   "h": [
+    "diabetes"
+   ]
+  },
+  {
+   "t": "मुझे अस्थमा है इनहेलर लेता हूं",
+   "h": [
+    "asthma"
+   ]
+  },
+  {
+   "t": "थायराइड की कोई बीमारी नहीं है",
+   "nh": [
+    "thyroid"
+   ]
+  },
+  {
+   "t": "दस साल पहले पथरी का ऑपरेशन हुआ था अभी पेट ठीक है बस सिरदर्द है",
+   "p": [
+    "headache"
+   ],
+   "n": [
+    "abdominal_pain"
+   ]
+  },
+  {
+   "t": "पिछले साल डेंगू हुआ था इस बार बस हल्का बुखार है",
+   "p": [
+    "fever"
+   ]
+  },
+  {
+   "t": "एक घंटे पहले बेहोश हो गई थी",
+   "rf": true
+  },
+  {
+   "t": "बच्चे ने कुछ जहरीला खा लिया है",
+   "rf": true
+  },
+  {
+   "t": "कुत्ते ने काट लिया है हाथ पर",
+   "rf": false
+  },
+  {
+   "t": "दाईं तरफ का हाथ और पैर अचानक कमजोर हो गए",
+   "rf": true
+  },
+  {
+   "t": "बस चेकअप के लिए आया हूं कोई तकलीफ नहीं",
+   "rf": false
+  },
+  {
+   "t": "दांत में हल्का सा दर्द है",
+   "p": [
+    "toothache"
+   ],
+   "rf": false
+  },
+  {
+   "t": "पैर में खुजली है",
+   "p": [
+    "itching"
+   ],
+   "rf": false
+  },
+  {
+   "t": "haan ji dard hai pet me teen din se",
+   "p": [
+    "abdominal_pain"
+   ],
+   "d": {
+    "abdominal_pain": "3 days"
+   }
+  },
+  {
+   "t": "bukhar bhi hai aur badan bhi toot raha hai",
+   "p": [
+    "fever",
+    "bodyache"
+   ]
+  },
+  {
+   "t": "kal raat se ulti ho rahi hai 4-5 baar",
+   "p": [
+    "vomiting"
+   ],
+   "d": {
+    "vomiting": "since last night"
+   }
+  },
+  {
+   "t": "naak band hai aur sar bhaari hai",
+   "p": [
+    "cold",
+    "headache"
+   ]
+  },
+  {
+   "t": "sukhi khansi hai, balgam nahi aata",
+   "p": [
+    "cough"
+   ]
+  },
+  {
+   "t": "seene me dard nahi hai bas gas hai",
+   "p": [
+    "gas"
+   ],
+   "n": [
+    "chest_pain"
+   ],
+   "rf": false
+  },
+  {
+   "t": "meri maa ko chakkar aate hai aur bp low rehta hai",
+   "p": [
+    "dizziness"
+   ]
+  },
+  {
+   "t": "periods time pe nahi aa rahe aur pet dard hai",
+   "p": [
+    "abdominal_pain"
+   ]
+  },
+  {
+   "t": "skin pe laal daane hai aur khujli",
+   "p": [
+    "rash",
+    "itching"
+   ]
+  },
+  {
+   "t": "ek hafte se loose motion hai",
+   "p": [
+    "diarrhoea"
+   ],
+   "d": {
+    "diarrhoea": "1 week"
+   }
+  },
+  {
+   "t": "pair me sujan hai subah se",
+   "p": [
+    "swelling"
+   ]
+  },
+  {
+   "t": "galti se bachhe ne mitti ka tel pi liya",
+   "rf": true
+  },
+  {
+   "t": "papa ka muh tedha ho gaya aur bol nahi pa rahe",
+   "rf": true
+  },
+  {
+   "t": "sugar 60 hai aur pasina aa raha hai",
+   "v": {
+    "bloodSugar": 60
+   }
+  },
+  {
+   "t": "bp 200/120 hai aur sar me tez dard",
+   "v": {
+    "bp": "200/120"
+   },
+   "rf": true
+  },
+  {
+   "t": "Patient complains of fever for five days with chills and body ache",
+   "p": [
+    "fever",
+    "bodyache"
+   ],
+   "d": {
+    "fever": "5 days"
+   }
+  },
+  {
+   "t": "Complains of burning micturition and increased frequency for two days",
+   "p": [
+    "dysuria"
+   ],
+   "d": {
+    "dysuria": "2 days"
+   }
+  },
+  {
+   "t": "No history of fever, cough or weight loss",
+   "n": [
+    "fever"
+   ]
+  },
+  {
+   "t": "Pain abdomen since morning, no vomiting",
+   "p": [
+    "abdominal_pain"
+   ],
+   "n": [
+    "vomiting"
+   ]
+  },
+  {
+   "t": "Known case of hypertension and diabetes on regular medication",
+   "h": [
+    "hypertension",
+    "diabetes"
+   ]
+  },
+  {
+   "t": "BP 130/80, pulse 76, SpO2 98 percent, afebrile",
+   "v": {
+    "bp": "130/80",
+    "pulse": 76,
+    "spo2": "98%"
+   }
+  },
+  {
+   "t": "Throat pain and difficulty swallowing for three days",
+   "p": [
+    "sore_throat"
+   ],
+   "d": {
+    "sore_throat": "3 days"
+   }
+  },
+  {
+   "t": "Headache with vomiting since yesterday",
+   "p": [
+    "headache",
+    "vomiting"
+   ],
+   "d": {
+    "headache": "1 day"
+   }
+  },
+  {
+   "t": "Lower back pain radiating to left leg for two weeks",
+   "p": [
+    "back_pain"
+   ],
+   "d": {
+    "back_pain": "2 weeks"
+   }
+  },
+  {
+   "t": "My ear has been aching and there is some discharge",
+   "p": [
+    "ear_pain"
+   ]
+  },
+  {
+   "t": "My eyes are red and itchy",
+   "p": [
+    "eye"
+   ]
+  },
+  {
+   "t": "I have a toothache on the left side",
+   "p": [
+    "toothache"
+   ]
+  },
+  {
+   "t": "I feel weak and my legs are swollen",
+   "p": [
+    "weakness",
+    "swelling"
+   ]
+  },
+  {
+   "t": "I don't feel like eating and I'm always tired",
+   "p": [
+    "weakness"
+   ]
+  },
+  {
+   "t": "I've been feeling low and can't sleep properly",
+   "p": [
+    "insomnia"
+   ]
+  },
+  {
+   "t": "There's no fever but my whole body aches",
+   "p": [
+    "bodyache"
+   ],
+   "n": [
+    "fever"
+   ]
+  },
+  {
+   "t": "I am not vomiting anymore but still have loose motions",
+   "p": [
+    "diarrhoea"
+   ],
+   "n": [
+    "vomiting"
+   ]
+  },
+  {
+   "t": "Severe chest tightness and sweating for the last hour",
+   "p": [
+    "chest_pain"
+   ],
+   "rf": true
+  },
+  {
+   "t": "My mother collapsed and is not responding",
+   "rf": true
+  },
+  {
+   "t": "He swallowed rat poison",
+   "rf": true
+  },
+  {
+   "t": "I'm here for my monthly BP check, no complaints",
+   "rf": false
+  },
+  {
+   "t": "Just a mild headache, nothing serious",
+   "p": [
+    "headache"
+   ],
+   "rf": false
+  },
+  {
+   "t": "Itchy rash on both arms for a week",
+   "p": [
+    "itching",
+    "rash"
+   ],
+   "d": {
+    "rash": "1 week"
+   }
+  }
+ ]
+}

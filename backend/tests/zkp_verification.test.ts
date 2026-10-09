@@ -1,7 +1,8 @@
 /**
- * Groth16 zk-SNARK Cryptographic Soundness & Integrity Benchmark
- * Ported from patent/proof. and fixing/zkp_verifier_benchmark.js
- * Evaluates BN128 curve verification latency and deterministic rejection of perturbed proofs.
+ * Groth16/BN128 verifier self-test on the demo circuit (a*b == product, 3 public signals).
+ * Checks that snarkjs verifies the sample proof and rejects perturbed proofs and signals, and
+ * reports verification latency. This is a library self-test: the product does not generate
+ * proofs and no proof is bound to a clinical record. Not part of the pending patent application.
  */
 
 import { ZkProofService } from '../src/services/zkProof.service';
@@ -10,7 +11,7 @@ import path from 'path';
 
 export async function runZkpBenchmark(iterations: number = 20) {
   console.log(`\n========================================================================`);
-  console.log(`  RUNNING PATENT zk-SNARK (GROTH16/BN128) CRYPTOGRAPHIC INTEGRITY TEST`);
+  console.log(`  RUNNING GROTH16/BN128 VERIFIER SELF-TEST (DEMO CIRCUIT a*b = product)`);
   console.log(`========================================================================`);
 
   const circuitDir = path.resolve(__dirname, '../src/data/zkp_circuit');
@@ -47,16 +48,16 @@ export async function runZkpBenchmark(iterations: number = 20) {
   const resPerturbed = await ZkProofService.verifyProof(tamperedProof, publicSignals);
   const perturbedCaught = !resPerturbed.isValid;
 
-  console.log(`• Protocol:                 Groth16`);
+  console.log(`• Protocol:                 Groth16 (demo circuit, 3 public signals; not record-bound)`);
   console.log(`• Elliptic Curve:           BN128 (alt_bn128)`);
   console.log(`• Valid Proofs Verified:    ${validPassed} / ${iterations} (100.00%)`);
   console.log(`• Mean Verification Speed:  ${meanLatency.toFixed(2)} ms`);
   console.log(`• p95 Verification Speed:   ${p95Latency.toFixed(2)} ms`);
-  console.log(`• 1-Bit Signal Flip Attack: ${tamperedCaught ? 'CAUGHT & REJECTED (100% Soundness)' : 'FAILED'}`);
-  console.log(`• Proof Tampering Attack:   ${perturbedCaught ? 'CAUGHT & REJECTED (100% Soundness)' : 'FAILED'}`);
+  console.log(`• 1-Bit Signal Flip Attack: ${tamperedCaught ? 'REJECTED' : 'FAILED'}`);
+  console.log(`• Proof Tampering Attack:   ${perturbedCaught ? 'REJECTED' : 'FAILED'}`);
 
   const passed = validPassed === iterations && tamperedCaught && perturbedCaught && meanLatency < 60;
-  console.log(`• Status:                   ${passed ? 'PASSED (CRYPTOGRAPHICALLY SOUND & VERIFIED)' : 'FAILED'}`);
+  console.log(`• Status:                   ${passed ? 'PASSED (verifier self-test)' : 'FAILED'}`);
   console.log(`========================================================================\n`);
 
   return { passed, meanLatency, p95Latency };

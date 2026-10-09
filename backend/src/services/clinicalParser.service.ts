@@ -7,6 +7,8 @@
 import crypto from 'crypto';
 import { SocratesSymptom, AllopathicMedication, AyushFormulation, DashavidhaPariksha, AgniType } from '../shared/types';
 import { PhoneticNormalizerService } from './phoneticNormalizer.service';
+import { clauseAt, findDurations, findPhrase, isHistorical, negationAt, normWord, parseVitals, sentenceAt, severityIn, tokens, windowAt, Found } from './clinicalText';
+import { attachedSites, conceptMentions, ConceptMention } from './clinicalLexicon';
 
 export interface CausalDagOverrideInfo {
   vernacularTerm: string;
@@ -65,6 +67,143 @@ export interface ExtractedClinicalRecord {
   airborneIsolationInfo?: AirborneIsolationInfo;
   isMalingeringSuspected?: boolean;
 }
+
+// ---------------------------------------------------------------- Shared helpers for symptom reading
+
+/** Symptom families: parser names that mean the same complaint ("Fever", "High Grade Fever / Teekshna Jwara"). */
+const SYMPTOM_FAMILIES: Array<[string, RegExp]> = [
+  ['chest_pain', /chest|substernal|angina|precordial/i],
+  ['headache', /headache|migraine|ardhavabhedaka/i],
+  ['abdominal_pain', /abdominal pain|abdominal colic|stomach|udara|umbilical|nabhi|pelvic|hypogastric|appendic|epigastric pain/i],
+  ['acidity', /acidity|heartburn|amlapitta|pyrosis|gerd|dyspepsia|eructation/i],
+  ['gas', /flatulence|aanaha|distension|bloating/i],
+  ['fever', /fever|jwara/i],
+  ['cough', /cough|kasa/i],
+  ['vomiting', /vomit/i],
+  ['nausea', /nausea|hrillasa/i],
+  ['diarrhoea', /diarrh|loose|atisara/i],
+  ['breathless', /dyspn|breath|shwasa/i],
+  ['dizziness', /vertigo|giddi|dizz/i],
+  ['weakness', /weakness|asthenia|fatigue|lethargy/i],
+  ['back_pain', /back pain|kati/i],
+  ['knee_pain', /knee|janu/i],
+  ['joint_pain', /joint|arthral|sandhi/i],
+  ['dysuria', /dysuria|micturition/i],
+  ['constipation', /constipation|vibandha/i],
+  ['sore_throat', /sore throat|pharyn|kantharoga/i],
+  ['bodyache', /bodyache|body ache|angamarda/i],
+  ['appetite_loss', /appetite|anorexia|aruchi/i],
+  ['insomnia', /insomnia|anidra/i],
+  ['itching', /itch|prurit/i],
+  ['rash', /rash|eruption|dermat/i],
+  ['palpitations', /palpitation|tachycardia/i],
+  ['sweating', /diaphoresis/i],
+  ['arm_pain', /\barm\b|hand|wrist/i]
+];
+export const symptomFamily = (name: string): string | null => SYMPTOM_FAMILIES.find(([, re]) => re.test(name || ''))?.[0] ?? null;
+
+const WB = (src: string) => new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])(?:${src})(?![\\p{L}\\p{M}\\p{N}])`, 'giu');
+/** Past history phrases; a denial ("sugar nahi hai", "no history of diabetes") is checked separately. */
+const HISTORY_PATTERNS: Array<[string, RegExp]> = [
+  ['Type 2 Diabetes Mellitus', WB('diabetes|diabetic|madhumeha?|prameha|मधुमेह|डायबिटीज़?|डायबिटीस|insulin|इंसुलिन|metformin|मेटफॉर्मिन|glimepiride|' +
+    'sugar(?:\\s+(?:ki|ka|ke))?\\s+(?:bimari|beemari|bimaari|problem|dawai|dawa|dava|tablet|goli|patient|mareez|marij|hai|h|he)|' +
+    '(?:sugar|शुगर)\\s+(?:\\d+\\s+)?(?:saal|sal|years?|साल|वर्ष)|शुगर(?:\\s+(?:की|का|के))?\\s+(?:बीमारी|दवा|दवाई|गोली|मरीज|प्रॉब्लम|है)')],
+  ['Essential Hypertension', WB('hypertension|hypertensive|high\\s*(?:bp|b\\.?p\\.?|blood\\s*pressure)|uchch?a?\\s*raktachap|bp\\s*(?:high|ki\\s+(?:bimari|dawai|dawa|goli|tablet|problem)|ka\\s+(?:mareez|patient)|rehta|rahta)|' +
+    'blood\\s*pressure\\s+(?:ki|ka)\\s+(?:bimari|dawai|dawa)|उच्च\\s*रक्तचाप|हाई\\s*(?:बीपी|ब्लड\\s*प्रेशर)|(?:बीपी|बी\\s*पी)\\s*(?:की|का)\\s*(?:बीमारी|दवा|दवाई|गोली|मरीज)|बीपी\\s*(?:हाई|रहता)|amlodipine|telmisartan|losartan')],
+  ['Pulmonary Tuberculosis', WB('tb|t\\.b\\.|tuberculosis|tapedik|टीबी|तपेदिक|kshay\\s*rog|क्षय\\s*रोग')],
+  ['Bronchial Asthma', WB('asthma|asthmatic|dama|दमा|अस्थमा|shwas\\s*roga?|inhaler|इनहेलर')],
+  ['Hypothyroidism', WB('thyroid|hypothyroid(?:ism)?|थायराइड|थायरॉइड|थाइरॉइड|levothyroxine|thyronorm|eltroxin')],
+  ['Coronary Artery Disease', WB('heart\\s*attack|stent|angioplasty|bypass|cad|coronary\\s*artery\\s*disease|दिल\\s*का\\s*दौरा|हार्ट\\s*अटैक|स्टेंट|एंजियोप्लास्टी')],
+  ['Chronic Kidney Disease', WB('dialysis|kidney\\s*(?:failure|disease)|kidney\\s*ki\\s*bimari|ckd|डायलिसिस|किडनी\\s*(?:फेल|की\\s*बीमारी)')]
+];
+
+/** True when some match of a global regex is neither denied nor past history ("chest pain last year"). */
+function affirmedMatch(re: RegExp, text: string): boolean {
+  for (const m of text.matchAll(re)) {
+    const a = m.index!, b = a + m[0].length;
+    if (!negationAt(text, a, b).negated && !isHistorical(text, a, b)) return true;
+  }
+  return false;
+}
+
+const CHRONIC_TERMS: Array<[string, RegExp]> = [
+  ['Type 2 Diabetes Mellitus', WB('sugar|शुगर|शूगर|शक्कर')],
+  ['Essential Hypertension', WB('bp|b\\.p\\.|बीपी|बी\\s*पी|blood\\s*pressure|ब्लड\\s*प्रेशर|pressure|प्रेशर')]
+];
+const CHRONIC_CONTEXT = new RegExp(`(?<![\\p{L}\\p{M}])(?:dawai|dawa|dava|davai|दवा|दवाई|गोली|goli|tablet|tablets|टेबलेट|टैबलेट|medicine|medicines|refill|insulin|इंसुलिन|मरीज|मरीज़|mareez|marij|patient|rehta|rahta|rehti|रहता|रहती|bimari|beemari|बीमारी|control|कंट्रोल|saal\\s+se|साल\\s+से|years)(?![\\p{L}\\p{M}])`, 'iu');
+
+/** Pain character stated in a clause, or '' when the patient did not describe one. */
+function characterOf(clause: string): string {
+  const c = clause.toLowerCase();
+  if (/(burning|jalan|daha|जलन|दाह|जळजळ|জ্বালা|எரிச்சல்|காந்தல்|మంట|తాపం)/i.test(c)) return 'Burning sensation (Daha)';
+  if (/(crushing|heaviness|dabaav|bojh|vajan|भारी\s*दबाव|भारीपन|वजन|दाटून|অসহ্য\s*চাপ|அழுத்தம்|பிசைதல்|ఒత్తిడి)/i.test(c)) return 'Crushing heaviness';
+  if (/(sharp|pricking|stabbing|chubhan|toda|तेज़\s*चुभन|तीक्ष्ण|टोचणे|তীব্র\s*সূঁচালো|குத்தல்|సూది\s*నొప్పి)/i.test(c)) return 'Sharp pricking (Toda)';
+  if (/(throbbing|pulsatile|dhadak|tees|धड़कता|ठसठस|धडधड|টনটনানি|துடிக்கும்|అదిరే)/i.test(c)) return 'Throbbing / Pulsatile';
+  if (/(stiffness|stambha|jakdan|akdan|जकड़न|अकड़न|ताठरपणा|আড়ষ্টতা|விறைப்பு|బిగుతు)/i.test(c)) return 'Stiffness / Stambha';
+  if (/(dull|aching|dhima|dheema|धीमा|halka\s*dard|हल्का\s*दर्द|bheda)/i.test(c)) return 'Dull aching (Bheda)';
+  return ''; // not described: never invent a pain character
+}
+
+/** The duration said in the same clause as a mention (else the same sentence, else the only one said). */
+function durationFor(text: string, pos: number, durations: Array<Found<string>>): string {
+  if (!durations.length) return '';
+  const [ca, cb] = clauseAt(text, pos);
+  const inClause = durations.find(d => d.start >= ca && d.start < cb);
+  if (inClause) return inClause.value;
+  const [sa, sb] = sentenceAt(text, pos);
+  const inSentence = durations.filter(d => d.start >= sa && d.start < sb);
+  if (inSentence.length === 1) return inSentence[0].value;
+  return durations.length === 1 ? durations[0].value : '';
+}
+
+/** Body site + finding → symptom. Order matters: the first rule whose site and finding both match wins. */
+const SITE_RULES: Array<[string[], string[], string, string]> = [
+  [['S_HEAD'], ['F_PAIN', 'F_PRESSURE'], 'Headache', 'Head'],
+  [['S_CHEST', 'S_HEART'], ['F_BURN'], 'Heartburn / Acidity / Dyspepsia', 'Retrosternal / Epigastrium'],
+  [['S_CHEST', 'S_HEART'], ['F_PAIN', 'F_PRESSURE', 'F_STIFF'], 'Chest Pain', 'Substernal'],
+  [['S_CHEST', 'S_HEART'], ['F_TROUBLE'], 'Chest Discomfort', 'Substernal'],
+  [['S_BREATH'], ['F_TROUBLE'], 'Dyspnea / Shortness of Breath', 'Respiratory'],
+  [['S_STOMACH'], ['F_BURN'], 'Heartburn / Acidity / Dyspepsia', 'Epigastrium'],
+  [['S_STOMACH'], ['F_PAIN', 'F_CRAMP'], 'Abdominal Pain', 'Abdomen'],
+  [['S_STOMACH'], ['F_SWELL'], 'Abdominal Distension / Aanaha', 'Abdomen'],
+  [['S_STOMACH'], ['F_TROUBLE'], 'Abdominal Discomfort', 'Abdomen'],
+  [['S_URINE'], ['F_BURN', 'F_PAIN'], 'Dysuria / Burning Micturition', 'Urinary tract'],
+  [['S_URINE'], ['F_TROUBLE'], 'Difficulty Passing Urine / Mutrakrichra', 'Urinary tract'],
+  [['S_THROAT'], ['F_PAIN', 'F_BURN', 'F_SORE_THROAT', 'F_SWELL', 'F_TROUBLE'], 'Sore Throat', 'Throat'],
+  [['S_KNEE'], ['F_PAIN', 'F_SWELL', 'F_STIFF'], 'Knee Joint Pain', 'Knee'],
+  [['S_JOINT'], ['F_SWELL'], 'Joint Inflammation / Sandhishotha', 'Joints'],
+  [['S_JOINT'], ['F_PAIN', 'F_STIFF'], 'Joint Pain / Arthralgia', 'Joints'],
+  [['S_LOWBACK', 'S_BACK'], ['F_PAIN', 'F_STIFF', 'F_CRAMP'], 'Low Back Pain / Kati Shoola', 'Lumbar'],
+  [['S_NECK'], ['F_PAIN', 'F_STIFF'], 'Neck Pain', 'Neck'],
+  [['S_SHOULDER'], ['F_PAIN', 'F_STIFF'], 'Shoulder Pain', 'Shoulder'],
+  [['S_ARM', 'S_FINGER'], ['F_PAIN'], 'Arm / Hand Pain', 'Arm & Hand'],
+  [['S_LEG', 'S_FOOT', 'S_HEEL', 'S_HIP'], ['F_CRAMP'], 'Muscle Cramps / Pindikodveshtana', 'Leg'],
+  [['S_LEG', 'S_FOOT', 'S_HEEL', 'S_HIP'], ['F_PAIN'], 'Leg / Foot Pain', 'Leg & Foot'],
+  [['S_LEG', 'S_FOOT', 'S_HEEL'], ['F_SWELL'], 'Leg / Foot Swelling', 'Leg & Foot'],
+  [['S_EAR'], ['F_PAIN', 'F_PUS', 'F_TROUBLE'], 'Ear Pain / Discharge', 'Ear'],
+  [['S_TOOTH'], ['F_PAIN', 'F_SWELL'], 'Toothache', 'Teeth'],
+  [['S_EYE'], ['F_PAIN', 'F_RED', 'F_ITCH', 'F_PUS', 'F_BURN', 'F_SWELL', 'F_TROUBLE'], 'Eye Pain / Redness', 'Eye'],
+  [['S_BODY'], ['F_PAIN'], 'Generalized Bodyache / Angamarda', 'General'],
+  [['S_SKIN'], ['F_RASH'], 'Skin Eruptions / Rash', 'Skin'],
+  [['S_SKIN'], ['F_ITCH', 'F_BURN'], 'Pruritus / Itching', 'Skin'],
+  [['S_ANUS'], ['F_PAIN', 'F_ITCH', 'F_BURN', 'F_BLOOD'], 'Hemorrhoids / Arsha', 'Anorectal']
+];
+/** Findings that are a symptom on their own. */
+const FINDING_RULES: Record<string, [string, string]> = {
+  F_FEVER: ['Fever', 'Systemic'], F_COUGH: ['Cough', 'Respiratory tract'], F_PHLEGM: ['Productive Cough', 'Respiratory tract'],
+  F_VOMIT: ['Vomiting', 'GI'], F_NAUSEA: ['Nausea / Hrillasa', 'GI'], F_DIARRHOEA: ['Diarrhea', 'GI'], F_CONSTIP: ['Constipation', 'GI'],
+  F_GAS: ['Flatulence / Aanaha', 'Abdomen'], F_BLOAT: ['Flatulence / Aanaha', 'Abdomen'], F_ACID: ['Heartburn / Acidity / Dyspepsia', 'Epigastrium'],
+  F_DIZZY: ['Vertigo / Giddiness', 'Head'], F_BREATHLESS: ['Dyspnea / Shortness of Breath', 'Respiratory'], F_WHEEZE: ['Wheezing / Stridor', 'Respiratory'],
+  F_WEAK: ['General Weakness / Asthenia', 'General'], F_RASH: ['Skin Eruptions / Rash', 'Skin'], F_ITCH: ['Pruritus / Itching', 'Skin'],
+  F_PALPIT: ['Palpitations', 'Precordium'], F_SWEAT: ['Diaphoresis', 'General'], F_CHILLS: ['Chills / Rigors', 'Systemic'],
+  F_NUMB: ['Numbness / Tingling', 'Peripheral'], F_STONE: ['Renal Calculi Colic / Ashmari', 'Flank'], F_HOARSE: ['Hoarseness of Voice', 'Throat'],
+  F_COLD: ['Common Cold / Coryza (Pratishyaya)', 'Nose'], F_THIRST: ['Polydipsia / Pipasa', 'Systemic'], F_ANXIETY: ['Anxiety / Ghabrahat', 'General'],
+  F_SAD: ['Low Mood', 'General'], F_TREMOR: ['Tremor', 'General'], F_RINGING: ['Tinnitus', 'Ear'], F_SORE_THROAT: ['Sore Throat', 'Throat'],
+  F_BODYACHE: ['Generalized Bodyache / Angamarda', 'General'], F_SWELL: ['Swelling', 'Unspecified'],
+  F_DROWSY: ['Drowsiness / Lethargy (Tandra)', 'CNS']
+};
+/** Words that turn appetite / sleep into a complaint ("bhookh kam lagti hai", "poor sleep"). */
+const LOSS_WORDS = /(?<![\p{L}\p{M}])(?:loss|lost|less|poor|reduced|decreased|no|not|can't|cant|cannot|unable|hard|difficult|difficulty|trouble|kam|nahi|nahin|na|kamee|कम|नहीं|ना|न|problem|dikkat|takleef|दिक्कत|तकलीफ|प्रॉब्लम|परेशानी)(?![\p{L}\p{M}])/iu;
 
 export class ClinicalParserService {
   // Multilingual Symptom Lexicon (Hinglish + English + Devanagari Hindi + Indic)
@@ -471,6 +610,149 @@ export class ClinicalParserService {
     { regex: /\b(?:zarurat\s*padne\s*par|when\s*required|as\s*needed|sos|prn)\b/i, code: 'SOS' as const }
   ];
 
+  private static keyIndex: Map<string, string[]> | null = null;
+  /** symptomMap keys grouped by the first letter of their first word. */
+  private static keysByInitial(): Map<string, string[]> {
+    if (!this.keyIndex) {
+      this.keyIndex = new Map();
+      for (const key of Object.keys(this.symptomMap)) {
+        const c = this.firstWord(key)[0] || '';
+        this.keyIndex.set(c, [...(this.keyIndex.get(c) || []), key]);
+      }
+    }
+    return this.keyIndex;
+  }
+  private static firstWords = new Map<string, string>();
+  private static firstWord(phrase: string): string {
+    let w = this.firstWords.get(phrase);
+    if (w === undefined) { w = normWord(phrase.trim().split(/[\s\-]+/)[0] || ''); this.firstWords.set(phrase, w); }
+    return w;
+  }
+
+  /** Reads every mention of one phrase: present if any mention is not denied; duration, severity, character from its clause. */
+  private static readMentions(text: string, spans: Array<[number, number]>, durations: Array<Found<string>>) {
+    let affirmed = false;
+    let duration = '';
+    let severity = 0;
+    let character = '';
+    for (const [a, b] of spans) {
+      if (negationAt(text, a, b).negated || isHistorical(text, a, b)) continue;
+      affirmed = true;
+      const [ca, cb] = clauseAt(text, a);
+      const clause = text.slice(ca, cb);
+      duration ||= durationFor(text, a, durations);
+      severity = Math.max(severity, severityIn(windowAt(text, a, b)));
+      if (!character) character = characterOf(clause);
+    }
+    return { affirmed, duration, severity, character };
+  }
+
+  /** Symptoms from the concept lexicon: each finding paired with the nearest body site in its clause. */
+  private static symptomsFromConcepts(raw: string, durations: Array<Found<string>>): SocratesSymptom[] {
+    const ms = conceptMentions(raw);
+    if (!ms.length) return [];
+    const words = tokens(raw).filter(t => !t.punct);
+    const wordIndex = (pos: number) => { let i = 0; while (i < words.length && words[i].end <= pos) i++; return i; };
+    const sites = ms.filter(m => m.concepts.some(c => c.startsWith('S_')));
+    const nearestSite = (m: ConceptMention): ConceptMention | null => {
+      if (m.concepts.some(c => c.startsWith('S_'))) return m;
+      const [ca, cb] = clauseAt(raw, m.start);
+      let best: ConceptMention | null = null;
+      let bestD = 7;
+      for (const sm of sites) {
+        if (sm.start < ca || sm.start >= cb) continue;
+        const d = Math.abs(wordIndex(sm.start) - wordIndex(m.start));
+        if (d < bestD) { best = sm; bestD = d; }
+      }
+      return best;
+    };
+    const out = new Map<string, { site: string; present: boolean; negated: boolean; duration: string; severity: number; raw: string }>();
+    const note = (name: string, site: string, m: ConceptMention, present: boolean) => {
+      const e = out.get(name) || { site, present: false, negated: false, duration: '', severity: 0, raw: raw.slice(m.start, m.end) };
+      if (present) {
+        e.present = true;
+        e.duration ||= durationFor(raw, m.start, durations);
+        e.severity = Math.max(e.severity, severityIn(windowAt(raw, m.start, m.end)));
+      } else e.negated = true;
+      out.set(name, e);
+    };
+    const clauseOf = (m: ConceptMention) => { const [a, b] = clauseAt(raw, m.start); return raw.slice(a, b); };
+
+    // a site in the next clause of the same sentence, if its own clause has no complaint ("दर्द है लेकिन…, पेट में")
+    const sentenceSite = (m: ConceptMention): ConceptMention | null => {
+      const [sa, sb] = sentenceAt(raw, m.start);
+      let best: ConceptMention | null = null;
+      let bestD = 9;
+      for (const sm of sites) {
+        if (sm.start < sa || sm.start >= sb || sm.historical) continue;
+        const [ca, cb] = clauseAt(raw, sm.start);
+        if (ms.some(x => x !== sm && x.start >= ca && x.start < cb && x.concepts.some(c => c.startsWith('F_')))) continue;
+        const d = Math.abs(wordIndex(sm.start) - wordIndex(m.start));
+        if (d < bestD) { best = sm; bestD = d; }
+      }
+      return best;
+    };
+    const sitesFor = (m: ConceptMention): ConceptMention[] => {
+      const att = attachedSites(ms, m, raw).filter(x => !x.historical);
+      if (att.length) return att;
+      const near = nearestSite(m) || sentenceSite(m);
+      return near ? [near] : [];
+    };
+
+    for (const m of ms) {
+      if (m.historical) continue; // past history is not today's complaint (history is read separately)
+      const has = (...cs: string[]) => cs.some(c => m.concepts.includes(c));
+      // Appetite, sleep and hearing are complaints when denied ("भूख नहीं लगती") or reduced ("bhookh kam").
+      if (has('F_APPETITE')) { if (m.negated || LOSS_WORDS.test(clauseOf(m))) note('Anorexia / Loss of Appetite', 'GI', m, true); continue; }
+      if (has('F_SLEEP')) { if (m.negated || LOSS_WORDS.test(clauseOf(m)) || /insomnia/i.test(clauseOf(m))) note('Insomnia / Anidra', 'CNS', m, true); continue; }
+      if (has('F_HEARING')) { if (m.negated || LOSS_WORDS.test(clauseOf(m))) note('Hearing Loss', 'Ear', m, true); continue; }
+      // "पॉटी नहीं हुई", "motion clear nahi", "latrine nahi aa rahi": stool not passed is constipation
+      if (has('S_STOOL') && !ms.some(x => x.concepts.includes('F_DIARRHOEA') || x.concepts.includes('F_BLOOD')) && (m.negated || /(?<![\p{L}\p{M}])(?:saaf|clear|साफ)\s+(?:nahi|nahin|नहीं)/iu.test(clauseOf(m)))) {
+        note('Constipation', 'GI', m, true);
+        continue;
+      }
+      if (has('F_BLOOD')) {
+        const site = nearestSite(m);
+        const c = clauseOf(m);
+        const sc = site?.concepts || [];
+        const name = sc.includes('S_STOOL') || sc.includes('S_ANUS') ? 'Hematochezia / Rectal Bleeding'
+          : sc.includes('S_URINE') ? 'Hematuria' : sc.includes('S_NOSE') ? 'Epistaxis'
+          : /cough|khans|खांस|खाँस|balgam|बलगम/i.test(c) ? 'Hemoptysis' : /vomit|ulti|उल्टी|उलटी/i.test(c) ? 'Hematemesis' : null;
+        if (name) note(name, 'Bleeding', m, !m.negated);
+        continue;
+      }
+      const findings = m.concepts.filter(c => c.startsWith('F_'));
+      if (!findings.length) continue;
+      const msSites = sitesFor(m);
+      const site = msSites[0] || null;
+      let used = false;
+      for (const st of msSites) {
+        for (const [siteCs, findCs, name, label] of SITE_RULES) {
+          if (siteCs.some(c => st.concepts.includes(c)) && findCs.some(c => findings.includes(c))) { note(name, label, m, !m.negated); used = true; break; }
+        }
+      }
+      if (used) continue;
+      for (const f of findings) {
+        const rule = FINDING_RULES[f];
+        if (!rule) continue;
+        if (f === 'F_COLD' && /sweat|पसीना|pasina|paseena/i.test(clauseOf(m))) continue; // "cold sweat"
+        if (f === 'F_SWELL' && site) continue;
+        note(rule[0], rule[1], m, !m.negated);
+      }
+    }
+    return [...out.entries()].map(([name, e]) => ({
+      name,
+      symptom_name: name,
+      rawVernacular: e.raw,
+      site: e.site,
+      onset: e.present ? (e.duration || 'Unspecified') : 'Unspecified',
+      character: '',
+      severity: e.present ? e.severity : 0,
+      severityScore: e.present ? e.severity : 0,
+      isNegated: !e.present
+    }));
+  }
+
   /**
    * Parse ambient clinical transcript with sub-millisecond latency
    */
@@ -481,145 +763,88 @@ export class ClinicalParserService {
     const text = normalizedText;
     const lower = text.toLowerCase();
 
-    // 1. Symptoms Extraction with Negation and Duration
+    // 1. Symptoms: dictionary phrases (all supported languages) matched as whole words, each mention checked
+    //    for negation, duration and severity inside its own clause (services/clinicalText.ts).
     const symptoms: SocratesSymptom[] = [];
     const durationRegex = /(\d+|[०-९]+|ek|do|teen|chaar|paanch|chhe|saat|aath|nau|das|एक|दो|तीन|चार|पांच|पाँच|छह|सात|आठ|नौ|दस)\s*(?:se|say|keliye|tak|se\s*hai|से)?\s*(din|days?|hafte|hafto|weeks?|mahine|mahino|months?|saal|years?|ghante|hours?|दिन|दिनों|हफ्ते|हफ़्ते|सप्ताह|महीने|महीनों|साल|वर्ष|घंटे|घंटों)/gi;
-    const negationRegex = /(?:nahi|na|naahi|nhi|nai|no|not|denies|without|none|नहीं|नही|ना|नाही|न|बिल्कुल\s*नहीं|कोई\s*नहीं)/i;
+    const durations = findDurations(text);
+    const rawDurations = text === rawText ? durations : findDurations(rawText);
 
+    // Cheap pre-filter: a phrase can only match if its first word starts some word of the text.
+    const textWords = tokens(text).filter(t => !t.punct).map(t => t.norm);
+    const candidateKeys = new Set<string>();
+    for (const w of textWords) for (const key of this.keysByInitial().get(w[0]) || []) if (w.startsWith(this.firstWord(key))) candidateKeys.add(key);
     for (const [key, meta] of Object.entries(this.symptomMap)) {
-      let searchPos = 0;
-      let anyAffirmativeOccurrence = false;
-      let foundAny = false;
-      let bestDurationStr = 'Unspecified';
-
-      const keyLower = key.toLowerCase();
-      while ((searchPos = lower.indexOf(keyLower, searchPos)) !== -1) {
-        foundAny = true;
-        const idx = searchPos;
-        searchPos += keyLower.length;
-
-        // Delimit window by clause / speaker boundaries so negation from a prior sentence/clause doesn't leak
-        const textBefore = text.substring(0, idx);
-        const lastBoundaryBefore = Math.max(
-          textBefore.lastIndexOf('.'),
-          textBefore.lastIndexOf('?'),
-          textBefore.lastIndexOf('!'),
-          textBefore.lastIndexOf(':'),
-          textBefore.lastIndexOf(',')
-        );
-        const windowStart = Math.max(0, idx - 45, lastBoundaryBefore !== -1 ? lastBoundaryBefore + 1 : 0);
-
-        const textAfter = text.substring(idx + key.length);
-        let firstBoundaryAfter = textAfter.search(/[.?!:,\n]/);
-        const windowEnd = Math.min(
-          text.length,
-          idx + key.length + 45,
-          firstBoundaryAfter !== -1 ? idx + key.length + firstBoundaryAfter : Infinity
-        );
-        const windowText = text.substring(windowStart, windowEnd);
-        const windowLower = windowText.toLowerCase();
-
-        // Check for double negation vs single negation
-        // Strip the symptom key itself and non-symptom action clauses (e.g. khana nahi khaya)
-        const cleanedWindow = windowLower
-          .replace(keyLower, '')
-          .replace(/(?:khana|roti|bhojan|paani)\s+(?:bhi\s+)?(?:nahi|na)\s+\w+/gi, '');
-        const hasDoubleNegation = /aisa nahi.*(nahi|na)/i.test(windowLower);
-        const keyIsExplicitDenial = /^(?:khoon\s*nahi\s*aunda|sar\s*me\s*koi\s*dard|sir\s*me\s*koi\s*dard|gale\s*me\s*koi\s*dard|peshab\s*me\s*koi\s*jalan)/i.test(keyLower);
-        const occurrenceNegated = keyIsExplicitDenial || (!hasDoubleNegation && negationRegex.test(cleanedWindow));
-
-        if (!occurrenceNegated) {
-          anyAffirmativeOccurrence = true;
-        }
-
-        // Duration detection
-        durationRegex.lastIndex = 0;
-        const durMatch = durationRegex.exec(windowText);
-        if (durMatch && bestDurationStr === 'Unspecified') {
-          let num = durMatch[1];
-          // Map Hindi word numerals to digits
-          const numMap: Record<string, string> = {
-            'ek': '1', 'do': '2', 'teen': '3', 'chaar': '4', 'paanch': '5', 'chhe': '6', 'saat': '7', 'aath': '8', 'nau': '9', 'das': '10',
-            'एक': '1', 'दो': '2', 'तीन': '3', 'चार': '4', 'पांच': '5', 'पाँच': '5', 'छह': '6', 'सात': '7', 'आठ': '8', 'नौ': '9', 'दस': '10',
-            '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
-          };
-          if (numMap[num]) num = numMap[num];
-
-          const unit = durMatch[2].toLowerCase();
-          if (unit.startsWith('din') || unit.startsWith('day') || unit.includes('दिन')) bestDurationStr = `${num} days`;
-          else if (unit.startsWith('haft') || unit.startsWith('week') || unit.includes('हफ्ते') || unit.includes('सप्ताह')) bestDurationStr = `${num} weeks`;
-          else if (unit.startsWith('mahin') || unit.startsWith('month') || unit.includes('महीने')) bestDurationStr = `${num} months`;
-          else if (unit.startsWith('saal') || unit.startsWith('year') || unit.includes('साल') || unit.includes('वर्ष')) bestDurationStr = `${num} years`;
-          else if (unit.startsWith('ghant') || unit.startsWith('hour') || unit.includes('घंटे')) bestDurationStr = `${num} hours`;
-        }
-      }
-
-      if (foundAny) {
-        // If there is ANY affirmative mention, the symptom is considered present (attendant override)
-        // If all mentions were negated, isNegated remains true
-        const isNegated = !anyAffirmativeOccurrence;
-
-        let detectedCharacter = 'Dull aching (Bheda)';
-        if (/(burning|jalan|daha|जलन|दाह|जळजळ|জ্বালা|எரிச்சல்|காந்தல்|మంట|తాపం)/i.test(lower)) {
-          detectedCharacter = 'Burning sensation (Daha)';
-        } else if (/(crushing|heaviness|dabaav|bojh|vajan|भारी\s*दबाव|भारीपन|वजन|दाटून|অসহ্য\s*চাপ|அழுத்தம்|பிசைதல்|ఒత్తిడి)/i.test(lower)) {
-          detectedCharacter = 'Crushing heaviness';
-        } else if (/(sharp|pricking|stabbing|chubhan|toda|tez|तेज़\s*चुभन|तीक्ष्ण|टोचणे|তীব্র\s*সূঁচালো|குத்தல்|సూది\s*నొప్పి)/i.test(lower)) {
-          detectedCharacter = 'Sharp pricking (Toda)';
-        } else if (/(throbbing|pulsatile|dhadak|tees|धड़कता|ठसठस|धडधड|টনটনানি|துடிக்கும்|అదిరే)/i.test(lower)) {
-          detectedCharacter = 'Throbbing / Pulsatile';
-        } else if (/(stiffness|stambha|jakdan|akdan|जकड़न|अकड़न|ताठरपणा|আড়ষ্টতা|விறைப்பு|బిగుతు)/i.test(lower)) {
-          detectedCharacter = 'Stiffness / Stambha';
-        }
-
-        const existing = symptoms.find(s => s.name === meta.standard);
-        if (!existing) {
-          symptoms.push({
-            name: meta.standard,
-            symptom_name: meta.standard,
-            rawVernacular: key,
-            site: meta.defaultSite || 'Unspecified',
-            onset: bestDurationStr,
-            character: detectedCharacter,
-            severityScore: isNegated ? 0 : 5,
-            severity: isNegated ? 0 : 5,
-            isNegated: isNegated
-          });
-        } else if (existing.isNegated && !isNegated) {
-          // Affirmative synonym override: attendant confirmed the symptom via an alternate vernacular phrasing
-          existing.isNegated = false;
-          existing.severity = 5;
-          existing.severityScore = 5;
-          existing.rawVernacular = key;
-          existing.symptom_name = meta.standard;
-          if (detectedCharacter !== 'Dull aching (Bheda)') existing.character = detectedCharacter;
-          if (bestDurationStr !== 'Unspecified') existing.onset = bestDurationStr;
-        }
+      if (!candidateKeys.has(key)) continue;
+      const spans = findPhrase(text, key, { suffix: key.length >= 5 ? 3 : key.length === 4 ? 2 : 0 });
+      if (!spans.length) continue;
+      const found = this.readMentions(text, spans, durations);
+      // Phrases that are themselves a denial ("khoon nahi aunda", "sar me koi dard [nahi]").
+      const keyIsExplicitDenial = /^(?:khoon\s*nahi\s*aunda|sar\s*me\s*koi\s*dard|sir\s*me\s*koi\s*dard|gale\s*me\s*koi\s*dard|peshab\s*me\s*koi\s*jalan)/i.test(key);
+      const isNegated = keyIsExplicitDenial || !found.affirmed;
+      const existing = symptoms.find(s => s.name === meta.standard);
+      if (!existing) {
+        symptoms.push({
+          name: meta.standard,
+          symptom_name: meta.standard,
+          rawVernacular: key,
+          site: meta.defaultSite || 'Unspecified',
+          onset: found.duration || 'Unspecified',
+          character: found.character,
+          severityScore: isNegated ? 0 : found.severity,
+          severity: isNegated ? 0 : found.severity,
+          isNegated
+        });
+      } else if (existing.isNegated && !isNegated) {
+        // Affirmative synonym override: the symptom was confirmed through another phrasing
+        existing.isNegated = false;
+        existing.severity = existing.severityScore = found.severity;
+        existing.rawVernacular = key;
+        existing.symptom_name = meta.standard;
+        if (found.character) existing.character = found.character;
+        if (found.duration) existing.onset = found.duration;
+      } else if (!isNegated) {
+        if (found.duration && (!existing.onset || existing.onset === 'Unspecified')) existing.onset = found.duration;
+        if (found.severity > (existing.severityScore || 0)) existing.severity = existing.severityScore = found.severity;
       }
     }
 
-    // 2. Vitals Extraction (Bilingual English + Devanagari Hindi)
-    const vitals: Record<string, any> = {};
-    const bpMatch = text.match(/(?:BP|बीपी|रक्तचाप)\s*(?:is|hai|:|=|है)?\s*(\d{2,3}\/\d{2,3})/i) || text.match(/(\d{2,3}\/\d{2,3})\s*(?:mm\s*hg|एमएम\s*एचजी)/i);
-    if (bpMatch) vitals.bp = bpMatch[1];
+    // 1b. Concept lexicon on the words as spoken (Hindi, Hinglish, English, recogniser slips): a finding is paired
+    //     with the nearest body site in its clause ("पेट में दर्द", "pain in my lower back", "kaafi dard hai pet mein").
+    for (const d of this.symptomsFromConcepts(rawText, rawDurations)) {
+      const fam = symptomFamily(d.name);
+      const existing = symptoms.find(s => (fam ? symptomFamily(s.name) === fam : s.name === d.name));
+      if (!existing) { symptoms.push(d); continue; }
+      if (existing.isNegated && !d.isNegated) {
+        Object.assign(existing, { isNegated: false, severity: d.severity, severityScore: d.severityScore });
+        if (d.onset !== 'Unspecified') existing.onset = d.onset;
+      } else if (!existing.isNegated && !d.isNegated) {
+        if ((!existing.onset || existing.onset === 'Unspecified') && d.onset !== 'Unspecified') existing.onset = d.onset;
+        if ((d.severityScore || 0) > (existing.severityScore || 0)) existing.severity = existing.severityScore = d.severityScore || 0;
+      }
+    }
 
-    const pulseMatch = text.match(/(?:pulse|heart rate|HR|पल्स|धड़कन|नाड़ी)\s*(?:is|hai|:|=|है)?\s*(\d{2,3})/i);
-    if (pulseMatch) vitals.pulse = parseInt(pulseMatch[1], 10);
+    // 2. Vitals, as typed or spoken ("BP 150/95", "150 by 95", "बीपी एक सौ पचास बटा पचानवे", "ऑक्सीजन अठासी"),
+    //    range-checked; anything implausible is dropped rather than guessed.
+    const vitals: Record<string, any> = { ...parseVitals(text), ...parseVitals(rawText) };
 
-    const spo2Match = text.match(/(?:SpO2|saturation|ऑक्सीजन|सैटुरेशन)\s*(?:is|hai|:|=|है)?\s*(\d{2,3})%?/i);
-    if (spo2Match) vitals.spo2 = `${spo2Match[1]}%`;
-
-    const tempMatch = text.match(/(?:temp|temperature|fever|तापमान|बुखार)\s*(?:is|hai|:|=|है)?\s*(\d{2,3}(?:\.\d)?)\s*(?:F|C|degrees|डिग्री)?/i);
-    if (tempMatch) vitals.temp = `${tempMatch[1]}°F`;
-
-    // 3. Past Comorbidities
+    // 3. Past history, only when stated and not denied ("sugar ki bimari hai" yes; "sugar nahi hai", "no history of
+    //    diabetes", a sugar reading of 240 — no).
     const pastHistory: string[] = [];
-    if (/sugar|diabetes|prameha|madhumeha/i.test(lower)) pastHistory.push('Type 2 Diabetes Mellitus');
-    if (/hypertension|high bp|uchha raktachap|bp ki bimari/i.test(lower)) pastHistory.push('Essential Hypertension');
-    if (/tb|tuberculosis|tapedik/i.test(lower)) pastHistory.push('Pulmonary Tuberculosis');
-    if (/asthma|dama|shwas roga/i.test(lower)) pastHistory.push('Bronchial Asthma');
-    if (/thyroid|hypothyroid/i.test(lower)) pastHistory.push('Hypothyroidism');
-    if (/heart attack|stent|angioplasty|bypass|cad/i.test(lower)) pastHistory.push('Coronary Artery Disease');
+    for (const [label, re] of HISTORY_PATTERNS) {
+      for (const m of rawText.matchAll(re)) {
+        if (!negationAt(rawText, m.index!, m.index! + m[0].length).negated) { pastHistory.push(label); break; }
+      }
+    }
+    // "बीपी की दवा", "दवा लेने आया हूं बीपी की", "bp 140/90 rehta hai": a chronic-disease word with treatment or
+    // chronicity words in its clause. A bare reading ("sugar 240") is not history.
+    for (const [label, re] of CHRONIC_TERMS) {
+      if (pastHistory.includes(label)) continue;
+      for (const m of rawText.matchAll(re)) {
+        const [ca, cb] = clauseAt(rawText, m.index!);
+        if (CHRONIC_CONTEXT.test(rawText.slice(ca, cb)) && !negationAt(rawText, m.index!, m.index! + m[0].length).negated) { pastHistory.push(label); break; }
+      }
+    }
 
     // 4. Allopathic Prescription Extraction
     const allopathicPrescriptions: AllopathicMedication[] = [];
@@ -815,7 +1040,7 @@ export class ClinicalParserService {
     // 6. Dosha & Agni
     const doshasIdentified: string[] = [];
     for (const [dk, dv] of Object.entries(this.doshaKeywords)) {
-      if (lower.includes(dk) && !doshasIdentified.includes(dv)) {
+      if (findPhrase(text, dk).length && !doshasIdentified.includes(dv)) {
         doshasIdentified.push(dv);
       }
     }
@@ -825,7 +1050,7 @@ export class ClinicalParserService {
     else if (/tikshnagni|tikshna agni|jyada bhukh|hyper-acidity/i.test(lower)) agniState = 'Tikshnagni';
     else if (/vishamagni|irregular hunger/i.test(lower)) agniState = 'Vishamagni';
 
-    const amaPresent = /ama|aam|white coating|tongue coating|heavy abdomen/i.test(lower);
+    const amaPresent = /(?<![\p{L}\p{M}])(?:ama|aam\s*dosha?|sama\s*dosha?|white\s*coating|tongue\s*coating|coated\s*tongue|heavy\s*abdomen|आम\s*दोष|जीभ\s*पर\s*सफेद)(?![\p{L}\p{M}])/iu.test(lower);
 
     // 7. Emergency Red Flag Detection
     const redFlagTriggers: string[] = [];
@@ -862,20 +1087,22 @@ export class ClinicalParserService {
     );
 
     // Acute Coronary Syndrome: pan-Indian regional chest + pain/pressure + radiation/diaphoresis (Latin + Devanagari + Bengali + Tamil + Telugu)
-    const chestTerms = '(?:ch[a|h]ati|seene|seena|chest|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|चेस्ट|বুক|বুকে|நெஞ்சு|மார்பு|மார்பில்|ఛాతీ|గుండె|గుండెల్లో)';
+    const chestTerms = '(?<![\\p{L}\\p{M}])(?:ch[a|h]ati|seene|seena|chest|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|छाती|सीना|सीने|हृदय|छातीत|चेस्ट|বুক|বুকে|நெஞ்சு|மார்பு|மார்பில்|ఛాతీ|గుండె|గుండెల్లో)(?![\\p{L}\\p{M}])';
     const painTerms = '(?:dard|peeda|vedana|shula|shool|byatha|bojh|pressure|heavy|kheench|dukh|noppi|vali|novu|peer|daag|bikh|jatana|दर्द|पीड़ा|वेदना|भारीपन|दबाव|बोझ|जकड़न|शूल|कळ|दाट|व्यथा|ব্যথা|চাপ|কষ্ট|টান|வலி|அடைப்பு|பாரம்|பிசை|நొప్పి|బరువు|పోటు|పట్ట)';
     const leftTerms = '(?:baaye|baayan|baam|dava|khabb[ae]|ult[ae]|left|edama|idathu|edagade|khowur|vama|बाएं|बायां|बाईं|डावा|डाव्या|लेफ्ट|বাঁ|বাম|இடது|ఎడమ)';
     const diaphoresisTerms = '(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|bemaru|sweat|sveda|svedadhikya|पसीना|पसीने|घाम|थंडा\\s*घाम|ঘাম|ঠাণ্ডা\\s*ঘাম|வேர்வை|குளிர்ந்த\\s*வேர்வை|చెమట|చల్లని\\s*చెమట)';
     const armTerms = '(?:haath|arm|hand|bahu|bhuja|hatat|kai|kayyil|cheyyi|atha|हाथ|बांह|भुजा|हात|हातात|হাত|হাতে|கை|கையில்|చేయి|చేతి)';
-    const isAcsPattern = new RegExp(
+    const isAcsRegex = new RegExp(
       `${chestTerms}[^.!?:\n,]*${painTerms}|` +
       `chest\\s*pain|` +
       `${leftTerms}\\s*${armTerms}[^.!?:\n,]*${painTerms}|` +
       `radiating\\s*pain|crushing\\s*(?:pain|pressure)|` +
       `${diaphoresisTerms}[^.!?:\n,]*${chestTerms}|${chestTerms}[^.!?:\n,]*${diaphoresisTerms}`,
-      'i'
-    ).test(lower);
-    if (isAcsPattern && !hasRegionalChestNegation) {
+      'giu'
+    );
+    // Any mention of the pattern that the patient did not deny ("I do not have chest pain" is denied).
+    const isAcsPattern = affirmedMatch(isAcsRegex, lower) && !(hasRegionalChestNegation && !affirmedMatch(isAcsRegex, lower.replace(/[^.!?\n]*(?:no|denies|without|nahi|naahi|nhi|illai|ledu|nei|nathi|naikhe)[^.!?\n]*/giu, ' ')));
+    if (isAcsPattern) {
       if (isMalingeringSuspected) {
         // Triage to physical nurse evaluation rather than unverified emergency queue bypass
         redFlagTriggers.push('Suspected Administrative Priority Gaming (Normal Telemetry) - Triaged to Nurse Verification');
@@ -922,9 +1149,30 @@ export class ClinicalParserService {
       /(sar\s*fat|andhera|dhadkan|ulti|vomit|blur|vision|encephalopathy|headache|seene|peeth|back|chest|ghutan|choke|talwar|cheer|सिर\s*दर्द|उल्टी|सीने|पीठ|अंधेरा)/i.test(lower)) ||
       (text.match(/\bBP\s*2\d{2}\/\d{2,3}\b/i) && /(sar\s*fat|andhera|ulti|vomit|seene|peeth|सिर\s*दर्द|उल्टी)/i.test(lower))
     );
-    if (isHypertensiveEmergency) {
+    // The same threshold with any target-organ symptom the patient actually reported, in any phrasing
+    // ("सिर फट रहा है", "sar me tez dard", "sans phool rahi hai").
+    const hasSymptom = (re: RegExp) => symptoms.some(sy => !sy.isNegated && re.test(sy.name || ''));
+    const severeBp = sbpTelemetry !== null && (sbpTelemetry >= 180 || (dbpTelemetry !== null && dbpTelemetry >= 120));
+    if (isHypertensiveEmergency || (severeBp && hasSymptom(/headache|migraine|chest|substernal|dyspn|breath|vomit|vertigo|giddi|numb|vision/i))) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Hypertensive Emergency with Target Organ Threat / Acute Vascular Dissection (BP >= 180/120)');
+    }
+
+    // Blood sugar and temperature emergencies (spoken or typed readings, range-checked in clinicalText.ts).
+    const sugar = typeof vitals.bloodSugar === 'number' ? vitals.bloodSugar : null;
+    const hypoSymptoms = hasSymptom(/diaphoresis|sweat|tremor|vertigo|giddi|anxiety|palpitation/i) || /(पसीना|pasina|paseena|sweat|confus|behosh|बेहोश|kaanp|काँप|कांप)/iu.test(lower);
+    if (sugar !== null && (sugar < 54 || (sugar < 70 && hypoSymptoms))) {
+      isEmergencyRedFlag = true;
+      redFlagTriggers.push(`Severe Hypoglycaemia (blood sugar ${sugar} mg/dL)`);
+    } else if (sugar !== null && sugar >= 400 && (hasSymptom(/vomit|dyspn|breath|drows|letharg/i) || /(behosh|बेहोश|drowsy|सुस्त)/iu.test(lower))) {
+      isEmergencyRedFlag = true;
+      redFlagTriggers.push(`Severe Hyperglycaemia with Symptoms — rule out DKA / HHS (blood sugar ${sugar} mg/dL)`);
+    }
+    const tempMatch = String(vitals.temp || '').match(/^(\d+(?:\.\d+)?)°([FC])$/);
+    const tempF = tempMatch ? (tempMatch[2] === 'C' ? parseFloat(tempMatch[1]) * 9 / 5 + 32 : parseFloat(tempMatch[1])) : null;
+    if (tempF !== null && tempF >= 104) {
+      isEmergencyRedFlag = true;
+      redFlagTriggers.push(`Hyperpyrexia (temperature ${vitals.temp})`);
     }
 
     // Respiratory distress: hypoxia, SpO2 < 90, gasping
@@ -957,7 +1205,7 @@ export class ClinicalParserService {
     }
 
     // Organophosphate / Pesticide Poisoning
-    const isPoisonPattern = /(keetnashak|pesticide|organophosphate|salivation|pinpoint\s*pupils|visha\s*peena|dawai\s*pi\s*liya|poisoning|कीटनाशक|जहर|दवाई\s*पी\s*ली)/i.test(lower);
+    const isPoisonPattern = affirmedMatch(/(keetnashak|pesticide|organophosphate|salivation|pinpoint\s*pupils|visha\s*peena|dawai\s*pi\s*liya|poisoning|rat\s*poison|kerosene|mitti\s*ka\s*tel|phenyl|bleach|harpic|tezab|acid\s*pi|कीटनाशक|जहर|ज़हर|जहरीला|जहरीली|दवाई\s*पी\s*ली|मिट्टी\s*का\s*तेल|फिनाइल|तेजाब|हार्पिक|चूहे\s*मारने)/giu, lower);
     if (isPoisonPattern) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Acute Organophosphate / Pesticide Poisoning');
@@ -1016,7 +1264,7 @@ export class ClinicalParserService {
     }
 
     // Scorpion Sting Envenomation
-    const isScorpion = /(bichhoo|bichhu|scorpion\s*sting|vrishchika\s*damsha)/i.test(lower);
+    const isScorpion = affirmedMatch(/(bichhoo|bichhu|scorpion\s*sting|vrishchika\s*damsha)/gi, lower);
     if (isScorpion) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Severe Scorpion Envenomation (Autonomic Storm)');
@@ -1143,10 +1391,17 @@ export class ClinicalParserService {
     }
 
     // Category III Rabies Animal Bite Protocol
-    const isRabiesExposure = /(rabies|kutt[ae].*(?:kaat|bite)|dog\s*bite|bandar.*(?:kaat|bite)|monkey\s*bite|animal\s*bite|stray\s*dog)/i.test(lower);
+    const isRabiesExposure = affirmedMatch(/(rabies|kutt[ae].*(?:kaat|bite)|dog\s*bite|bandar.*(?:kaat|bite)|monkey\s*bite|animal\s*bite|stray\s*dog|bitten\s*by\s*a?\s*(?:dog|monkey|cat)|(?:कुत्ते|कुत्ता|बंदर|बिल्ली|सियार)[^.!?\n]{0,20}काट)/giu, lower);
     if (isRabiesExposure) {
-      isEmergencyRedFlag = true;
-      redFlagTriggers.push('Category III Rabies Exposure (Mandatory Local RIG Infiltration & Post-Exposure Prophylaxis)');
+      // WHO category III (transdermal bite with bleeding, stray / rabid animal, head-face-neck or multiple bites) needs
+      // immunoglobulin now: emergency. Any other animal bite is urgent — same-day vaccine (kiosk priority HIGH).
+      const isCategoryThree = /(bleed|blood|khoon|खून|deep|gehra|गहरा|stray|awara|आवारा|rabid|pagal|पागल|face|chehra|चेहरे|neck|gardan|गर्दन|head|sir\s|सिर|multiple|kai\s*jagah|कई\s*जगह)/iu.test(lower);
+      if (isCategoryThree) {
+        isEmergencyRedFlag = true;
+        redFlagTriggers.push('Category III Rabies Exposure (Mandatory Local RIG Infiltration & Post-Exposure Prophylaxis)');
+      } else {
+        redFlagTriggers.push('Animal Bite — Same-Day Rabies Post-Exposure Prophylaxis');
+      }
     }
 
     // Acute Suicidal Ideation / Psychiatric Crisis
@@ -1287,7 +1542,7 @@ export class ClinicalParserService {
 
     // 7c. Medico-Legal Case (MLC) & Statutory Police Intimation Intercept
     let mlcCaseInfo: MlcCaseInfo | undefined = undefined;
-    const isTrauma = /(accident|\bchot\b|maar\s*peet|assault|zahar|poison|phenyl|hit\s*and\s*run|lathi|chaku|knife|\b(?:burns?|thermal\s*burn|acid\s*burn)\b|jal\s*gaya|domestic\s*violence|stab|मारपीट|चोट|लाठी|जहर|जला|दुर्घटना|चाकू|घायल)/i.test(lower);
+    const isTrauma = affirmedMatch(/(accident|\bchot\b|maar\s*peet|assault|zahar|poison|phenyl|hit\s*and\s*run|lathi|chaku|knife|\b(?:burns?|thermal\s*burn|acid\s*burn)\b|jal\s*gaya|domestic\s*violence|stab|मारपीट|चोट|लाठी|जहर|जला|दुर्घटना|चाकू|घायल)/gi, lower);
     const isOldHealedTrauma = /(taake\s*katwane|suture\s*removal|ghaav\s*sookh|purani\s*chot|pehle\s*lagi\s*thi|healed)/i.test(lower);
     if (isTrauma && !isOldHealedTrauma) {
       isEmergencyRedFlag = true;
@@ -1330,8 +1585,8 @@ export class ClinicalParserService {
     // 8. Provisional Diagnoses
     const hasFever = symptoms.some(s => s.name === 'Fever' && !s.isNegated);
     const hasCough = symptoms.some(s => s.name.includes('Cough') && !s.isNegated);
-    const hasAcidity = symptoms.some(s => s.name.includes('Acidity') || s.name.includes('Heartburn'));
-    const hasJointPain = symptoms.some(s => s.name.includes('Joint Pain') || s.name.includes('Knee'));
+    const hasAcidity = symptoms.some(s => (s.name.includes('Acidity') || s.name.includes('Heartburn')) && !s.isNegated);
+    const hasJointPain = symptoms.some(s => (s.name.includes('Joint Pain') || s.name.includes('Knee')) && !s.isNegated);
 
     if (hasFever && hasCough) provisionalDiagnoses.push('Upper Respiratory Tract Infection (URTI) / Kaphaja Kasa');
     if (hasAcidity) provisionalDiagnoses.push('Gastroesophageal Reflux Disease (GERD) / Amlapitta');

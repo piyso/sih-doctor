@@ -39,13 +39,13 @@ export async function runCognitiveTests() {
   // 2. Bayesian Beta-Binomial Conjugate Updating
   console.log('--- TEST 2: Bayesian Beta-Binomial Truth Engine Updating ---');
   const posterior = BayesianTruthEngineService.evaluatePair('Warfarin', 'Yogaraja Guggulu');
-  console.log(`• Prior Parameters:         Alpha=2.0, Beta=1.0`);
+  console.log(`• Prior Parameters:         Alpha=${posterior.priorAlpha}, Beta=${posterior.priorBeta} (${posterior.prior.source} prior, ${posterior.observationsUsed} stored observations)`);
   console.log(`• Posterior Parameters:     Alpha=${posterior.alpha}, Beta=${posterior.beta}`);
   console.log(`• Expected Confidence E[θ]: ${(posterior.expectedConfidence * 100).toFixed(2)}%`);
   console.log(`• Posterior Variance:       ${posterior.variance}`);
   console.log(`• 95% Credible Interval:    [${posterior.credibleInterval95[0]}, ${posterior.credibleInterval95[1]}]`);
   console.log(`• Bayes Factor BF10:        ${posterior.bayesFactor} (vs H0: theta=0.5)`);
-  console.log(`• Statistically Significant: ${posterior.isStatisticallySignificant ? 'YES (BF10 >= 2.0 Substantial Evidence)' : 'NO'}`);
+  console.log(`• Statistically Significant: ${posterior.isStatisticallySignificant ? 'YES (BF10 >= 3, Jeffreys substantial)' : 'NO'} — direction: ${posterior.direction}`);
   if (!posterior.isStatisticallySignificant) throw new Error('Bayesian Truth Engine failed to establish statistical significance');
   console.log('• Status:                   PASSED (Beta-Binomial Mathematical Rigor Verified)\n');
 
@@ -64,17 +64,17 @@ export async function runCognitiveTests() {
 
   // 4. PAC Conformal Triage Gating
   console.log('--- TEST 4: PAC Conformal Statistical Triage Gate ---');
-  const pacGate = PACConformalGateService.evaluate({
-    topCandidateConfidence: 0.98,
-    runnerUpConfidence: 0.15,
-    vitalsAnomalyCount: 1, // High BP
-    alpha: 0.01 // 99% coverage guarantee
-  });
-  console.log(`• Non-Conformity Score:     ${pacGate.nonConformityScore}`);
-  console.log(`• Calibrated Cutoff q_hat:  ${pacGate.calibratedThreshold}`);
-  console.log(`• Coverage Guarantee:       ${pacGate.statisticalCoverageGuarantee}`);
+  const pacGate = PACConformalGateService.evaluate({ topCandidateConfidence: 0.98, runnerUpConfidence: 0.15 });
+  console.log(`• Non-Conformity Score:     ${pacGate.nonconformityScore}`);
+  console.log(`• Calibrated Cutoff q_hat:  ${pacGate.qHat} (n=${pacGate.n}, alpha=${pacGate.alpha})`);
+  console.log(`• Coverage statement:       ${pacGate.coverageStatement}`);
   console.log(`• Recommended Pathway:      ${pacGate.recommendedPathway}`);
-  console.log('• Status:                   PASSED (PAC Statistical Safety Bound Active)\n');
+  if (!pacGate.guaranteed || !pacGate.allowFastpathEmission) throw new Error('Conformal gate should admit a 0.98-weight suggestion with the shipped calibration');
+  const withheld = PACConformalGateService.evaluate({ topCandidateConfidence: 0.5, runnerUpConfidence: 0.45 });
+  if (withheld.allowFastpathEmission) throw new Error('Conformal gate should withhold an ambiguous suggestion');
+  const uncal = PACConformalGateService.evaluate({ topCandidateConfidence: 0.99 }, null);
+  if (uncal.allowFastpathEmission || uncal.guaranteed) throw new Error('Without a calibration set the gate must abstain');
+  console.log('• Status:                   PASSED (split-conformal gate calibrated, abstains when uncalibrated)\n');
 
   // 5. Code-Switching Phonetic Normalizer
   console.log('--- TEST 5: Hinglish / Dialect Phonetic Normalizer ---');

@@ -406,24 +406,25 @@ export async function runMassiveUniversalStressSuite() {
   // =========================================================================
   console.log('\n--- SUITE 8: Groth16 / BN128 Cryptographic Soundness & Adversarial Attacks ---');
 
-  const zkpRes = await ZkProofService.verifyProof();
-  assert(zkpRes.isValid === true, '8.1 Valid Groth16 zk-SNARK proof verified on BN128 curve');
+  const zkDir = require('path').resolve(__dirname, '../src/data/zkp_circuit');
+  const sample = { proof: JSON.parse(require('fs').readFileSync(require('path').join(zkDir, 'proof.json'), 'utf8')), publicSignals: JSON.parse(require('fs').readFileSync(require('path').join(zkDir, 'public.json'), 'utf8')) };
+  const zkpRes = await ZkProofService.verifyProof(sample.proof, sample.publicSignals);
+  assert(zkpRes.isValid === true, '8.1 Caller-supplied Groth16 proof verified on BN128 curve');
 
   // Public Signal Flip Attack
-  const flipAttack = await ZkProofService.verifyProof(undefined, ['999999999']);
+  const flipAttack = await ZkProofService.verifyProof(sample.proof, ['999999999']);
   assert(flipAttack.isValid === false, '8.2 Tampered public signal attack rejected');
 
   // Multi-Coordinate Perturbation Attack
-  const sample = ZkProofService.getSampleProof();
   const tamperedCoord = JSON.parse(JSON.stringify(sample.proof));
   tamperedCoord.pi_b[0][0] = (BigInt(tamperedCoord.pi_b[0][0]) + BigInt(1)).toString();
-  const coordAttack = await ZkProofService.verifyProof(tamperedCoord);
+  const coordAttack = await ZkProofService.verifyProof(tamperedCoord, sample.publicSignals);
   assert(coordAttack.isValid === false, '8.3 Elliptic curve coordinate attack rejected');
 
   // Point at Infinity Attack (All Zero Coordinates)
   const infinityProof = JSON.parse(JSON.stringify(sample.proof));
   infinityProof.pi_a = ["0", "0", "0"];
-  const infAttack = await ZkProofService.verifyProof(infinityProof);
+  const infAttack = await ZkProofService.verifyProof(infinityProof, sample.publicSignals);
   assert(infAttack.isValid === false, '8.4 Point-at-Infinity attack rejected');
 
   // =========================================================================
@@ -472,15 +473,9 @@ export async function runMassiveUniversalStressSuite() {
   assert(rssDelta < 35, `10.2 Bare-metal RSS delta: ${rssDelta.toFixed(2)} MB (<35 MB stability limit)`);
 
   // PAC Conformal Uncertainty Bound Verification
-  const conformalRes = PACConformalGateService.evaluate({
-    topCandidateConfidence: 0.94,
-    runnerUpConfidence: 0.12,
-    vitalsAnomalyCount: 0,
-    alpha: 0.05
-  });
-
-  assert(conformalRes.allowFastpathEmission === true, '10.3 PAC Conformal Gate: High confidence fastpath emitted');
-  assert(conformalRes.statisticalCoverageGuarantee.includes('PAC Coverage Bound'), '10.4 PAC Conformal Coverage Guarantee strictly bounded');
+  const conformalRes = PACConformalGateService.evaluate({ topCandidateConfidence: 0.995, runnerUpConfidence: 0.004 });
+  assert(conformalRes.allowFastpathEmission === true, '10.3 Conformal gate admits a 0.995-weight suggestion with the shipped calibration');
+  assert(conformalRes.guaranteed && conformalRes.coverageStatement.includes('Split-conformal'), `10.4 Coverage statement names n=${conformalRes.n} and alpha=${conformalRes.alpha}`);
 
   const tTotal = (performance.now() - tStartAll) / 1000;
 

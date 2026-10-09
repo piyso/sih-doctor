@@ -8,7 +8,7 @@ import { db } from '../db/database';
 import { ClinicalParserService } from '../services/clinicalParser.service';
 import { SovereignNERService } from '../services/sovereignNER.service';
 import { AyushEngineService } from '../services/ayushEngine.service';
-import { analyseTranscript } from '../services/intakeExtraction.service';
+import { analyseTranscript, fahrenheit } from '../services/intakeExtraction.service';
 import ayushOntology from '../shared/ayush_ontology.json';
 import { cleanConsent, recordConsent } from '../security/privacy.service';
 import { blindIndex, encryptField, decryptField, normalisePhone } from '../security/fieldCrypto';
@@ -113,7 +113,7 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     const sbp = vitals?.bp ? parseInt(String(vitals.bp).split('/')[0], 10) : NaN;
     const spo2 = vitals?.spo2 ? parseInt(String(vitals.spo2), 10) : NaN;
     const pulse = vitals?.pulse ? Number(vitals.pulse) : NaN;
-    const tempF = vitals?.temp ? parseFloat(String(vitals.temp)) : NaN;
+    const tempF = fahrenheit(vitals?.temp) ?? NaN;
     const severeEmergencySymptom = cleanSymptoms.some((s: any) => s?.isEmergency && Number(s?.severityScore) >= 8);
     // Re-run the emergency rules here so a kiosk that was offline or modified cannot skip them.
     const lexicon = analyseComplaint([transcript, ...cleanSymptoms.map((s: any) => `${s?.name || ''} ${s?.labelLocal || ''}`)].join(' . '));
@@ -182,7 +182,8 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         sessionId, patientId,
-        JSON.stringify(cleanSymptoms.length ? cleanSymptoms : parserResult.symptoms || []),
+        // only complaints the patient affirmed; denied ones ("बुखार नहीं है") are shown to the doctor separately
+        JSON.stringify(cleanSymptoms.length ? cleanSymptoms : (parserResult.symptoms || []).filter(s => !s.isNegated)),
         JSON.stringify(pariksha || {}),
         JSON.stringify(vitals ? { ...vitals, source: 'patient_self_report' } : {}),
         priority, JSON.stringify(redFlags), transcript, status, now, cleanCareStream,

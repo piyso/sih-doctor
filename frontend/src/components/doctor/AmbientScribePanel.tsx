@@ -20,6 +20,8 @@ import {
 import { AudioVisualizer } from '../common/AudioVisualizer';
 import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
+import { aiCapabilities, cloudSpeechAllowed, startRecording, Recorder } from '../../utils/onPremAsr';
+import { scribeChips, ScribeChipKind } from '../../utils/scribeEntities';
 
 interface AmbientScribePanelProps {
   onAutoExtract: (transcriptText?: string) => void;
@@ -38,6 +40,16 @@ export interface TranscriptEntry {
   tags?: string[];
 }
 
+const CHIP_STYLE: Record<ScribeChipKind, { bg: string; border: string; fg: string }> = {
+  emergency: { bg: '#fef2f2', border: '#fecaca', fg: '#b91c1c' },
+  symptom: { bg: '#f8fafc', border: '#e2e8f0', fg: '#334155' },
+  denied: { bg: '#f8fafc', border: '#e2e8f0', fg: '#94a3b8' },
+  vital: { bg: '#eff6ff', border: '#bfdbfe', fg: '#1d4ed8' },
+  duration: { bg: '#f8fafc', border: '#e2e8f0', fg: '#475569' },
+  rx: { bg: '#f0fdf4', border: '#bbf7d0', fg: '#15803d' },
+  ayush: { bg: '#fefce8', border: '#fde68a', fg: '#a16207' }
+};
+
 export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoExtract, onTranscriptChange }) => {
   const [isListening, setIsListening] = useState(false);
   const isListeningRef = useRef(false);
@@ -48,6 +60,8 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
   const [acousticMode, setAcousticMode] = useState<AcousticMode>('far_field_cabin');
   const [micLanguage, setMicLanguage] = useState<'hi-IN' | 'en-IN'>('hi-IN');
   const [hasWebSpeech, setHasWebSpeech] = useState<boolean>(false);
+  // The hospital's own speech recognition (edge-ai): audio stays on the premises. Preferred whenever it is up.
+  const [onPremAsr, setOnPremAsr] = useState(false);
   const [liveInterimText, setLiveInterimText] = useState<string>('');
 
   // Acoustic Telemetry State
@@ -73,99 +87,7 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
     onTranscriptChange?.(transcriptLines.map(t => `${t.speaker}: ${t.text}`).join('\n'));
   }, [transcriptLines, onTranscriptChange]);
 
-  const extractEntitiesFromText = useCallback((text: string) => {
-    const entities: string[] = [];
-    const lower = text.toLowerCase();
-
-    // Antacids & Gastrointestinal
-    if (
-      lower.includes('antacid') ||
-      lower.includes('antaside') ||
-      lower.includes('gelusil') ||
-      lower.includes('digene') ||
-      lower.includes('eno') ||
-      lower.includes('mucaine') ||
-      lower.includes('pantocid') ||
-      lower.includes('pan-d') ||
-      lower.includes('pan 40') ||
-      lower.includes('omez') ||
-      lower.includes('aciloc') ||
-      lower.includes('rantac') ||
-      lower.includes('pudina hara') ||
-      lower.includes('gasex')
-    ) {
-      entities.push('Rx: Antacid / Amlapitta Shamaka');
-    }
-
-    // Pain / Analgesics & Resolved Status
-    if (
-      lower.includes('pain') ||
-      lower.includes('ane gone') ||
-      lower.includes('dard') ||
-      lower.includes('ghutne') ||
-      lower.includes('cut cut') ||
-      lower.includes('कट-कट') ||
-      lower.includes('sandhi') ||
-      lower.includes('dolo') ||
-      lower.includes('paracetamol') ||
-      lower.includes('combiflam') ||
-      lower.includes('meftal') ||
-      lower.includes('zerodol') ||
-      lower.includes('voveran') ||
-      lower.includes('brufen')
-    ) {
-      entities.push('Rx: Analgesic / Shoola Prashamana');
-    }
-
-    // Retrosternal Pressure / Chest Pain
-    if (lower.includes('भारी दबाव') || lower.includes('crushing') || lower.includes('stone') || lower.includes('पत्थर') || lower.includes('chhati me bojh')) {
-      entities.push('Symptom: Crushing Retrosternal Pressure');
-    }
-
-    // Dyspnea / Respiratory
-    if (lower.includes('सांस') || lower.includes('breath') || lower.includes('shwasa') || lower.includes('dum phool') || lower.includes('ascoril') || lower.includes('grilinctus')) {
-      entities.push('Respiratory: Dyspnea / Shwasa Krichrata');
-    }
-
-    // Vitals & BP
-    if (lower.includes('bp') || lower.includes('blood pressure') || lower.includes('160') || lower.includes('140') || lower.includes('120/80')) {
-      entities.push('Vitals: Blood Pressure Telemetry');
-    }
-
-    // Classical AYUSH Formulations
-    if (
-      lower.includes('गुग्गुलु') ||
-      lower.includes('guggulu') ||
-      lower.includes('yograj') ||
-      lower.includes('ashwagandha') ||
-      lower.includes('triphala') ||
-      lower.includes('shilajit') ||
-      lower.includes('avipattikar') ||
-      lower.includes('shankha bhasma') ||
-      lower.includes('arogyavardhini') ||
-      lower.includes('chandraprabha')
-    ) {
-      entities.push('Rx: Classical AYUSH Formulation');
-    }
-
-    // Cardio / Metabolic NLEM
-    if (
-      lower.includes('metformin') ||
-      lower.includes('glycomet') ||
-      lower.includes('telma') ||
-      lower.includes('telmisartan') ||
-      lower.includes('amlong') ||
-      lower.includes('amlodipine') ||
-      lower.includes('atorva') ||
-      lower.includes('atorvastatin') ||
-      lower.includes('ecosprin') ||
-      lower.includes('aspirin')
-    ) {
-      entities.push('Rx: Cardio-Metabolic NLEM Standard');
-    }
-
-    return entities;
-  }, []);
+  // Chips under each line come from the shared clinical text engine (utils/scribeEntities.ts).
 
   useEffect(() => {
     if (transcriptContainerRef.current) {
@@ -178,6 +100,31 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setHasWebSpeech(!!SpeechRecognition);
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    aiCapabilities().then(c => { if (alive) setOnPremAsr(c.asr); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  /** Adds one finished utterance to the transcript (speaker guessed from prescribing words). */
+  const addFinalLine = useCallback((text: string) => {
+    const piece = text.trim();
+    if (!piece) return;
+    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const isDocPrescribing = /गोली|सुबह|शाम|खुराक|mg|tablet|pani|water|blood pressure|take|गुग्गुलु|ashwagandha/i.test(piece);
+    setTranscriptLines(prev => [...prev, {
+      speaker: isDocPrescribing ? 'Doctor (Desk)' : 'Patient (Far-Field)',
+      text: piece,
+      timestamp: now,
+      isWhisper: isWhisperDetected,
+      snrDb: Math.max(0, liveDbLevel - liveNoiseFloor)
+    }]);
+    setLiveInterimText('');
+    sovereignSound('notch');
+  }, [isWhisperDetected, liveDbLevel, liveNoiseFloor]);
+  const addFinalLineRef = useRef(addFinalLine);
+  addFinalLineRef.current = addFinalLine;
 
   // Web Audio DSP Graph Setup for Far-Field Whisper Amplification
   const setupWebAudioDSP = async () => {
@@ -294,13 +241,55 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
   // Handle Listening State (Real Mic or Simulated Stream)
   useEffect(() => {
     let unsubscribeWs: (() => void) | null = null;
+    const stopOnPrem: { cancelled: boolean; resolve?: () => void } = { cancelled: false };
 
     if (isListening) {
-      if (inputMode === 'real_mic') {
+      if (inputMode === 'real_mic' && onPremAsr) {
+        setupWebAudioDSP();
+        // On-premise: record one utterance at a time (ends on ~1.2 s of silence or after 20 s) and transcribe it on
+        // the hospital server while the next utterance is already being recorded.
+        const lang = micLanguage.startsWith('hi') ? 'hi' : 'en';
+        let current: Recorder | null = null;
+        let failures = 0;
+        const loop = async () => {
+          while (!stopOnPrem.cancelled && isListeningRef.current) {
+            let blob: Blob | null = null;
+            try {
+              blob = await new Promise<Blob | null>((resolve, reject) => {
+                let finished = false;
+                const finish = () => { if (finished || !current) return; finished = true; current.stop().then(resolve, reject); };
+                stopOnPrem.resolve = () => { finished = true; current?.cancel(); resolve(null); };
+                startRecording({ maxSeconds: 20, silenceMs: 1200, onSilence: finish })
+                  .then(r => { current = r; if (stopOnPrem.cancelled) { r.cancel(); resolve(null); } setTimeout(finish, 20_000); }, reject);
+              });
+            } catch (e: any) {
+              setMicError(e?.name === 'NotAllowedError'
+                ? 'Microphone permission was denied. Allow microphone access in the browser to use the scribe, or type notes manually.'
+                : 'The microphone could not be started on this device.');
+              isListeningRef.current = false;
+              setIsListening(false);
+              return;
+            }
+            if (!blob || stopOnPrem.cancelled) return;
+            setLiveInterimText('…');
+            api.transcribeAudio(blob, lang).then(r => {
+              failures = 0;
+              if (!stopOnPrem.cancelled) addFinalLineRef.current(r.text || '');
+              else setLiveInterimText('');
+            }).catch(() => {
+              setLiveInterimText('');
+              if (++failures >= 2) setMicError('The hospital speech server is not responding. Type notes manually or try again.');
+            });
+          }
+        };
+        loop();
+      } else if (inputMode === 'real_mic') {
         setupWebAudioDSP();
 
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
+        if (!cloudSpeechAllowed) {
+          setMicError('The hospital speech server is not available and browser (cloud) speech recognition is turned off here. Type notes manually.');
+        } else if (SpeechRecognition) {
           try {
             const recognition = new SpeechRecognition();
             recognition.continuous = true;
@@ -313,26 +302,7 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
               for (let i = event.resultIndex; i < event.results.length; ++i) {
                 const transcriptPiece = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                  const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                  const pieceTrimmed = transcriptPiece.trim();
-
-                  if (pieceTrimmed.length > 0) {
-                    const isDocPrescribing = /गोली|सुबह|शाम|खुराक|mg|tablet|pani|water|blood pressure|take|गुग्गुलु|ashwagandha/i.test(pieceTrimmed);
-                    const speakerLabel = isDocPrescribing ? 'Doctor (Desk)' : 'Patient (Far-Field)';
-
-                    setTranscriptLines((prev) => [
-                      ...prev,
-                      {
-                        speaker: speakerLabel,
-                        text: pieceTrimmed,
-                        timestamp: now,
-                        isWhisper: isWhisperDetected,
-                        snrDb: Math.max(0, liveDbLevel - liveNoiseFloor)
-                      }
-                    ]);
-                    setLiveInterimText('');
-                    sovereignSound('notch');
-                  }
+                  addFinalLineRef.current(transcriptPiece);
                 } else {
                   interim += transcriptPiece;
                 }
@@ -397,6 +367,8 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
     }
 
     return () => {
+      stopOnPrem.cancelled = true;
+      stopOnPrem.resolve?.();
       teardownWebAudioDSP();
       if (recognitionRef.current) {
         try {
@@ -406,7 +378,7 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
       }
       if (unsubscribeWs) unsubscribeWs();
     };
-  }, [isListening, inputMode, micLanguage, acousticMode]);
+  }, [isListening, inputMode, micLanguage, acousticMode, onPremAsr]);
 
   const toggleListening = () => {
     sovereignSound(isListening ? 'shutter' : 'chime');
@@ -523,6 +495,12 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
             <option value="hi-IN">Hindi / Hinglish (hi-IN)</option>
             <option value="en-IN">Indian English (en-IN)</option>
           </select>
+          <span
+            title={onPremAsr ? 'Speech is transcribed on the hospital server; audio does not leave the premises.' : 'Speech is transcribed by the browser vendor’s cloud service.'}
+            style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: onPremAsr ? '#ecfdf5' : '#fffbeb', color: onPremAsr ? '#047857' : '#92400e', border: `1px solid ${onPremAsr ? '#a7f3d0' : '#fde68a'}` }}
+          >
+            {onPremAsr ? 'On-premise speech' : 'Browser speech (cloud)'}
+          </span>
 
           <button
             onClick={toggleListening}
@@ -699,7 +677,7 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
         {transcriptLines.map((line, idx) => {
           const isDoctor = line.speaker.includes('Doctor');
           const isLatest = idx === transcriptLines.length - 1 && !liveInterimText;
-          const entities = extractEntitiesFromText(line.text);
+          const entities = scribeChips(line.text);
 
           return (
             <div
@@ -766,15 +744,16 @@ export const AmbientScribePanel: React.FC<AmbientScribePanelProps> = ({ onAutoEx
                       style={{
                         fontSize: 10,
                         fontWeight: 600,
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        color: ent.includes('Rx:') ? '#15803d' : ent.includes('Red Flag') ? '#b91c1c' : '#334155',
+                        background: CHIP_STYLE[ent.kind].bg,
+                        border: `1px solid ${CHIP_STYLE[ent.kind].border}`,
+                        color: CHIP_STYLE[ent.kind].fg,
+                        textDecoration: ent.kind === 'denied' ? 'line-through' : undefined,
                         padding: '2px 8px',
                         borderRadius: 6,
                         letterSpacing: '+0.01em'
                       }}
                     >
-                      {ent}
+                      {ent.label}
                     </span>
                   ))}
                 </div>

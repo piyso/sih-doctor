@@ -56,6 +56,11 @@ export function blindIndex(value: string): string {
   return crypto.createHmac('sha256', INDEX_KEY).update(value).digest('hex');
 }
 
+/** A purpose-specific sub-key derived from the field-encryption key (HMAC-SHA256 over a label). */
+export function deriveKey(label: string): Buffer {
+  return crypto.createHmac('sha256', KEY).update(`derived:${label}`).digest();
+}
+
 /** Indian mobile numbers: keep the last 10 digits. Returns '' when it is not a valid mobile. */
 export function normalisePhone(raw: unknown): string {
   const digits = String(raw || '').replace(/\D/g, '').slice(-10);

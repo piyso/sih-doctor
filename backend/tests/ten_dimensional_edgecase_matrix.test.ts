@@ -333,15 +333,10 @@ export function runTenDimensionalEdgeCaseMatrix(): TenDimensionalMatrixResult {
     'Cryptographic Merkle hash chaining failed');
 
   // 9.3 PAC Conformal Finite-Sample Calibration
-  const pacGate = PACConformalGateService.evaluate({
-    topCandidateConfidence: 0.98,
-    runnerUpConfidence: 0.05,
-    vitalsAnomalyCount: 0,
-    alpha: 0.05
-  });
-  runSubTest(9, 'Cryptographic Soundness', 'PAC Conformal High-Confidence Fastpath Emission',
-    pacGate.allowFastpathEmission === true && pacGate.recommendedPathway === 'EMIT_SOVEREIGN_FASTPATH',
-    'PAC Conformal gate failed to allow fastpath on confident stable patient');
+  const pacGate = PACConformalGateService.evaluate({ topCandidateConfidence: 0.98, runnerUpConfidence: 0.05 });
+  runSubTest(9, 'Cryptographic Soundness', 'Split-conformal gate admits a confident suggestion',
+    pacGate.allowFastpathEmission === true && pacGate.recommendedPathway === 'SHOW_SUGGESTION',
+    'Conformal gate failed to admit a confident suggestion');
 
   // ───────────────────────────────────────────────────────────────────────────
   // DIMENSION 10: STATUTORY & LEGAL REGULATORY COMPLIANCE (INDIA)

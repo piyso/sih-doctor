@@ -1,0 +1,58 @@
+{
+  "description": "Labelled transcripts for calibrating the syndrome-suggestion conformal gate (backend/scripts/calibrate-conformal.ts). Each case names the prototype a clinician would expect the suggester to recall. The prototypes themselves are fixed vectors in hopfieldAssociative.service.ts and were not fitted to these cases. Replace or extend with field transcripts; re-run `npm run calibrate:conformal` after any change.",
+  "alpha": 0.1,
+  "cases": [
+    { "t": "सीने में दर्द है और पसीना आ रहा है", "label": "syn_acs" },
+    { "t": "छाती में भारीपन है, पसीना छूट रहा है और बायें हाथ में दर्द जा रहा है", "label": "syn_acs" },
+    { "t": "chest pain with sweating since one hour", "label": "syn_acs" },
+    { "t": "seene me dard hai aur pasina aa raha hai, baye haath me bhi dard hai", "label": "syn_acs" },
+    { "t": "I have pressure in my chest and the pain goes to my left arm", "label": "syn_acs" },
+    { "t": "छाती में दबाव महसूस हो रहा है और बहुत पसीना आ रहा है", "label": "syn_acs" },
+    { "t": "chhati me dard hai aur thanda pasina aa raha hai", "label": "syn_acs" },
+    { "t": "मुझे सीने में दर्द है, बायें हाथ में दर्द है और पसीना आ रहा है", "label": "syn_acs" },
+    { "t": "chest pain and sweating, feeling the pain in the left arm too", "label": "syn_acs" },
+    { "t": "सीने में जकड़न और पसीना, दो घंटे से", "label": "syn_acs" },
+
+    { "t": "घुटनों में दर्द रहता है और सुबह जकड़न होती है", "label": "syn_sandhivata" },
+    { "t": "knee pain with stiffness in the morning for six months", "label": "syn_sandhivata" },
+    { "t": "dono ghutne me dard hai aur subah akdan rehti hai", "label": "syn_sandhivata" },
+    { "t": "घुटने में दर्द है, चलने में दिक्कत होती है और सुबह अकड़न", "label": "syn_sandhivata" },
+    { "t": "my knees hurt and feel stiff when I get up", "label": "syn_sandhivata" },
+    { "t": "ghutno me dard aur jakdan hai, seedhi chadhne me takleef", "label": "syn_sandhivata" },
+    { "t": "घुटनों का दर्द और सुबह की जकड़न छह महीने से", "label": "syn_sandhivata" },
+    { "t": "knee pain for a year, stiff in the morning, no fever", "label": "syn_sandhivata" },
+
+    { "t": "बुखार और खांसी है तीन दिन से", "label": "syn_kasa_jwara" },
+    { "t": "fever with cough for three days", "label": "syn_kasa_jwara" },
+    { "t": "bukhar hai aur khansi bhi hai, balgam aata hai", "label": "syn_kasa_jwara" },
+    { "t": "खांसी में बलगम आता है और बुखार है", "label": "syn_kasa_jwara" },
+    { "t": "cough with phlegm and fever since two days", "label": "syn_kasa_jwara" },
+    { "t": "bacche ko bukhar aur khansi hai", "label": "syn_kasa_jwara" },
+    { "t": "मुझे बुखार है और लगातार खांसी आ रही है", "label": "syn_kasa_jwara" },
+    { "t": "fever and cough, body is aching", "label": "syn_kasa_jwara" },
+    { "t": "तेज़ बुखार और खांसी, रात में ज़्यादा", "label": "syn_kasa_jwara" },
+    { "t": "khansi aur bukhar do din se", "label": "syn_kasa_jwara" },
+
+    { "t": "बहुत प्यास लगती है और बार-बार पेशाब आता है", "label": "syn_madhumeha" },
+    { "t": "frequent urination and a lot of thirst, burning in both feet", "label": "syn_madhumeha" },
+    { "t": "bahut pyaas lagti hai aur baar baar peshab jaana padta hai", "label": "syn_madhumeha" },
+    { "t": "पैरों में जलन रहती है और प्यास बहुत लगती है", "label": "syn_madhumeha" },
+    { "t": "I am always thirsty and pass urine many times at night", "label": "syn_madhumeha" },
+    { "t": "pairo me jalan hai aur pyaas bahut lagti hai", "label": "syn_madhumeha" },
+    { "t": "बार-बार पेशाब और बहुत प्यास, पैरों के तलवों में जलन", "label": "syn_madhumeha" },
+    { "t": "thirst all the time, burning feet, urine many times", "label": "syn_madhumeha" },
+
+    { "t": "जोड़ों में सूजन है और सुबह जकड़न रहती है", "label": "syn_amavata" },
+    { "t": "joints are swollen and stiff in the morning for an hour", "label": "syn_amavata" },
+    { "t": "haath ke jodo me sujan aur subah akdan hai", "label": "syn_amavata" },
+    { "t": "कई जोड़ों में सूजन और दर्द है, सुबह जकड़न, हल्का बुखार", "label": "syn_amavata" },
+    { "t": "swelling in the finger joints with morning stiffness and low fever", "label": "syn_amavata" },
+    { "t": "jodo me sujan hai aur subah uthne par akdan rehti hai", "label": "syn_amavata" },
+    { "t": "जोड़ों में सूजन, गर्माहट और सुबह की जकड़न", "label": "syn_amavata" },
+    { "t": "my joints are swollen and stiff when I wake up", "label": "syn_amavata" },
+
+    { "t": "घुटने में दर्द और सूजन है, सुबह जकड़न भी", "label": "syn_amavata" },
+    { "t": "chest pain and fever with cough", "label": "syn_kasa_jwara" },
+    { "t": "बुखार है और सीने में दर्द है", "label": "syn_acs" }
+  ]
+}

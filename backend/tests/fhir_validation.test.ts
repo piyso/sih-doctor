@@ -148,6 +148,17 @@ export function runFhirBenchmark(bundleCount: number = 1000) {
       }
     }
 
+    // Invariant 4b: structural validation (references resolve, Composition sections coded, NDHM profiles declared)
+    if (i < 50) {
+      const v = FhirGeneratorService.validateBundle(bundle);
+      if (!v.valid) throw new Error(`Bundle ${i} failed structural validation: ${v.errors.join('; ')}`);
+      const patient = bundle.entry.find(e => e.resource.resourceType === 'Patient')!.resource;
+      const invented = (patient.identifier || []).some((idf: any) => /^(12-3456|ABHA-)/.test(String(idf.value)));
+      if (invented) throw new Error('Bundle invents an ABHA identifier');
+      const practitioner = bundle.entry.find(e => e.resource.resourceType === 'Practitioner')!.resource;
+      if ((practitioner.identifier || []).some((idf: any) => /HPR-AYUSH-10492/.test(String(idf.value)))) throw new Error('Bundle invents an HPR identifier');
+    }
+
     // Invariant 4: Subject Reference Resolution & Acyclic Integrity
     const comp = bundle.entry[0].resource;
     const patientEntry = bundle.entry.find(e => e.resource.resourceType === 'Patient');
@@ -157,6 +168,26 @@ export function runFhirBenchmark(bundleCount: number = 1000) {
       }
     }
   }
+
+  // Invariant 5: a record with a structured history produces the NDHM OPConsultRecord sections.
+  const rich = FhirGeneratorService.buildBundle({
+    encounterId: 'enc-rich', patientId: 'pat-rich', createdAt: new Date().toISOString(), doctorName: 'Dr Rich', department: 'General Medicine',
+    patient: { id: 'pat-rich', name: 'Rich Patient', age: 52, gender: 'FEMALE', abhaId: '91-1234-5678-9012', abhaAddress: 'rich@abdm' },
+    practitioner: { id: 'doc-1', name: 'Dr Rich', registrationNo: 'DMC Reg. 1', qualification: 'MBBS', role: 'doctor' },
+    symptoms: [{ name: 'Chest Pain', severity: 7, isNegated: false }, { name: 'Fever', severity: 0, isNegated: true }],
+    diagnoses: [diagnosisArchetypes[0]], allopathicPrescription: [diagnosisArchetypes[0].drug], ongoingMedicines: ['Amlodipine 5 mg'],
+    investigationsOrdered: ['ECG', 'Troponin I'], followUpDays: 7, vitals: { bp: '150/95', pulse: 98, spo2: 96, temp: '101 F', source: 'clinician' },
+    history: { conditions: ['Hypertension'], allergies: 'Sulpha drugs', currentMedicines: 'Amlodipine', pastSurgical: [{ name: 'LSCS', since: '2010' }], familyHistory: [{ condition: 'Diabetes', relation: 'mother' }], personal: { tobacco: 'never', alcohol: 'never', diet: 'vegetarian' }, reviewOfSystems: { respiratory: 'denied' } },
+    scannedDocuments: [{ id: 'doc-1', documentType: 'LAB_REPORT', extractedText: 'Hb 11.2', createdAt: new Date().toISOString() }]
+  });
+  const richValidation = FhirGeneratorService.validateBundle(rich);
+  const sectionCodes = (rich.entry[0].resource.section || []).map((s: any) => s.code.coding[0].code);
+  const needSections = ['422843007', '425044008', '722446000', '371529009', '422432008', '721963009', '721912009', '736271009', '371525003', '404684003', '371530004'];
+  const missingSections = needSections.filter(c => !sectionCodes.includes(c));
+  const richTypes = richValidation.resourceCounts;
+  const richOk = richValidation.valid && missingSections.length === 0 && (richTypes.AllergyIntolerance || 0) === 1 && (richTypes.FamilyMemberHistory || 0) === 1 && (richTypes.Procedure || 0) === 1 && (richTypes.MedicationStatement || 0) >= 1 && (richTypes.Observation || 0) >= 6 && (richTypes.DocumentReference || 0) === 1 && (richTypes.Appointment || 0) === 1 && (richTypes.ServiceRequest || 0) === 2;
+  if (!richOk) throw new Error(`Rich bundle check failed: valid=${richValidation.valid} errors=${richValidation.errors.join('; ')} missingSections=${missingSections.join(',')} counts=${JSON.stringify(richTypes)}`);
+  console.log(`• OPConsultRecord sections:        ${sectionCodes.length}/11 present; resources: ${Object.entries(richTypes).map(([k, n]) => `${k}=${n}`).join(' ')}`);
 
   const tEnd = performance.now();
   const totalTimeMs = tEnd - tStart;

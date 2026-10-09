@@ -6,10 +6,13 @@
  *                            patient's script ("आई एम वेरी मच"), words in a foreign script, truncated
  *                            first syllables ("रे हाथ" → "मेरे हाथ") and repeated phrases.
  *  3. `extractSymptomsFromSpeech` – deterministic, offline symptom spotting in all 11 kiosk languages
- *                            (plus romanised Hinglish), so voice works without the server.
+ *                            (plus romanised Hinglish), so voice works without the server. A symptom the
+ *                            patient denies ("बुखार नहीं है", "no fever") is left out, pain is tied to the body
+ *                            part named in the same clause, and severity is only set when the patient said it.
  */
 import { SocratesSymptom } from '../types/api';
 import { normalizeLang, regionName, SupportedKioskLanguage } from './kioskLocalization';
+import { clauseAt, findDurations, isHistorical, negationAt, severityIn, windowAt } from './clinicalText';
 
 // ------------------------------------------------------------------------------------------------
 // Scripts
@@ -207,7 +210,7 @@ const RULES: SymptomRule[] = [
   {
     key: 'urine_burning', en: 'Burning while passing urine',
     labels: { en: 'Burning urine', hi: 'पेशाब में जलन', mr: 'लघवीला जळजळ', bn: 'প্রস্রাবে জ্বালা', ta: 'சிறுநீர் எரிச்சல்', te: 'మూత్రంలో మంట', gu: 'પેશાબમાં બળતરા', kn: 'ಮೂತ್ರದಲ್ಲಿ ಉರಿ', ml: 'മൂത്രത്തിൽ എരിച്ചിൽ', pa: 'ਪਿਸ਼ਾਬ ਵਿੱਚ ਜਲਣ', or: 'ପରିସ୍ରାରେ ଜଳନ' },
-    patterns: /burning\s*(?:urine|urination)|पेशाब\s*में\s*जलन|peshab\s*me\s*jalan|लघवीला\s*जळजळ|প্রস্রাবে\s*জ্বালা|சிறுநீர்\s*எரிச்சல்|మూత్రంలో\s*మంట|પેશાબ(?:માં)?\s*બળતર|ಮೂತ್ರ(?:ದಲ್ಲಿ)?\s*ಉರಿ|മൂത്ര\S*\s*(?:എരിച്ചിൽ|ചുട്ടു)|ਪਿਸ਼ਾਬ\s*(?:ਵਿੱਚ|ਚ)?\s*ਜਲਣ|ପରିସ୍ରା\S*\s*ଜଳ/i
+    patterns: /burning\s*(?:sensation\s*)?(?:while\s*|when\s*|during\s*|on\s*)?(?:passing\s*)?(?:urin\w*|peeing)|peshab\s*(?:me|mein)\s*jalan|पेशाब\s*में\s*जलन|peshab\s*me\s*jalan|लघवीला\s*जळजळ|প্রস্রাবে\s*জ্বালা|சிறுநீர்\s*எரிச்சல்|మూత్రంలో\s*మంట|પેશાબ(?:માં)?\s*બળતર|ಮೂತ್ರ(?:ದಲ್ಲಿ)?\s*ಉರಿ|മൂത്ര\S*\s*(?:എരിച്ചിൽ|ചുട്ടു)|ਪਿਸ਼ਾਬ\s*(?:ਵਿੱਚ|ਚ)?\s*ਜਲਣ|ପରିସ୍ରା\S*\s*ଜଳ/i
   },
   {
     key: 'dizziness', en: 'Dizziness',
@@ -248,11 +251,11 @@ const BODY_PARTS: Array<{ region: string; lateral?: boolean; patterns: RegExp }>
   { region: 'Face & Sinus', patterns: /\beye|face|nose|tooth|teeth|आँख|आंख|चेहरा|नाक|दाँत|दांत|डोळ|दात|চোখ|মুখ|নাক|দাঁত|கண்|முகம்|மூக்கு|பல்|కన్ను|కళ్ళు|ముఖం|ముక్కు|పన్ను|આંખ|ચહેર|નાક|દાંત|ಕಣ್ಣು|ಮುಖ|ಮೂಗು|ಹಲ್ಲು|കണ്ണ്|മുഖ|മൂക്ക്|പല്ല്|ਅੱਖ|ਚਿਹਰ|ਨੱਕ|ਦੰਦ|ଆଖି|ମୁହଁ|ନାକ|ଦାନ୍ତ/i },
   { region: 'Neck', patterns: /throat|neck|गला|गले|घसा|मान|গলা|ঘাড়|தொண்டை|கழுத்து|గొంతు|మెడ|ગળ|ડોક|ಗಂಟಲು|ಕುತ್ತಿಗೆ|തൊണ്ട|കഴുത്ത്|ਗਲ|ਗਰਦਨ|ଗଳା|ବେକ/i },
   { region: 'Left Chest / Precordium', patterns: /chest|heart|सीने|सीना|छाती|दिल|हृदय|छातीत|বুক|হৃদ|நெஞ்சு|மார்பு|இதய|ఛాతీ|గుండె|છાતી|હૃદય|ಎದೆ|ಹೃದಯ|നെഞ്ച|ഹൃദയ|ਛਾਤੀ|ਦਿਲ|ଛାତି|ହୃଦୟ/i },
-  { region: 'Epigastrium', patterns: /stomach|belly|abdomen|पेट|pet\b|पोट|পেট|வயிறு|வயிற்று|కడుపు|પેટ|ಹೊಟ್ಟೆ|വയറ|ਪੇਟ|ପେଟ/i },
+  { region: 'Epigastrium', patterns: /stomach|belly|abdom|tummy|पेट|pet\b|पोट|পেট|வயிறு|வயிற்று|కడుపు|પેટ|ಹೊಟ್ಟೆ|വയറ|ਪੇਟ|ପେଟ/i },
   { region: 'Lumbar Spine (Kati)', patterns: /back\s*pain|lower\s*back|कमर|पीठ|kamar|कंबर|पाठ|কোমর|পিঠ|முதுகு|இடுப்பு|నడుము|వీపు|કમર|પીઠ|ಬೆನ್ನು|ಸೊಂಟ|മുതുക|നടു|ਕਮਰ|ਪਿੱਠ|ପିଠି|ଅଣ୍ଟା/i },
   { region: 'Left Shoulder', lateral: true, patterns: /shoulder|कंधे|कंधा|खांदा|কাঁধ|தோள்|భుజం|ખભ|ಭುಜ|തോൾ|ਮੋਢ|କାନ୍ଧ/i },
   { region: 'Left Hand', lateral: true, patterns: /\bhand|wrist|हाथ|हात|कलाई|मनगट|হাত|কব্জি|கை|மணிக்கட்டு|చేయి|చేతి|మణికట్టు|હાથ|કાંડ|ಕೈ|ಮಣಿಕಟ್ಟು|കൈ|മണിബന്ധ|ਹੱਥ|ਬਾਂਹ|ਗੁੱਟ|ହାତ|ବାହୁ|ମଣିବନ୍ଧ/i },
-  { region: 'Left Knee', lateral: true, patterns: /knee|घुटने|घुटना|ghutna|गुडघ|হাঁটু|முழங்கால்|మోకాలు|మోకాలి|ઘૂંટણ|ಮೊಣಕಾಲು|കാൽമുട്ട്|ਗੋਡ|ଆଣ୍ଠୁ/i },
+  { region: 'Left Knee', lateral: true, patterns: /knee|घुटने|घुटना|घुटनों|ghutn[aeo]|गुडघ|হাঁটু|முழங்கால்|మోకాలు|మోకాలి|ઘૂંટણ|ಮೊಣಕಾಲು|കാൽമുട്ട്|ਗੋਡ|ଆଣ୍ଠୁ/i },
   { region: 'Left Foot', lateral: true, patterns: /\bfoot|feet|ankle|heel|पंजा|टखने|एड़ी|तलवे|पाऊल|घोटा|टाच|পায়ের\s*পাতা|গোড়ালি|பாதம்|குதிகால்|கணுக்கால்|పాదం|మడమ|చీలమండ|પંજો|એડી|ઘૂંટી|ಪಾದ|ಹಿಮ್ಮಡಿ|പാദ|ഉപ്പൂറ്റി|കണങ്കാൽ|ਪੈਰ|ਅੱਡੀ|ਗਿੱਟ|ପାଦ|ଗୋଇଠି/i },
   { region: 'Left Leg', lateral: true, patterns: /\bleg|calf|पैर|पिंडली|(?:^|\s)पाय|पोटरी|(?:^|\s)পা(?:\s|$|য়ে)|கால்(?!\s*விரல்)|కాలు|కాలి|పిక్క|પગ|ಕಾಲು|ಕಾಲಿ|കാൽ|കാല്|ਲੱਤ|ਪਿੰਨੀ|ଗୋଡ|ପିଣ୍ଡୁଳା/i }
 ];
@@ -335,9 +338,7 @@ export interface SpeechFindings {
  */
 export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFindings => {
   const code = normalizeLang(lang);
-  const lower = text.toLowerCase();
-  const duration = detectDuration(text);
-  const severity = SEVERE_WORDS.test(lower) ? 8 : MILD_WORDS.test(lower) ? 3 : 5;
+  const duration = findDurations(text)[0]?.value || detectDuration(text);
   const out: SocratesSymptom[] = [];
   const seen = new Set<string>();
 
@@ -346,9 +347,25 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
     seen.add(s.key);
     out.push(s);
   };
+  const global = (re: RegExp) => new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+  /** The first mention the patient neither denied nor placed in the past ("दो साल पहले …"), or null. */
+  const affirmedIn = (re: RegExp, within = text, offset = 0, emergency = false) => {
+    for (const m of within.matchAll(global(re))) {
+      const a = offset + m.index!;
+      const b = a + m[0].length;
+      if (!negationAt(text, a, b).negated && !isHistorical(text, a, b, emergency)) return a;
+    }
+    return null;
+  };
+  /** Severity said next to a mention ("बहुत तेज़", "8 out of 10"); 0 when not said. */
+  const severityAt = (pos: number) => {
+    const near = windowAt(text, pos, pos + 1);
+    return severityIn(near) || (SEVERE_WORDS.test(near) ? 8 : MILD_WORDS.test(near) ? 3 : 0);
+  };
 
   for (const rule of RULES) {
-    if (!rule.patterns.test(text)) continue;
+    const at = affirmedIn(rule.patterns, text, 0, !!rule.isEmergency);
+    if (at === null) continue;
     push({
       key: `voice:${rule.key}`,
       name: rule.en,
@@ -362,22 +379,29 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
       timing: '',
       exacerbatingFactors: [],
       relievingFactors: [],
-      severityScore: severity,
+      severityScore: severityAt(at),
       source: 'voice',
       isEmergency: rule.isEmergency
     });
   }
 
-  // Pain attached to a body part ("मेरे हाथ में बहुत दर्द"). Matched words are blanked out so that
-  // "முழங்கால்" (knee) is not matched again by the shorter "கால்" (leg).
+  // Pain attached to a body part ("मेरे हाथ में बहुत दर्द"): the pain word must be in the same clause as the
+  // part and not denied ("सिर में दर्द नहीं, पेट में है" → stomach only). Matched words are blanked out (same
+  // length, so positions stay valid) so that "முழங்கால்" (knee) is not matched again by the shorter "கால்" (leg).
   if (PAIN_WORDS.test(text)) {
     let rest = text;
     const hasRight = RIGHT_WORDS.test(text) && !LEFT_WORDS.test(text);
     const hasLeft = LEFT_WORDS.test(text) && !RIGHT_WORDS.test(text);
     for (const part of BODY_PARTS) {
-      const global = new RegExp(part.patterns.source, 'gi');
-      if (!global.test(rest)) continue;
-      rest = rest.replace(new RegExp(part.patterns.source, 'gi'), ' ');
+      const re = global(new RegExp(part.patterns.source, 'i'));
+      let painAt: number | null = null;
+      for (const m of rest.matchAll(re)) {
+        const [a, b] = clauseAt(text, m.index!);
+        painAt = affirmedIn(PAIN_WORDS, text.slice(a, b), a);
+        if (painAt !== null) break;
+      }
+      rest = rest.replace(re, w => ' '.repeat(w.length));
+      if (painAt === null) continue;
       let region = part.region;
       let sideKnown = true;
       if (part.lateral) {
@@ -402,7 +426,7 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
         timing: '',
         exacerbatingFactors: [],
         relievingFactors: [],
-        severityScore: severity,
+        severityScore: severityAt(painAt),
         source: 'voice'
       });
     }

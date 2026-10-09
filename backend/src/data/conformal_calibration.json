@@ -1,0 +1,434 @@
+{
+  "alpha": 0.1,
+  "n": 42,
+  "k": 39,
+  "qHat": 0.08650000000000002,
+  "guaranteed": true,
+  "empiricalCoverage": 0.9286,
+  "source": "edge-ai/eval/syndrome_calibration.json",
+  "createdAt": "2026-10-09T02:57:58.762Z",
+  "scoresSorted": [
+    0.0012999999999999678,
+    0.0012999999999999678,
+    0.0012999999999999678,
+    0.0013999999999999568,
+    0.0013999999999999568,
+    0.0013999999999999568,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0018000000000000238,
+    0.0049000000000000155,
+    0.005800000000000027,
+    0.005800000000000027,
+    0.005800000000000027,
+    0.005800000000000027,
+    0.005800000000000027,
+    0.029000000000000026,
+    0.029000000000000026,
+    0.05049999999999999,
+    0.05049999999999999,
+    0.05049999999999999,
+    0.05049999999999999,
+    0.05049999999999999,
+    0.05049999999999999,
+    0.07240000000000002,
+    0.07240000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.08650000000000002,
+    0.18520000000000003,
+    0.41259999999999997,
+    0.6769000000000001
+  ],
+  "labelAccuracy": 0.9762,
+  "skippedCases": 5,
+  "cases": [
+    {
+      "t": "सीने में दर्द है और पसीना आ रहा है",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9942,
+      "score": 0.0058,
+      "activeFeatures": 2
+    },
+    {
+      "t": "छाती में भारीपन है, पसीना छूट रहा है और बायें हाथ में दर्द जा रहा है",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9987,
+      "score": 0.0013,
+      "activeFeatures": 2
+    },
+    {
+      "t": "chest pain with sweating since one hour",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9942,
+      "score": 0.0058,
+      "activeFeatures": 2
+    },
+    {
+      "t": "seene me dard hai aur pasina aa raha hai, baye haath me bhi dard hai",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9942,
+      "score": 0.0058,
+      "activeFeatures": 2
+    },
+    {
+      "t": "I have pressure in my chest and the pain goes to my left arm",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9951,
+      "score": 0.0049,
+      "activeFeatures": 2
+    },
+    {
+      "t": "छाती में दबाव महसूस हो रहा है और बहुत पसीना आ रहा है",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9942,
+      "score": 0.0058,
+      "activeFeatures": 2
+    },
+    {
+      "t": "chhati me dard hai aur thanda pasina aa raha hai",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9942,
+      "score": 0.0058,
+      "activeFeatures": 2
+    },
+    {
+      "t": "मुझे सीने में दर्द है, बायें हाथ में दर्द है और पसीना आ रहा है",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9987,
+      "score": 0.0013,
+      "activeFeatures": 2
+    },
+    {
+      "t": "chest pain and sweating, feeling the pain in the left arm too",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.9987,
+      "score": 0.0013,
+      "activeFeatures": 2
+    },
+    {
+      "t": "सीने में जकड़न और पसीना, दो घंटे से",
+      "label": "syn_acs",
+      "predicted": "syn_acs",
+      "weight": 0.8148,
+      "score": 0.1852,
+      "activeFeatures": 2
+    },
+    {
+      "t": "घुटनों में दर्द रहता है और सुबह जकड़न होती है",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "knee pain with stiffness in the morning for six months",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "dono ghutne me dard hai aur subah akdan rehti hai",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "घुटने में दर्द है, चलने में दिक्कत होती है और सुबह अकड़न",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "my knees hurt and feel stiff when I get up",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "ghutno me dard aur jakdan hai, seedhi chadhne me takleef",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "घुटनों का दर्द और सुबह की जकड़न छह महीने से",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "knee pain for a year, stiff in the morning, no fever",
+      "label": "syn_sandhivata",
+      "predicted": "syn_sandhivata",
+      "weight": 0.9135,
+      "score": 0.0865,
+      "activeFeatures": 2
+    },
+    {
+      "t": "बुखार और खांसी है तीन दिन से",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "fever with cough for three days",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "bukhar hai aur khansi bhi hai, balgam aata hai",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.971,
+      "score": 0.029,
+      "activeFeatures": 2
+    },
+    {
+      "t": "खांसी में बलगम आता है और बुखार है",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "cough with phlegm and fever since two days",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "bacche ko bukhar aur khansi hai",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "मुझे बुखार है और लगातार खांसी आ रही है",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "fever and cough, body is aching",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "तेज़ बुखार और खांसी, रात में ज़्यादा",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "khansi aur bukhar do din se",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.9982,
+      "score": 0.0018,
+      "activeFeatures": 2
+    },
+    {
+      "t": "बहुत प्यास लगती है और बार-बार पेशाब आता है",
+      "label": "syn_madhumeha",
+      "predicted": null,
+      "weight": 0,
+      "score": null,
+      "activeFeatures": 0
+    },
+    {
+      "t": "frequent urination and a lot of thirst, burning in both feet",
+      "label": "syn_madhumeha",
+      "predicted": "syn_madhumeha",
+      "weight": 0.9986,
+      "score": 0.0014,
+      "activeFeatures": 2
+    },
+    {
+      "t": "bahut pyaas lagti hai aur baar baar peshab jaana padta hai",
+      "label": "syn_madhumeha",
+      "predicted": null,
+      "weight": 0,
+      "score": null,
+      "activeFeatures": 0
+    },
+    {
+      "t": "पैरों में जलन रहती है और प्यास बहुत लगती है",
+      "label": "syn_madhumeha",
+      "predicted": null,
+      "weight": 0,
+      "score": null,
+      "activeFeatures": 0
+    },
+    {
+      "t": "I am always thirsty and pass urine many times at night",
+      "label": "syn_madhumeha",
+      "predicted": null,
+      "weight": 0,
+      "score": null,
+      "activeFeatures": 0
+    },
+    {
+      "t": "pairo me jalan hai aur pyaas bahut lagti hai",
+      "label": "syn_madhumeha",
+      "predicted": null,
+      "weight": 0,
+      "score": null,
+      "activeFeatures": 0
+    },
+    {
+      "t": "बार-बार पेशाब और बहुत प्यास, पैरों के तलवों में जलन",
+      "label": "syn_madhumeha",
+      "predicted": "syn_madhumeha",
+      "weight": 0.9986,
+      "score": 0.0014,
+      "activeFeatures": 2
+    },
+    {
+      "t": "thirst all the time, burning feet, urine many times",
+      "label": "syn_madhumeha",
+      "predicted": "syn_madhumeha",
+      "weight": 0.9986,
+      "score": 0.0014,
+      "activeFeatures": 2
+    },
+    {
+      "t": "जोड़ों में सूजन है और सुबह जकड़न रहती है",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9495,
+      "score": 0.0505,
+      "activeFeatures": 2
+    },
+    {
+      "t": "joints are swollen and stiff in the morning for an hour",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9495,
+      "score": 0.0505,
+      "activeFeatures": 2
+    },
+    {
+      "t": "haath ke jodo me sujan aur subah akdan hai",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9495,
+      "score": 0.0505,
+      "activeFeatures": 2
+    },
+    {
+      "t": "कई जोड़ों में सूजन और दर्द है, सुबह जकड़न, हल्का बुखार",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9276,
+      "score": 0.0724,
+      "activeFeatures": 2
+    },
+    {
+      "t": "swelling in the finger joints with morning stiffness and low fever",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9276,
+      "score": 0.0724,
+      "activeFeatures": 2
+    },
+    {
+      "t": "jodo me sujan hai aur subah uthne par akdan rehti hai",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9495,
+      "score": 0.0505,
+      "activeFeatures": 2
+    },
+    {
+      "t": "जोड़ों में सूजन, गर्माहट और सुबह की जकड़न",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9495,
+      "score": 0.0505,
+      "activeFeatures": 2
+    },
+    {
+      "t": "my joints are swollen and stiff when I wake up",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.9495,
+      "score": 0.0505,
+      "activeFeatures": 2
+    },
+    {
+      "t": "घुटने में दर्द और सूजन है, सुबह जकड़न भी",
+      "label": "syn_amavata",
+      "predicted": "syn_amavata",
+      "weight": 0.5874,
+      "score": 0.4126,
+      "activeFeatures": 2
+    },
+    {
+      "t": "chest pain and fever with cough",
+      "label": "syn_kasa_jwara",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.971,
+      "score": 0.029,
+      "activeFeatures": 2
+    },
+    {
+      "t": "बुखार है और सीने में दर्द है",
+      "label": "syn_acs",
+      "predicted": "syn_kasa_jwara",
+      "weight": 0.3231,
+      "score": 0.6769,
+      "activeFeatures": 2
+    }
+  ]
+}

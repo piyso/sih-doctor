@@ -8,7 +8,7 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "seed": "tsx src/db/seed.ts",
-    "test": "tsx tests/runner.ts",
+    "test": "node --expose-gc --import tsx tests/runner.ts",
     "test:opd": "tsx tests/opd_benchmark.test.ts",
     "test:kyc": "tsx tests/kyc_pii_redaction.test.ts",
     "test:contraindications": "tsx tests/contraindications.test.ts",

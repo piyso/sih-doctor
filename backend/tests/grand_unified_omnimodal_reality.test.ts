@@ -289,26 +289,16 @@ export function runGrandUnifiedOmnimodalRealityBenchmark(): OmnimodalRealityResu
   console.log(`\n--- Challenge 8: PAC Conformal Distribution-Free Safety Bounds ---`);
 
   // Trial 8.1: Confident Stable Patient under alpha = 0.05 (95% statistical safety bound)
-  const stablePac = PACConformalGateService.evaluate({
-    topCandidateConfidence: 0.98,
-    runnerUpConfidence: 0.04,
-    vitalsAnomalyCount: 0,
-    alpha: 0.05
-  });
-  runSubTest(8, 'PAC Conformal Bounds', 'PAC-Bayes Theory', 'PAC 95% Confidence Fastpath Emission Guarantee',
-    stablePac.allowFastpathEmission === true && stablePac.recommendedPathway === 'EMIT_SOVEREIGN_FASTPATH',
-    'PAC conformal gate failed to emit fastpath on clear stable patient');
+  const stablePac = PACConformalGateService.evaluate({ topCandidateConfidence: 0.98, runnerUpConfidence: 0.04 });
+  runSubTest(8, 'Split Conformal Gate', 'Vovk / Angelopoulos & Bates', 'Confident suggestion inside the shipped prediction set',
+    stablePac.allowFastpathEmission === true && stablePac.recommendedPathway === 'SHOW_SUGGESTION' && stablePac.guaranteed,
+    'Conformal gate failed to admit a confident suggestion');
 
   // Trial 8.2: Ambiguous / Anomaly Patient under alpha = 0.01 (99% statistical safety bound)
-  const riskyPac = PACConformalGateService.evaluate({
-    topCandidateConfidence: 0.55,
-    runnerUpConfidence: 0.48,
-    vitalsAnomalyCount: 2,
-    alpha: 0.01
-  });
-  runSubTest(8, 'PAC Conformal Bounds', 'PAC-Bayes Theory', 'PAC 99% Confidence Senior Doctor Escalation Bound',
-    riskyPac.allowFastpathEmission === false && riskyPac.recommendedPathway === 'TRIGGER_SENIOR_DOCTOR_ESCALATION',
-    'PAC conformal gate failed to escalate high-risk ambiguous patient');
+  const riskyPac = PACConformalGateService.evaluate({ topCandidateConfidence: 0.55, runnerUpConfidence: 0.48 });
+  runSubTest(8, 'Split Conformal Gate', 'Vovk / Angelopoulos & Bates', 'Ambiguous suggestion withheld',
+    riskyPac.allowFastpathEmission === false && riskyPac.recommendedPathway === 'WITHHOLD_SUGGESTION',
+    'Conformal gate failed to withhold an ambiguous suggestion');
 
   const failedChallenges = totalChallenges - passedChallenges;
   const isOmnimodalPassed = failedChallenges === 0;

@@ -1,0 +1,824 @@
+{
+ "_about": "BLIND set for transcript → structured intake, written 2026-10-09 BEFORE running the engine on it. Same keys as extraction_cases.json. Styles the tuning set barely covers: English loanwords written in Devanagari by the Hindi recogniser, long multi-complaint turns, attendants speaking for the patient, past history next to current complaints, more duration/vital phrasings, false-alarm traps. Score it with: npm run test:extraction -- --set blind",
+ "cases": [
+  {
+   "t": "मुझे दो दिन से फीवर है और बॉडी पेन भी है",
+   "p": [
+    "fever",
+    "bodyache"
+   ],
+   "d": {
+    "fever": "2 days"
+   }
+  },
+  {
+   "t": "चेस्ट में पेन हो रहा है लेफ्ट साइड",
+   "p": [
+    "chest_pain"
+   ],
+   "rf": true
+  },
+  {
+   "t": "स्टमक में बहुत पेन है और लूज़ मोशन हो रहे हैं",
+   "p": [
+    "abdominal_pain",
+    "diarrhoea"
+   ],
+   "sev": {
+    "abdominal_pain": 7
+   }
+  },
+  {
+   "t": "हेडेक है सुबह से और वोमिटिंग भी हुई",
+   "p": [
+    "headache",
+    "vomiting"
+   ]
+  },
+  {
+   "t": "थ्रोट में इन्फेक्शन है खाना निगलने में दर्द होता है",
+   "p": [
+    "sore_throat"
+   ]
+  },
+  {
+   "t": "मुझे कोल्ड और कफ है एक हफ्ते से",
+   "p": [
+    "cold",
+    "cough"
+   ],
+   "d": {
+    "cough": "1 week"
+   }
+  },
+  {
+   "t": "ब्रीदिंग में प्रॉब्लम है सीढ़ी चढ़ने पर",
+   "p": [
+    "breathless"
+   ]
+  },
+  {
+   "t": "बैक पेन है कमर के नीचे वाले हिस्से में",
+   "p": [
+    "back_pain"
+   ]
+  },
+  {
+   "t": "नी पेन है दोनों घुटनों में",
+   "p": [
+    "knee_pain"
+   ]
+  },
+  {
+   "t": "जॉइंट्स में पेन और स्वेलिंग है",
+   "p": [
+    "joint_pain"
+   ]
+  },
+  {
+   "t": "स्किन पर रैशेज़ हैं और इचिंग हो रही है",
+   "p": [
+    "rash",
+    "itching"
+   ]
+  },
+  {
+   "t": "यूरिन में बर्निंग होती है",
+   "p": [
+    "dysuria"
+   ]
+  },
+  {
+   "t": "बहुत वीकनेस लग रही है और चक्कर आते हैं",
+   "p": [
+    "weakness",
+    "dizziness"
+   ]
+  },
+  {
+   "t": "एसिडिटी की प्रॉब्लम है खाना खाने के बाद",
+   "p": [
+    "acidity"
+   ],
+   "rf": false
+  },
+  {
+   "t": "माइग्रेन का दर्द है आधे सिर में",
+   "p": [
+    "headache"
+   ]
+  },
+  {
+   "t": "मेरा शुगर लेवल दो सौ अस्सी आया था",
+   "v": {
+    "bloodSugar": 280
+   }
+  },
+  {
+   "t": "बीपी एक सौ साठ बटा सौ है",
+   "v": {
+    "bp": "160/100"
+   }
+  },
+  {
+   "t": "टेंपरेचर एक सौ एक डिग्री है",
+   "v": {
+    "temp": "101°F"
+   },
+   "p": [
+    "fever"
+   ]
+  },
+  {
+   "t": "ऑक्सीजन लेवल बानवे है और पल्स नब्बे",
+   "v": {
+    "spo2": "92%",
+    "pulse": 90
+   }
+  },
+  {
+   "t": "फीवर नहीं है बस थोड़ी सी कफ है",
+   "p": [
+    "cough"
+   ],
+   "n": [
+    "fever"
+   ]
+  },
+  {
+   "t": "चेस्ट पेन नहीं है पर सांस फूलती है",
+   "p": [
+    "breathless"
+   ],
+   "n": [
+    "chest_pain"
+   ]
+  },
+  {
+   "t": "मुझे डायबिटीज़ है और थायराइड की दवा भी लेता हूं",
+   "h": [
+    "diabetes",
+    "thyroid"
+   ]
+  },
+  {
+   "t": "हाई बीपी की टेबलेट चल रही है",
+   "h": [
+    "hypertension"
+   ]
+  },
+  {
+   "t": "पीरियड्स में बहुत दर्द होता है",
+   "p": []
+  },
+  {
+   "t": "डॉक्टर साहब मेरी मम्मी को तीन दिन से बुखार है और खांसी भी है",
+   "p": [
+    "fever",
+    "cough"
+   ],
+   "d": {
+    "fever": "3 days"
+   }
+  },
+  {
+   "t": "मेरे बेटे को कल रात से उल्टी और दस्त हो रहे हैं",
+   "p": [
+    "vomiting",
+    "diarrhoea"
+   ],
+   "d": {
+    "vomiting": "since last night"
+   }
+  },
+  {
+   "t": "इनको सुबह से सीने में भारीपन है और पसीना आ रहा है",
+   "p": [
+    "chest_pain",
+    "sweating"
+   ],
+   "rf": true
+  },
+  {
+   "t": "पापा को चक्कर आया और वो गिर गए थे",
+   "p": [
+    "dizziness"
+   ]
+  },
+  {
+   "t": "बच्चे को झटके आए थे बुखार में",
+   "p": [
+    "fever"
+   ],
+   "rf": true
+  },
+  {
+   "t": "मुझे पिछले साल टीबी हुई थी अब ठीक है अभी बस खांसी है",
+   "p": [
+    "cough"
+   ],
+   "h": [
+    "tb"
+   ]
+  },
+  {
+   "t": "दो साल पहले हार्ट अटैक हुआ था आज घुटने में दर्द है",
+   "p": [
+    "knee_pain"
+   ],
+   "n": [
+    "chest_pain"
+   ],
+   "h": [
+    "heart"
+   ],
+   "rf": false
+  },
+  {
+   "t": "पहले एसिडिटी रहती थी अब सीने में तेज दर्द है",
+   "p": [
+    "chest_pain"
+   ],
+   "rf": true
+  },
+  {
+   "t": "सर में दर्द रहता है और नींद भी नहीं आती रात को",
+   "p": [
+    "headache",
+    "insomnia"
+   ]
+  },
+  {
+   "t": "भूख कम लगती है और वजन घट रहा है",
+   "p": [
+    "appetite_loss"
+   ]
+  },
+  {
+   "t": "पेट साफ नहीं होता चार पांच दिन से",
+   "p": [
+    "constipation"
+   ],
+   "d": {
+    "constipation": "5 days"
+   }
+  },
+  {
+   "t": "गैस बनती है और पेट फूला रहता है",
+   "p": [
+    "gas"
+   ]
+  },
+  {
+   "t": "जी मिचलाता है पर उल्टी नहीं हुई",
+   "p": [
+    "nausea"
+   ],
+   "n": [
+    "vomiting"
+   ]
+  },
+  {
+   "t": "दिल की धड़कन बहुत तेज हो जाती है अचानक",
+   "p": [
+    "palpitations"
+   ]
+  },
+  {
+   "t": "बाएं हाथ में झनझनाहट है और कमजोरी है",
+   "p": [
+    "weakness"
+   ]
+  },
+  {
+   "t": "गले में खराश है और आवाज बैठ गई है",
+   "p": [
+    "sore_throat"
+   ]
+  },
+  {
+   "t": "पैरों में सूजन है शाम को ज्यादा",
+   "p": [
+    "swelling"
+   ]
+  },
+  {
+   "t": "कान में दर्द है और पानी आता है",
+   "p": [
+    "ear_pain"
+   ]
+  },
+  {
+   "t": "दांत में बहुत दर्द है दो दिन से",
+   "p": [
+    "toothache"
+   ],
+   "d": {
+    "toothache": "2 days"
+   }
+  },
+  {
+   "t": "आंख लाल है और जलन होती है",
+   "p": [
+    "eye"
+   ]
+  },
+  {
+   "t": "खांसी में खून आ रहा है",
+   "p": [
+    "cough"
+   ],
+   "rf": true
+  },
+  {
+   "t": "उसने गलती से कीटनाशक पी लिया",
+   "rf": true
+  },
+  {
+   "t": "सांप ने काटा है पैर पर",
+   "rf": true
+  },
+  {
+   "t": "अचानक मुंह टेढ़ा हो गया और बोल नहीं पा रहे",
+   "rf": true
+  },
+  {
+   "t": "वो बेहोश हो गए थे पांच मिनट के लिए",
+   "rf": true
+  },
+  {
+   "t": "सांस बिल्कुल नहीं आ रही दम घुट रहा है",
+   "p": [
+    "breathless"
+   ],
+   "rf": true
+  },
+  {
+   "t": "घुटने में दर्द है कोई चोट नहीं लगी",
+   "p": [
+    "knee_pain"
+   ],
+   "rf": false
+  },
+  {
+   "t": "सर्दी जुकाम है और छींकें आ रही हैं",
+   "p": [
+    "cold"
+   ],
+   "n": [
+    "headache"
+   ],
+   "rf": false
+  },
+  {
+   "t": "दवा लेने आया हूं बीपी की",
+   "h": [
+    "hypertension"
+   ],
+   "rf": false
+  },
+  {
+   "t": "रिपोर्ट दिखानी है शुगर की",
+   "rf": false
+  },
+  {
+   "t": "बुखार तो उतर गया पर कमजोरी है",
+   "p": [
+    "weakness"
+   ]
+  },
+  {
+   "t": "खांसी अब पहले से कम है",
+   "p": [
+    "cough"
+   ]
+  },
+  {
+   "t": "उल्टी नहीं हो रही लेकिन पेट में मरोड़ है",
+   "p": [
+    "abdominal_pain"
+   ],
+   "n": [
+    "vomiting"
+   ]
+  },
+  {
+   "t": "ना तो बुखार है ना ही सर्दी, बस गले में दर्द है",
+   "p": [
+    "sore_throat"
+   ],
+   "n": [
+    "fever",
+    "cold"
+   ]
+  },
+  {
+   "t": "दर्द है लेकिन बहुत ज्यादा नहीं, थोड़ा सा पेट में",
+   "p": [
+    "abdominal_pain"
+   ]
+  },
+  {
+   "t": "तीन चार दिन से सिर में भारीपन है",
+   "p": [
+    "headache"
+   ],
+   "d": {
+    "headache": "4 days"
+   }
+  },
+  {
+   "t": "डेढ़ साल से जोड़ों में दर्द है",
+   "p": [
+    "joint_pain"
+   ],
+   "d": {
+    "joint_pain": "1.5 years"
+   }
+  },
+  {
+   "t": "परसों से गला खराब है",
+   "p": [
+    "sore_throat"
+   ],
+   "d": {
+    "sore_throat": "2 days"
+   }
+  },
+  {
+   "t": "दस दिन से हल्का बुखार आ रहा है शाम को",
+   "p": [
+    "fever"
+   ],
+   "d": {
+    "fever": "10 days"
+   }
+  },
+  {
+   "t": "mujhe kal se halka bukhar hai aur sar bhi dukh raha hai",
+   "p": [
+    "fever",
+    "headache"
+   ],
+   "d": {
+    "fever": "1 day"
+   }
+  },
+  {
+   "t": "pet me gas banti hai aur khatti dakar aati hai",
+   "p": [
+    "gas",
+    "acidity"
+   ]
+  },
+  {
+   "t": "do hafte se sukhi khansi hai raat ko zyada",
+   "p": [
+    "cough"
+   ],
+   "d": {
+    "cough": "2 weeks"
+   }
+  },
+  {
+   "t": "chakkar aate hai jab khada hota hu",
+   "p": [
+    "dizziness"
+   ]
+  },
+  {
+   "t": "kamar me bahut dard hai jhukne pe",
+   "p": [
+    "back_pain"
+   ]
+  },
+  {
+   "t": "haath pair me jhunjhuni hoti hai",
+   "p": []
+  },
+  {
+   "t": "peshab me jalan nahi hai par baar baar jana padta hai",
+   "n": [
+    "dysuria"
+   ]
+  },
+  {
+   "t": "bukhar nahi hai, khansi nahi hai, bas kamzori hai",
+   "p": [
+    "weakness"
+   ],
+   "n": [
+    "fever",
+    "cough"
+   ]
+  },
+  {
+   "t": "seene me jalan hoti hai khane ke baad",
+   "p": [
+    "acidity"
+   ],
+   "n": [
+    "chest_pain"
+   ]
+  },
+  {
+   "t": "seene me bahut tez dard ho raha hai aur paseena aa raha hai",
+   "p": [
+    "chest_pain"
+   ],
+   "rf": true
+  },
+  {
+   "t": "meri wife pregnant hai aur usko pet me dard hai",
+   "p": [
+    "abdominal_pain"
+   ]
+  },
+  {
+   "t": "bp 140/90 rehta hai, dawai le raha hu",
+   "v": {
+    "bp": "140/90"
+   },
+   "h": [
+    "hypertension"
+   ]
+  },
+  {
+   "t": "sugar fasting 180 aayi thi",
+   "v": {
+    "bloodSugar": 180
+   }
+  },
+  {
+   "t": "oxygen 85 aa raha hai",
+   "v": {
+    "spo2": "85%"
+   },
+   "rf": true
+  },
+  {
+   "t": "dast lag gaye hai subah se 6-7 baar",
+   "p": [
+    "diarrhoea"
+   ]
+  },
+  {
+   "t": "ulti jaisa lag raha hai",
+   "p": [
+    "nausea"
+   ]
+  },
+  {
+   "t": "aankh me khujli aur pani aa raha hai",
+   "p": [
+    "eye"
+   ]
+  },
+  {
+   "t": "gale me dard hai aur nigalne me takleef",
+   "p": [
+    "sore_throat"
+   ]
+  },
+  {
+   "t": "I have been having fever on and off for the past week",
+   "p": [
+    "fever"
+   ],
+   "d": {
+    "fever": "1 week"
+   }
+  },
+  {
+   "t": "There's a burning pain in my upper abdomen after meals",
+   "p": [
+    "acidity"
+   ]
+  },
+  {
+   "t": "My throat is sore and I have a runny nose",
+   "p": [
+    "sore_throat",
+    "cold"
+   ]
+  },
+  {
+   "t": "I feel short of breath when I climb stairs",
+   "p": [
+    "breathless"
+   ]
+  },
+  {
+   "t": "I've had a dry cough for about ten days",
+   "p": [
+    "cough"
+   ],
+   "d": {
+    "cough": "10 days"
+   }
+  },
+  {
+   "t": "Sharp pain in my lower right abdomen since this morning",
+   "p": [
+    "abdominal_pain"
+   ]
+  },
+  {
+   "t": "My knees hurt when I walk",
+   "p": [
+    "knee_pain"
+   ]
+  },
+  {
+   "t": "I keep getting headaches in the evening",
+   "p": [
+    "headache"
+   ]
+  },
+  {
+   "t": "No vomiting, no diarrhea, just a mild stomach ache",
+   "p": [
+    "abdominal_pain"
+   ],
+   "n": [
+    "vomiting",
+    "diarrhoea"
+   ]
+  },
+  {
+   "t": "He denies fever but complains of cough with phlegm",
+   "p": [
+    "cough"
+   ],
+   "n": [
+    "fever"
+   ]
+  },
+  {
+   "t": "Patient has no chest pain, no palpitations, mild breathlessness on exertion",
+   "p": [
+    "breathless"
+   ],
+   "n": [
+    "chest_pain",
+    "palpitations"
+   ],
+   "rf": false
+  },
+  {
+   "t": "Pain while passing urine for three days",
+   "p": [
+    "dysuria"
+   ],
+   "d": {
+    "dysuria": "3 days"
+   }
+  },
+  {
+   "t": "I am feeling very tired and dizzy since two days",
+   "p": [
+    "weakness",
+    "dizziness"
+   ],
+   "d": {
+    "dizziness": "2 days"
+   }
+  },
+  {
+   "t": "There is itching all over my body and red patches",
+   "p": [
+    "itching",
+    "rash"
+   ]
+  },
+  {
+   "t": "My back has been hurting for a month",
+   "p": [
+    "back_pain"
+   ],
+   "d": {
+    "back_pain": "1 month"
+   }
+  },
+  {
+   "t": "I can't sleep at night and I have lost my appetite",
+   "p": [
+    "insomnia",
+    "appetite_loss"
+   ]
+  },
+  {
+   "t": "My heart is racing and I feel anxious",
+   "p": [
+    "palpitations"
+   ]
+  },
+  {
+   "t": "BP is one sixty over one hundred and pulse is ninety eight",
+   "v": {
+    "bp": "160/100",
+    "pulse": 98
+   }
+  },
+  {
+   "t": "Her sugar was 320 this morning",
+   "v": {
+    "bloodSugar": 320
+   }
+  },
+  {
+   "t": "Temperature 39 degrees",
+   "v": {
+    "temp": "39°C"
+   },
+   "p": [
+    "fever"
+   ]
+  },
+  {
+   "t": "Saturation 88 percent on room air",
+   "v": {
+    "spo2": "88%"
+   },
+   "rf": true
+  },
+  {
+   "t": "I have a history of asthma and I'm wheezing today",
+   "h": [
+    "asthma"
+   ]
+  },
+  {
+   "t": "I'm not diabetic but my father is",
+   "nh": [
+    "diabetes"
+   ]
+  },
+  {
+   "t": "Crushing chest pain going to my left arm",
+   "p": [
+    "chest_pain"
+   ],
+   "rf": true
+  },
+  {
+   "t": "My child had a fit and is very drowsy now",
+   "rf": true
+  },
+  {
+   "t": "I was bitten by a snake an hour ago",
+   "rf": true
+  },
+  {
+   "t": "Sudden weakness on the right side of my face and arm",
+   "rf": true
+  },
+  {
+   "t": "Vomiting blood since morning",
+   "p": [
+    "vomiting"
+   ],
+   "rf": true
+  },
+  {
+   "t": "I just need a refill of my thyroid tablets",
+   "h": [
+    "thyroid"
+   ],
+   "rf": false
+  },
+  {
+   "t": "Knee pain after a fall last month, no fresh injury",
+   "p": [
+    "knee_pain"
+   ]
+  },
+  {
+   "t": "Mild acidity, nothing else",
+   "p": [
+    "acidity"
+   ],
+   "rf": false
+  },
+  {
+   "t": "I had chest pain last year, today I only have a cold",
+   "p": [
+    "cold"
+   ],
+   "rf": false
+  },
+  {
+   "t": "Not much pain, just a little stiffness in the neck",
+   "p": []
+  },
+  {
+   "t": "My stomach doesn't hurt anymore but I still feel nauseous",
+   "p": [
+    "nausea"
+   ],
+   "n": [
+    "abdominal_pain"
+   ]
+  }
+ ]
+}

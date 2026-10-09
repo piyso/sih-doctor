@@ -399,27 +399,32 @@ export const CLINICAL_PHONETIC_DICTIONARY: ClinicalPhoneticMapping[] = [
   { raw: 'yashti madhu', canonical: 'Yashtimadhu', category: 'herb' }
 ];
 
+/** A root alternation matched as whole words only ("pet" never matches inside "appetite", "sar" never inside "sardi"). */
+const bounded = (re: RegExp) => new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])(?:${re.source})(?![\\p{L}\\p{M}\\p{N}])`, 'iu');
+/** A denial inside a span: such a span is left as spoken so the parser can read the negation. */
+const NEG_IN_SPAN = /(?<![\p{L}\p{M}])(?:nahi|nahin|nhi|naahi|not|no|never|without|नहीं|नही|ना|न|नाही|naikhe|illa|illai|ledu|nei|nathi)(?![\p{L}\p{M}])/iu;
+
 export class PhoneticNormalizerService {
   private static normalizerMap = new Map<string, string>();
   private static regexPattern: RegExp;
   private static initialized: boolean = false;
 
   // Multi-Lingual Anatomical Loci Root Regular Expressions (Latin + Devanagari Hindi + Indic)
-  private static readonly ANAT_THORAX = /(?:ch[a|h]ati|seene|seena|sina|kareja|kaleja|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|sinus|छाती|सीना|सीने|हृदय|छातीत|नेन्जु|गुंडे|हिया|বুক|বুকে|நெஞ்சு|மார்பு|மார்பில்|ఛాతీ|గుండె)/i;
-  private static readonly ANAT_LEFT_ARM = /(?:baaye\s*haath|baya\s*hath|baaye\s*baahu|baam\s*haat|dava\s*hat|edama\s*cheyyi|idathu\s*kai|khabbe\s*hath|khowur\s*atha|बायां\s*हाथ|बाएं\s*हाथ|बाईं\s*बांह|बायां\s*हाथ|डावा\s*हात|डाव्या\s*हातात|বাঁ\s*হাত|বাম\s*হাত|இடது\s*கை|ఎడమ\s*చేయి)/i;
-  private static readonly ANAT_KNEE_JOINT = /(?:ghutn[ae]|janu|muttukal|mokaalu|jod[o]?|sandhi|घुटना|घुटने|घुटनों|जानु|जोड़|जोड़ों|संधि|सांधे|হাঁটু|গাঁট|முழங்கால்|மூட்டு|మోకాలు|కీళ్లు)/i;
-  private static readonly ANAT_LUMBAR_SPINE = /(?:kamar|peeth|kati|nadumu|kodum|कमर|पीठ|कटि|रीढ़|कंबर|पाठ|কোমর|পিঠ|முதுகு|இடுப்பு|నడుము|వెన్ను)/i;
-  private static readonly ANAT_ABDOMEN = /(?:pet|pait|paat|paet|udar|koshtha|vayiru|potte|kadupu|hotte|vayar|pedu|nabhi|पेट|आमाशय|उदर|पेड़ू|नाभि|कोठा|पोट|পেট|তলপেট|வயிறு|அடிவயிறு|కడుపు|పొత్తికడుపు)/i;
-  private static readonly ANAT_HEAD = /(?:sir|sar|matha|kapaal|thala|tala|सिर|सर|माथा|कपाल|मस्तक|डोके|মাথা|தலை|తల)/i;
+  private static readonly ANAT_THORAX = bounded(/(?:ch[a|h]ati|seene|seena|sina|kareja|kaleja|hridaya|buke|chatit|nenju|nenjil|gunde|ede|hikk|छाती|सीना|सीने|हृदय|छातीत|नेन्जु|गुंडे|हिया|বুক|বুকে|நெஞ்சு|மார்பு|மார்பில்|ఛాతీ|గుండె)/i);
+  private static readonly ANAT_LEFT_ARM = bounded(/(?:baaye\s*haath|baya\s*hath|baaye\s*baahu|baam\s*haat|dava\s*hat|edama\s*cheyyi|idathu\s*kai|khabbe\s*hath|khowur\s*atha|बायां\s*हाथ|बाएं\s*हाथ|बाईं\s*बांह|बायां\s*हाथ|डावा\s*हात|डाव्या\s*हातात|বাঁ\s*হাত|বাম\s*হাত|இடது\s*கை|ఎడమ\s*చేయి)/i);
+  private static readonly ANAT_KNEE_JOINT = bounded(/(?:ghutn[ae]|janu|muttukal|mokaalu|jod[o]?|sandhi|घुटना|घुटने|घुटनों|जानु|जोड़|जोड़ों|संधि|सांधे|হাঁটু|গাঁট|முழங்கால்|மூட்டு|మోకాలు|కీళ్లు)/i);
+  private static readonly ANAT_LUMBAR_SPINE = bounded(/(?:kamar|peeth|kati|nadumu|kodum|कमर|पीठ|कटि|रीढ़|कंबर|पाठ|কোমর|পিঠ|முதுகு|இடுப்பு|నడుము|వెన్ను)/i);
+  private static readonly ANAT_ABDOMEN = bounded(/(?:pet|pait|paat|paet|udar|koshtha|vayiru|potte|kadupu|hotte|vayar|pedu|nabhi|पेट|आमाशय|उदर|पेड़ू|नाभि|कोठा|पोट|পেট|তলপেট|வயிறு|அடிவயிறு|కడుపు|పొత్తికడుపు)/i);
+  private static readonly ANAT_HEAD = bounded(/(?:sir|sar|matha|kapaal|thala|tala|सिर|सर|माथा|कपाल|मस्तक|डोके|মাথা|தலை|తల)/i);
 
   // Multi-Lingual Pathological Sensation Root Regular Expressions (Latin + Devanagari Hindi + Indic)
-  private static readonly SENS_CRUSHING = /(?:bojh|bhari|bhaari|chaap|dabav|baram|wazan|saap|kediya|crushing|pressure|ghana|ghano|भारीपन|बोझ|दबाव|भारी|कड़क|दबना|दाट|गच्च|চাপ|அடைப்பு|பாரம்|பிசை|బరువు)/i;
-  private static readonly SENS_PAIN = /(?:dard|peeda|vedana|byatha|noppi|vali|novu|peer|daag|bikh|kasak|jatana|pain|dukh|dukhne|दर्द|पीड़ा|वेदना|दुखना|टीस|कसक|शूल|कळ|व्यथा|ব্যথা|কষ্ট|টান|வலி|நோவு|நొప్పి|పోటు)/i;
-  private static readonly SENS_CREPITUS = /(?:cut\s*cut|kat\s*kat|char\s*char|crepitus|crackling|clicking|कट-कट|कट\s*कट|चर-चर|खट-खट|কটকট|சத்தம்|చటచట)/i;
-  private static readonly SENS_STIFFNESS = /(?:akad|akdan|stambha|stiff|jam|अकड़न|जकड़न|स्तम्भ|जाम|आखड|শক্ত|இறுக்கம்|పట్ట)/i;
-  private static readonly SENS_BURNING = /(?:jalan|jalna|daaha|daha|erichal|manta|acid|burn|जलन|दाह|सुलगना|एसिड|जळ|জ্বালা|எரிச்சல்|மంట)/i;
-  private static readonly SENS_DIAPHORESIS = /(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|sweat|पसीना|पसीने|घाम|ঘাম|வேர்வை|చెమట)/i;
-  private static readonly SENS_DYSPNEA = /(?:saans\s*phool|swasa|dum\s*phool|shaas\s*koshto|moochu\s*thinaral|aadakapovadam|सांस\s*फूल|दम\s*फूल|सांस\s*लेने\s*में\s*तकलीफ|सांस\s*चढ़ना|दम\s*लाग|श्वास\s*कोंड|শ্বাসকষ্ট|மூச்சுத்திணறல்|శ్వాస\s*ఆడకపోవడం)/i;
+  private static readonly SENS_CRUSHING = bounded(/(?:bojh|bhari|bhaari|chaap|dabav|baram|wazan|saap|kediya|crushing|pressure|ghana|ghano|भारीपन|बोझ|दबाव|भारी|कड़क|दबना|दाट|गच्च|চাপ|அடைப்பு|பாரம்|பிசை|బరువు)/i);
+  private static readonly SENS_PAIN = bounded(/(?:dard|peeda|vedana|byatha|noppi|vali|novu|peer|daag|bikh|kasak|jatana|pain|dukh|dukhne|दर्द|पीड़ा|वेदना|दुखना|टीस|कसक|शूल|कळ|व्यथा|ব্যথা|কষ্ট|টান|வலி|நோவு|நొప్పి|పోటు)/i);
+  private static readonly SENS_CREPITUS = bounded(/(?:cut\s*cut|kat\s*kat|char\s*char|crepitus|crackling|clicking|कट-कट|कट\s*कट|चर-चर|खट-खट|কটকট|சத்தம்|చటచట)/i);
+  private static readonly SENS_STIFFNESS = bounded(/(?:akad|akdan|stambha|stiff|jam|अकड़न|जकड़न|स्तम्भ|जाम|आखड|শক্ত|இறுக்கம்|పట్ట)/i);
+  private static readonly SENS_BURNING = bounded(/(?:jalan|jalna|daaha|daha|erichal|manta|acid|burn|जलन|दाह|सुलगना|एसिड|जळ|জ্বালা|எரிச்சல்|மంట)/i);
+  private static readonly SENS_DIAPHORESIS = bounded(/(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|sweat|पसीना|पसीने|घाम|ঘাম|வேர்வை|చెమట)/i);
+  private static readonly SENS_DYSPNEA = bounded(/(?:saans\s*phool|swasa|dum\s*phool|shaas\s*koshto|moochu\s*thinaral|aadakapovadam|सांस\s*फूल|दम\s*फूल|सांस\s*लेने\s*में\s*तकलीफ|सांस\s*चढ़ना|दम\s*लाग|श्वास\s*कोंड|শ্বাসকষ্ট|மூச்சுத்திணறல்|శ్వాస\s*ఆడకపోవడం)/i);
 
   private static initialize(): void {
     if (this.initialized) return;
@@ -432,7 +437,7 @@ export class PhoneticNormalizerService {
       .sort((a, b) => b.length - a.length)
       .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-    this.regexPattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+    this.regexPattern = new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])(${escapedTerms.join('|')})(?![\\p{L}\\p{M}\\p{N}])`, 'giu');
     this.initialized = true;
   }
 
@@ -442,44 +447,45 @@ export class PhoneticNormalizerService {
    */
   private static applyCompositionalInference(input: string): string {
     let text = input;
+    const keep = (canonical: string) => (span: string) => (NEG_IN_SPAN.test(span) ? span : canonical);
 
     // 1. Thorax + Crushing Pressure -> Substernal Crushing Pressure
     if (this.ANAT_THORAX.test(text) && this.SENS_CRUSHING.test(text)) {
       text = text.replace(
-        new RegExp(`(${this.ANAT_THORAX.source}[^.!?,;:\\n]{0,30}${this.SENS_CRUSHING.source}|${this.SENS_CRUSHING.source}[^.!?,;:\\n]{0,30}${this.ANAT_THORAX.source})`, 'gi'),
-        'Substernal Crushing Pressure'
+        new RegExp(`(${this.ANAT_THORAX.source}[^.!?,;:\\n]{0,30}${this.SENS_CRUSHING.source}|${this.SENS_CRUSHING.source}[^.!?,;:\\n]{0,30}${this.ANAT_THORAX.source})`, 'giu'),
+        keep('Substernal Crushing Pressure')
       );
     }
 
     // 2. Thorax + Pain -> Substernal Chest Pain
     if (this.ANAT_THORAX.test(text) && this.SENS_PAIN.test(text)) {
       text = text.replace(
-        new RegExp(`(${this.ANAT_THORAX.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_THORAX.source})`, 'gi'),
-        'Substernal Chest Pain'
+        new RegExp(`(${this.ANAT_THORAX.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_THORAX.source})`, 'giu'),
+        keep('Substernal Chest Pain')
       );
     }
 
     // 3. Left Arm + Pain -> Left Arm Radiation Pain
     if (this.ANAT_LEFT_ARM.test(text) && this.SENS_PAIN.test(text)) {
       text = text.replace(
-        new RegExp(`(${this.ANAT_LEFT_ARM.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_LEFT_ARM.source})`, 'gi'),
-        'Left Arm Radiation Pain'
+        new RegExp(`(${this.ANAT_LEFT_ARM.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_LEFT_ARM.source})`, 'giu'),
+        keep('Left Arm Radiation Pain')
       );
     }
 
     // 4. Knee/Joint + Crepitus -> Janu Sandhi Crepitus
     if (this.ANAT_KNEE_JOINT.test(text) && this.SENS_CREPITUS.test(text)) {
       text = text.replace(
-        new RegExp(`(${this.ANAT_KNEE_JOINT.source}[^.!?,;:\\n]{0,30}${this.SENS_CREPITUS.source}|${this.SENS_CREPITUS.source}[^.!?,;:\\n]{0,30}${this.ANAT_KNEE_JOINT.source})`, 'gi'),
-        'Janu Sandhi Crepitus'
+        new RegExp(`(${this.ANAT_KNEE_JOINT.source}[^.!?,;:\\n]{0,30}${this.SENS_CREPITUS.source}|${this.SENS_CREPITUS.source}[^.!?,;:\\n]{0,30}${this.ANAT_KNEE_JOINT.source})`, 'giu'),
+        keep('Janu Sandhi Crepitus')
       );
     }
 
     // 5. Knee/Joint + Stiffness -> Morning Stiffness (Sandhi Stambha)
     if (this.ANAT_KNEE_JOINT.test(text) && this.SENS_STIFFNESS.test(text)) {
       text = text.replace(
-        new RegExp(`(${this.ANAT_KNEE_JOINT.source}[^.!?,;:\\n]{0,30}${this.SENS_STIFFNESS.source}|${this.SENS_STIFFNESS.source}[^.!?,;:\\n]{0,30}${this.ANAT_KNEE_JOINT.source})`, 'gi'),
-        'Morning Stiffness (Sandhi Stambha)'
+        new RegExp(`(${this.ANAT_KNEE_JOINT.source}[^.!?,;:\\n]{0,30}${this.SENS_STIFFNESS.source}|${this.SENS_STIFFNESS.source}[^.!?,;:\\n]{0,30}${this.ANAT_KNEE_JOINT.source})`, 'giu'),
+        keep('Morning Stiffness (Sandhi Stambha)')
       );
     }
 
@@ -488,8 +494,8 @@ export class PhoneticNormalizerService {
       const isSciatica = /(?:kamar\s*se\s*pair|pair\s*tak|radiation|gridhrasi|sciatica|nas\s*kheench|कमर\s*से\s*पैर|नस\s*खिंच)/i.test(text);
       if (!isSciatica) {
         text = text.replace(
-          new RegExp(`(${this.ANAT_LUMBAR_SPINE.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_LUMBAR_SPINE.source})`, 'gi'),
-          'Kati Shoola / Low Back Pain'
+          new RegExp(`(${this.ANAT_LUMBAR_SPINE.source}[^.!?,;:\\n]{0,30}${this.SENS_PAIN.source}|${this.SENS_PAIN.source}[^.!?,;:\\n]{0,30}${this.ANAT_LUMBAR_SPINE.source})`, 'giu'),
+          keep('Kati Shoola / Low Back Pain')
         );
       }
     }
@@ -497,23 +503,23 @@ export class PhoneticNormalizerService {
     // 7. Abdomen + Burning -> Amlapitta / Epigastric Pyrosis
     if (this.ANAT_ABDOMEN.test(text) && this.SENS_BURNING.test(text)) {
       text = text.replace(
-        new RegExp(`(${this.ANAT_ABDOMEN.source}[^.!?,;:\\n]{0,30}${this.SENS_BURNING.source}|${this.SENS_BURNING.source}[^.!?,;:\\n]{0,30}${this.ANAT_ABDOMEN.source})`, 'gi'),
-        'Amlapitta / Epigastric Pyrosis'
+        new RegExp(`(${this.ANAT_ABDOMEN.source}[^.!?,;:\\n]{0,30}${this.SENS_BURNING.source}|${this.SENS_BURNING.source}[^.!?,;:\\n]{0,30}${this.ANAT_ABDOMEN.source})`, 'giu'),
+        keep('Amlapitta / Epigastric Pyrosis')
       );
     }
 
     // 8. Diaphoresis & Dyspnea Standalone Roots
     if (this.SENS_DIAPHORESIS.test(text)) {
       text = text.replace(
-        new RegExp(`(?:bahut|khup|adhika|intense|severe|chhoot\\s*raha|बहुत|तेज)?\\s*${this.SENS_DIAPHORESIS.source}\\s*(?:aa\\s*raha|chhoot\\s*raha|yet\\s*ahe|pattestunnayi|kottuthu|आ\\s*रहा|छूट\\s*रहा)?`, 'gi'),
-        'Marked Diaphoresis'
+        new RegExp(`(?:bahut|khup|adhika|intense|severe|chhoot\\s*raha|बहुत|तेज)?\\s*${this.SENS_DIAPHORESIS.source}\\s*(?:aa\\s*raha|chhoot\\s*raha|yet\\s*ahe|pattestunnayi|kottuthu|आ\\s*रहा|छूट\\s*रहा)?`, 'giu'),
+        keep('Marked Diaphoresis')
       );
     }
 
     if (this.SENS_DYSPNEA.test(text)) {
       text = text.replace(
-        new RegExp(`${this.SENS_DYSPNEA.source}`, 'gi'),
-        'Dyspnea / Breathlessness'
+        new RegExp(`${this.SENS_DYSPNEA.source}`, 'giu'),
+        keep('Dyspnea / Breathlessness')
       );
     }
 
@@ -597,7 +603,7 @@ export class PhoneticNormalizerService {
     const matches: Array<{ raw: string; canonical: string }> = [];
     let match: RegExpExecArray | null;
 
-    const regex = new RegExp(this.regexPattern.source, 'gi');
+    const regex = new RegExp(this.regexPattern.source, 'giu');
     while ((match = regex.exec(text)) !== null) {
       const raw = match[0].toLowerCase();
       const canonical = this.normalizerMap.get(raw) || match[0];

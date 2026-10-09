@@ -180,6 +180,8 @@ export interface SessionDetail {
   createdAt: string;
   primaryComplaint?: string;
   rawTranscript?: string;
+  /** Complaints the patient explicitly denied at the kiosk (pertinent negatives). */
+  deniedSymptoms?: string[];
   scannedDocs?: any[];
   isPregnant?: boolean;
   gestationalWeeks?: number;
@@ -210,16 +212,14 @@ export interface SessionDetail {
   };
 }
 
-export interface ZkSnarkProofBadge {
-  circuit: string;
-  protocol: string;
-  curve: string;
-  soundnessProven: boolean;
-  tamperResistant: boolean;
-  publicSignalsCount: number;
+/** Result of verifying a finalized record's Ed25519 seal (see /api/security/verify-offline-seal). */
+export interface RecordSealBadge {
+  keyId: string;
+  algorithm: string;
+  valid: boolean;
+  recordSha256: string;
   verifiedAt: string;
-  claimsCovered: string[];
-  hashVerification?: string;
+  provenanceNodes?: number;
 }
 
 export interface CausalDagOverrideInfo {
@@ -359,10 +359,15 @@ export interface LeverDiagnosticInfo {
   protocol?: string;
 }
 
+/** Shape returned by GET /api/security/diagnostics (alias /lever-diagnostics). */
 export interface LeverDiagnosticsData {
-  piyApiProjectCloud: LeverDiagnosticInfo;
-  piyNotesAudio: LeverDiagnosticInfo;
-  patentZkpArbiter: LeverDiagnosticInfo;
+  cognitiveEngine: LeverDiagnosticInfo & { graph?: { nodeCount: number; edgeCount: number }; conformal?: Record<string, unknown> };
+  integrityLedger: LeverDiagnosticInfo & {
+    signingKeyId?: string;
+    auditChain?: { valid: boolean; checked: number; brokenAtId?: number };
+    provenanceChain?: { isValid: boolean; totalNodes: number; brokenAt?: number; error?: string };
+  };
+  speechPipeline: LeverDiagnosticInfo & { device?: string | null };
 }
 
 export interface LeverDiagnosticsResponse {

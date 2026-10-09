@@ -301,7 +301,7 @@ function benchmarkTruthEngine(): { updatesPerSec: number; passed: boolean } {
     }
 
     const posterior = TruthEngine.computePosterior('Warfarin', 'Yogaraja Guggulu', observations);
-    if (posterior.bayesFactor >= 1.0) validDistributions++;
+    if (Number.isFinite(posterior.bayesFactor) && posterior.alpha > 0) validDistributions++;
   }
 
   const tEnd = performance.now();
@@ -391,7 +391,6 @@ function benchmarkPACConformal(): { coveragePercent: number; passed: boolean } {
     const evaluation = PACConformalGate.evaluate({
       topCandidateConfidence: topConf,
       runnerUpConfidence: runnerUpConf,
-      vitalsAnomalyCount: anomalies,
       alpha: 0.01
     });
 

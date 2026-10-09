@@ -210,8 +210,8 @@ export async function runDeepPolypharmacyBenchmark(): Promise<PolypharmacyBenchm
       method: 'pharmacovigilance',
       timestamp: new Date().toISOString()
     }
-  ]);
-  assert(bayesRes.bayesFactor > 2.0, '12.3d Bayes Factor BF10 > 2.0 (Substantial Evidence under Jeffreys scale)');
+  ], { alpha: BayesianTruthEngineService.evaluatePair('Warfarin', 'Yograj Guggulu').alpha, beta: BayesianTruthEngineService.evaluatePair('Warfarin', 'Yograj Guggulu').beta });
+  assert(bayesRes.bayesFactor > 3.0 && bayesRes.direction === 'interaction', `12.3d Savage-Dickey BF10 ${bayesRes.bayesFactor} > 3 with two reinforcing observations on the registry prior`);
   assert(bayesRes.alpha > 1.0, '12.3e Conjugate Beta parameter updated with clinical observations');
 
   const durationMs = performance.now() - tStart;

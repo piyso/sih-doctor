@@ -242,3 +242,121 @@ export interface AbdmFhirBundle {
   timestamp: string;
   entry: FhirBundleEntry[];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. STRUCTURED CLINICAL HISTORY (physician-ready, PS Module C)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type HistorySource = 'patient' | 'document' | 'clinician' | 'asha';
+
+export interface HistoryItem {
+  name: string;
+  since?: string;            // free text or ISO date ("2019", "3 years")
+  status?: 'active' | 'resolved' | 'controlled' | 'uncontrolled' | 'unknown';
+  notes?: string;
+  source?: HistorySource;
+}
+
+export interface DrugHistoryItem {
+  name: string;
+  dose?: string;
+  frequency?: string;
+  since?: string;
+  adherence?: 'regular' | 'irregular' | 'stopped' | 'unknown';
+  prescribedBy?: string;
+  source?: HistorySource;
+}
+
+export interface AllergyItem {
+  agent: string;
+  type?: 'drug' | 'food' | 'environment' | 'other';
+  reaction?: string;
+  severity?: 'mild' | 'moderate' | 'severe' | 'unknown';
+  source?: HistorySource;
+}
+
+export interface FamilyHistoryItem {
+  condition: string;
+  relation?: string;         // mother, father, sibling, ...
+}
+
+export interface PersonalHistory {
+  tobacco?: 'never' | 'current' | 'former' | 'unknown';
+  tobaccoDetail?: string;    // bidi, gutkha, khaini...
+  alcohol?: 'never' | 'occasional' | 'regular' | 'former' | 'unknown';
+  diet?: 'vegetarian' | 'non_vegetarian' | 'eggetarian' | 'vegan' | 'unknown';
+  appetite?: 'normal' | 'reduced' | 'increased' | 'unknown';
+  bowel?: 'regular' | 'constipation' | 'loose' | 'irregular' | 'unknown';
+  sleep?: 'normal' | 'disturbed' | 'reduced' | 'unknown';
+  physicalActivity?: 'sedentary' | 'moderate' | 'active' | 'unknown';
+  occupation?: string;
+  waterSource?: string;
+}
+
+export type RosAnswer = 'present' | 'denied' | 'not_asked';
+export const ROS_SYSTEMS = [
+  'constitutional', 'cardiovascular', 'respiratory', 'gastrointestinal', 'genitourinary',
+  'musculoskeletal', 'neurological', 'dermatological', 'psychiatric', 'endocrine'
+] as const;
+export type RosSystem = typeof ROS_SYSTEMS[number];
+export type ReviewOfSystems = Partial<Record<RosSystem, RosAnswer>>;
+
+export interface ObstetricHistory {
+  isPregnant?: boolean;
+  gestationalWeeks?: number;
+  gravida?: number;
+  para?: number;
+  lmp?: string;
+  isLactating?: boolean;
+}
+
+export type SectionStatus = 'complete' | 'partial' | 'not_asked';
+
+export interface HistoryCompleteness {
+  asked: number;
+  answered: number;
+  skipped: number;
+  score: number;             // answered / asked, 0..1
+  sections: Record<string, SectionStatus>;
+}
+
+export interface ClinicalHistory {
+  version: 2;
+  chiefComplaint?: string;
+  // Legacy keys kept so older screens keep working.
+  conditions: string[];
+  allergies: string;
+  currentMedicines: string;
+  // Structured sections.
+  pastMedical: HistoryItem[];
+  pastSurgical: HistoryItem[];
+  drugHistory: DrugHistoryItem[];
+  allergyList: AllergyItem[];
+  familyHistory: FamilyHistoryItem[];
+  personal: PersonalHistory;
+  reviewOfSystems: ReviewOfSystems;
+  obstetric?: ObstetricHistory;
+  immunisation?: string[];
+  ayush?: { pariksha?: Partial<DashavidhaPariksha>; aharaVihara?: Record<string, string> };
+  completeness: HistoryCompleteness;
+  interviewId?: string;
+}
+
+export interface HistorySummarySection {
+  id: string;
+  title: string;
+  titleHi: string;
+  text: string;
+  textHi: string;
+  status: SectionStatus;
+}
+
+export interface HistorySummary {
+  generatedAt: string;
+  method: 'deterministic-template';
+  language: string[];
+  sections: HistorySummarySection[];
+  text: string;
+  textHi: string;
+  completeness: HistoryCompleteness;
+}

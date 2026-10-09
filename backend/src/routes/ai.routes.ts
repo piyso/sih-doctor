@@ -17,6 +17,8 @@ import { CLINICIAN_ROLES } from '../security/config';
 import { audit } from '../security/audit';
 import { EdgeAiClient } from '../services/edgeAi.client';
 import { ClinicalParserService } from '../services/clinicalParser.service';
+import { normaliseHistory, buildHistorySummary } from '../services/clinicalHistory.service';
+import { deniedSymptoms } from '../services/intakeExtraction.service';
 
 export const aiRouter = Router();
 const aiLimiter = rateLimit('ai', 60, 60_000);
@@ -172,21 +174,24 @@ function templateSoap(session: any, draft: any, transcript: string) {
   const vitals: any = safe(session.vitals_json, {});
   const history: any = safe(session.history_json, {});
   const pariksha: any = safe(session.pariksha_json, {});
+  // pertinent negatives from the patient's own words at the kiosk ("बुखार नहीं है" → "Denies fever")
+  const denied = deniedSymptoms(session.raw_transcript || '');
   const sym = symptoms.map(s => {
     const parts = [s.name || s.symptom_name || 'Complaint'];
     if (s.site && s.site !== 'General') parts.push(`at ${s.site}`);
     if (s.character) parts.push(`(${s.character})`);
-    if (s.severityScore !== undefined) parts.push(`severity ${s.severityScore}/10`);
+    if (Number(s.severityScore) > 0) parts.push(`severity ${s.severityScore}/10`); // 0 = not stated
     if (s.duration) parts.push(`for ${s.duration}`);
-    if (s.onset) parts.push(`onset ${String(s.onset).toLowerCase()}`);
+    // the kiosk and the parser store "3 days" / "since last night" in onset; say it as a duration
+    const onset = String(s.onset || '');
+    if (onset && onset !== 'Unspecified') parts.push(/^(\d|a few|long|since)/i.test(onset) ? (/^since/i.test(onset) ? onset.toLowerCase() : `for ${onset}`) : `onset ${onset.toLowerCase()}`);
     if (s.radiation) parts.push(`radiating to ${s.radiation}`);
     return parts.join(' ');
   });
-  const hist = [
-    history?.conditions?.length ? `Known conditions: ${history.conditions.join(', ')}.` : '',
-    history?.allergies?.length ? `Allergies: ${history.allergies.join(', ')}.` : 'No known allergies reported.',
-    history?.currentMedicines?.length ? `Current medicines: ${history.currentMedicines.join(', ')}.` : ''
-  ].filter(Boolean).join(' ');
+  // Past / drug / allergy / family / personal / ROS come from the structured history summary (never invented).
+  const structured = normaliseHistory(history);
+  const summary = buildHistorySummary({ patient: {}, symptoms, history: structured, vitals, pariksha });
+  const hist = summary.sections.filter(s => ['pastMedical', 'pastSurgical', 'drugAllergy', 'family', 'personal', 'ros'].includes(s.id)).map(s => `${s.title}: ${s.text}`).join(' ');
   const vit = [
     vitals.bp && `BP ${vitals.bp} mmHg`, vitals.pulse && `pulse ${vitals.pulse}/min`, vitals.spo2 && `SpO2 ${vitals.spo2}%`,
     vitals.temp && `temperature ${vitals.temp}`, vitals.respiratoryRate && `RR ${vitals.respiratoryRate}/min`
@@ -195,7 +200,7 @@ function templateSoap(session: any, draft: any, transcript: string) {
   const meds = [...(draft?.allopathic || []).map((m: any) => `${m.name} ${m.dosage || ''} ${m.frequency || ''} × ${m.durationDays || '?'} days`),
     ...(draft?.ayush || []).map((a: any) => `${a.classicalName} ${a.dose || ''} ${a.frequency || ''}${a.anupana ? ` with ${a.anupana}` : ''}`)];
   return {
-    subjective: [sym.length ? `Presents with ${sym.join('; ')}.` : 'Chief complaint not recorded.', hist, transcript ? `In the consultation: "${transcript.slice(0, 400)}${transcript.length > 400 ? '…' : ''}"` : ''].filter(Boolean).join(' '),
+    subjective: [sym.length ? `Presents with ${sym.join('; ')}.` : 'Chief complaint not recorded.', denied.length ? `Denies ${denied.join(', ').toLowerCase()}.` : '', hist, transcript ? `In the consultation: "${transcript.slice(0, 400)}${transcript.length > 400 ? '…' : ''}"` : ''].filter(Boolean).join(' '),
     objective: [vit ? `${vit} ${vitSource}.` : 'Vitals not recorded.', pariksha?.prakriti ? `Prakriti (self-assessed): ${pariksha.prakriti}.` : '', pariksha?.agni ? `Agni: ${pariksha.agni}.` : ''].filter(Boolean).join(' '),
     assessment: 'To be completed by the clinician.',
     plan: [meds.length ? `Medicines: ${meds.join('; ')}.` : '', draft?.advice ? `Advice: ${draft.advice}.` : '', draft?.followUpDays ? `Review after ${draft.followUpDays} days.` : ''].filter(Boolean).join(' ') || 'To be completed by the clinician.'

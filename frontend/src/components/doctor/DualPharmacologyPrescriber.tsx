@@ -440,7 +440,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
         </span>
       </div>
       {secondary && <p className="text-[11px] text-muted-foreground -mt-1">Recorded only to check interactions with your Ayurvedic prescription.</p>}
-      <FormularyPicker
+      <FormularyPicker<FormularyAllopathicItem>
         items={CLINICAL_ALLOPATHIC_FORMULARY}
         quickItems={secondary ? [] : CLINICAL_ALLOPATHIC_FORMULARY.slice(0, 5)}
         getLabel={m => m.name}
@@ -482,7 +482,7 @@ export const DualPharmacologyPrescriber: React.FC<DualPharmacologyPrescriberProp
         <span className="text-[10.5px] font-bold px-1.5 rounded-full bg-emerald-500/10">{ayushFormulations.length}</span>
       </span>
       {secondary && <p className="text-[11px] text-muted-foreground -mt-1">Recorded only to check interactions with your prescription.</p>}
-      <FormularyPicker
+      <FormularyPicker<FormularyAyushItem>
         items={CLINICAL_AYUSH_FORMULARY}
         quickItems={secondary ? [] : CLINICAL_AYUSH_FORMULARY.slice(0, 5)}
         getLabel={a => a.classicalName}

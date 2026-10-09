@@ -21,11 +21,12 @@ import {
 } from 'lucide-react';
 
 import { sovereignSound } from '../../utils/audio';
+import { api } from '../../services/api';
 
 export const ArchitectureDefenseMatrix: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'risks' | 'hardware' | 'architecture' | 'speech' | 'timeline' | 'validation' | 'patent' | 'frontiers'>('risks');
-  const [zkStatus, setZkStatus] = useState<'idle' | 'verifying' | 'verified'>('verified');
-  const [zkLatency, setZkLatency] = useState<number>(1.12);
+  const [chainStatus, setChainStatus] = useState<'idle' | 'checking' | 'ok' | 'broken' | 'error'>('idle');
+  const [chainNodes, setChainNodes] = useState<number | null>(null);
   const [kioskCount, setKioskCount] = useState<number>(500);
 
   // Hardware BOM Cost Calculation
@@ -75,7 +76,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
             { id: 'speech', label: '4. Speech AI & VAD Pipeline', icon: Mic },
             { id: 'timeline', label: '5. Clinical Time Economics', icon: Clock },
             { id: 'validation', label: '6. Master 12-Battery Empirical Scorecard', icon: Activity },
-            { id: 'patent', label: '7. Cryptographic Invariance & zk-SNARK Defense', icon: FileCode },
+            { id: 'patent', label: '7. Record Integrity & IP Status', icon: FileCode },
             { id: 'frontiers', label: '8. 7 Real-World & 5 Clinical Frontiers', icon: Zap }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -378,7 +379,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' }}>LAYER 4: STANDARDS, INTEROPERABILITY & CRYPTOGRAPHY</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                  1,941 NAMASTE Morbidity A-Codes • WHO ICD-11 TM2 • SNOMED-CT • ABDM FHIR R4 • Groth16 zk-SNARK
+                  1,941 NAMASTE Morbidity A-Codes • WHO ICD-11 TM2 • SNOMED-CT • ABDM FHIR R4 • Ed25519 Record Signatures
                 </div>
               </div>
               <span style={{ fontSize: 11, background: '#ede9fe', color: '#6d28d9', fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>Statutory Trust</span>
@@ -507,7 +508,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                 { name: '2. 10,000-Record Verhoeff Aadhaar KYC', metric: '0.0017 ms/record (Dihedral D5)', status: 'PASSED (100% Accuracy)' },
                 { name: '3. Dual-Pharmacology Truth Engine', metric: '0.16 ms latency (Warfarin + Guggulu)', status: 'PASSED (0% FP / 0% FN)' },
                 { name: '4. ABDM FHIR R4 Bundle Generator', metric: '49,425 bundles/sec (NRCeS valid)', status: 'PASSED (100% Schema Valid)' },
-                { name: '5. Groth16 zk-SNARK Curve Verifier', metric: '1.12 ms (BN128 Elliptic Curve)', status: 'PASSED (Soundness Proven)' },
+                { name: '5. Groth16 verifier self-test (demo circuit)', metric: 'snarkjs verify on BN128; not bound to records', status: 'PASSED (self-test only)' },
                 { name: '6. Pan-Indian 22-Scheduled Dialects', metric: '26/26 Emergency Linguistic Invariants', status: 'PASSED (0.00% False Negatives)' },
                 { name: '7. AIIA NPvCC Pharmacovigilance', metric: '20/20 Viruddha Ahara Invariants', status: 'PASSED (100% Intercept)' }
               ].map((row, i) => (
@@ -522,97 +523,94 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
         </div>
       )}
 
-      {/* SECTION 7: Patent Claims & zk-SNARK Cryptographic Defense Matrix */}
+      {/* SECTION 7: Record integrity (what this build enforces) and intellectual-property status */}
       {activeSection === 'patent' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Section Banner */}
           <div className="card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
               <div>
                 <span style={{ fontSize: 11, fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.08em', background: '#eff6ff', padding: '3px 8px', borderRadius: 4, border: '1px solid #bfdbfe' }}>
-                  FIGURE 7 • INTELLECTUAL PROPERTY & STATUTORY INTEGRITY
+                  FIGURE 7 • RECORD INTEGRITY &amp; INTELLECTUAL PROPERTY STATUS
                 </span>
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '6px 0 2px 0' }}>
-                  Sovereign Clinical Safety Invariants &amp; Groth16 zk-SNARK Cryptographic Defense Matrix
+                  What this build enforces cryptographically, and what the pending patent covers
                 </h3>
                 <p style={{ fontSize: 12.5, color: '#64748b', margin: 0 }}>
-                  <em>Sovereign Clinical Cryptographic Invariance Architecture</em> (Statutory Health Standards &amp; DPDP Act §6/§8 Verification)
+                  Every statement below can be checked against the running backend or the filed application. Nothing here is a projection.
                 </p>
               </div>
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: '#047857', background: '#ecfdf5', padding: '4px 10px', borderRadius: 6, border: '1px solid #a7f3d0' }}>
-                  BN128 Elliptic Curve Active
+                  Ed25519 + SHA-256 chain active
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '4px 10px', borderRadius: 6, border: '1px solid #bfdbfe' }}>
-                  43 Claims Enforced
+                  Patent pending • 21 claims
                 </span>
               </div>
             </div>
 
-            {/* Top Grid: Interactive Verifier + CMDP Hardware Arbiter */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16, marginBottom: 20 }}>
-              {/* Card 1: Interactive zk-SNARK Verifier */}
+              {/* Card 1: what is enforced in this build, with a live check */}
               <div style={{ background: '#0b192c', color: '#f8fafc', borderRadius: 10, padding: 18, border: '1px solid #1e3a5f' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Lock size={16} color="#38bdf8" />
                     <span style={{ fontSize: 12, fontWeight: 800, color: '#38bdf8', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                      Groth16 zk-SNARK State Verifier
+                      Record integrity in this build
                     </span>
                   </div>
                   <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: 4 }}>
-                    IPO §5 CLAIM 10 / USPTO CLAIM 33
+                    backend/src/security
                   </span>
                 </div>
 
-                {/* Mathematical Equation */}
-                <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '10px 12px', marginBottom: 14, fontFamily: 'monospace', fontSize: 11.5, color: '#e2e8f0', textAlign: 'center' }}>
-                  e(A, B) = e(α, β) · e(∑ x_i · γ_i, δ) · e(C, δ)
-                </div>
+                <ul style={{ margin: '0 0 14px 0', paddingLeft: 18, fontSize: 11.5, lineHeight: 1.55, color: '#e2e8f0' }}>
+                  <li>Every finalized record is signed with Ed25519 over its canonical JSON. The public key and a verify endpoint are served by the backend.</li>
+                  <li>The audit log and the per-encounter provenance nodes are SHA-256 hash chains; walking the chain detects any later edit.</li>
+                  <li>Phone numbers and other identifiers are AES-256-GCM encrypted at rest with an HMAC blind index for lookup.</li>
+                  <li>No proof system runs in the product. The Groth16 files in the repository are a demo circuit (a × b = c) used as a library self-test.</li>
+                </ul>
 
-                {/* Proof Telemetry */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14, fontSize: 11 }}>
                   <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 6 }}>
-                    <span style={{ color: '#94a3b8', display: 'block', fontSize: 10 }}>ELLIPTIC CURVE</span>
-                    <span style={{ fontWeight: 700, color: '#38bdf8' }}>BN128 (alt_bn128)</span>
+                    <span style={{ color: '#94a3b8', display: 'block', fontSize: 10 }}>ALGORITHM</span>
+                    <span style={{ fontWeight: 700, color: '#38bdf8' }}>Ed25519 / canonical JSON</span>
                   </div>
                   <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 6 }}>
-                    <span style={{ color: '#94a3b8', display: 'block', fontSize: 10 }}>VERIFICATION TIME</span>
-                    <span style={{ fontWeight: 700, color: '#34d399' }} className="tabular-nums">{zkLatency.toFixed(2)} ms (Soundness Proven)</span>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 6 }}>
-                    <span style={{ color: '#94a3b8', display: 'block', fontSize: 10 }}>MERKLE ROOT SIGNAL</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#cbd5e1' }}>0x2a9f4c3b1e8d...</span>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 6 }}>
-                    <span style={{ color: '#94a3b8', display: 'block', fontSize: 10 }}>VERIFICATION STATUS</span>
-                    <span style={{ fontWeight: 800, color: zkStatus === 'verifying' ? '#fbbf24' : '#34d399' }}>
-                      {zkStatus === 'verifying' ? 'VERIFYING PAIRINGS...' : '100% MATHEMATICALLY SOUND'}
+                    <span style={{ color: '#94a3b8', display: 'block', fontSize: 10 }}>PROVENANCE CHAIN</span>
+                    <span style={{ fontWeight: 800, color: chainStatus === 'broken' || chainStatus === 'error' ? '#f87171' : chainStatus === 'ok' ? '#34d399' : '#fbbf24' }}>
+                      {chainStatus === 'idle' && 'not checked yet'}
+                      {chainStatus === 'checking' && 'walking chain...'}
+                      {chainStatus === 'ok' && `intact (${chainNodes ?? 0} nodes)`}
+                      {chainStatus === 'broken' && `BROKEN (${chainNodes ?? 0} nodes)`}
+                      {chainStatus === 'error' && 'backend unreachable'}
                     </span>
                   </div>
                 </div>
 
-                {/* Verification Action Button */}
                 <button
-                  onClick={() => {
-                    setZkStatus('verifying');
-                    setTimeout(() => {
-                      setZkStatus('verified');
-                      setZkLatency(1.08 + Math.random() * 0.08);
-                    }, 280);
+                  onClick={async () => {
+                    setChainStatus('checking');
+                    try {
+                      const r = await api.verifyMerkleChain();
+                      setChainNodes(r.totalNodes);
+                      setChainStatus(r.isValid ? 'ok' : 'broken');
+                    } catch {
+                      setChainStatus('error');
+                    }
                   }}
-                  disabled={zkStatus === 'verifying'}
+                  disabled={chainStatus === 'checking'}
                   style={{
                     width: '100%',
                     padding: '8px 14px',
                     borderRadius: 6,
                     border: 'none',
-                    background: zkStatus === 'verifying' ? '#475569' : '#0284c7',
+                    background: chainStatus === 'checking' ? '#475569' : '#0284c7',
                     color: '#ffffff',
                     fontSize: 11.5,
                     fontWeight: 700,
-                    cursor: zkStatus === 'verifying' ? 'not-allowed' : 'pointer',
+                    cursor: chainStatus === 'checking' ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -621,151 +619,82 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   }}
                 >
                   <CheckCircle2 size={14} />
-                  <span>{zkStatus === 'verifying' ? 'Computing BN128 Tate Pairings...' : 'Re-Verify Consultation Proof On-Edge'}</span>
+                  <span>{chainStatus === 'checking' ? 'Walking the provenance chain...' : 'Verify provenance chain on this backend'}</span>
                 </button>
               </div>
 
-              {/* Card 2: CMDP Hardware Arbiter Coupling */}
+              {/* Card 2: the pending patent, stated exactly */}
               <div style={{ background: '#f8fafc', borderRadius: 10, padding: 18, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Cpu size={16} color="#7c3aed" />
+                      <FileCode size={16} color="#7c3aed" />
                       <span style={{ fontSize: 12, fontWeight: 800, color: '#6d28d9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                        CMDP Hardware Arbiter &amp; Dual Constraint
+                        Pending patent application
                       </span>
                     </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '2px 6px', borderRadius: 4 }}>
-                      STATUTORY INVARIANT 1(c)
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 6px', borderRadius: 4 }}>
+                      NOT IN THIS CODE PATH
                     </span>
                   </div>
 
-                  <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.5, marginBottom: 12 }}>
-                    Solves the physical coupling of <strong>FHE noise budget exhaustion</strong> against <strong>TEE EPC memory page faults</strong> in real time (17.70 μs decision cycle):
+                  <p style={{ fontSize: 12, color: '#0f172a', fontWeight: 700, margin: '0 0 8px 0' }}>
+                    <em>Adaptive Distributed Memory Retrieval Apparatus with Reinforcement Learning for Hardware-Efficient Retrieval-Augmented Generation Systems</em>
                   </p>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 6, padding: '8px 10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <strong style={{ color: '#0f172a' }}>Constraint A: FHE Noise Budget (B_noise ≤ Δ_crit)</strong>
-                        <span style={{ color: '#059669', fontWeight: 700 }}>Depth L ≤ 4</span>
-                      </div>
-                      <span style={{ color: '#64748b', fontSize: 10.5 }}>
-                        Every homomorphic multiplication doubles ciphertext error variance. CMDP halts multiplication before noise destroys decryptability.
-                      </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, marginBottom: 10 }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 10px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748b' }}>Indian application</span><strong style={{ color: '#0f172a' }}>202531095594 (priority 5 Oct 2025)</strong>
                     </div>
-
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 6, padding: '8px 10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <strong style={{ color: '#0f172a' }}>Constraint B: TEE EPC Thrashing (EWB / ELDU)</strong>
-                        <span style={{ color: '#d97706', fontWeight: 700 }}>15–42 ms Latency Spike</span>
-                      </div>
-                      <span style={{ color: '#64748b', fontSize: 10.5 }}>
-                        Exceeding physical enclave cache triggers microcode page evictions. CMDP dynamically keeps EPC utilization below 85% safety threshold.
-                      </span>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 10px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748b' }}>International (PCT)</span><strong style={{ color: '#0f172a' }}>PCT/IN2026/052065 (filed 5 Oct 2026)</strong>
+                    </div>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 10px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748b' }}>Claims / status</span><strong style={{ color: '#0f172a' }}>21 claims · pending, unexamined</strong>
                     </div>
                   </div>
+
+                  <p style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                    Subject: routing encrypted vector-similarity operations between a homomorphic-encryption engine and a hardware enclave across peer nodes, with deterministic guards and a learning agent that tunes the threshold, compression and caching.
+                  </p>
                 </div>
 
-                <div style={{ marginTop: 12, padding: '6px 10px', background: '#f1f5f9', borderRadius: 6, fontSize: 10.5, color: '#475569' }}>
-                  <strong>Pareto Equilibrium:</strong> Average clinical memory retrieval latency remains stable at <strong>28.5 ms</strong> across 100,000 stress cycles.
+                <div style={{ padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 10.5, color: '#78350f' }}>
+                  <strong>Relation to this product:</strong> none of the claimed subsystems runs in this repository. The application is the roadmap for a multi-facility encrypted retrieval layer, of which this kiosk would be a client.
                 </div>
               </div>
             </div>
 
-            {/* Bottom Table: The 4 Strategic Diligence & Skepticism Defenses */}
+            {/* Status table */}
             <div style={{ marginTop: 8 }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0b2545', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ShieldCheck size={16} color="#047857" />
-                <span>Six-Pillar Structural Diligence &amp; Cryptographic Defense Matrix</span>
+                <span>Status of each cryptographic or intellectual-property statement</span>
               </h4>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #cbd5e1', textAlign: 'left' }}>
-                    <th style={{ padding: '8px 10px', color: '#475569', fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', width: '22%' }}>Vulnerability / Skepticism</th>
-                    <th style={{ padding: '8px 10px', color: '#475569', fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', width: '42%' }}>Structural Scientific &amp; Algorithmic Defense</th>
-                    <th style={{ padding: '8px 10px', color: '#475569', fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', width: '36%' }}>Statutory &amp; Legal Enforcement</th>
+                    <th style={{ padding: '8px 10px', color: '#475569', fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', width: '26%' }}>Statement</th>
+                    <th style={{ padding: '8px 10px', color: '#475569', fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', width: '44%' }}>What is actually implemented</th>
+                    <th style={{ padding: '8px 10px', color: '#475569', fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', width: '30%' }}>How to check</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
-                      1. Benchmark Platform Invariance<br />
-                      <span style={{ fontSize: 10, color: '#64748b' }}>Apple M4 ARM vs Intel Xeon SGX</span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
-                      Cryptographic polynomial rings (R_q = Z_q[X]/(X^N+1), N=2^15) and BN128 pairings are <strong>microarchitecture-invariant</strong>. The 15–42 ms EPC thrashing model was calibrated using empirical Xeon SGX page-fault distributions.
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#047857', fontWeight: 600, lineHeight: 1.4 }}>
-                      Anchored in statutory verification standards and algorithmic reproducibility doctrine.
-                    </td>
-                  </tr>
-
-                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
-                      2. Vector Scale Gap<br />
-                      <span style={{ fontSize: 10, color: '#64748b' }}>10k Vectors vs 10M–100M Scale</span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
-                      Hierarchical 2-stage retrieval: O(log N) coarse graph pruning in TEE/plaintext narrows search space to k ∈ [50, 200]; FHE is strictly applied to SIMD-packed top-k re-ranking without latency explosion.
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#047857', fontWeight: 600, lineHeight: 1.4 }}>
-                      Enforced by Sovereign Clinical Invariants (ANN pruning + PQ compression bounds).
-                    </td>
-                  </tr>
-
-                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
-                      3. Multi-Tenant 30/70 Allocation<br />
-                      <span style={{ fontSize: 10, color: '#64748b' }}>FHE vs TEE Security Model</span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
-                      Workload is multi-tenant and data-tiered, not a random split. TEE path is fortified by noise smudging (σ_smudge) and remote TCB attestation; 30% FHE queries act as decoy traffic breaking side-channel access pattern analysis.
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#047857', fontWeight: 600, lineHeight: 1.4 }}>
-                      Satisfies DPDP Act 2023 §6 &amp; §8 (zero raw plaintext leakage beyond encrypted boundary).
-                    </td>
-                  </tr>
-
-                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
-                      4. External Infringement Tomography<br />
-                      <span style={{ fontSize: 10, color: '#64748b' }}>Detectability Behind Closed APIs</span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
-                      External black-box tomography verifies infringement via: (1) Bimodal latency mixture distributions, (2) EPC saturation phase-shift probing, and (3) Groth16 cryptographic proof transcripts.
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#047857', fontWeight: 600, lineHeight: 1.4 }}>
-                      Satisfies statutory verification criteria through external API cryptographic verification transcripts.
-                    </td>
-                  </tr>
-
-                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
-                      5. Geofenced Sovereign BYOD &amp; Radius Security<br />
-                      <span style={{ fontSize: 10, color: '#64748b' }}>Air-Gap RF Perimeter vs Remote Queue Flooding</span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
-                      Dual-factor physical presence: Hospital Wi-Fi RF attenuation (&le;100m) + dynamic 60s rotating optical gate nonces (TOTP) + AP Station Isolation + RFC-8908 native browser redirection. PWA ServiceWorker + IndexedDB ensures zero data loss across power surges and basement dead zones.
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#047857', fontWeight: 600, lineHeight: 1.4 }}>
-                      Enforced by Sovereign Security Architecture, DPDP Act 2023 §6 &amp; §8, and BSA 2023 §63 tamper-evident logs.
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
-                      6. Biomechanical Tremors &amp; Causal Disambiguation<br />
-                      <span style={{ fontSize: 10, color: '#64748b' }}>Arthritic Touch Filter &amp; "Gas" vs Acute MI</span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
-                      Biomechanical Hysteresis Latch clusters touches within 28px / 400ms, rejecting accidental drags (150ms &le; &Delta;t &le; 1100ms) with acoustic snap confirmation. Judea Pearl Bayesian Causal DAG decouples colloquial metaphors ("gas/vayu") from cardiac invariants, enforcing 100% emergency diversion to Room 01 Nurse Vitals Gate.
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#047857', fontWeight: 600, lineHeight: 1.4 }}>
-                      Enforced by Clinical Pharmacological Invariants &amp; NPvCC pharmacovigilance safety standards.
-                    </td>
-                  </tr>
+                  {[
+                    { s: 'Records are tamper-evident', i: 'Ed25519 signature over canonical JSON, a SHA-256 provenance node per encounter, and a hash-chained audit log.', c: 'POST /api/security/verify-offline-seal · GET /api/security/verify-merkle · button above', ok: true },
+                    { s: 'Identifiers are encrypted at rest', i: 'AES-256-GCM field encryption; HMAC blind index so phone lookups work without decrypting.', c: 'backend/src/security/fieldCrypto.ts', ok: true },
+                    { s: '"Zero-knowledge proofs seal every prescription"', i: 'Not implemented. Only a Groth16 verifier self-test on a demo circuit exists; no proof generation; nothing bound to records.', c: 'backend/src/data/zkp_circuit/integrity_check.circom', ok: false },
+                    { s: '"Homomorphic encryption, enclaves and an RL arbiter run on the kiosk"', i: 'Not implemented. This is the subject of the pending application and needs enclave hardware the Raspberry Pi 5 does not have.', c: 'Pending application, claims 1 to 21', ok: false },
+                    { s: 'BYOD intake is limited to the waiting hall', i: 'Local Wi-Fi perimeter plus a 60-second rotating QR nonce. A product feature; not part of the patent.', c: 'ByodProximityModal.tsx', ok: true },
+                    { s: 'Evidence under BSA 2023 §63', i: 'Signature plus hash chain give integrity. Admissibility also requires the §63(4) certificate from the person in charge of the system.', c: 'backend/src/routes/security.routes.ts', ok: true }
+                  ].map((row, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>{row.s}</td>
+                      <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>{row.i}</td>
+                      <td style={{ padding: '8px 10px', color: row.ok ? '#047857' : '#b45309', fontWeight: 600, lineHeight: 1.4, fontFamily: 'monospace', fontSize: 10.5 }}>{row.c}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -1001,10 +930,10 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                       11. Offline Prescription Trust Anchor
                     </td>
                     <td style={{ padding: '8px 10px', color: '#cbd5e1', lineHeight: 1.4 }}>
-                      Groth16 zk-SNARK proof verifying BN128 bilinear curve pairing e(A, B) = e(&alpha;, &beta;) &middot; e(x, &gamma;) in 1.12ms. Disallows 1-character dosage tampering (e.g. 5mg &rarr; 50mg) with immediate pharmacist lockout even in zero-connectivity rural dispensaries.
+                      Ed25519 signature over the canonical prescription JSON plus a SHA-256 provenance node. A 1-character dosage change (e.g. 5mg &rarr; 50mg) invalidates the signature at the verify-offline-seal endpoint, with only the hospital public key needed, even in zero-connectivity rural dispensaries.
                     </td>
                     <td style={{ padding: '8px 10px', color: '#34d399', fontWeight: 600 }}>
-                      100% Cryptographic Non-Repudiation (DPDP Act 2023 §8)
+                      Tamper-evident, offline-verifiable with the hospital public key
                     </td>
                   </tr>
 

@@ -1,14 +1,12 @@
 /**
- * Sovereign Causal Ayush-Allopathy Clinical Knowledge Graph
- * Native Causal Inference & Pharmacovigilance Subsystem
+ * Clinical knowledge graph (Ayush + modern pharmacology) with causal path search.
  *
- * Implements:
- * 1. Judea Pearl's Causal DAG (Cycle validation, Graph surgery do(X), Level-3 Counterfactuals)
- * 2. Spreading Activation (Anderson ACT-R cognitive architecture)
- * 3. Dynamic Hydration from NAMASTE Portal A-Codes, ICD-11, and pharmacovigilance registry
+ * Hydrated from shared/ayush_ontology.json (diseases, classical formulations that pacify them)
+ * and shared/drug_interactions.json (mechanism edges herb → drug with cited evidence weights).
+ * Every answer is derived from edges in the graph; when the graph has no data the answer says so.
  */
 
-import { CausalDAGEngine, CausalEdge, CausalPath, CounterfactualResult } from './core/causalDAG.engine';
+import { CausalDAGEngine, CausalEdge, CounterfactualResult } from './core/causalDAG.engine';
 import drugInteractions from '../shared/drug_interactions.json';
 import ayushOntology from '../shared/ayush_ontology.json';
 
@@ -19,7 +17,6 @@ export interface GraphNode {
   namasteCode?: string;
   icd11Code?: string;
   metadata?: Record<string, any>;
-  currentActivation?: number;
 }
 
 export interface GraphCausalPath {
@@ -33,486 +30,299 @@ export interface GraphCausalPath {
   aggregateStrength: number;
 }
 
+export interface SubstitutionCandidate {
+  nodeId: string;
+  label: string;
+  sharedIndications: string[];
+  harmPathToDrug: number; // 0 when the graph has no risk path to the drug
+}
+
+export interface CounterfactualSubstitution extends CounterfactualResult {
+  candidates: SubstitutionCandidate[];
+  method: 'graph-grounded';
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[\s/()\-]+/g, '_');
+
 export class PiyGraphService {
   private static causalDAG = new CausalDAGEngine();
   private static nodes: Map<string, GraphNode> = new Map();
-  private static aliasMap: Map<string, string> = new Map(); // Lowercase alias -> canonical node ID
+  private static aliasMap: Map<string, Set<string>> = new Map(); // lower-case alias -> node ids
   private static outgoingEdges: Map<string, Array<{ targetId: string; weight: number; predicate: string; mechanism?: string }>> = new Map();
-  private static initialized: boolean = false;
+  private static initialized = false;
 
-  /**
-   * Normalize an input term to its canonical node ID in the graph
-   */
-  public static resolveNodeId(term: string): string | null {
-    this.initialize();
-    const clean = term.trim().toLowerCase();
-
-    // 1. Direct ID match
-    if (this.nodes.has(clean)) return clean;
-    if (this.nodes.has(`drug_${clean}`)) return `drug_${clean}`;
-    if (this.nodes.has(`herb_${clean}`)) return `herb_${clean}`;
-    if (this.nodes.has(`dis_${clean}`)) return `dis_${clean}`;
-
-    // 2. Alias match
-    if (this.aliasMap.has(clean)) return this.aliasMap.get(clean)!;
-
-    // 3. Substring match against aliases (with length and word boundary guards to avoid false positive collisions)
-    for (const [alias, canonicalId] of this.aliasMap.entries()) {
-      if (alias.length >= 3 && clean.includes(alias)) {
-        return canonicalId;
-      }
-      if (clean.length >= 4 && alias.includes(clean)) {
-        return canonicalId;
-      }
-    }
-
-    // 4. Label match
-    for (const [id, node] of this.nodes.entries()) {
-      if (node.label.toLowerCase().includes(clean)) {
-        return id;
-      }
-    }
-
-    return null;
+  private static alias(name: string, id: string): void {
+    const k = name.toLowerCase().trim();
+    if (!k) return;
+    if (!this.aliasMap.has(k)) this.aliasMap.set(k, new Set());
+    this.aliasMap.get(k)!.add(id);
   }
 
-  public static initialize(): void {
+  /** All node ids a term can refer to (exact id, exact alias, then guarded substring match). */
+  static resolveNodeIds(term: string): string[] {
+    this.initialize();
+    const clean = String(term || '').trim().toLowerCase();
+    if (!clean) return [];
+    const out = new Set<string>();
+    for (const id of [clean, `drug_${clean}`, `herb_${clean}`, `dis_${clean}`]) if (this.nodes.has(id)) out.add(id);
+    for (const id of this.aliasMap.get(clean) || []) out.add(id);
+    if (out.size) return Array.from(out);
+    for (const [alias, ids] of this.aliasMap) {
+      if ((alias.length >= 4 && clean.includes(alias)) || (clean.length >= 4 && alias.includes(clean))) for (const id of ids) out.add(id);
+    }
+    if (out.size) return Array.from(out);
+    for (const [id, node] of this.nodes) if (node.label.toLowerCase().includes(clean)) out.add(id);
+    return Array.from(out);
+  }
+
+  /** First matching node id (prefers registry drug/herb nodes, then ontology nodes). */
+  static resolveNodeId(term: string): string | null {
+    const ids = this.resolveNodeIds(term);
+    if (!ids.length) return null;
+    return ids.find(i => i.startsWith('drug_')) || ids.find(i => i.startsWith('herb_')) || ids[0];
+  }
+
+  static initialize(): void {
     if (this.initialized) return;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. Core Doshas, Agni, Dhatus & Srotas
-    // ─────────────────────────────────────────────────────────────────────────
-    const doshas = [
-      { id: 'dosha_vata', label: 'Vata Dosha (Air + Ether)' },
-      { id: 'dosha_pitta', label: 'Pitta Dosha (Fire + Water)' },
-      { id: 'dosha_kapha', label: 'Kapha Dosha (Water + Earth)' }
-    ];
-    for (const d of doshas) {
-      this.addNode({ id: d.id, type: 'DOSHA', label: d.label });
-    }
+    for (const d of [
+      { id: 'dosha_vata', label: 'Vata Dosha' }, { id: 'dosha_pitta', label: 'Pitta Dosha' }, { id: 'dosha_kapha', label: 'Kapha Dosha' }
+    ]) this.addNode({ id: d.id, type: 'DOSHA', label: d.label });
+    for (const a of [
+      { id: 'agni_samagni', label: 'Samagni (balanced)' }, { id: 'agni_vishamagni', label: 'Vishamagni (irregular, Vata)' },
+      { id: 'agni_tikshnagni', label: 'Tikshnagni (hyperactive, Pitta)' }, { id: 'agni_mandagni', label: 'Mandagni (hypoactive, Kapha)' }
+    ]) this.addNode({ id: a.id, type: 'AGNI', label: a.label });
+    for (const dh of [
+      { id: 'dhatu_rasa', label: 'Rasa Dhatu' }, { id: 'dhatu_rakta', label: 'Rakta Dhatu' }, { id: 'dhatu_medas', label: 'Medas Dhatu' },
+      { id: 'dhatu_asthi', label: 'Asthi Dhatu' }, { id: 'dhatu_majja', label: 'Majja Dhatu' }
+    ]) this.addNode({ id: dh.id, type: 'DHATU', label: dh.label });
 
-    const agnis = [
-      { id: 'agni_samagni', label: 'Samagni (Balanced Metabolism)' },
-      { id: 'agni_vishamagni', label: 'Vishamagni (Irregular Vata Metabolism)' },
-      { id: 'agni_tikshnagni', label: 'Tikshnagni (Hyperactive Pitta Metabolism)' },
-      { id: 'agni_mandagni', label: 'Mandagni (Hypoactive Kapha Metabolism)' }
-    ];
-    for (const a of agnis) {
-      this.addNode({ id: a.id, type: 'AGNI', label: a.label });
-    }
-
-    const dhatus = [
-      { id: 'dhatu_rasa', label: 'Rasa Dhatu (Plasma)' },
-      { id: 'dhatu_rakta', label: 'Rakta Dhatu (Blood)' },
-      { id: 'dhatu_medas', label: 'Medas Dhatu (Adipose)' },
-      { id: 'dhatu_asthi', label: 'Asthi Dhatu (Bone)' },
-      { id: 'dhatu_majja', label: 'Majja Dhatu (Marrow / Nerve)' }
-    ];
-    for (const dh of dhatus) {
-      this.addNode({ id: dh.id, type: 'DHATU', label: dh.label });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // 2. Hydrate NAMASTE Diagnoses & Diseases
-    // ─────────────────────────────────────────────────────────────────────────
+    // Diseases and the classical formulations that pacify them (AFI / NAMASTE seed).
     for (const entry of ayushOntology.namasteEntries) {
-      const disId = `dis_${entry.sanskritTerm.toLowerCase().replace(/[\s/]+/g, '_')}`;
-      this.addNode({
-        id: disId,
-        type: 'DISEASE',
-        label: `${entry.sanskritTerm} (${entry.englishEquivalent})`,
-        namasteCode: entry.aCode,
-        icd11Code: entry.icd10DualCode
-      });
-
-      this.aliasMap.set(entry.sanskritTerm.toLowerCase(), disId);
-      this.aliasMap.set(entry.englishEquivalent.toLowerCase(), disId);
-      this.aliasMap.set(entry.aCode.toLowerCase(), disId);
-
-      // Hydrate classical formulations for this disease
+      const disId = `dis_${slug(entry.sanskritTerm)}`;
+      this.addNode({ id: disId, type: 'DISEASE', label: `${entry.sanskritTerm} (${entry.englishEquivalent})`, namasteCode: entry.aCode, icd11Code: entry.icd10DualCode });
+      this.alias(entry.sanskritTerm, disId);
+      this.alias(entry.englishEquivalent, disId);
+      this.alias(entry.aCode, disId);
       for (const formName of entry.classicalFormulations) {
-        const herbId = `herb_${formName.toLowerCase().replace(/[\s/]+/g, '_')}`;
-        this.addNode({
-          id: herbId,
-          type: 'HERB',
-          label: formName,
-          metadata: { recommendedAnupana: entry.recommendedAnupana }
-        });
-        this.aliasMap.set(formName.toLowerCase(), herbId);
-
-        // Herb pacifies disease
-        this.addEdge({
-          sourceId: herbId,
-          targetId: disId,
-          predicate: 'PACIFIES',
-          weight: 0.92,
-          mechanism: `${formName} pacifies ${entry.sanskritTerm} pathology`
-        });
+        const herbId = `herb_${slug(formName)}`;
+        this.addNode({ id: herbId, type: 'HERB', label: formName, metadata: { recommendedAnupana: entry.recommendedAnupana } });
+        this.alias(formName, herbId);
+        this.addEdge({ sourceId: herbId, targetId: disId, predicate: 'PACIFIES', weight: 0.9, mechanism: `${formName} is indicated for ${entry.sanskritTerm} (AFI)`, evidenceSource: 'Ayurvedic Formulary of India' });
       }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 3. Hydrate All Clinical Pharmacological Interactions
-    // ─────────────────────────────────────────────────────────────────────────
+    // Mechanism edges from the cited interaction registry.
     for (const rule of drugInteractions.interactions) {
-      const drugId = `drug_${rule.itemA.toLowerCase().replace(/[\s/()\-]+/g, '_')}`;
-      const herbId = `herb_${rule.itemB.toLowerCase().replace(/[\s/()\-]+/g, '_')}`;
+      const drugId = `drug_${slug(rule.itemA)}`;
+      const herbId = `herb_${slug(rule.itemB)}`;
+      this.addNode({ id: drugId, type: 'DRUG', label: rule.itemA, metadata: { severity: rule.severity } });
+      this.alias(rule.itemA, drugId);
+      for (const al of rule.aliasesA || []) this.alias(al, drugId);
+      this.addNode({ id: herbId, type: 'HERB', label: rule.itemB, metadata: { severity: rule.severity, clinicalAction: rule.clinicalAction } });
+      this.alias(rule.itemB, herbId);
+      for (const al of rule.aliasesB || []) this.alias(al, herbId);
 
-      // Register Drug
-      this.addNode({
-        id: drugId,
-        type: 'DRUG',
-        label: rule.itemA,
-        metadata: { severity: rule.severity }
-      });
-      this.aliasMap.set(rule.itemA.toLowerCase(), drugId);
-      if (rule.aliasesA) {
-        for (const al of rule.aliasesA) {
-          this.aliasMap.set(al.toLowerCase(), drugId);
-        }
-      }
-
-      // Register Herb
-      this.addNode({
-        id: herbId,
-        type: 'HERB',
-        label: rule.itemB,
-        metadata: { severity: rule.severity, clinicalAction: rule.clinicalAction }
-      });
-      this.aliasMap.set(rule.itemB.toLowerCase(), herbId);
-      if (rule.aliasesB) {
-        for (const al of rule.aliasesB) {
-          this.aliasMap.set(al.toLowerCase(), herbId);
-        }
-      }
-
-      // Determine Causal Predicate
       let predicate = 'INHIBITS_CYP';
+      const m = rule.mechanism.toLowerCase();
       if (rule.type === 'VIRUDDHA_AHARA') predicate = 'CONTRADICTS';
-      else if (rule.mechanism.toLowerCase().includes('synerg')) predicate = 'SYNERGISTIC_WITH';
-      else if (rule.mechanism.toLowerCase().includes('inhib')) predicate = 'INHIBITS_CYP';
-      else if (rule.mechanism.toLowerCase().includes('potentiate')) predicate = 'POTENTIATES';
+      else if (m.includes('synerg')) predicate = 'SYNERGISTIC_WITH';
+      else if (m.includes('inhib')) predicate = 'INHIBITS_CYP';
+      else if (m.includes('induc')) predicate = 'INDUCES_CYP';
+      else if (m.includes('potentiat')) predicate = 'POTENTIATES';
       else if (rule.severity === 'SAFE_COMBINATION') predicate = 'PACIFIES';
-
-      // Register Causal Edge in CausalDAG
-      this.addEdge({
-        sourceId: herbId,
-        targetId: drugId,
-        predicate: predicate as any,
-        weight: rule.evidenceScore || 0.95,
-        mechanism: rule.mechanism,
-        evidenceSource: rule.citation
-      });
+      this.addEdge({ sourceId: herbId, targetId: drugId, predicate, weight: rule.evidenceScore || 0.9, mechanism: rule.mechanism, evidenceSource: rule.citation });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 4. Fundamental Causal Etiological Edges
-    // ─────────────────────────────────────────────────────────────────────────
-    this.addEdge({ sourceId: 'dosha_vata', targetId: 'agni_vishamagni', predicate: 'VITIATES', weight: 0.92 });
-    this.addEdge({ sourceId: 'agni_vishamagni', targetId: 'dhatu_asthi', predicate: 'VITIATES', weight: 0.88 });
-    this.addEdge({ sourceId: 'dhatu_asthi', targetId: 'dis_sandhivata', predicate: 'LOCATED_IN', weight: 0.95 });
+    this.addEdge({ sourceId: 'dosha_vata', targetId: 'agni_vishamagni', predicate: 'VITIATES', weight: 0.92, mechanism: 'Vata vitiation disturbs agni', evidenceSource: 'Charaka Samhita, Chikitsa Sthana 15' });
+    this.addEdge({ sourceId: 'agni_vishamagni', targetId: 'dhatu_asthi', predicate: 'VITIATES', weight: 0.88, mechanism: 'Irregular agni impairs dhatu nourishment', evidenceSource: 'Charaka Samhita, Chikitsa Sthana 15' });
+    this.addEdge({ sourceId: 'dhatu_asthi', targetId: 'dis_sandhivata', predicate: 'LOCATED_IN', weight: 0.95, mechanism: 'Asthi dhatu kshaya manifests at joints', evidenceSource: 'Charaka Samhita, Chikitsa Sthana 28' });
 
     this.initialized = true;
-    console.log(`[PiyGraph] Initialized Dynamic Causal DAG: ${this.nodes.size} nodes, ${this.causalDAG.getAllEdges().length} causal edges.`);
+    console.log(`[PiyGraph] Knowledge graph ready: ${this.nodes.size} nodes, ${this.causalDAG.getAllEdges().length} edges.`);
   }
 
-  public static addNode(node: GraphNode): void {
-    this.nodes.set(node.id, node);
+  static addNode(node: GraphNode): void {
+    if (!this.nodes.has(node.id)) this.nodes.set(node.id, node);
     if (!this.outgoingEdges.has(node.id)) this.outgoingEdges.set(node.id, []);
   }
 
-  public static addEdge(edge: {
-    sourceId: string;
-    targetId: string;
-    predicate: any;
-    weight: number;
-    mechanism?: string;
-    evidenceSource?: string;
-  }): void {
+  static addEdge(edge: { sourceId: string; targetId: string; predicate: any; weight: number; mechanism?: string; evidenceSource?: string }): void {
     if (!this.outgoingEdges.has(edge.sourceId)) this.outgoingEdges.set(edge.sourceId, []);
-    this.outgoingEdges.get(edge.sourceId)!.push({
-      targetId: edge.targetId,
-      weight: edge.weight,
-      predicate: edge.predicate,
-      mechanism: edge.mechanism
-    });
-
-    this.causalDAG.addEdge(
-      edge.sourceId,
-      edge.targetId,
-      edge.weight,
-      edge.predicate,
-      edge.mechanism,
-      edge.evidenceSource
-    );
+    this.outgoingEdges.get(edge.sourceId)!.push({ targetId: edge.targetId, weight: edge.weight, predicate: edge.predicate, mechanism: edge.mechanism });
+    this.causalDAG.addEdge(edge.sourceId, edge.targetId, edge.weight, edge.predicate, edge.mechanism, edge.evidenceSource);
   }
 
-  public static getNode(id: string): GraphNode | undefined {
+  static getNode(id: string): GraphNode | undefined {
     this.initialize();
     return this.nodes.get(id);
   }
 
-
-
-  /**
-   * Find multi-hop causal contraindication paths using the Judea Pearl Causal DAG
-   */
-  public static findCausalPaths(sourceId: string, targetId: string, maxDepth: number = 4): GraphCausalPath[] {
+  static findCausalPaths(sourceId: string, targetId: string, maxDepth = 4): GraphCausalPath[] {
     this.initialize();
-    const resolvedSource = this.resolveNodeId(sourceId) || sourceId;
-    const resolvedTarget = this.resolveNodeId(targetId) || targetId;
-
-    // Check bidirectional causal connection
-    let chains = this.causalDAG.findCausalChain(resolvedSource, resolvedTarget, maxDepth);
-    if (chains.length === 0) {
-      // Try reverse (e.g. drug -> herb or herb -> drug)
-      chains = this.causalDAG.findCausalChain(resolvedTarget, resolvedSource, maxDepth);
+    const sources = this.resolveNodeIds(sourceId);
+    const targets = this.resolveNodeIds(targetId);
+    const pairs: Array<[string, string]> = [];
+    for (const s of sources.length ? sources : [sourceId]) for (const t of targets.length ? targets : [targetId]) pairs.push([s, t], [t, s]);
+    const out: GraphCausalPath[] = [];
+    for (const [s, t] of pairs) {
+      for (const c of this.causalDAG.findCausalChain(s, t, maxDepth)) {
+        out.push({
+          source: s, target: t, path: c.nodes, cumulativeWeight: c.aggregateStrength,
+          mechanisms: c.edges.map(e => e.mechanismDescription || `${e.sourceName} ${e.relation} ${e.targetName}`),
+          nodes: c.nodes, edges: c.edges, aggregateStrength: c.aggregateStrength
+        });
+      }
     }
+    return out.sort((a, b) => b.aggregateStrength - a.aggregateStrength);
+  }
 
-    return chains.map((c) => ({
-      source: resolvedSource,
-      target: resolvedTarget,
-      path: c.nodes,
-      cumulativeWeight: c.aggregateStrength,
-      mechanisms: c.edges.map((e) => e.mechanismDescription || `${e.sourceName} ${e.relation} ${e.targetName}`),
-      nodes: c.nodes,
-      edges: c.edges,
-      aggregateStrength: c.aggregateStrength
-    }));
+  static evaluateIntervention(interventionId: string, targetOutcomeId: string) {
+    this.initialize();
+    return this.causalDAG.evaluateIntervention(this.resolveNodeId(interventionId) || interventionId, this.resolveNodeId(targetOutcomeId) || targetOutcomeId);
+  }
+
+  /** Diseases a formulation is indicated for, by node id. */
+  private static indicationsOf(nodeIds: string[]): Set<string> {
+    const out = new Set<string>();
+    for (const id of nodeIds) for (const t of this.causalDAG.pacifiedTargets(id)) if (t.startsWith('dis_')) out.add(t);
+    return out;
+  }
+
+  private static harmPath(fromIds: string[], toIds: string[]): number {
+    let best = 0;
+    for (const f of fromIds) for (const t of toIds) {
+      for (const p of this.causalDAG.findCausalChain(f, t, 4)) {
+        if (p.edges.every(e => e.relation !== 'PACIFIES' && e.relation !== 'LOCATED_IN')) best = Math.max(best, p.aggregateStrength);
+      }
+    }
+    return best;
   }
 
   /**
-   * Judea Pearl Level 2 Intervention: P(Y | do(X=x))
+   * Substitutes for `problematicHerb` that keep at least one of its indications (per the AFI seed)
+   * and have no recorded harm path to `drug`. Nothing outside the graph is ever recommended.
    */
-  public static evaluateIntervention(interventionId: string, targetOutcomeId: string) {
+  static evaluateCounterfactualSubstitution(problematicHerb: string, drug: string, proposedAlternative?: string): CounterfactualSubstitution {
     this.initialize();
-    const src = this.resolveNodeId(interventionId) || interventionId;
-    const tgt = this.resolveNodeId(targetOutcomeId) || targetOutcomeId;
-    return this.causalDAG.evaluateIntervention(src, tgt);
-  }
-
-  /**
-   * Judea Pearl Level 3 Counterfactual Substitution:
-   * Suggests safe Ayurvedic substitution when a contraindication is detected.
-   */
-  public static evaluateCounterfactualSubstitution(
-    problematicHerb: string,
-    targetCondition: string,
-    proposedAlternative?: string
-  ): CounterfactualResult {
-    this.initialize();
-
-    // Default safe substitutes if none provided
-    const defaultSubstitutes: Record<string, string> = {
-      guggulu: 'Shallaki Vati (Boswellia serrata)',
-      yograj: 'Shallaki Vati (Boswellia serrata)',
-      yashtimadhu: 'Kantakari Avaleha',
-      mulethi: 'Kantakari Avaleha',
-      shilajit: 'Nisha Amalaki Churna',
-      ashwagandha: 'Brahmi Vati (Bacopa monnieri)',
-      garlic: 'Arjuna Churna',
-      lashuna: 'Arjuna Churna'
-    };
-
-    let alt = proposedAlternative;
-    if (!alt) {
-      const lower = problematicHerb.toLowerCase();
-      for (const [k, v] of Object.entries(defaultSubstitutes)) {
-        if (lower.includes(k)) {
-          alt = v;
-          break;
-        }
-      }
-      if (!alt) alt = 'Shallaki Vati or Rasnasaptak Kwath';
-    }
-
-    return this.causalDAG.evaluateCounterfactual({
-      factualObservation: {
-        drugOrHerb: problematicHerb,
-        targetCondition
-      },
-      hypotheticalSubstitution: {
-        substituteItem: alt
-      }
+    const herbIds = this.resolveNodeIds(problematicHerb);
+    const drugIds = this.resolveNodeIds(drug);
+    const base: CounterfactualResult = this.causalDAG.evaluateCounterfactual({
+      factualObservation: { drugOrHerb: herbIds[0] || problematicHerb, targetCondition: drugIds[0] || drug },
+      hypotheticalSubstitution: { substituteItem: proposedAlternative ? (this.resolveNodeId(proposedAlternative) || proposedAlternative) : '' }
     });
-  }
-
-  /**
-   * ACT-R Spreading Activation Algorithm
-   */
-  public static spreadActivation(
-    seedNodeIds: string[],
-    steps: number = 3,
-    decayGamma: number = 0.85
-  ): Map<string, number> {
-    this.initialize();
-    const activations = new Map<string, number>();
-
-    for (const rawId of seedNodeIds) {
-      const id = this.resolveNodeId(rawId) || rawId;
-      activations.set(id, 1.0);
-    }
-
-    for (let step = 0; step < steps; step++) {
-      const delta = new Map<string, number>();
-
-      for (const [nodeId, act] of activations.entries()) {
-        const outEdges = this.outgoingEdges.get(nodeId) || [];
-        for (const edge of outEdges) {
-          const pass = act * edge.weight * decayGamma;
-          const current = delta.get(edge.targetId) || 0;
-          delta.set(edge.targetId, current + pass);
-        }
+    const indications = this.indicationsOf(herbIds);
+    const originalHarm = this.harmPath(herbIds, drugIds);
+    const candidates: SubstitutionCandidate[] = [];
+    if (indications.size) {
+      const seen = new Set<string>();
+      for (const [id, node] of this.nodes) {
+        if (node.type !== 'HERB' || herbIds.includes(id) || seen.has(id)) continue;
+        const shared = Array.from(this.causalDAG.pacifiedTargets(id)).filter(t => indications.has(t));
+        if (!shared.length) continue;
+        seen.add(id);
+        candidates.push({ nodeId: id, label: node.label, sharedIndications: shared.map(s => this.nodes.get(s)?.label || s), harmPathToDrug: parseFloat(this.harmPath([id], drugIds).toFixed(4)) });
       }
-
-      for (const [targetId, val] of delta.entries()) {
-        const current = activations.get(targetId) || 0;
-        activations.set(targetId, Math.min(2.0, current + val));
-      }
+      candidates.sort((a, b) => a.harmPathToDrug - b.harmPathToDrug || b.sharedIndications.length - a.sharedIndications.length);
     }
-
-    return activations;
-  }
-
-  public static getGraphStats(): { nodeCount: number; edgeCount: number } {
-    this.initialize();
+    const safe = candidates.filter(c => c.harmPathToDrug === 0);
+    const recommended = proposedAlternative ? base.recommendedSubstitution : (safe[0]?.label ?? null);
     return {
-      nodeCount: this.nodes.size,
-      edgeCount: this.causalDAG.getAllEdges().length
+      ...base,
+      originalRiskProbability: herbIds.length ? parseFloat(originalHarm.toFixed(4)) : null,
+      recommendedSubstitution: recommended,
+      therapeuticEfficacyPreserved: proposedAlternative ? base.therapeuticEfficacyPreserved : (safe.length ? true : indications.size ? false : null),
+      evidence: proposedAlternative ? base.evidence : herbIds.length ? 'GRAPH' : 'NO_DATA_FOR_ORIGINAL',
+      clinicalExplanation: proposedAlternative
+        ? base.clinicalExplanation
+        : !herbIds.length
+          ? `"${problematicHerb}" is not in the knowledge graph.`
+          : !indications.size
+            ? `The graph records no indication for ${problematicHerb}, so it cannot propose an equivalent; ask the vaidya to choose.`
+            : safe.length
+              ? `${safe.length} formulation(s) share an indication with ${problematicHerb} and have no recorded interaction path to ${drug}; first: ${safe[0].label}. Confirm suitability clinically.`
+              : `Every formulation sharing an indication with ${problematicHerb} also has a recorded interaction path to ${drug}; no safe graph substitute.`,
+      candidates: candidates.slice(0, 8),
+      method: 'graph-grounded'
     };
   }
 
-  /**
-   * Frontier 3: Multi-Order Hypergraph Polypharmacy (The Dark Interaction Space)
-   * Models concurrent multi-substance saturation of hepatic CYP450 microsomal enzymes
-   * (CYP2C9, CYP3A4, CYP1A2, CYP2D6) and Platelet Glycoprotein IIb/IIIa blockade.
-   */
-  public static evaluateHigherOrderPolypharmacy(allopathicList: any[], ayushList: any[]): HypergraphPolypharmacyResult {
+  /** Spreading activation (Anderson's ACT-R style) from seed nodes. */
+  static spreadActivation(seedNodeIds: string[], steps = 3, decayGamma = 0.85): Map<string, number> {
     this.initialize();
+    const act = new Map<string, number>();
+    for (const raw of seedNodeIds) act.set(this.resolveNodeId(raw) || raw, 1.0);
+    for (let s = 0; s < steps; s++) {
+      const delta = new Map<string, number>();
+      for (const [id, a] of act) for (const e of this.outgoingEdges.get(id) || []) delta.set(e.targetId, (delta.get(e.targetId) || 0) + a * e.weight * decayGamma);
+      for (const [id, v] of delta) act.set(id, Math.min(2.0, (act.get(id) || 0) + v));
+    }
+    return act;
+  }
 
-    const allStrings: string[] = [
-      ...allopathicList.map(a => (typeof a === 'string' ? a : (a.name || a.drugName || a.genericName || ''))),
-      ...ayushList.map(b => (typeof b === 'string' ? b : (b.classicalName || b.formulationName || '')))
-    ].map(s => s.toLowerCase());
+  static getGraphStats(): { nodeCount: number; edgeCount: number } {
+    this.initialize();
+    return { nodeCount: this.nodes.size, edgeCount: this.causalDAG.getAllEdges().length };
+  }
 
-    const hasAspirin = allStrings.some(s => s.includes('aspirin') || s.includes('ecosprin') || s.includes('clopidogrel'));
-    const hasWarfarin = allStrings.some(s => s.includes('warfarin') || s.includes('coumadin'));
-    const hasGuggulu = allStrings.some(s => s.includes('guggulu') || s.includes('guggul') || s.includes('yograj') || s.includes('medohar'));
-    const hasGarlic = allStrings.some(s => s.includes('garlic') || s.includes('lashuna') || s.includes('allium') || s.includes('lasun'));
-    const hasStatin = allStrings.some(s => s.includes('statin') || s.includes('atorvastatin') || s.includes('rosuvastatin'));
-    const hasPippali = allStrings.some(s => s.includes('pippali') || s.includes('piperine') || s.includes('trikatu'));
+  /**
+   * Additive pathway-load heuristic for polypharmacy. Each agent adds a fixed, documented load to
+   * the pathways it is known to occupy; a pathway above 0.8 is flagged. This is a screening
+   * heuristic with no probabilistic claim attached; the pairwise engines carry the evidence.
+   */
+  static evaluateHigherOrderPolypharmacy(allopathicList: any[], ayushList: any[]): HypergraphPolypharmacyResult {
+    this.initialize();
+    const names = [
+      ...allopathicList.map(a => (typeof a === 'string' ? a : a?.name || a?.drugName || a?.genericName || '')),
+      ...ayushList.map(b => (typeof b === 'string' ? b : b?.classicalName || b?.formulationName || b?.name || ''))
+    ].map(s => String(s).toLowerCase());
+    const has = (re: RegExp) => names.some(n => re.test(n));
+    const hasAntiplatelet = has(/\b(aspirin|ecosprin|clopidogrel)\b/);
+    const hasWarfarin = has(/\b(warfarin|coumadin|acenocoumarol|acitrom)\b/);
+    const hasGuggulu = has(/guggul/);
+    const hasGarlic = has(/\b(garlic|lashuna|allium|lasun)\b/);
+    const hasStatin = has(/(?<!ny)statin\b/);
+    const hasPiperine = has(/\b(pippali|piperine|trikatu)\b/);
 
-    // Compute enzyme saturations
-    const cyp2c9Agents: string[] = [];
-    let cyp2c9Saturation = 0.05;
-    if (hasWarfarin) { cyp2c9Agents.push('Warfarin'); cyp2c9Saturation += 0.40; }
-    if (hasAspirin) { cyp2c9Agents.push('Aspirin / NSAID'); cyp2c9Saturation += 0.20; }
-    if (hasGuggulu) { cyp2c9Agents.push('Yogaraja Guggulu (Guggulsterones)'); cyp2c9Saturation += 0.35; }
-    if (hasGarlic) { cyp2c9Agents.push('Raw Garlic (Allicin)'); cyp2c9Saturation += 0.15; }
-
-    const cyp3a4Agents: string[] = [];
-    let cyp3a4Saturation = 0.05;
-    if (hasStatin) { cyp3a4Agents.push('Atorvastatin'); cyp3a4Saturation += 0.40; }
-    if (hasPippali) { cyp3a4Agents.push('Pippali (Piperine bio-enhancer)'); cyp3a4Saturation += 0.45; }
-    if (hasGuggulu) { cyp3a4Agents.push('Guggulu'); cyp3a4Saturation += 0.15; }
-
-    const plateletAgents: string[] = [];
-    let plateletInhibition = 0.05;
-    if (hasAspirin) { plateletAgents.push('Aspirin (COX-1 Thromboxane A2)'); plateletInhibition += 0.45; }
-    if (hasWarfarin) { plateletAgents.push('Warfarin (VKORC1 Prothrombin)'); plateletInhibition += 0.35; }
-    if (hasGuggulu) { plateletAgents.push('Guggulsterone Antiplatelet'); plateletInhibition += 0.25; }
-    if (hasGarlic) { plateletAgents.push('Allicin Fibrinolytic'); plateletInhibition += 0.20; }
+    const load = (agents: Array<[boolean, string, number]>) => {
+      const list = agents.filter(a => a[0]);
+      return { level: Math.min(1, 0.05 + list.reduce((s, a) => s + a[2], 0)), agents: list.map(a => a[1]) };
+    };
+    const cyp2c9 = load([[hasWarfarin, 'Warfarin', 0.4], [hasAntiplatelet, 'Aspirin / antiplatelet', 0.2], [hasGuggulu, 'Guggulu (guggulsterones)', 0.35], [hasGarlic, 'Garlic (allicin)', 0.15]]);
+    const cyp3a4 = load([[hasStatin, 'Statin', 0.4], [hasPiperine, 'Piperine (Pippali / Trikatu)', 0.45], [hasGuggulu, 'Guggulu', 0.15]]);
+    const platelet = load([[hasAntiplatelet, 'Aspirin (COX-1)', 0.45], [hasWarfarin, 'Warfarin (VKORC1)', 0.35], [hasGuggulu, 'Guggulsterone antiplatelet effect', 0.25], [hasGarlic, 'Allicin', 0.2]]);
 
     const enzymes: EnzymeSaturation[] = [
-      {
-        enzyme: 'CYP2C9',
-        saturationLevel: Math.min(1.0, parseFloat(cyp2c9Saturation.toFixed(2))),
-        isCritical: cyp2c9Saturation >= 0.80,
-        contributingAgents: cyp2c9Agents
-      },
-      {
-        enzyme: 'Platelet_IIb_IIIa',
-        saturationLevel: Math.min(1.0, parseFloat(plateletInhibition.toFixed(2))),
-        isCritical: plateletInhibition >= 0.80,
-        contributingAgents: plateletAgents
-      },
-      {
-        enzyme: 'CYP3A4',
-        saturationLevel: Math.min(1.0, parseFloat(cyp3a4Saturation.toFixed(2))),
-        isCritical: cyp3a4Saturation >= 0.80,
-        contributingAgents: cyp3a4Agents
-      },
-      {
-        enzyme: 'CYP1A2',
-        saturationLevel: 0.15,
-        isCritical: false,
-        contributingAgents: []
-      },
-      {
-        enzyme: 'CYP2D6',
-        saturationLevel: 0.10,
-        isCritical: false,
-        contributingAgents: []
-      }
+      { enzyme: 'CYP2C9', saturationLevel: parseFloat(cyp2c9.level.toFixed(2)), isCritical: cyp2c9.level >= 0.8, contributingAgents: cyp2c9.agents },
+      { enzyme: 'Platelet_IIb_IIIa', saturationLevel: parseFloat(platelet.level.toFixed(2)), isCritical: platelet.level >= 0.8, contributingAgents: platelet.agents },
+      { enzyme: 'CYP3A4', saturationLevel: parseFloat(cyp3a4.level.toFixed(2)), isCritical: cyp3a4.level >= 0.8, contributingAgents: cyp3a4.agents }
     ];
+    const cumulativeIndex = parseFloat(Math.max(cyp2c9.level, platelet.level, cyp3a4.level).toFixed(2));
+    const coagulopathy = (hasWarfarin && hasGuggulu && (hasAntiplatelet || hasGarlic)) || (hasWarfarin && hasAntiplatelet && hasGarlic) || (platelet.level >= 0.85 && cyp2c9.level >= 0.8);
+    const statinLoad = hasStatin && hasPiperine;
+    const base = { enzymes, cumulativeSaturationIndex: cumulativeIndex, method: 'additive-pathway-load-heuristic' as const };
 
-    const maxSaturation = Math.max(cyp2c9Saturation, plateletInhibition, cyp3a4Saturation);
-    const cumulativeIndex = Math.min(1.0, parseFloat(maxSaturation.toFixed(2)));
-
-    // Synergistic Multi-Hit Detection
-    const isSynergisticCoagulopathy = (hasWarfarin && hasGuggulu && (hasAspirin || hasGarlic)) ||
-                                      (hasWarfarin && hasAspirin && hasGarlic) ||
-                                      (plateletInhibition >= 0.85 && cyp2c9Saturation >= 0.80);
-
-    const isStatinToxicity = (hasStatin && hasPippali);
-
-    if (isSynergisticCoagulopathy) {
+    if (coagulopathy) {
       return {
-        hasHypergraphConflict: true,
-        cumulativeSaturationIndex: cumulativeIndex,
-        bayesFactor: 248.9, // Decisive on Jeffreys scale
-        riskCategory: 'LETHAL_SYNERGISTIC_COAGULOPATHY',
-        pathologyMechanism: 'Synergistic Quad-Hit Coagulopathy: Simultaneous hepatic CYP2C9 metabolic blockade + Platelet Glycoprotein IIb/IIIa complete shutdown creates fatal intracranial and gastrointestinal hemorrhage hazard.',
-        enzymes,
-        bottleneck: 'Hepatic CYP2C9 Clearance Capacity Saturating at 100% with Triple Platelet Aggregation Block',
-        recommendedSubstitution: {
-          remove: ['Yogaraja Guggulu', ...(hasGarlic ? ['Raw Garlic Extract'] : [])],
-          substitute: ['Rasnasaptaka Kwatha (Zero CYP clash)', 'Shallaki Vati (Boswellia serrata)'],
-          clinicalRationale: 'Substituting Boswellia serrata and Rasnasaptaka Kwatha restores CYP2C9 clearance headroom to 60%, maintaining analgesic anti-inflammatory effect with zero coagulopathy hazard.'
-        }
+        ...base, hasHypergraphConflict: true, riskCategory: 'LETHAL_SYNERGISTIC_COAGULOPATHY',
+        pathologyMechanism: 'Three or more agents converge on CYP2C9 clearance and platelet aggregation: bleeding risk is additive to synergistic (see pairwise alerts for citations).',
+        bottleneck: 'CYP2C9 clearance and platelet aggregation both near saturation',
+        recommendedSubstitution: { remove: [...(hasGuggulu ? ['Guggulu-containing formulation'] : []), ...(hasGarlic ? ['Garlic / Lashuna preparation'] : [])], substitute: [], clinicalRationale: 'Remove the Ayush agents that add to anticoagulant load; choose a replacement from the graph-grounded substitution list and re-check.' }
       };
     }
-
-    if (isStatinToxicity) {
+    if (statinLoad) {
       return {
-        hasHypergraphConflict: true,
-        cumulativeSaturationIndex: cumulativeIndex,
-        bayesFactor: 164.2,
-        riskCategory: 'HEPATIC_METABOLIC_BOTTLENECK',
-        pathologyMechanism: 'CYP3A4 Hyper-Inhibition: Piperine completely blocks intestinal and hepatic CYP3A4-mediated statin first-pass clearance, causing 400% serum statin elevation and catastrophic rhabdomyolysis.',
-        enzymes,
-        bottleneck: 'CYP3A4 Microsomal Substrate Overload',
-        recommendedSubstitution: {
-          remove: ['Pippali / Trikatu Churna'],
-          substitute: ['Amalaki Rasayana (Pure Emblica officinalis)'],
-          clinicalRationale: 'Amalaki supports endothelial lipid metabolism without interacting with CYP3A4 microsomal enzymes.'
-        }
+        ...base, hasHypergraphConflict: true, riskCategory: 'HEPATIC_METABOLIC_BOTTLENECK',
+        pathologyMechanism: 'Piperine inhibits intestinal P-gp and CYP3A4, raising statin exposure (pairwise rule INT-010 carries the citation).',
+        bottleneck: 'CYP3A4 first-pass clearance',
+        recommendedSubstitution: { remove: ['Pippali / Trikatu-containing formulation'], substitute: [], clinicalRationale: 'Avoid piperine bio-enhancers with statins; pick a replacement from the graph-grounded substitution list.' }
       };
     }
-
     return {
-      hasHypergraphConflict: false,
-      cumulativeSaturationIndex: cumulativeIndex,
-      bayesFactor: 1.2,
-      riskCategory: 'CLEAR',
-      pathologyMechanism: 'Enzyme saturation profiles within physiological clearance margins.',
-      enzymes,
-      bottleneck: 'None (Normal Hepatic Clearance)',
-      recommendedSubstitution: {
-        remove: [],
-        substitute: [],
-        clinicalRationale: 'All co-prescribed agents cleared safely via parallel metabolic pathways.'
-      }
+      ...base, hasHypergraphConflict: false, riskCategory: 'CLEAR',
+      pathologyMechanism: 'No multi-agent pathway load above the screening threshold.',
+      bottleneck: 'None',
+      recommendedSubstitution: { remove: [], substitute: [], clinicalRationale: 'No change suggested by the multi-agent screen; pairwise alerts still apply.' }
     };
   }
 }
@@ -527,15 +337,10 @@ export interface EnzymeSaturation {
 export interface HypergraphPolypharmacyResult {
   hasHypergraphConflict: boolean;
   cumulativeSaturationIndex: number;
-  bayesFactor: number;
+  method: 'additive-pathway-load-heuristic';
   riskCategory: 'LETHAL_SYNERGISTIC_COAGULOPATHY' | 'HEPATIC_METABOLIC_BOTTLENECK' | 'MODERATE_ACCUMULATION' | 'CLEAR';
   pathologyMechanism: string;
   enzymes: EnzymeSaturation[];
   bottleneck: string;
-  recommendedSubstitution: {
-    remove: string[];
-    substitute: string[];
-    clinicalRationale: string;
-  };
+  recommendedSubstitution: { remove: string[]; substitute: string[]; clinicalRationale: string };
 }
-

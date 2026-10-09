@@ -1,182 +1,132 @@
 /**
- * Dual-Pharmacology & Herb-Drug Contraindication Routes
- * Leverages PiyGraph Causal DAG & Bayesian Truth Engine (Beta-Binomial Conjugate Updating)
+ * Prescription safety endpoints (herb–drug, drug–drug, patient-context contraindications).
+ *
+ * Patient context is resolved on the server from `sessionId` or `patientId` (pregnancy, age, renal
+ * function from the latest lab report); an explicit `patientContext` object is accepted for
+ * what-if checks. Every response says which checks ran and with what context.
  */
 
 import { Router, Request, Response } from 'express';
+import { db } from '../db/database';
 import { TruthEngineService } from '../services/truthEngine.service';
 import { AyushEngineService } from '../services/ayushEngine.service';
 import { PiyGraphService } from '../services/piygraph.service';
 import { BayesianTruthEngineService } from '../services/bayesianTruthEngine.service';
+import { buildPatientContext, cleanContext } from '../services/patientContext.service';
+import { PatientClinicalContext } from '../services/core/clinicalOntology.engine';
 
 export const contraindicationsRouter = Router();
 
-/**
- * Helper to normalize and evaluate prescription pairs with full Bayesian and Causal DAG analysis
- */
-function evaluateDualPrescriptions(allopathicList: any[], ayushList: any[]) {
-  const alerts = TruthEngineService.evaluatePrescriptions(allopathicList, ayushList);
+function resolveContext(body: any): { context: PatientClinicalContext | null; source: string } {
+  const sessionId = typeof body?.sessionId === 'string' ? body.sessionId : null;
+  let patientId = typeof body?.patientId === 'string' ? body.patientId : null;
+  if (!patientId && sessionId) {
+    const s: any = db.prepare('SELECT patient_id FROM sessions WHERE id = ?').get(sessionId);
+    patientId = s?.patient_id || null;
+  }
+  if (patientId) {
+    const ctx = buildPatientContext(patientId);
+    if (ctx) return { context: { ...ctx, ...(cleanContext(body?.patientContext) || {}) }, source: `patient record${ctx.eGfr !== undefined ? ' + lab report' : ''}` };
+  }
+  const explicit = cleanContext(body?.patientContext);
+  return explicit ? { context: explicit, source: 'request body' } : { context: null, source: 'none (no sessionId, patientId or patientContext supplied)' };
+}
 
-  // Augment alerts with PiyGraph Causal DAG multi-hop paths, exact Beta-Binomial posterior, and Pearl Counterfactuals
-  const augmentedAlerts = alerts.map((alert) => {
+function augment(alerts: ReturnType<typeof TruthEngineService.evaluatePrescriptions>) {
+  return alerts.map(alert => {
     const drugName = alert.itemA;
     const herbName = alert.itemB;
-
-    // Dynamically resolve node IDs in Causal DAG (Zero hardcoded fallback!)
-    const alloId = PiyGraphService.resolveNodeId(drugName);
-    const ayushId = PiyGraphService.resolveNodeId(herbName);
-
-    // 1. Multi-hop Causal DAG Path
-    const causalPaths = (alloId && ayushId)
-      ? PiyGraphService.findCausalPaths(ayushId, alloId, 4)
-      : [];
-
-    // 2. Beta-Binomial Bayesian Posterior
-    const bayesianPosterior = BayesianTruthEngineService.evaluatePair(drugName, herbName);
-
-    // 3. Level 3 Judea Pearl Counterfactual Substitution Recommendation
-    const counterfactual = PiyGraphService.evaluateCounterfactualSubstitution(
-      herbName,
-      alert.mechanism || 'Clinical Indication'
-    );
-
+    const causalPaths = PiyGraphService.findCausalPaths(herbName, drugName, 4);
+    const evidence = BayesianTruthEngineService.evaluatePair(drugName, herbName);
+    const cf = PiyGraphService.evaluateCounterfactualSubstitution(herbName, drugName);
     return {
       ...alert,
       allopathicDrug: drugName,
       ayushHerb: herbName,
       clinicalConsequence: alert.mechanism,
       recommendedAction: alert.clinicalAction,
-      bayesianConfidence: bayesianPosterior.expectedConfidence,
+      bayesianConfidence: evidence.expectedConfidence,
       bayesianPosterior: {
-        alpha: bayesianPosterior.alpha,
-        beta: bayesianPosterior.beta,
-        variance: bayesianPosterior.variance,
-        credibleInterval95: bayesianPosterior.credibleInterval95,
-        bayesFactor: bayesianPosterior.bayesFactor,
-        isStatisticallySignificant: bayesianPosterior.isStatisticallySignificant
+        alpha: evidence.alpha, beta: evidence.beta, variance: evidence.variance, credibleInterval95: evidence.credibleInterval95,
+        bayesFactor: evidence.bayesFactor, bayesFactorMethod: evidence.bayesFactorMethod, isStatisticallySignificant: evidence.isStatisticallySignificant,
+        prior: evidence.prior, observationsUsed: evidence.observationsUsed
       },
       piyGraphCausalPaths: causalPaths,
       counterfactualSubstitution: {
-        recommendedHerb: counterfactual.recommendedSubstitution,
-        explanation: counterfactual.clinicalExplanation,
-        originalRisk: counterfactual.originalRiskProbability,
-        substitutedRisk: counterfactual.substitutedRiskProbability
+        recommendedHerb: cf.recommendedSubstitution,
+        candidates: cf.candidates,
+        explanation: cf.clinicalExplanation,
+        originalRisk: cf.originalRiskProbability,
+        substitutedRisk: cf.substitutedRiskProbability,
+        efficacyPreserved: cf.therapeuticEfficacyPreserved,
+        evidence: cf.evidence
       }
     };
   });
-
-  return augmentedAlerts;
 }
 
-/**
- * POST /api/contraindications/evaluate
- * Primary endpoint for Doctor OPD Workstation with Multi-Order Hypergraph Traversal
- */
+/** POST /api/contraindications/evaluate */
 contraindicationsRouter.post('/evaluate', (req: Request, res: Response): void => {
   try {
     const allopathic = req.body.allopathic || req.body.allopathicMeds || req.body.allopathicPrescriptions || req.body.drugs || [];
     const ayush = req.body.ayush || req.body.ayushFormulations || req.body.ayushPrescriptions || req.body.herbs || [];
-    const alerts = evaluateDualPrescriptions(allopathic, ayush);
+    const { context, source } = resolveContext(req.body);
+    const evaluation = TruthEngineService.evaluatePrescriptionsDetailed(allopathic, ayush, context);
+    const alerts = augment(evaluation.alerts);
     const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayush);
     const hypergraphPolypharmacy = PiyGraphService.evaluateHigherOrderPolypharmacy(allopathic, ayush);
-
     res.json({
       success: true,
       alerts,
       hasConflicts: alerts.length > 0 || hypergraphPolypharmacy.hasHypergraphConflict,
+      hasCriticalLethalConflict: alerts.some(a => a.severity === 'CRITICAL_CONTRAINDICATION'),
       viruddhaWarnings,
-      hypergraphPolypharmacy
+      hypergraphPolypharmacy,
+      safetyChecks: evaluation.checks,
+      patientContextUsed: evaluation.contextUsed,
+      patientContextSource: source,
+      itemsConsidered: evaluation.itemsConsidered
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * POST /api/contraindications/counterfactual
- * Judea Pearl Level 3 Counterfactual Posology Query
- */
+/** POST /api/contraindications/counterfactual — body { herb, drug, proposedAlternative? } */
 contraindicationsRouter.post('/counterfactual', (req: Request, res: Response): void => {
   try {
     const herb = req.body.herb || req.body.primaryIntervention;
-    const targetCondition = req.body.targetCondition || req.body.targetPathology || 'Clinical Indication';
-    const proposedAlternative = req.body.proposedAlternative || req.body.alternative || req.body.coPrescribedAllopathic;
-
-    if (!herb) {
-      res.status(400).json({ error: 'herb is required' });
+    const drug = req.body.drug || req.body.targetCondition || req.body.coPrescribedAllopathic;
+    const proposed = req.body.proposedAlternative || req.body.alternative;
+    if (!herb || !drug) {
+      res.status(400).json({ error: 'herb and drug are required' });
       return;
     }
-
-    const result = PiyGraphService.evaluateCounterfactualSubstitution(
-      herb,
-      targetCondition,
-      proposedAlternative
-    );
-
-    res.json({
-      success: true,
-      data: result
-    });
+    res.json({ success: true, data: PiyGraphService.evaluateCounterfactualSubstitution(String(herb), String(drug), proposed ? String(proposed) : undefined) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * POST /api/contraindications/check
- * Legacy compatibility endpoint
- */
+/** POST /api/contraindications/check — legacy shape kept for older clients. */
 contraindicationsRouter.post('/check', (req: Request, res: Response): void => {
   try {
     const { allopathicPrescriptions, ayushPrescriptions, candidateDrug } = req.body;
-    let alerts = evaluateDualPrescriptions(allopathicPrescriptions || [], ayushPrescriptions || []);
-
-    if (candidateDrug) {
-      const singleAlerts = TruthEngineService.checkSingleCandidate(
-        candidateDrug,
-        (allopathicPrescriptions || []).map((a: any) => a.drugName || a.name || a),
-        (ayushPrescriptions || []).map((a: any) => a.formulationName || a.classicalName || a)
-      );
-
-      const augmentedSingle = singleAlerts.map((s) => {
-        const cf = PiyGraphService.evaluateCounterfactualSubstitution(s.itemB, s.mechanism || 'Clinical Indication');
-        return {
-          ...s,
-          allopathicDrug: s.itemA,
-          ayushHerb: s.itemB,
-          clinicalConsequence: s.mechanism,
-          recommendedAction: s.clinicalAction,
-          bayesianConfidence: 0.95,
-          bayesianPosterior: {
-            alpha: 4.0,
-            beta: 1.0,
-            variance: 0.03,
-            credibleInterval95: [0.75, 0.98] as [number, number],
-            bayesFactor: 8.0,
-            isStatisticallySignificant: true
-          },
-          piyGraphCausalPaths: [],
-          counterfactualSubstitution: {
-            recommendedHerb: cf.recommendedSubstitution,
-            explanation: cf.clinicalExplanation,
-            originalRisk: cf.originalRiskProbability,
-            substitutedRisk: cf.substitutedRiskProbability
-          }
-        };
-      });
-
-      alerts = [...alerts, ...augmentedSingle];
-    }
-
+    const { context, source } = resolveContext(req.body);
+    const allo = [...(allopathicPrescriptions || []), ...(candidateDrug ? [candidateDrug] : [])];
+    const evaluation = TruthEngineService.evaluatePrescriptionsDetailed(allo, ayushPrescriptions || [], context);
+    const alerts = augment(evaluation.alerts);
     const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayushPrescriptions || []);
-
     res.json({
       success: true,
       hasConflicts: alerts.length > 0,
-      hasCriticalLethalConflict: alerts.some((a) => a.severity === 'CRITICAL_CONTRAINDICATION'),
+      hasCriticalLethalConflict: alerts.some(a => a.severity === 'CRITICAL_CONTRAINDICATION'),
       conflictAlerts: alerts,
       alerts,
-      viruddhaWarnings
+      viruddhaWarnings,
+      safetyChecks: evaluation.checks,
+      patientContextUsed: evaluation.contextUsed,
+      patientContextSource: source
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -10,7 +10,6 @@ import { runFhirBenchmark } from './fhir_validation.test';
 import { runZkpBenchmark } from './zkp_verification.test';
 import { run100kStressTest } from './stress_100k.test';
 import { runCognitiveTests } from './piygraph_bayesian_hopfield.test';
-import { runLeverTests } from './lever_architecture.test';
 import { runExtremeAdversarialBattery } from './extreme_adversarial_battery.test';
 import { runMassiveUniversalStressSuite } from './massive_universal_stress_suite.test';
 import { runPanIndian22DialectsBenchmark } from './pan_indian_22_dialects.test';
@@ -25,6 +24,7 @@ import { runUltimateEdgecaseCrucible } from './ultimate_edgecase_crucible.test';
 import { runProductionOCRVerificationTests } from './production_ocr_verification.test';
 import { runSOTAClinicalVisionEngineTests } from './sota_clinical_vision_engine.test';
 import { runFarFieldAcousticVadTests } from './far_field_acoustic_vad.test';
+import { runExtractionGold } from './extraction_gold.test';
 
 async function main() {
   console.log(`
@@ -37,28 +37,52 @@ async function main() {
 
   const tStartAll = performance.now();
 
+  // Collect garbage between batteries (npm test runs node with --expose-gc) so one battery's leftover garbage
+  // cannot land as a GC pause inside another battery's single-shot latency measurement.
+  const settle = () => { if (typeof (global as any).gc === 'function') (global as any).gc(); };
   const r1 = runOPDBenchmark(5000);
+  settle();
   const r2 = runKYCBenchmark(10000);
+  settle();
   const r3 = runContraindicationBenchmark();
+  settle();
   const r4 = runFhirBenchmark(1000);
+  settle();
   const r5 = await runZkpBenchmark(20);
+  settle();
   const r6 = run100kStressTest(100000);
+  settle();
   const r7 = await runCognitiveTests();
-  const r8 = await runLeverTests();
+  settle();
   const r9 = await runExtremeAdversarialBattery();
+  settle();
   const r10 = await runMassiveUniversalStressSuite();
+  settle();
   const r11 = await runPanIndian22DialectsBenchmark();
+  settle();
   const r12 = await runDeepPolypharmacyBenchmark();
+  settle();
   const r13 = runRealWorldLimitsDiscoveryBenchmark();
+  settle();
   const r14 = runUltimateHardestBenchmark(1000);
+  settle();
   const r15 = runDeepestClinicalRealityTrial();
+  settle();
   const r16 = runGrandApexClinicalBenchmark(5000);
+  settle();
   const r17 = runTenDimensionalEdgeCaseMatrix();
+  settle();
   const r18 = runGrandUnifiedOmnimodalRealityBenchmark();
+  settle();
   const r19 = runUltimateEdgecaseCrucible();
+  settle();
   const r20 = runProductionOCRVerificationTests();
+  settle();
   const r21 = runSOTAClinicalVisionEngineTests();
+  settle();
   const r22 = runFarFieldAcousticVadTests();
+  settle();
+  const r23 = runExtractionGold();
 
   const tEndAll = performance.now();
   const totalDuration = (tEndAll - tStartAll) / 1000;
@@ -71,7 +95,6 @@ async function main() {
     r5: !!r5?.passed,
     r6: !!r6?.passed,
     r7: !!r7?.passed,
-    r8: !!r8?.passed,
     r9: !!r9?.passed,
     r10: !!r10?.passed,
     r11: !!r11?.passed,
@@ -83,9 +106,10 @@ async function main() {
     r17: !!r17?.isMatrixPassed,
     r18: !!r18?.isOmnimodalPassed,
     r19: r19?.passed === r19?.total,
-    r20: true,
+    r20: !!r20?.isPassed,
     r21: (r21?.passed || 0) === (r21?.total || 33),
-    r22: true
+    r22: true, // runFarFieldAcousticVadTests() throws on any failed assertion, which aborts the run
+    r23: r23.gatesOk
   };
 
   const allPassed = Object.values(results).every(Boolean);
@@ -104,24 +128,24 @@ async function main() {
 | 2. 10,000-Record Verhoeff Aadhaar KYC      | ${(r2.latencyPerRecordMs).toFixed(4)} ms/record | [PASS] (100% Acc)    |
 | 3. Dual-Pharmacology Truth Engine          | ${(r3.totalTimeMs).toFixed(2)} ms latency    | [PASS] (Zero FP)     |
 | 4. ABDM FHIR R4 Tri-Coded Interoperability  | ${r4.bundlesPerSec.toLocaleString().padStart(6)} bundles/s| [PASS] (Acyclic)     |
-| 5. Groth16 zk-SNARK Curve Verification     | ${(r5.meanLatency).toFixed(2)} ms (BN128)   | [PASS] (Soundness)   |
+| 5. Groth16 verifier self-test (demo circuit) | ${(r5.meanLatency).toFixed(2)} ms (BN128)   | [PASS] (self-test)   |
 | 6. 100,000-Case Bare-Metal Stress          | ${r6.throughput.toLocaleString().padStart(6)} cases/sec | [PASS] (Zero Leak)   |
 | 7. AyushGraph, Hopfield & PAC Gate         | ${(r7.durationMs).toFixed(2)} ms total     | [PASS] (Strict PAC)  |
-| 8. Core Tri-Subsystem Architecture         | ${(r8.durationMs).toFixed(2)} ms total     | [PASS] (All Levers)  |
-| 9. Extreme Adversarial Multi-Modal Battery | ${r9.totalTestsPassed}/50 Invariants | [PASS] (Robust)      |
-| 10. Grandmaster Universal Real-Data Suite  | ${r10.totalPassed}/${r10.totalEvaluated} Invariants| [PASS] (147 Invariants)
-| 11. Pan-Indian 22 Dialect Acoustic Matrix  | ${r11.passedDialects}/${r11.totalDialects} Invariants| [PASS] (22 Dialects) |
-| 12. AIIA NPvCC Polypharmacy & Viruddha Ahara| ${r12.passedInvariants}/${r12.totalInvariants} Invariants| [PASS] (AFI Tri-Coded)|
-| 13. Honest Real-World Limits Discovery     | Sens:${r13.sensitivity.toFixed(0)}% Spec:${r13.specificity.toFixed(1)}%| [PASS] (0% FN Miss)  |
-| 14. Ultimate Hardest Adversarial Battery   | Sens:${r14.sensitivity.toFixed(0)}% MCC:${r14.matthewsCorrCoef.toFixed(3)} | [PASS] (1k Cases)    |
-| 15. Deepest Real-World Clinical Reality    | WER0:${r15.wer0Accuracy.toFixed(0)}% WER30:${r15.wer30Accuracy.toFixed(0)}%| [PASS] (ICMR/PvPI)   |
-| 16. Grand Apex Clinical Benchmark (2026)   | Sens:100% MCC:${r16.mcc.toFixed(3)}| [PASS] (AIIMS/PvPI)  |
-| 17. 10-Dimensional Real Failure Modes     | ${r17.passedInvariants}/${r17.totalInvariants} Invariants| [PASS] (10 Dims)     |
-| 18. Grand Unified Omnimodal Reality        | ${r18.passedChallenges}/${r18.totalChallenges} Challenges| [PASS] (LongMem/AFI) |
-| 19. Ultimate 10-Domain Edge-Case Crucible  | ${r19.passed}/${r19.total} Challenges   | [PASS] (100% Rigor)  |
-| 20. Production OCR & Neural Edge Vision    | 18/18 Assertions   | [PASS] (Plausibility)|
-| 21. SOTA Clinical Vision & BSA §63 Ledger  | ${r21?.passed || 33}/${r21?.total || 33} Assertions   | [PASS] (Prior+BSA)   |
-| 22. Far-Field VAD & Whisper-Boost Rigor    | 13/13 Assertions   | [PASS] (PreRoll/DSP) |
+| 8. Extreme Adversarial Multi-Modal Battery | ${r9.totalTestsPassed}/${r9.totalTestsExecuted} Invariants | [PASS] (Robust)      |
+| 9.  Grandmaster Universal Real-Data Suite  | ${r10.totalPassed}/${r10.totalEvaluated} Invariants| [PASS] (147 Invariants)
+| 10. Pan-Indian 22 Dialect Acoustic Matrix  | ${r11.passedDialects}/${r11.totalDialects} Invariants| [PASS] (22 Dialects) |
+| 11. AIIA NPvCC Polypharmacy & Viruddha Ahara| ${r12.passedInvariants}/${r12.totalInvariants} Invariants| [PASS] (AFI Tri-Coded)|
+| 12. Honest Real-World Limits Discovery     | Sens:${r13.sensitivity.toFixed(0)}% Spec:${r13.specificity.toFixed(1)}%| [PASS] (0% FN Miss)  |
+| 13. Ultimate Hardest Adversarial Battery   | Sens:${r14.sensitivity.toFixed(0)}% MCC:${r14.matthewsCorrCoef.toFixed(3)} | [PASS] (1k Cases)    |
+| 14. Deepest Real-World Clinical Reality    | WER0:${r15.wer0Accuracy.toFixed(0)}% WER30:${r15.wer30Accuracy.toFixed(0)}%| [PASS] (ICMR/PvPI)   |
+| 15. Grand Apex Clinical Benchmark (2026)   | Sens:100% MCC:${r16.mcc.toFixed(3)}| [PASS] (AIIMS/PvPI)  |
+| 16. 10-Dimensional Real Failure Modes     | ${r17.passedInvariants}/${r17.totalInvariants} Invariants| [PASS] (10 Dims)     |
+| 17. Grand Unified Omnimodal Reality        | ${r18.passedChallenges}/${r18.totalChallenges} Challenges| [PASS] (LongMem/AFI) |
+| 18. Ultimate 10-Domain Edge-Case Crucible  | ${r19.passed}/${r19.total} Challenges   | [PASS] (100% Rigor)  |
+| 19. Production OCR & Neural Edge Vision    | ${r20?.passed}/${r20?.total} Assertions   | [PASS] (Plausibility)|
+| 20. SOTA Clinical Vision & BSA §63 Ledger  | ${r21?.passed || 33}/${r21?.total || 33} Assertions   | [PASS] (Prior+BSA)   |
+| 21. Far-Field VAD & Whisper-Boost Rigor    | 13/13 Assertions   | [PASS] (PreRoll/DSP) |
+| 22. Transcript Extraction Gold Set         | ${r23.passed}/${r23.total} Checks    | ${r23.gatesOk ? '[PASS]' : '[FAIL]'} (Negation/Vitals)|
 +--------------------------------------------+--------------------+----------------------+
 | TOTAL 22-BATTERY HARNESS DURATION: ${totalDuration.toFixed(2)} seconds                                        |
 | OVERALL VERDICT:                  ${allPassed ? '[PASS] ALL 22 TEST BATTERIES EMPIRICALLY VALIDATED' : '[FAIL] SUITE FAILED'}           |

@@ -35,7 +35,13 @@ export const FAMILIES: Record<string, RegExp> = {
   itching: /itch|prurit|kandu/i,
   rash: /rash|eruption|dermat/i,
   palpitations: /palpitation|tachycardia/i,
-  arm_pain: /arm|hand|wrist/i
+  arm_pain: /arm|hand|wrist/i,
+  cold: /common cold|coryza|pratishyaya|rhinitis/i,
+  sweating: /diaphoresis|sweat/i,
+  swelling: /swelling|oedema|edema|shotha/i,
+  ear_pain: /\bear\b/i,
+  toothache: /tooth|dental/i,
+  eye: /\beye|conjunctiv/i
 };
 const HISTORY: Record<string, RegExp> = {
   diabetes: /diabetes/i,
@@ -51,8 +57,9 @@ interface Case {
   d?: Record<string, string>; sev?: Record<string, number>; h?: string[]; nh?: string[]; rf?: boolean;
 }
 
-export function runExtractionGold(verbose = false) {
-  const file = resolve(__dirname, '../../edge-ai/eval/extraction_cases.json');
+/** `set`: 'gold' (tuning set, gated), 'blind' / 'holdout' (written before tuning; reported, not used for tuning). */
+export function runExtractionGold(verbose = false, set: 'gold' | 'blind' | 'holdout' = 'gold') {
+  const file = resolve(__dirname, `../../edge-ai/eval/${set === 'gold' ? 'extraction_cases' : `extraction_${set}`}.json`);
   const cases: Case[] = JSON.parse(readFileSync(file, 'utf8')).cases;
   const score: Record<string, [number, number]> = {};
   const fails: string[] = [];
@@ -94,7 +101,7 @@ export function runExtractionGold(verbose = false) {
   const ms = (performance.now() - t0) / cases.length;
 
   let total = 0, passed = 0;
-  console.log(`\nTranscript extraction — ${cases.length} gold cases (${ms.toFixed(2)} ms per transcript)`);
+  console.log(`\nTranscript extraction — ${cases.length} ${set} cases (${ms.toFixed(2)} ms per transcript)`);
   for (const [cat, [ok, n]] of Object.entries(score)) {
     total += n; passed += ok;
     console.log(`  ${cat.padEnd(30)} ${String(ok).padStart(3)}/${String(n).padEnd(3)} ${((100 * ok) / n).toFixed(1).padStart(5)}%`);
@@ -111,6 +118,8 @@ export function runExtractionGold(verbose = false) {
 }
 
 if (require.main === module) {
-  const { gatesOk } = runExtractionGold(process.argv.includes('-v'));
+  const i = process.argv.indexOf('--set');
+  const set = (i > 0 ? process.argv[i + 1] : 'gold') as 'gold' | 'blind' | 'holdout';
+  const { gatesOk } = runExtractionGold(process.argv.includes('-v'), set);
   process.exit(gatesOk ? 0 : 1);
 }

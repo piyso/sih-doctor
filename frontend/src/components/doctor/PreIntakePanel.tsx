@@ -224,9 +224,9 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
             </span>
           )}
         </div>
-        {session.symptoms && session.symptoms.length > 0 ? (
+        {session.symptoms && session.symptoms.some(s => !(s as { isNegated?: boolean }).isNegated) ? (
           <ul className="text-xs text-foreground space-y-1">
-            {session.symptoms.map((s, i) => (
+            {session.symptoms.filter(s => !(s as { isNegated?: boolean }).isNegated).map((s, i) => (
               <li key={i}>
                 <strong>{s.name || s.site}</strong>
                 {[s.site && s.site !== 'General' && s.name && !s.name.includes(s.site) ? s.site : '', characterEn(s.character), s.onset, s.radiation ? `radiates to ${s.radiation}` : ''].filter(Boolean).length > 0 && (
@@ -237,6 +237,11 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
           </ul>
         ) : (
           <div className="text-xs text-muted-foreground">No complaints were recorded at the kiosk.</div>
+        )}
+        {session.deniedSymptoms && session.deniedSymptoms.length > 0 && (
+          <div className="mt-1.5 text-xs text-muted-foreground">
+            <span className="font-semibold">Patient said no to:</span> {session.deniedSymptoms.join(', ')}
+          </div>
         )}
         {session.rawTranscript && (
           <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground">

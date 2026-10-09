@@ -29,6 +29,7 @@ import { queueRouter } from './routes/queue.routes';
 import { alertsRouter } from './routes/alerts.routes';
 import { printRouter } from './routes/print.routes';
 import { aiRouter } from './routes/ai.routes';
+import { interviewRouter } from './routes/interview.routes';
 import { ClinicalParserService } from './services/clinicalParser.service';
 import { PiyGraphService } from './services/piygraph.service';
 import { AudioVadPipelineService } from './services/audioVadPipeline.service';
@@ -110,6 +111,7 @@ app.get(['/health', '/api/health'], (_req, res) => {
 // ---------- Routes ----------
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/kiosk/interview', requireKioskOrStaff, interviewRouter);
 app.use('/api/kiosk', requireKioskOrStaff, kioskRouter);
 app.use('/api/documents', requireKioskOrStaff, documentsRouter);
 app.use('/api/doctor', doctorRouter); // each route has its own role guard
@@ -187,8 +189,9 @@ wss.on('connection', (ws: WebSocket) => {
             }));
           }
         } else if (payload.type === 'TRANSCRIPT_CHUNK' && payload.text) {
+          // parse() normalises internally and also reads the words as spoken; normalised text is sent for display.
           const normalized = PhoneticNormalizerService.normalize(payload.text);
-          const parsed = ClinicalParserService.parse(normalized, payload.patientId);
+          const parsed = ClinicalParserService.parse(payload.text, payload.patientId);
 
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({

@@ -8,7 +8,7 @@
  *
  * Suggestions are only ever shown for the patient to confirm by tapping; nothing is added on its own.
  */
-import { conceptTypeWeight, extractConcepts } from './clinicalLexicon';
+import { conceptMentions, conceptTypeWeight, extractConcepts, NEVER_NEGATED } from './clinicalLexicon';
 import { KioskSymptom, PRIVATE_SYMPTOMS, REGIONAL_SYMPTOMS, SYSTEMIC_SYMPTOMS } from './kioskSymptomCatalog';
 
 /** Concepts implied by a body-map area (applied at half weight). */
@@ -48,7 +48,7 @@ export class SymptomMatcher {
   constructor(private entries: CatalogEntry[]) {
     this.tags = entries.map(({ symptom, regions }) => {
       const t = new Map<string, number>();
-      extractConcepts(`${symptom.en} . ${symptom.hi}`).forEach(c => t.set(c, 1));
+      extractConcepts(`${symptom.en} . ${symptom.hi}`, { ignoreNegation: true }).forEach(c => t.set(c, 1));
       regions.forEach(r => (REGION_CONCEPTS[r] || '').split(' ').filter(Boolean).forEach(c => { if (!t.has(c)) t.set(c, 0.5); }));
       return t;
     });
@@ -61,6 +61,9 @@ export class SymptomMatcher {
   /** Cards ranked by similarity to the text; `onlyEn` restricts to a set of cards (e.g. the tapped area). */
   rank(text: string, opts: { onlyEn?: Set<string>; limit?: number } = {}): SymptomMatch[] {
     const q = extractConcepts(text);
+    // Findings the patient explicitly denied ("बुखार नहीं है"): a card built around one is pushed down.
+    const denied = new Set(conceptMentions(text).filter(m => m.negated).flatMap(m => m.concepts)
+      .filter(c => c.startsWith('F_') && !NEVER_NEGATED(c) && !q.has(c)));
     const w = (c: string) => this.weight.get(c) || 0;
     const qNorm = Math.sqrt([...q].reduce((a, c) => a + w(c) ** 2, 0)) || 1;
     const out: SymptomMatch[] = [];
@@ -71,7 +74,8 @@ export class SymptomMatcher {
       const matched: string[] = [];
       q.forEach(c => { const tw = t.get(c); if (tw) { dot += w(c) ** 2 * tw; if (w(c) > 0) matched.push(c); } });
       const tNorm = Math.sqrt([...t].reduce((a, [c, tw]) => a + (w(c) * tw) ** 2, 0)) || 1;
-      out.push({ symptom: e.symptom, score: dot / (qNorm * tNorm), matched });
+      const contradicted = [...denied].some(c => (t.get(c) || 0) >= 1);
+      out.push({ symptom: e.symptom, score: (dot / (qNorm * tNorm)) * (contradicted ? 0.5 : 1), matched });
     });
     out.sort((a, b) => b.score - a.score);
     return out.slice(0, opts.limit ?? out.length);
