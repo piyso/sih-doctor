@@ -30,24 +30,21 @@ documentsRouter.post('/ocr-image', async (req: Request, res: Response): Promise<
       return;
     }
 
-    const targetPatientId = patientId || 'pat-default';
-    const patientExists = db.prepare(`SELECT id FROM patients WHERE id = ?`).get(targetPatientId);
-    if (!patientExists) {
-      const autoAbha = `91-OCR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      db.prepare(`
-        INSERT OR IGNORE INTO patients (id, abha_id, name, age, gender, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(targetPatientId, autoAbha, 'Pre-Intake Patient', 45, 'UNKNOWN', new Date().toISOString());
-    }
+    // A scan taken before check-in has no patient yet: the result is returned for the kiosk to attach to the
+    // intake (which persists it under consent). Only an existing patient id is written to directly.
+    const targetPatientId = typeof patientId === 'string' && db.prepare(`SELECT id FROM patients WHERE id = ?`).get(patientId) ? patientId : null;
 
     const digitized = await NativeImageOCRService.processImage(
       imageBase64,
       fileName || 'kiosk_scanned_document.png',
-      targetPatientId,
+      targetPatientId || 'pending-intake',
       documentType || 'OLD_PRESCRIPTION'
     );
 
-    // Persist in database
+    if (!targetPatientId) {
+      res.json({ success: true, persisted: false, data: digitized });
+      return;
+    }
     const insertDoc = db.prepare(`
       INSERT INTO documents (id, patient_id, document_type, extracted_text, metadata_json, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -73,10 +70,7 @@ documentsRouter.post('/ocr-image', async (req: Request, res: Response): Promise<
       new Date().toISOString()
     );
 
-    res.json({
-      success: true,
-      data: digitized
-    });
+    res.json({ success: true, persisted: true, data: digitized });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -95,25 +89,22 @@ documentsRouter.post('/ocr', (req: Request, res: Response): void => {
       return;
     }
 
-    const targetPatientId = patientId || 'pat-default';
-    const patientExists = db.prepare(`SELECT id FROM patients WHERE id = ?`).get(targetPatientId);
-    if (!patientExists) {
-      const autoAbha = `91-OCR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      db.prepare(`
-        INSERT OR IGNORE INTO patients (id, abha_id, name, age, gender, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(targetPatientId, autoAbha, 'Pre-Intake Patient', 45, 'UNKNOWN', new Date().toISOString());
-    }
+    // A scan taken before check-in has no patient yet: the result is returned for the kiosk to attach to the
+    // intake (which persists it under consent). Only an existing patient id is written to directly.
+    const targetPatientId = typeof patientId === 'string' && db.prepare(`SELECT id FROM patients WHERE id = ?`).get(patientId) ? patientId : null;
 
     const digitized = DocumentOCRService.processDocumentText(
       text,
-      targetPatientId,
+      targetPatientId || 'pending-intake',
       documentType || 'OLD_PRESCRIPTION',
       clinicalPrior
     );
     digitized.engineUsed = 'TEXT_STREAM';
 
-    // Persist in database
+    if (!targetPatientId) {
+      res.json({ success: true, persisted: false, data: digitized });
+      return;
+    }
     const insertDoc = db.prepare(`
       INSERT INTO documents (id, patient_id, document_type, extracted_text, metadata_json, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -139,10 +130,7 @@ documentsRouter.post('/ocr', (req: Request, res: Response): void => {
       new Date().toISOString()
     );
 
-    res.json({
-      success: true,
-      data: digitized
-    });
+    res.json({ success: true, persisted: true, data: digitized });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

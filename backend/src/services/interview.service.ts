@@ -219,7 +219,8 @@ export function historyFrom(state: InterviewState): { history: ClinicalHistory; 
     chiefComplaint: chief || undefined,
     conditions: pastMedical.map(p => p.name), allergies: allergyList.map(x => x.agent).join(', '), currentMedicines: drugHistory.map(d => d.name).join(', '),
     pastMedical, pastSurgical, drugHistory, allergyList, familyHistory, personal, reviewOfSystems, obstetric, ayush, interviewId: state.id,
-    askedSections: { pastMedical: sectionsAsked('pastMedical'), pastSurgical: sectionsAsked('pastSurgical'), drugHistory: sectionsAsked('drugHistory'), allergies: sectionsAsked('allergies'), familyHistory: sectionsAsked('familyHistory') }
+    askedSections: { pastMedical: sectionsAsked('pastMedical'), pastSurgical: sectionsAsked('pastSurgical'), drugHistory: sectionsAsked('drugHistory'), allergies: sectionsAsked('allergies'), familyHistory: sectionsAsked('familyHistory') },
+    deniedSections: { allergies: a.allergy_any === false, familyHistory: Array.isArray(a.fam_conditions) && a.fam_conditions.length === 1 && a.fam_conditions[0] === 'none', pastSurgical: a.psh_any === false }
   });
   // Completeness from the real interview log.
   const plan = planFor(state);

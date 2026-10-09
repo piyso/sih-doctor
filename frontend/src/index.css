@@ -91,6 +91,8 @@
 
     --kiosk-max-w: 1200px;
     --doctor-max-w: 1680px;
+    /* Height of the sticky staff bar above every terminal; sticky panes start below it. */
+    --app-bar-h: 53px;
   }
 
   /* High-Contrast Clinical Light Mode Defaults */
@@ -463,19 +465,36 @@
   width: 100%;
   max-width: var(--doctor-max-w);
   margin: 0 auto;
-  padding: 12px 20px 120px 20px;
+  padding: 12px 20px 12px 20px;
 }
 
 .doctor-desk-grid {
   display: grid;
-  grid-template-columns: 310px 420px 1fr;
-  gap: 18px;
+  grid-template-columns: 300px 400px minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
-.doctor-desk-sidebar {
+/* Queue and intake are reference panes: they stay in view (below the app bar and the patient
+   safety banner) and scroll on their own, while the prescription scrolls with the page. */
+.doctor-desk-sidebar,
+.doctor-desk-preintake {
+  --desk-pane-top: calc(var(--app-bar-h) + var(--desk-banner-h, 0px) + 12px);
   position: sticky;
-  top: 70px;
+  top: var(--desk-pane-top);
+  max-height: calc(100dvh - var(--desk-pane-top) - 12px);
+}
+
+.doctor-desk-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.doctor-desk-preintake {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border-radius: 1rem;
 }
 
 .doctor-desk-preintake,
@@ -485,8 +504,42 @@
   gap: 16px;
 }
 
+/* Room for the floating action dock under the last field of the prescription. */
+.doctor-desk-workspace {
+  padding-bottom: 88px;
+}
+
+.doctor-safety-banner {
+  top: var(--app-bar-h);
+}
+
+/* Desk notices float above the work instead of pushing the columns down. */
+.desk-toast {
+  position: fixed;
+  left: 24px;
+  bottom: 20px;
+  z-index: 45;
+  max-width: min(560px, calc(100vw - 48px));
+}
+
+@media (max-width: 1024px) {
+  .desk-toast {
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    max-width: none;
+  }
+}
+
 .mobile-desk-toggle {
   display: none;
+}
+
+@media (max-width: 1360px) and (min-width: 1025px) {
+  .doctor-desk-grid {
+    grid-template-columns: 280px 360px minmax(0, 1fr);
+    gap: 12px;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -527,6 +580,21 @@
 
   .doctor-desk-grid {
     display: block !important;
+  }
+
+  .doctor-desk-sidebar,
+  .doctor-desk-preintake {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* One pane at a time here, and the dock spans the width: keep room for it under every pane. */
+  .doctor-desk-container {
+    padding-bottom: 96px;
+  }
+  .doctor-desk-workspace {
+    padding-bottom: 0;
   }
 
   .doctor-desk-container.show-queue .doctor-desk-sidebar {
@@ -574,7 +642,7 @@
 
 .vitals-4-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -606,14 +674,50 @@
 
 .pharmacy-grid {
   display: grid;
-  grid-template-columns: 310px 1fr 330px;
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
   gap: 16px;
   align-items: start;
+}
+
+/* Queue and labels stay beside the prescription being dispensed. */
+.pharmacy-pane {
+  position: sticky;
+  top: calc(var(--app-bar-h) + 12px);
+  max-height: calc(100dvh - var(--app-bar-h) - 24px);
 }
 
 @media (max-width: 1120px) {
   .pharmacy-grid {
     grid-template-columns: 1fr;
+  }
+  .pharmacy-pane {
+    position: static;
+    max-height: 60vh;
+  }
+}
+
+/* Nurse station: SOS column beside the vitals worklist; the SOS column stays in view. */
+.nurse-grid {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.nurse-sos {
+  position: sticky;
+  top: calc(var(--app-bar-h) + 12px);
+  max-height: calc(100dvh - var(--app-bar-h) - 24px);
+  overflow-y: auto;
+}
+
+@media (max-width: 1024px) {
+  .nurse-grid {
+    grid-template-columns: 1fr;
+  }
+  .nurse-sos {
+    position: static;
+    max-height: none;
   }
 }
 

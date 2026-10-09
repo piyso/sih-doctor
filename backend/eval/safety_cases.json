@@ -1,0 +1,3439 @@
+{
+ "version": "2026-10-09",
+ "note": "Expected behaviour written from standard references (labels, BNF-style severity, Beers 2023, WHO/national guidance, CDSCO notifications). Needs clinical pharmacologist review before it is treated as ground truth.",
+ "cases": [
+  {
+   "id": "S001",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Warfarin + ibuprofen",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S002",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Warfarin + diclofenac",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S003",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Warfarin + metronidazole",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Metronidazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S004",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Warfarin + fluconazole",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Fluconazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S005",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Warfarin + co-trimoxazole",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Septran",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S006",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Simvastatin + clarithromycin",
+   "allopathic": [
+    {
+     "name": "Simvastatin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Clarithromycin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S007",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Sildenafil + isosorbide mononitrate",
+   "allopathic": [
+    {
+     "name": "Sildenafil",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Isosorbide mononitrate",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S008",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Tadalafil + nicorandil",
+   "allopathic": [
+    {
+     "name": "Tadalafil",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Nicorandil",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S009",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Tizanidine + ciprofloxacin",
+   "allopathic": [
+    {
+     "name": "Tizanidine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ciprofloxacin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S010",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Methotrexate + co-trimoxazole",
+   "allopathic": [
+    {
+     "name": "Methotrexate",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Cotrimoxazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S011",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Enalapril + telmisartan (dual RAAS)",
+   "allopathic": [
+    {
+     "name": "Enalapril",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Telmisartan",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S012",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Lithium + ibuprofen",
+   "allopathic": [
+    {
+     "name": "Lithium carbonate",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S013",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Lithium + hydrochlorothiazide",
+   "allopathic": [
+    {
+     "name": "Lithium",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Hydrochlorothiazide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S014",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Azathioprine + allopurinol",
+   "allopathic": [
+    {
+     "name": "Azathioprine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Allopurinol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S015",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Colchicine + clarithromycin",
+   "allopathic": [
+    {
+     "name": "Colchicine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Clarithromycin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S016",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Domperidone + ketoconazole",
+   "allopathic": [
+    {
+     "name": "Domperidone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ketoconazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S017",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Spironolactone + potassium chloride",
+   "allopathic": [
+    {
+     "name": "Spironolactone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Potassium chloride",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S018",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Sertraline + linezolid",
+   "allopathic": [
+    {
+     "name": "Sertraline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Linezolid",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S019",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DUP",
+   "label": "Warfarin + apixaban (two anticoagulants)",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Apixaban",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S020",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DUP",
+   "label": "Dolo 650 + Combiflam (paracetamol twice)",
+   "allopathic": [
+    {
+     "name": "Dolo 650",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Combiflam",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S021",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Telmisartan + furosemide + diclofenac (triple whammy)",
+   "allopathic": [
+    {
+     "name": "Telmisartan",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Furosemide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S022",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DDI",
+   "label": "Warfarin + aspirin + clopidogrel (bleeding stack)",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ecosprin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Clopidogrel",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S023",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Penicillin allergy + amoxicillin",
+   "allopathic": [
+    {
+     "name": "Amoxicillin",
+     "dosage": "500 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Penicillin",
+      "reaction": "rash"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S024",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Penicillin allergy + Augmentin",
+   "allopathic": [
+    {
+     "name": "Augmentin 625",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Penicillin"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S025",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Sulfa allergy + co-trimoxazole",
+   "allopathic": [
+    {
+     "name": "Bactrim DS",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Sulpha drugs"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S026",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Ibuprofen allergy + diclofenac",
+   "allopathic": [
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Ibuprofen",
+      "reaction": "wheeze"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S027",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Penicillin anaphylaxis + cefixime",
+   "allopathic": [
+    {
+     "name": "Cefixime",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Penicillin",
+      "reaction": "anaphylaxis"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S028",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Ashwagandha allergy + Ashwagandha churna",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Ashwagandha Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Ashwagandha"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S029",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + enalapril",
+   "allopathic": [
+    {
+     "name": "Enalapril",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S030",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + atorvastatin",
+   "allopathic": [
+    {
+     "name": "Atorvastatin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S031",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + sodium valproate",
+   "allopathic": [
+    {
+     "name": "Sodium valproate",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S032",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + misoprostol",
+   "allopathic": [
+    {
+     "name": "Misoprostol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S033",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + warfarin",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S034",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + isotretinoin",
+   "allopathic": [
+    {
+     "name": "Isotretinoin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S035",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + methotrexate",
+   "allopathic": [
+    {
+     "name": "Methotrexate",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S036",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + Chitrakadi Vati",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Chitrakadi Vati",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S037",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PREG",
+   "label": "Pregnancy + Arogyavardhini Vati (Parada)",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Arogyavardhini Vati",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S038",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "RENAL",
+   "label": "eGFR 20 + metformin",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 20,
+    "age": 70
+   }
+  },
+  {
+   "id": "S039",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "RENAL",
+   "label": "eGFR 20 + nitrofurantoin",
+   "allopathic": [
+    {
+     "name": "Nitrofurantoin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 20,
+    "age": 70
+   }
+  },
+  {
+   "id": "S040",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "RENAL",
+   "label": "eGFR 25 + diclofenac",
+   "allopathic": [
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 25,
+    "age": 70
+   }
+  },
+  {
+   "id": "S041",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "RENAL",
+   "label": "eGFR 20 + spironolactone",
+   "allopathic": [
+    {
+     "name": "Spironolactone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 20,
+    "age": 66
+   }
+  },
+  {
+   "id": "S042",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "RENAL",
+   "label": "eGFR 20 + Sutshekhar Ras (mercury)",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Sutshekhar Ras",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "eGfr": 20,
+    "age": 60
+   }
+  },
+  {
+   "id": "S043",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "RENAL",
+   "label": "eGFR 25 + lithium",
+   "allopathic": [
+    {
+     "name": "Lithium",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 25,
+    "age": 50
+   }
+  },
+  {
+   "id": "S044",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 6 + aspirin",
+   "allopathic": [
+    {
+     "name": "Aspirin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 6
+   }
+  },
+  {
+   "id": "S045",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 8 + codeine",
+   "allopathic": [
+    {
+     "name": "Codeine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 8
+   }
+  },
+  {
+   "id": "S046",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 10 + tramadol",
+   "allopathic": [
+    {
+     "name": "Tramadol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 10
+   }
+  },
+  {
+   "id": "S047",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 18 months + promethazine",
+   "allopathic": [
+    {
+     "name": "Promethazine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 1.5
+   }
+  },
+  {
+   "id": "S048",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 1 + loperamide",
+   "allopathic": [
+    {
+     "name": "Loperamide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 1
+   }
+  },
+  {
+   "id": "S049",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 8 + nimesulide",
+   "allopathic": [
+    {
+     "name": "Nimesulide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 8
+   }
+  },
+  {
+   "id": "S050",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DOSE",
+   "label": "13 kg child + paracetamol 650 mg TDS",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "650 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 3,
+    "weightKg": 13
+   }
+  },
+  {
+   "id": "S051",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "PAED",
+   "label": "Age 7 + Arogyavardhini Vati",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Arogyavardhini Vati",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "age": 7
+   }
+  },
+  {
+   "id": "S052",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "FDC",
+   "label": "Banned: aceclofenac 50 mg + paracetamol 125 mg",
+   "allopathic": [
+    {
+     "name": "Aceclofenac 50 mg + Paracetamol 125 mg",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S053",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "FDC",
+   "label": "Banned: cetirizine + paracetamol + phenylephrine",
+   "allopathic": [
+    {
+     "name": "Cetirizine + Paracetamol + Phenylephrine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S054",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "FDC",
+   "label": "Banned: tramadol + paracetamol + caffeine + taurine",
+   "allopathic": [
+    {
+     "name": "Tramadol + Paracetamol + Caffeine + Taurine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S055",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "FDC",
+   "label": "Banned: ursodeoxycholic acid + metformin",
+   "allopathic": [
+    {
+     "name": "Ursodeoxycholic acid + Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S056",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DISEASE",
+   "label": "Asthma + propranolol",
+   "allopathic": [
+    {
+     "name": "Propranolol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "Bronchial asthma"
+    ]
+   }
+  },
+  {
+   "id": "S057",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DISEASE",
+   "label": "Heart failure + pioglitazone",
+   "allopathic": [
+    {
+     "name": "Pioglitazone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "Heart failure"
+    ]
+   }
+  },
+  {
+   "id": "S058",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DISEASE",
+   "label": "G6PD deficiency + primaquine",
+   "allopathic": [
+    {
+     "name": "Primaquine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "G6PD deficiency"
+    ]
+   }
+  },
+  {
+   "id": "S059",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DISEASE",
+   "label": "Myasthenia gravis + ciprofloxacin",
+   "allopathic": [
+    {
+     "name": "Ciprofloxacin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "Myasthenia gravis"
+    ]
+   }
+  },
+  {
+   "id": "S060",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DISEASE",
+   "label": "Migraine with aura + combined pill",
+   "allopathic": [
+    {
+     "name": "Ovral-L",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "Migraine with aura"
+    ],
+    "gender": "female",
+    "age": 30
+   }
+  },
+  {
+   "id": "S061",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "HDI",
+   "label": "Digoxin + Yashtimadhu",
+   "allopathic": [
+    {
+     "name": "Digoxin",
+     "dosage": "0.125 mg",
+     "frequency": "OD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Yashtimadhu Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S062",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "HDI",
+   "label": "Metronidazole + Draksharishta",
+   "allopathic": [
+    {
+     "name": "Metronidazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Draksharishta",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S063",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "HDI",
+   "label": "Digoxin + Karavira (oleander)",
+   "allopathic": [
+    {
+     "name": "Digoxin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Peela Kaner",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S064",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "DOSE",
+   "label": "Adult paracetamol 1000 mg every 4 hours (6 g/day)",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "1000 mg",
+     "frequency": "every 4 hours",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S065",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "STATUTORY",
+   "label": "Teleconsultation + alprazolam",
+   "allopathic": [
+    {
+     "name": "Alprazolam",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "teleconsult": true
+   }
+  },
+  {
+   "id": "S066",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Warfarin + clarithromycin",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Clarithromycin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S067",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Warfarin + aspirin",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Aspirin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S068",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Rivaroxaban + diclofenac",
+   "allopathic": [
+    {
+     "name": "Rivaroxaban",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S069",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Atorvastatin + clarithromycin",
+   "allopathic": [
+    {
+     "name": "Atorvastatin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Clarithromycin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S070",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Simvastatin + amlodipine",
+   "allopathic": [
+    {
+     "name": "Simvastatin",
+     "dosage": "40 mg",
+     "frequency": "OD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Amlodipine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S071",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Tramadol + sertraline",
+   "allopathic": [
+    {
+     "name": "Tramadol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Sertraline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S072",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Spironolactone + enalapril",
+   "allopathic": [
+    {
+     "name": "Spironolactone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Enalapril",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S073",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Theophylline + ciprofloxacin",
+   "allopathic": [
+    {
+     "name": "Theophylline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ciprofloxacin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S074",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Rifampicin + oral contraceptive",
+   "allopathic": [
+    {
+     "name": "Rifampicin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ethinylestradiol + Levonorgestrel",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S075",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Clopidogrel + omeprazole",
+   "allopathic": [
+    {
+     "name": "Clopidogrel",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Omeprazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S076",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Digoxin + amiodarone",
+   "allopathic": [
+    {
+     "name": "Digoxin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Amiodarone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S077",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Metoprolol + verapamil",
+   "allopathic": [
+    {
+     "name": "Metoprolol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Verapamil",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S078",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Alprazolam + tramadol",
+   "allopathic": [
+    {
+     "name": "Alprazolam",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Tramadol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S079",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DUP",
+   "label": "Ibuprofen + diclofenac (two NSAIDs)",
+   "allopathic": [
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S080",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DUP",
+   "label": "Pantoprazole + omeprazole (two PPIs)",
+   "allopathic": [
+    {
+     "name": "Pantoprazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Omeprazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S081",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Levofloxacin + prednisolone",
+   "allopathic": [
+    {
+     "name": "Levofloxacin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Prednisolone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S082",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Sertraline + ibuprofen",
+   "allopathic": [
+    {
+     "name": "Sertraline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S083",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Glimepiride + fluconazole",
+   "allopathic": [
+    {
+     "name": "Glimepiride",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Fluconazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S084",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DDI",
+   "label": "Azithromycin + domperidone (two QT drugs)",
+   "allopathic": [
+    {
+     "name": "Azithromycin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Domperidone",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S085",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PREG",
+   "label": "Pregnancy 30 weeks + ibuprofen",
+   "allopathic": [
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female",
+    "gestationalWeeks": 30
+   }
+  },
+  {
+   "id": "S086",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PREG",
+   "label": "Pregnancy + doxycycline",
+   "allopathic": [
+    {
+     "name": "Doxycycline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S087",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PREG",
+   "label": "Pregnancy + Hingvastak Churna",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Hingvastak Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S088",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PREG",
+   "label": "Pregnancy + Draksharishta (alcohol)",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Draksharishta",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S089",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "RENAL",
+   "label": "eGFR 40 + metformin",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 40,
+    "age": 60
+   }
+  },
+  {
+   "id": "S090",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "RENAL",
+   "label": "eGFR 40 + gabapentin",
+   "allopathic": [
+    {
+     "name": "Gabapentin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 40,
+    "age": 60
+   }
+  },
+  {
+   "id": "S091",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "ELDER",
+   "label": "Age 78 + glibenclamide",
+   "allopathic": [
+    {
+     "name": "Glibenclamide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 78
+   }
+  },
+  {
+   "id": "S092",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "ELDER",
+   "label": "Age 70 + amitriptyline",
+   "allopathic": [
+    {
+     "name": "Amitriptyline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 70
+   }
+  },
+  {
+   "id": "S093",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "ELDER",
+   "label": "Age 80 + alprazolam",
+   "allopathic": [
+    {
+     "name": "Alprazolam",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 80
+   }
+  },
+  {
+   "id": "S094",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PAED",
+   "label": "Age 15 + ciprofloxacin",
+   "allopathic": [
+    {
+     "name": "Ciprofloxacin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 15
+   }
+  },
+  {
+   "id": "S095",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PAED",
+   "label": "Age 5 + doxycycline",
+   "allopathic": [
+    {
+     "name": "Doxycycline",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 5
+   }
+  },
+  {
+   "id": "S096",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DOSE",
+   "label": "Age 4, weight missing + paracetamol",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "250 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 4
+   }
+  },
+  {
+   "id": "S097",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DOSE",
+   "label": "Metformin 1000 mg TDS (3 g/day)",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "1000 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S098",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DISEASE",
+   "label": "BPH + chlorpheniramine",
+   "allopathic": [
+    {
+     "name": "Chlorpheniramine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "BPH"
+    ]
+   }
+  },
+  {
+   "id": "S099",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DISEASE",
+   "label": "Peptic ulcer + diclofenac",
+   "allopathic": [
+    {
+     "name": "Diclofenac",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "Peptic ulcer"
+    ]
+   }
+  },
+  {
+   "id": "S100",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DISEASE",
+   "label": "Hypertension + Yashtimadhu",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Yashtimadhu Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "conditions": [
+     "Hypertension"
+    ]
+   }
+  },
+  {
+   "id": "S101",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Metformin + Shilajit",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Shilajit",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S102",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Glimepiride + Gudmar churna",
+   "allopathic": [
+    {
+     "name": "Glimepiride",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Gudmar Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S103",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Warfarin + Yogaraja Guggulu",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Yograj Guggulu",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S104",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Lithium + Gokshuradi Guggulu",
+   "allopathic": [
+    {
+     "name": "Lithium",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Gokshuradi Guggulu",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S105",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Alprazolam + Jatamansi",
+   "allopathic": [
+    {
+     "name": "Alprazolam",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Jatamansi Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S106",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Levothyroxine + Kanchnar Guggulu",
+   "allopathic": [
+    {
+     "name": "Levothyroxine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Kanchnar Guggulu",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S107",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Phenytoin + Shankhapushpi",
+   "allopathic": [
+    {
+     "name": "Phenytoin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Shankhapushpi Syrup",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S108",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Furosemide + Yashtimadhu",
+   "allopathic": [
+    {
+     "name": "Furosemide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Yashtimadhu Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S109",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Telmisartan + Yavakshara",
+   "allopathic": [
+    {
+     "name": "Telmisartan",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Yavakshara",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S110",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Tacrolimus + Guduchi",
+   "allopathic": [
+    {
+     "name": "Tacrolimus",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Guduchi Ghanavati",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S111",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "STEWARD",
+   "label": "Amoxicillin without an indication",
+   "allopathic": [
+    {
+     "name": "Amoxicillin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S112",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "HDI",
+   "label": "Warfarin + medicinal garlic in diet advice",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "diet": [
+    "Lashuna (garlic) daily"
+   ]
+  },
+  {
+   "id": "S113",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "FDC",
+   "label": "Aceclofenac + paracetamol, strength not stated",
+   "allopathic": [
+    {
+     "name": "Aceclofenac + Paracetamol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S114",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "DISEASE",
+   "label": "Epilepsy + tramadol",
+   "allopathic": [
+    {
+     "name": "Tramadol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "conditions": [
+     "Epilepsy"
+    ]
+   }
+  },
+  {
+   "id": "S115",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "ALLERGY",
+   "label": "Penicillin allergy (rash) + cefuroxime",
+   "allopathic": [
+    {
+     "name": "Cefuroxime",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Penicillin",
+      "reaction": "rash"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S116",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Aspirin + ginger juice",
+   "allopathic": [
+    {
+     "name": "Aspirin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Ginger Swarasa",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S117",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Metformin + Nisha Amalaki",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Nisha Amalaki",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S118",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "VIRUDDHA",
+   "label": "Sitopaladi with honey + ghee (classical anupana)",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Sitopaladi Churna",
+     "anupana": "Madhu (Honey) + Ghrita (Ghee)",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S119",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Fluoxetine + Jatamansi",
+   "allopathic": [
+    {
+     "name": "Fluoxetine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Jatamansi Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S120",
+   "kind": "BENIGN",
+   "expect": "INFO_ONLY",
+   "category": "HDI",
+   "label": "Ciprofloxacin + Praval Pishti (spacing only)",
+   "allopathic": [
+    {
+     "name": "Ciprofloxacin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5,
+     "indication": "Uncomplicated cystitis"
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Praval Pishti",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S121",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Telmisartan + amlodipine",
+   "allopathic": [
+    {
+     "name": "Telmisartan",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Amlodipine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S122",
+   "kind": "BENIGN",
+   "expect": "NO_STOP",
+   "category": "DDI",
+   "label": "Metoprolol + digoxin (rate control)",
+   "allopathic": [
+    {
+     "name": "Metoprolol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Digoxin",
+     "dosage": "0.125 mg",
+     "frequency": "OD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S123",
+   "kind": "BENIGN",
+   "expect": "NO_STOP",
+   "category": "DDI",
+   "label": "Telmisartan + ibuprofen 3 days",
+   "allopathic": [
+    {
+     "name": "Telmisartan",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S124",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "SCHED",
+   "label": "Ashwagandha Rasayana is not Schedule E(1)",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Ashwagandha Rasayana",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S125",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "FDC",
+   "label": "Zerodol-P (aceclofenac 100 + paracetamol 325) is not banned",
+   "allopathic": [
+    {
+     "name": "Zerodol-P",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S126",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Aspirin + clopidogrel (dual antiplatelet)",
+   "allopathic": [
+    {
+     "name": "Aspirin",
+     "dosage": "75 mg",
+     "frequency": "OD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Clopidogrel",
+     "dosage": "75 mg",
+     "frequency": "OD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S127",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Amlodipine + atorvastatin",
+   "allopathic": [
+    {
+     "name": "Amlodipine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Atorvastatin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S128",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Metformin + glimepiride",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Glimepiride",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S129",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Telma-H",
+   "allopathic": [
+    {
+     "name": "Telma-H",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S130",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DOSE",
+   "label": "Adult paracetamol 650 mg TDS",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "650 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S131",
+   "kind": "BENIGN",
+   "expect": "INFO_ONLY",
+   "category": "STEWARD",
+   "label": "Amoxicillin with an indication",
+   "allopathic": [
+    {
+     "name": "Amoxicillin",
+     "dosage": "500 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5,
+     "indication": "Acute otitis media"
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S132",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "PREG",
+   "label": "Pregnancy + paracetamol",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S133",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "PREG",
+   "label": "Pregnancy + Shatavari",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Shatavari Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female"
+   }
+  },
+  {
+   "id": "S134",
+   "kind": "BENIGN",
+   "expect": "INFO_ONLY",
+   "category": "PREG",
+   "label": "Pregnancy 12 weeks + ibuprofen (avoid only from 20 weeks)",
+   "allopathic": [
+    {
+     "name": "Ibuprofen",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "isPregnant": true,
+    "age": 28,
+    "gender": "female",
+    "gestationalWeeks": 12
+   }
+  },
+  {
+   "id": "S135",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Triphala + metformin",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Triphala Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S136",
+   "kind": "BENIGN",
+   "expect": "INFO_ONLY",
+   "category": "DDI",
+   "label": "Levothyroxine + calcium (spacing)",
+   "allopathic": [
+    {
+     "name": "Levothyroxine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    },
+    {
+     "name": "Calcium carbonate",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S137",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "SCHED",
+   "label": "Kamdudha Ras has no mercury",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Kamdudha Ras",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S138",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "SCHED",
+   "label": "Praval Pishti alone",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Praval Pishti",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S139",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Mahanarayana Taila (external) + warfarin",
+   "allopathic": [
+    {
+     "name": "Warfarin",
+     "dosage": "5 mg",
+     "frequency": "OD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Mahanarayan Taila",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S140",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Montair-LC",
+   "allopathic": [
+    {
+     "name": "Montair-LC",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S141",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DDI",
+   "label": "Pan-D",
+   "allopathic": [
+    {
+     "name": "Pan-D",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S142",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "ELDER",
+   "label": "Age 70 + amlodipine",
+   "allopathic": [
+    {
+     "name": "Amlodipine",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 70
+   }
+  },
+  {
+   "id": "S143",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "DOSE",
+   "label": "20 kg child + paracetamol 250 mg TDS",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "250 mg",
+     "frequency": "TDS",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 6,
+    "weightKg": 20
+   }
+  },
+  {
+   "id": "S144",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "RENAL",
+   "label": "eGFR 50 + metformin",
+   "allopathic": [
+    {
+     "name": "Metformin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "eGfr": 50,
+    "age": 60
+   }
+  },
+  {
+   "id": "S145",
+   "kind": "BENIGN",
+   "expect": "INFO_ONLY",
+   "category": "ALLERGY",
+   "label": "Sulfa allergy + furosemide",
+   "allopathic": [
+    {
+     "name": "Furosemide",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Sulfa"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S146",
+   "kind": "BENIGN",
+   "expect": "NO_STOP",
+   "category": "ALLERGY",
+   "label": "Penicillin allergy + azithromycin",
+   "allopathic": [
+    {
+     "name": "Azithromycin",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5,
+     "indication": "Community-acquired pneumonia"
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Penicillin"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S147",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Dashamoolarishta + paracetamol",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Dashamoolarishta",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S148",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Yogaraja Guggulu + paracetamol",
+   "allopathic": [
+    {
+     "name": "Paracetamol",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Yograj Guggulu",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S149",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Avipattikar + pantoprazole",
+   "allopathic": [
+    {
+     "name": "Pantoprazole",
+     "dosage": "",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5
+    }
+   ],
+   "ayush": [
+    {
+     "classicalName": "Avipattikar Churna",
+     "anupana": "",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S150",
+   "kind": "BENIGN",
+   "expect": "NONE",
+   "category": "HDI",
+   "label": "Chyawanprash with milk",
+   "allopathic": [],
+   "ayush": [
+    {
+     "classicalName": "Chyawanprash",
+     "anupana": "Warm milk",
+     "dose": "",
+     "frequency": "BD",
+     "durationDays": 15
+    }
+   ]
+  },
+  {
+   "id": "S151",
+   "kind": "MUST",
+   "expect": "STOP",
+   "category": "ALLERGY",
+   "label": "Penicillin allergy + amoxicillin–clavulanate written as its generic combination name",
+   "allopathic": [
+    {
+     "name": "Amoxicillin + clavulanic acid",
+     "dosage": "625 mg",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5,
+     "indication": "sinusitis"
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "allergies": [
+     {
+      "agent": "Penicillin",
+      "reaction": "rash"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S152",
+   "kind": "BENIGN",
+   "expect": "NO_STOP",
+   "category": "BENIGN",
+   "label": "Amoxicillin–clavulanate with indication, no allergy",
+   "allopathic": [
+    {
+     "name": "Amoxicillin + clavulanic acid",
+     "dosage": "625 mg",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 5,
+     "indication": "acute otitis media"
+    }
+   ],
+   "ayush": []
+  },
+  {
+   "id": "S153",
+   "kind": "MUST",
+   "expect": "WARN",
+   "category": "PREGNANCY",
+   "label": "Woman 25, pregnancy status not known (not answered) + sodium valproate",
+   "allopathic": [
+    {
+     "name": "Sodium valproate",
+     "dosage": "500 mg",
+     "frequency": "BD",
+     "route": "ORAL",
+     "durationDays": 30
+    }
+   ],
+   "ayush": [],
+   "context": {
+    "age": 25,
+    "gender": "FEMALE",
+    "pregnancyStatus": "unknown"
+   }
+  }
+ ]
+}

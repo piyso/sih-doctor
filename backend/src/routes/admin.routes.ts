@@ -15,6 +15,7 @@ import { runBackup, listBackups } from '../services/backup.service';
 import { getOperationalSnapshot, getDailyTrend, getSyndromicSignals, getPrescribingSafety, getFollowUpAdherence } from '../services/analytics.service';
 import { SmsService } from '../services/sms.service';
 import { EdgeAiClient } from '../services/edgeAi.client';
+import { SCHEMA_VERSION, appliedMigrations } from '../db/migrations';
 
 export const adminRouter = Router();
 
@@ -255,6 +256,8 @@ adminRouter.get('/system', async (_req: Request, res: Response): Promise<void> =
     success: true,
     data: {
       environment: securityConfig.isProduction ? 'production' : 'development',
+      schemaVersion: SCHEMA_VERSION,
+      migrations: appliedMigrations(db),
       demoData: securityConfig.allowDemo,
       kioskEnrollmentRequired: !securityConfig.kioskOpen,
       corsOrigins: securityConfig.corsOrigins,

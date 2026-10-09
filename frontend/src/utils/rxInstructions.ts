@@ -45,6 +45,13 @@ const WITH: Table = {
   en: 'with {x}', hi: '{x} के साथ', mr: '{x} सोबत', bn: '{x} দিয়ে', ta: '{x} உடன்',
   te: '{x} తో', gu: '{x} સાથે', kn: '{x} ಜೊತೆ', ml: '{x} കൂടെ', pa: '{x} ਨਾਲ', or: '{x} ସହିତ'
 };
+// Added 2026-10-09 for 1-0-1 timing and empty-stomach instructions (native-speaker review pending).
+const MORNING: Table = { en: 'morning', hi: 'सुबह', mr: 'सकाळी', bn: 'সকালে', ta: 'காலை', te: 'ఉదయం', gu: 'સવારે', kn: 'ಬೆಳಿಗ್ಗೆ', ml: 'രാവിലെ', pa: 'ਸਵੇਰੇ', or: 'ସକାଳେ' };
+const NOON: Table = { en: 'afternoon', hi: 'दोपहर', mr: 'दुपारी', bn: 'দুপুরে', ta: 'மதியம்', te: 'మధ్యాహ్నం', gu: 'બપોરે', kn: 'ಮಧ್ಯಾಹ್ನ', ml: 'ഉച്ചയ്ക്ക്', pa: 'ਦੁਪਹਿਰ', or: 'ମଧ୍ୟାହ୍ନ' };
+const NIGHT: Table = { en: 'night', hi: 'रात', mr: 'रात्री', bn: 'রাতে', ta: 'இரவு', te: 'రాత్రి', gu: 'રાત્રે', kn: 'ರಾತ್ರಿ', ml: 'രാത്രി', pa: 'ਰਾਤ', or: 'ରାତି' };
+const EMPTY_STOMACH: Table = { en: 'on an empty stomach', hi: 'खाली पेट', mr: 'उपाशी पोटी', bn: 'খালি পেটে', ta: 'வெறும் வயிற்றில்', te: 'ఖాళీ కడుపుతో', gu: 'ખાલી પેટે', kn: 'ಖಾಲಿ ಹೊಟ್ಟೆಯಲ್ಲಿ', ml: 'വെറും വയറ്റിൽ', pa: 'ਖਾਲੀ ਪੇਟ', or: 'ଖାଲି ପେଟରେ' };
+const WITH_FOOD: Table = { en: 'with food', hi: 'खाने के साथ', mr: 'जेवणासोबत', bn: 'খাবারের সাথে', ta: 'உணவுடன்', te: 'భోజనంతో', gu: 'જમવાની સાથે', kn: 'ಊಟದ ಜೊತೆ', ml: 'ഭക്ഷണത്തോടൊപ്പം', pa: 'ਖਾਣੇ ਨਾਲ', or: 'ଖାଇବା ସହିତ' };
+
 const DOSE: Table = {
   en: 'Dose', hi: 'मात्रा', mr: 'मात्रा', bn: 'মাত্রা', ta: 'அளவு', te: 'మోతాదు', gu: 'માત્રા', kn: 'ಪ್ರಮಾಣ', ml: 'അളവ്', pa: 'ਖੁਰਾਕ', or: 'ମାତ୍ରା'
 };
@@ -73,8 +80,18 @@ export function buildInstruction(med: { dose?: string; frequency?: string; durat
   if (!f) return null;
   const parts: string[] = [];
 
+  // Indian 1-0-1 notation: "morning 1, night 1".
+  const pat = f.match(/(\d(?:\.\d)?|½)\s*[-–]\s*(\d(?:\.\d)?|½)\s*[-–]\s*(\d(?:\.\d)?|½)/);
   let timesPerDay: number | null = null;
-  if (/\bsos\b|when needed|as needed|prn/.test(f)) parts.push(WHEN_NEEDED[lang]);
+  let patternDone = false;
+  if (pat) {
+    const counts = [pat[1], pat[2], pat[3]].map(x => (x === '½' ? '½' : String(Number(x))));
+    const words = [MORNING, NOON, NIGHT];
+    const slots = counts.map((c, i) => (c !== '0' ? `${words[i][lang]} ${c}` : '')).filter(Boolean);
+    if (slots.length) { parts.push(slots.join(', ')); patternDone = true; }
+  }
+  if (patternDone) { /* timing already written */ }
+  else if (/\bsos\b|when needed|as needed|prn/.test(f)) parts.push(WHEN_NEEDED[lang]);
   else if (/\bhs\b|bedtime|night/.test(f) && !/twice|bd|tds|thrice/.test(f)) parts.push(BEDTIME[lang]);
   else if (/\bqid\b|four times/.test(f)) timesPerDay = 4;
   else if (/\btds\b|\btid\b|thrice|three times/.test(f)) timesPerDay = 3;
@@ -85,11 +102,14 @@ export function buildInstruction(med: { dose?: string; frequency?: string; durat
   if (timesPerDay === 1) parts.push(ONCE_A_DAY[lang]);
   else if (timesPerDay) parts.push(fill(TIMES_A_DAY[lang], 'n', timesPerDay));
 
-  if (/before (food|meal)/.test(f)) parts.push(BEFORE_FOOD[lang]);
-  else if (/after (food|meal)/.test(f)) parts.push(AFTER_FOOD[lang]);
+  if (/empty\s*stomach|khali pet/.test(f)) parts.push(EMPTY_STOMACH[lang]);
+  else if (/before (food|meal|breakfast)/.test(f)) parts.push(BEFORE_FOOD[lang]);
+  else if (/after (food|meal)|post (lunch|meal)/.test(f)) parts.push(AFTER_FOOD[lang]);
+  else if (/with (food|meal)/.test(f)) parts.push(WITH_FOOD[lang]);
 
-  const anupana = med.anupana ? ANUPANA.find(a => a.pattern.test(med.anupana!)) : undefined;
-  if (anupana) parts.push(fill(WITH[lang], 'x', anupana.words[lang]));
+  // Every vehicle that is named (e.g. honey and ghee), not just the first.
+  const vehicles = med.anupana ? ANUPANA.filter(a => a.pattern.test(med.anupana!)).filter((a, i, all) => !(a.words.en === 'water' && all.some(b => b !== a && /water/.test(b.words.en)))) : [];
+  if (vehicles.length) parts.push(fill(WITH[lang], 'x', vehicles.map(v => v.words[lang]).join(lang === 'en' ? ' and ' : ' + ')));
   if (med.durationDays && med.durationDays > 0) parts.push(fill(FOR_DAYS[lang], 'n', med.durationDays));
 
   const dose = med.dose?.trim();

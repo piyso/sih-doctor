@@ -132,20 +132,20 @@ export async function runMassiveUniversalStressSuite() {
 
   const namasteRegistry = [
     { aCode: 'AYU-JWA-001', term: 'Vataja Jwara', icd10: 'R50.9', snomed: '386661006' },
-    { aCode: 'AYU-KAS-002', term: 'Kaphaja Kasa', icd10: 'J20.9', snomed: '49727002' },
+    { aCode: 'AYU-KAS-002', term: 'Kaphaja Kasa', icd10: 'J20.9', snomed: '10509002' },
     { aCode: 'AYU-AML-001', term: 'Amlapitta', icd10: 'K21.9', snomed: '235595009' },
-    { aCode: 'AYU-SAN-005', term: 'Sandhivata', icd10: 'M17.9', snomed: '399269003' },
+    { aCode: 'AYU-SAN-005', term: 'Sandhivata', icd10: 'M17.9', snomed: '239873007' },
     { aCode: 'AYU-PRA-001', term: 'Kaphaja Prameha', icd10: 'E11.9', snomed: '44054006' },
     { aCode: 'AYU-MUT-003', term: 'Mutrakrichhra', icd10: 'N39.0', snomed: '68566005' },
     { aCode: 'AYU-GRA-001', term: 'Grahani Roga', icd10: 'K58.9', snomed: '10743008' },
-    { aCode: 'AYU-VAT-008', term: 'Gridhrasi', icd10: 'M54.3', snomed: '279039007' },
-    { aCode: 'AYU-HRI-002', term: 'Hridroga', icd10: 'I25.9', snomed: '53741008' },
+    { aCode: 'AYU-VAT-008', term: 'Gridhrasi', icd10: 'M54.3', snomed: '23056005' },
+    { aCode: 'AYU-HRI-002', term: 'Hridroga', icd10: 'I25.9', snomed: '414545008' },
     { aCode: 'AYU-TVA-004', term: 'Kushtha / Vicharchika', icd10: 'L30.9', snomed: '43116000' },
     { aCode: 'AYU-SHW-001', term: 'Tamaka Shwasa', icd10: 'J45.9', snomed: '195967001' },
     { aCode: 'AYU-PAK-001', term: 'Pakshaghata', icd10: 'I64', snomed: '230690007' },
-    { aCode: 'AYU-ARS-001', term: 'Arsha', icd10: 'K64.9', snomed: '73529008' },
+    { aCode: 'AYU-ARS-001', term: 'Arsha', icd10: 'K64.9', snomed: '70153002' },
     { aCode: 'AYU-AMA-001', term: 'Amavata', icd10: 'M06.9', snomed: '69896004' },
-    { aCode: 'AYU-HRI-001', term: 'Hridshula', icd10: 'I20.9', snomed: '29857009' }
+    { aCode: 'AYU-HRI-001', term: 'Hridshula', icd10: 'I20.9', snomed: '194828000' }
   ];
 
   for (const item of namasteRegistry) {
@@ -362,7 +362,7 @@ export async function runMassiveUniversalStressSuite() {
 
   // Classical Viruddha Ahara 2: Honey + Ghee equal proportions
   const v2 = TruthEngineService.evaluatePrescriptions([], [
-    { formulationName: 'Ghrita', category: 'Ghrita' as const, dosage: '10ml', frequency: 'BD', anupana: 'Honey', timing: 'Morning', duration: '10d' }
+    { formulationName: 'Ghrita', category: 'Ghrita' as const, dosage: '10ml', frequency: 'BD', anupana: 'Honey in equal quantity', timing: 'Morning', duration: '10d' }
   ]);
   assert(v2.some(a => a.alertId === 'INT-009'), '6.12 Viruddha Ahara (Matra): Equal Madhu + Ghrita alert');
 
@@ -381,7 +381,7 @@ export async function runMassiveUniversalStressSuite() {
     id: 'enc-grand-001',
     patient: { id: 'pat-grand-001', name: 'Devendra Prasad', age: 62, gender: 'Male', abhaId: '14-1234-5678-9012' },
     symptoms: [{ name: 'Chest Pain' }],
-    diagnoses: [{ aCode: 'AYU-HRI-001', sanskritTerm: 'Hridshula', icd10DualCode: 'I20.9', snomedConceptId: '29857009', englishEquivalent: 'Angina Pectoris', primaryDosha: 'Vata' }],
+    diagnoses: [{ aCode: 'AYU-HRI-001', sanskritTerm: 'Hridshula', icd10DualCode: 'I20.9', snomedConceptId: '194828000', englishEquivalent: 'Angina Pectoris', primaryDosha: 'Vata' }],
     allopathicPrescriptions: [{ drugName: 'Aspirin', dosage: '75mg', route: 'Oral' as const, frequency: 'OD' as const, timing: 'With Food' as const, duration: '30d' }],
     ayushPrescriptions: [{ formulationName: 'Prabhakar Vati', category: 'Vati' as const, dosage: '1 tab', frequency: 'BD', anupana: 'Water', timing: 'Morning', duration: '30d' }]
   };

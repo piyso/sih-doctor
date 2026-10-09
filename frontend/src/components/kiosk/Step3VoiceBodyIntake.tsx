@@ -17,11 +17,12 @@ import {
   SystemicCategoryId, symptomLabel
 } from '../../utils/kioskSymptomCatalog';
 import {
-  detectRegionFromSpeech, extractSymptomsFromSpeech, mergeSpeechPieces, sanitizeVernacularTranscript
+  detectRegionFromSpeech, extractSymptomsFromSpeech, extractWithRechecks, mergeSpeechPieces, sanitizeVernacularTranscript
 } from '../../utils/vernacularSpeech';
 import { RegisterNav, useStepNav } from './kioskNav';
-import { aiCapabilities, cloudSpeechAllowed, startRecording, Recorder } from '../../utils/onPremAsr';
-import { analyseComplaint } from '../../utils/clinicalLexicon';
+import { aiCapabilities, speechRouteFor, startRecording, Recorder } from '../../utils/onPremAsr';
+import { intakeText } from '../../utils/kioskIntakeText';
+import { analyseComplaint, extractConcepts } from '../../utils/clinicalLexicon';
 import { kioskSymptomMatcher, SUGGEST_MIN_SCORE } from '../../utils/symptomMatcher';
 
 interface Step3VoiceBodyIntakeProps {
@@ -47,8 +48,6 @@ type Severity = 'mild' | 'moderate' | 'severe';
 type DurationKey = 'today' | '23' | 'week' | 'month';
 
 const SEVERITY_SCORE: Record<Severity, number> = { mild: 3, moderate: 5, severe: 8 };
-const scoreToSeverity = (score?: number): Severity | null =>
-  !score ? null : score <= 3 ? 'mild' : score <= 6 ? 'moderate' : 'severe';
 
 const DURATIONS: Array<{ key: DurationKey; label: KioskTextKey; en: string }> = [
   { key: 'today', label: 'durToday', en: 'Since today' },
@@ -91,13 +90,12 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const tx = kioskText(lang);
 
   // ---------------------------------------------------------------- Restore previous choices
-  const primaryExisting = symptoms[0];
   const [subPhase, setSubPhase] = useState<'body' | 'symptoms'>(() => (symptoms.length > 0 || transcript ? 'symptoms' : 'body'));
-  const [severity, setSeverity] = useState<Severity | null>(() => scoreToSeverity(primaryExisting?.severityScore));
-  const [duration, setDuration] = useState<DurationKey | null>(() => DURATIONS.find(d => d.en === primaryExisting?.onset)?.key || null);
-  const [sensation, setSensation] = useState<string | null>(
-    () => PAIN_CHARACTERS.find(c => c.value === primaryExisting?.character)?.sensationKey || null
-  );
+  // How bad / since when / what it feels like are set per complaint on the pain-details step; here only a quick-choice
+  // sentence sets them. Coming back from that step keeps its answers (see the carry-over in composedSymptoms).
+  const [severity, setSeverity] = useState<Severity | null>(null);
+  const [duration, setDuration] = useState<DurationKey | null>(null);
+  const [sensation, setSensation] = useState<string | null>(null);
   const [chips, setChips] = useState<Record<string, KioskSymptom>>(() => {
     const restored: Record<string, KioskSymptom> = {};
     symptoms.filter(s => s.source === 'chip' && s.name).forEach(s => {
@@ -106,7 +104,12 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     });
     return restored;
   });
-  const [dismissedVoice, setDismissedVoice] = useState<string[]>([]);
+  // Coming back to this step: findings the patient removed earlier stay removed (they are in the transcript but
+  // not in the saved list), and symptoms accepted from suggestions are kept.
+  const [dismissedVoice, setDismissedVoice] = useState<string[]>(() =>
+    symptoms.length && transcript.trim()
+      ? extractSymptomsFromSpeech(transcript, lang).symptoms.map(v => v.key!).filter(k => k && !symptoms.some(s => s.key === k))
+      : []);
   const [parserSymptoms, setParserSymptoms] = useState<SocratesSymptom[]>([]);
   const [systemicCategory, setSystemicCategory] = useState<SystemicCategoryId>('general');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
@@ -122,12 +125,15 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   const [draftText, setDraftText] = useState('');
   const recognitionRef = useRef<any>(null);
   const recorderRef = useRef<Recorder | null>(null);
-  const [onPremAsr, setOnPremAsr] = useState(false);
+  const [speechCaps, setSpeechCaps] = useState<{ asr: boolean; asrLanguages: string[] } | null>(null);
+  // the hospital's recogniser only for languages it has a model for; the others use the browser's, if allowed
+  const speechRoute = speechRouteFor(micLang, speechCaps);
+  const onPremAsr = speechRoute === 'onprem';
   const [llmAvailable, setLlmAvailable] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   // AI-found symptoms are only suggestions until the patient confirms them.
   const [aiSuggestions, setAiSuggestions] = useState<Array<{ symptom: string; evidence: string }>>([]);
-  const [acceptedAi, setAcceptedAi] = useState<SocratesSymptom[]>([]);
+  const [acceptedAi, setAcceptedAi] = useState<SocratesSymptom[]>(() => symptoms.filter(s => s.source === 'ai'));
   const [dismissedAi, setDismissedAi] = useState<string[]>([]);
   const transcriptBeforeRecordingRef = useRef('');
   const latestTranscriptRef = useRef(transcript);
@@ -137,7 +143,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   useEffect(() => { setMicLang(lang); }, [lang]);
   useEffect(() => {
     let alive = true;
-    aiCapabilities().then(c => { if (alive) { setOnPremAsr(c.asr); setLlmAvailable(c.llm); } }).catch(() => {});
+    aiCapabilities().then(c => { if (alive) { setSpeechCaps(c); setLlmAvailable(c.llm); } }).catch(() => {});
     return () => { alive = false; };
   }, []);
   useEffect(() => { latestTranscriptRef.current = transcript; }, [transcript]);
@@ -149,14 +155,16 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
   }, []);
 
   // ---------------------------------------------------------------- Derived symptom model
-  const voiceFindings = useMemo(() => extractSymptomsFromSpeech(transcript, micLang), [transcript, micLang]);
+  // Re-check decodes of the last on-prem recording, aligned to the whole transcript; any edit or typing drops them.
+  const [rechecks, setRechecks] = useState<string[]>([]);
+  const rechecksRef = useRef<string[]>([]);
+  const voiceFindings = useMemo(() => extractWithRechecks(transcript, rechecks, micLang), [transcript, rechecks, micLang]);
   const durationEn = DURATIONS.find(d => d.key === duration)?.en || voiceFindings.duration || '';
   const severityScore = severity ? SEVERITY_SCORE[severity] : 0;
   const characterValue = PAIN_CHARACTERS.find(c => c.sensationKey === sensation)?.value || '';
 
   const composedSymptoms = useMemo<SocratesSymptom[]>(() => {
     const list: SocratesSymptom[] = [];
-    const existingPrimary = symptoms[0];
     const keep = (key: string) => symptoms.find(s => s.key === key);
 
     if (selectedBodyRegion) {
@@ -206,14 +214,43 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     // The server parser is only a fallback when nothing was recognised locally.
     if (list.length === 0) parserSymptoms.forEach(p => list.push(p));
 
-    // Carry over Step 4 edits of the main complaint (radiation, edited site text).
-    if (list[0] && existingPrimary && existingPrimary.key === list[0].key) {
-      list[0] = { ...list[0], radiation: existingPrimary.radiation || list[0].radiation };
+    // SOCRATES detail the server read from the patient's words — where the pain goes, what makes it worse or better,
+    // when it comes — is added to the matching card (same body site, or same finding) unless already filled in.
+    const keyConcepts = (s: SocratesSymptom) => {
+      const cs = [...extractConcepts(`${s.name || ''} ${s.site || ''}`, { ignoreNegation: true })];
+      const sites = cs.filter(c => c.startsWith('S_'));
+      return sites.length ? sites : cs.filter(c => c.startsWith('F_'));
+    };
+    const detailed = parserSymptoms.filter(p => p.radiation || (p.timing && p.timing !== p.onset) || p.exacerbatingFactors?.length || p.relievingFactors?.length || p.onsetType);
+    for (const item of detailed.length ? list : []) {
+      const mine = keyConcepts(item);
+      const src = detailed.find(p => keyConcepts(p).some(c => mine.includes(c)));
+      if (!src || src === item) continue;
+      if (!item.radiation && src.radiation) item.radiation = src.radiation;
+      if (!item.timing && src.timing && src.timing !== src.onset) item.timing = src.timing; // not a duration copied into timing
+      if (!item.exacerbatingFactors?.length && src.exacerbatingFactors?.length) item.exacerbatingFactors = src.exacerbatingFactors;
+      if (!item.relievingFactors?.length && src.relievingFactors?.length) item.relievingFactors = src.relievingFactors;
+      if (!item.onsetType && src.onsetType) item.onsetType = src.onsetType;
+    }
+
+    // Details given on the pain-details step survive a trip back here: each complaint keeps its own answers unless a
+    // quick-choice sentence just set them again.
+    for (let i = 0; i < list.length; i++) {
+      const prev = list[i].key ? keep(list[i].key!) : undefined;
+      if (!prev) continue;
+      const item = { ...list[i] };
+      if (!duration && prev.onset) item.onset = prev.onset;
+      if (!severity && prev.severityScore) item.severityScore = prev.severityScore;
+      if (!sensation && prev.character) item.character = prev.character;
+      for (const k of ['radiation', 'timing'] as const) if (prev[k]) item[k] = prev[k];
+      if (prev.onsetType) item.onsetType = prev.onsetType;
+      for (const k of ['exacerbatingFactors', 'relievingFactors', 'associations'] as const) if (prev[k]?.length) item[k] = prev[k];
+      list[i] = item;
     }
     return list;
     // `symptoms` is read only for carrying over Step 4 edits; including it would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBodyRegion, chips, voiceFindings, dismissedVoice, parserSymptoms, acceptedAi, durationEn, characterValue, severityScore, lang]);
+  }, [selectedBodyRegion, chips, voiceFindings, dismissedVoice, parserSymptoms, acceptedAi, durationEn, characterValue, severityScore, duration, severity, sensation, lang]);
 
   useEffect(() => {
     setSymptoms(prev => (JSON.stringify(prev) === JSON.stringify(composedSymptoms) ? prev : composedSymptoms));
@@ -230,7 +267,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     const seq = ++parseSeqRef.current;
     setIsParsing(true);
     try {
-      const extracted = await api.parseAudioTranscript(clean);
+      const extracted = await api.parseAudioTranscript(clean, undefined, clean === latestTranscriptRef.current.trim() ? rechecksRef.current : []);
       if (seq !== parseSeqRef.current) return; // a newer request superseded this one
       setParserSymptoms((extracted.symptoms || []).map((s: any, i: number) => ({
         ...blankSymptom(),
@@ -250,6 +287,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       const v = extracted.vitals || {};
       if (/\d/.test(clean) && (v.bp || v.pulse || v.temp || v.spo2)) {
         setVitals(prev => ({
+          ...prev,
           bp: prev.bp || v.bp || prev.bp,
           pulse: prev.pulse || v.pulse || prev.pulse,
           temp: prev.temp || v.temp || prev.temp,
@@ -275,7 +313,19 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
     parseTimerRef.current = setTimeout(() => runServerParse(text), delay);
   };
 
-  const commitTranscript = (text: string, parseDelay = 800) => {
+  // Returning to this step: read the words again so the server's details (where it spreads, what makes it worse)
+  // and emergency checks are back.
+  const reparsedOnMount = useRef(false);
+  useEffect(() => {
+    if (reparsedOnMount.current) return;
+    reparsedOnMount.current = true;
+    if (transcript.trim()) scheduleParse(transcript, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const commitTranscript = (text: string, parseDelay = 800, alternatives: string[] = []) => {
+    setRechecks(alternatives);
+    rechecksRef.current = alternatives;
     setTranscript(text);
     latestTranscriptRef.current = text;
     setDismissedMismatch(null);
@@ -302,7 +352,8 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
         const blob = await rec.stop();
         const r = await api.transcribeAudio(blob, micLang);
         const base = latestTranscriptRef.current;
-        if (r.text.trim()) commitTranscript(sanitizeVernacularTranscript(base ? `${base} ${r.text}` : r.text, micLang), 0);
+        const whole = (t: string) => sanitizeVernacularTranscript(base ? `${base} ${t}` : t, micLang);
+        if (r.text.trim()) commitTranscript(whole(r.text), 0, (r.alternatives || []).filter(a => a && a.trim()).map(whole));
         else setMicError('micNoSpeech');
       } catch (e) {
         console.warn('[Step3] On-premise ASR failed:', e);
@@ -336,7 +387,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
       scheduleParse(latestTranscriptRef.current, 0);
       return;
     }
-    if (!cloudSpeechAllowed) {
+    if (speechRoute === 'none') {
       setMicError('micUnavailable');
       return;
     }
@@ -361,6 +412,8 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
         const spoken = mergeSpeechPieces(pieces);
         const base = transcriptBeforeRecordingRef.current;
         const combined = sanitizeVernacularTranscript(base ? `${base} ${spoken}` : spoken, micLang);
+        setRechecks([]);
+        rechecksRef.current = [];
         setTranscript(combined);
         latestTranscriptRef.current = combined;
         scheduleParse(combined, 1100);
@@ -691,7 +744,9 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
         {/* Fixed-height status line: mic errors / understanding indicator */}
         <div className="min-h-[22px] text-sm text-center" aria-live="polite">
           {micError ? (
-            <span className="font-semibold text-rose-600 dark:text-rose-400">{tx(micError)}</span>
+            <span className="font-semibold text-rose-600 dark:text-rose-400">{micError === 'micUnavailable' && speechRoute === 'none' ? intakeText(lang)('micLangUnavailable') : tx(micError)}</span>
+          ) : speechCaps && speechRoute === 'none' ? (
+            <span className="text-xs text-muted-foreground">{intakeText(lang)('micLangUnavailable')}</span>
           ) : isTranscribing ? (
             <span className="inline-flex items-center gap-2 text-primary font-semibold"><Loader2 size={14} className="animate-spin" /> {tx('micTranscribing')}</span>
           ) : isParsing ? (
@@ -913,76 +968,7 @@ export const Step3VoiceBodyIntake: React.FC<Step3VoiceBodyIntakeProps> = ({
           )}
         </div>
 
-        {/* 2. Severity + 3. Duration */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border/60">
-          <div>
-            <span className="text-sm font-heading font-bold text-foreground mb-2.5 block">{tx('severityTitle')}</span>
-            <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-muted/40 border border-border/70" role="radiogroup">
-              {(['mild', 'moderate', 'severe'] as Severity[]).map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  role="radio"
-                  aria-checked={severity === s}
-                  onClick={() => { sovereignSound.playMechanicalSnap(); setSeverity(prev => (prev === s ? null : s)); }}
-                  className={`py-2.5 px-2 rounded-xl text-sm font-bold transition-colors ${
-                    severity === s ? (s === 'severe' ? 'bg-rose-600 text-white' : 'bg-card text-foreground shadow-sm border border-border') : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tx(s === 'mild' ? 'sevMild' : s === 'moderate' ? 'sevModerate' : 'sevSevere')}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span className="text-sm font-heading font-bold text-foreground mb-2.5 block">{tx('durationTitle')}</span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-muted/40 border border-border/70" role="radiogroup">
-              {DURATIONS.map(d => (
-                <button
-                  key={d.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={duration === d.key}
-                  onClick={() => { sovereignSound.playMechanicalSnap(); setDuration(prev => (prev === d.key ? null : d.key)); }}
-                  className={`py-2.5 px-1 rounded-xl text-sm font-bold transition-colors ${
-                    duration === d.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tx(d.label)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 4. Sensation */}
-        <div className="pt-4 border-t border-border/60">
-          <div className="flex items-baseline justify-between gap-2 flex-wrap mb-2.5">
-            <span className="text-sm font-heading font-bold text-foreground">{tx('sensationTitle')}</span>
-            <span className="text-xs text-muted-foreground">{tx('sensationHint')}</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2" role="radiogroup">
-            {PAIN_CHARACTERS.map(c => {
-              const Icon = SENSATION_ICONS[c.sensationKey];
-              const active = sensation === c.sensationKey;
-              return (
-                <button
-                  key={c.sensationKey}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => { sovereignSound.playMechanicalSnap(); setSensation(prev => (prev === c.sensationKey ? null : c.sensationKey)); }}
-                  className={`p-3 rounded-2xl border text-center transition-colors flex flex-col items-center justify-center gap-1.5 min-h-[76px] ${
-                    active ? 'bg-primary text-primary-foreground border-primary ring-2 ring-primary/30' : 'border-border/70 bg-muted/30 hover:bg-primary/10'
-                  }`}
-                >
-                  <Icon size={18} className={active ? 'text-primary-foreground' : 'text-primary'} />
-                  <span className="text-sm font-bold leading-tight">{tx(c.key)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* How bad, since when and what it feels like are asked once, per complaint, on the pain-details step. */}
       </div>
 
       {/* Private concerns (private mode only) */}

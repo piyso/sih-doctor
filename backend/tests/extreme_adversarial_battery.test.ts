@@ -174,12 +174,14 @@ export async function runExtremeAdversarialBattery() {
     { drug: 'Telmisartan', herb: 'Licorice', expectedId: 'INT-004' },
     { drug: 'Alprazolam', herb: 'Ashwagandha', expectedId: 'INT-005' },
     { drug: 'Atorvastatin', herb: 'Medohar Guggulu', expectedId: 'INT-006' },
-    { drug: 'Methotrexate', herb: 'Praval Pishti', expectedId: 'INT-007' }
+    // Calcium chelates fluoroquinolones (methotrexate + calcium is not an interaction; corrected 2026-10-09).
+    { drug: 'Ciprofloxacin', herb: 'Praval Pishti', expectedId: 'INT-007' }
   ];
 
   for (const pair of lethalPairs) {
     const alerts = TruthEngineService.checkSingleCandidate(pair.drug, [], [pair.herb]);
-    assert(alerts.length > 0 && alerts[0].alertId === pair.expectedId, `4.1 Caught ${pair.drug} + ${pair.herb} (${pair.expectedId})`);
+    // Other families (e.g. a stewardship note for an antibiotic with no indication) may also appear; the pair rule must be present.
+    assert(alerts.some(a => a.alertId === pair.expectedId), `4.1 Caught ${pair.drug} + ${pair.herb} (${pair.expectedId})`);
   }
 
   // 4.2: Classical Viruddha Ahara (Heated Honey + Ghrita)

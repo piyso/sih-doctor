@@ -97,7 +97,9 @@ const VOICE: Record<string, RegExp> = {
   vomiting: /^Vomiting/, nausea: /^Nausea/, diarrhoea: /diarrh/i, breathless: /Breathless/, dizziness: /^Dizz/, weakness: /^Weak/,
   dysuria: /urine/i, knee_pain: /Knee/, back_pain: /Lumbar|back/i, itching: /^Itch/
 };
-const X = JSON.parse(readFileSync(resolve(root, 'edge-ai/eval/extraction_cases.json'), 'utf8')).cases as Array<{ t: string; p?: string[]; n?: string[] }>;
+// gold sentences plus the contrast set (one area normal or denied next to a complaint elsewhere, pain that spreads)
+const X = ['extraction_cases', 'extraction_contrast'].flatMap(f =>
+  JSON.parse(readFileSync(resolve(root, `edge-ai/eval/${f}.json`), 'utf8')).cases as Array<{ t: string; p?: string[]; n?: string[] }>);
 let vFound = 0, vWant = 0, vDenied = 0, vDeniedN = 0;
 const vMiss: string[] = [];
 for (const c of X) {
@@ -105,7 +107,7 @@ for (const c of X) {
   for (const f of (c.p || []).filter(f => VOICE[f])) { vWant++; if (names.some(n => VOICE[f].test(n))) vFound++; else vMiss.push(`${c.t} → missing ${f}`); }
   for (const f of (c.n || []).filter(f => VOICE[f])) { vDeniedN++; if (!names.some(n => VOICE[f].test(n))) vDenied++; else vMiss.push(`${c.t} → reported denied ${f}`); }
 }
-console.log(`\nOn-device voice findings (extraction_cases.json): found ${vFound}/${vWant}   denied symptoms left out ${vDenied}/${vDeniedN}`);
+console.log(`\nOn-device voice findings (extraction_cases + contrast): found ${vFound}/${vWant}   denied symptoms left out ${vDenied}/${vDeniedN}`);
 vMiss.forEach(m => console.log(`    miss: ${m}`));
 
 const failures: string[] = [];

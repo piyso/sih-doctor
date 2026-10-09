@@ -65,7 +65,8 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
   const [printState, setPrintState] = useState<'idle' | 'printing' | 'printed' | 'failed'>('idle');
   const [issuedAt] = useState(() => new Date());
 
-  const isEmergency = redFlags.length > 0 || symptoms.some(s => (s.severityScore || 0) >= 8 && s.isEmergency) || !!causalDagOverride?.triggered || ticket?.triagePriority === 'EMERGENCY_RED_FLAG';
+  // The server triages (red flags, NEWS2, interview probes); only offline do we fall back to the local heuristic.
+  const isEmergency = ticket ? ticket.triagePriority === 'EMERGENCY_RED_FLAG' : (redFlags.length > 0 || symptoms.some(s => (s.severityScore || 0) >= 8 && s.isEmergency) || !!causalDagOverride?.triggered);
   const localDept = useMemo(() => routeCheckIn({
     careStream: patient.careStream,
     age: patient.age,

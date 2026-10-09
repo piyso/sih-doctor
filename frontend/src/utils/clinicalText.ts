@@ -119,7 +119,8 @@ function normForSearchUncached(text: string): { text: string; map: number[] } {
 // Denial cues that come BEFORE what they deny ("no fever", "denies cough", "न बुखार न खांसी", "बिना दर्द के").
 const PRE_STRONG = set('no', 'not', 'never', 'without', 'denies', 'deny', 'denied', 'denying', 'nil', 'none', 'neither', 'nor',
   "don't", 'dont', "doesn't", 'doesnt', "didn't", 'didnt', "haven't", 'havent', "hasn't", 'hasnt', "hadn't", "isn't", 'isnt',
-  "aren't", "wasn't", "weren't", 'absence', 'free', 'बिना', 'bina', 'बगैर', 'bagair', 'bagair', 'bager');
+  "aren't", "wasn't", "weren't", 'absence', 'free', 'denise', // "denies" as the English recogniser often writes it
+ 'बिना', 'bina', 'बगैर', 'bagair', 'bagair', 'bager');
 const PRE_WEAK = set('na', 'न', 'ना');
 // Denial cues that come AFTER (Hindi and the other Indian languages are verb-final: "बुखार नहीं है").
 const POST_STRONG = set('nahi', 'nahin', 'nahee', 'naheen', 'nhi', 'nahi̇', 'naahi', 'naahin', 'nai', 'nahiṃ', 'नहीं', 'नही', 'नहिं', 'नाहीं',
@@ -135,6 +136,7 @@ const AFFIRM = set('hai', 'he', 'h', 'hain', 'hai̇n', 'hun', 'hu', 'hoon', 'ho'
   'have', 'has', 'had', 'having', 'is', 'am', 'are', 'was', 'were', 'feel', 'feels', 'feeling', 'got', 'getting', 'complains', 'complaining', 'reports');
 // "रुक नहीं रही", "कम नहीं हुआ", "उतर नहीं रहा", "नहीं जा रहा", "ले नहीं पा रहा", "no relief": the complaint persists.
 const PERSIST = set('ruk', 'ruka', 'ruki', 'rukta', 'rukti', 'rukte', 'rukk', 'rok', 'utar', 'utarta', 'utarti', 'utra', 'kam', 'theek', 'thik', 'band', 'bandh',
+  'bhar', 'bharta', 'sukh', 'भर', 'भरता', 'सूख', 'heal', 'healing', // "घाव भर नहीं रहा": the wound is not healing
   'ja', 'jaa', 'jata', 'jati', 'jaata', 'jaati', 'ghat', 'ghatta', 'aaram', 'araam', 'aram', 'farak', 'fark', 'farq', 'asar', 'pa', 'paa', 'paata', 'paati', 'paate',
   'pata', 'sak', 'sakta', 'sakti', 'sakte', 'chal', 'bol', 'uth', 'khul', 'hil', 'sun', 'nigal', 'kha', 'pi',
   'रुक', 'रुका', 'रुकी', 'रुकता', 'रुकती', 'रुकते', 'रोक', 'उतर', 'उतरता', 'उतरती', 'उतरा', 'कम', 'ठीक', 'बंद', 'जा', 'जाता', 'जाती', 'जाते', 'घट', 'घटता',
@@ -176,6 +178,16 @@ export interface NegationResult { negated: boolean; cue?: string }
  * Is the mention at [start, end) negated? Words inside the mention itself never count as a cue (so a
  * phrase such as "नींद नहीं आती" can be matched as a whole and stays a complaint).
  */
+const GONE_HI = '(?:गया|गई|गयी|गए|गये|चुका|चुकी|चुके|gaya|gayi|gai|gaye|gae|chuka|chuki)';
+const RESOLVED = new RegExp('^\\s*(?:(?:अब|तो|भी|बिल्कुल|पूरा|पूरी|पूरे|ab|to|toh|bhi|bilkul|pura|puri|now|completely|totally|has|have|had|is|was)\\s+){0,2}' +
+  `(?:(?:ठीक|theek|thik)\\s+(?:(?:हो|ho)\\s+${GONE_HI}|है|हैं|hai|hain)|(?:उतर|utar)\\s+${GONE_HI}|(?:चला|चली|chala|chali)\\s+${GONE_HI}|` +
+  `(?:भर|bhar|सूख|sukh)\\s+${GONE_HI}|` + // "घाव भर गया": the wound has healed
+  `(?:खत्म|ख़त्म|khatam|khatm|बंद|band|bandh)\\s+(?:हो|ho)\\s+${GONE_HI}|` +
+  '(?:gone(?!\\s+(?:down|up))|resolved|went\\s+away|stopped|subsided|cleared(?:\\s+up)?|settled|(?:is|are|was)\\s+(?:now\\s+)?(?:fine|okay|ok|normal))' +
+  ')(?![\\p{L}\\p{M}])(?!\\s+(?:नहीं|नही|nahi|nahin|not|था|थी|थे|tha|thi))', 'iu');
+const STOPPED = /(?:बंद|band|bandh|stopped)/iu;
+const STOP_IS_COMPLAINT = /(?:पेशाब|पेशाब|मूत्र|सांस|साँस|श्वास|नाक|पॉटी|पोटी|शौच|लैट्रिन|मासिक|माहवारी|पीरियड|peshab|pesab|urine|saans|sans|breath\w*|naak|nose|potty|motion|latrine|stool|periods?|mc|mahwari)/iu;
+
 export function negationAt(text: string, start: number, end: number): NegationResult {
   const toks = tokens(text);
   const r = tokenRange(toks, start, end);
@@ -202,13 +214,21 @@ export function negationAt(text: string, start: number, end: number): NegationRe
       let persists = false;
       for (let k = last + 1; k <= Math.min(cb, j + 2); k++) if (k !== j && PERSIST.has(toks[k].norm)) persists = true;
       if (w === 'ya' || toks[j - 1].norm === 'ya' || toks[j - 1].norm === 'या') persists = true; // "hai ya nahi"
-      if (!persists) { negated = true; cue = toks[j].text; }
+      if (!persists) { negated = true; cue = w === 'gone' || w === 'resolved' ? 'resolved' : toks[j].text; }
       break;
     }
     if (AFFIRM.has(w) && !(toks[j + 1] && (POST_STRONG.has(toks[j + 1].norm) || POST_WEAK.has(toks[j + 1].norm)))) {
       // "बुखार है ..." — an affirming verb after the mention closes it, unless the very next word negates it
       break;
     }
+  }
+
+  // 1b. The complaint is over or normal: "बुखार उतर गया", "सिर दर्द ठीक हो गया", "दस्त बंद हो गए", "धड़कन ठीक है",
+  //     "the cough has gone". "ठीक नहीं हुआ" stays present (step 1), and stopping is itself the complaint for urine,
+  //     breath, nose, stool or periods ("पेशाब बंद हो गया" is retention).
+  if (!negated) {
+    const rest = text.slice(toks[last].end, toks[cb].end);
+    if (RESOLVED.test(rest) && !(STOPPED.test(rest) && STOP_IS_COMPLAINT.test(text.slice(toks[first].start, toks[last].end)))) { negated = true; cue = 'resolved'; }
   }
 
   // 2. A cue before the mention ("no fever", "denies chest pain", "न बुखार न खांसी", "I don't have fever").
@@ -248,7 +268,7 @@ export function negationAt(text: string, start: number, end: number): NegationRe
       const items = toks.slice(pb + 2, cb + 1);
       if (items.some(t => AFFIRM.has(t.norm) || PRONOUN.has(t.norm)) || items.length > 6) break;
       const lead = seg.map(t => t.norm).join(' ');
-      if (/^(?:patient\s+|he\s+|she\s+)?(?:denies|denied|deny|without|nil|negative\s+for|no\s+history\s+of|no\s+h\/o|absence\s+of|no\s+complaints?\s+of)\b/.test(lead)) { negated = true; cue = seg[0].text; break; }
+      if (/^(?:patient\s+|he\s+|she\s+)?(?:denies|denied|deny|denise|without|nil|negative\s+for|no\s+history\s+of|no\s+h\/o|absence\s+of|no\s+complaints?\s+of)\b/.test(lead)) { negated = true; cue = seg[0].text; break; }
       k = pa - 1;
     }
   }
@@ -261,6 +281,14 @@ export function negationAt(text: string, start: number, end: number): NegationRe
     }
   }
   return { negated, cue };
+}
+
+/**
+ * Is there a verb or copula between two positions? "पेट बिल्कुल ठीक है सिर में दर्द है": the stomach has its own
+ * predicate ("ठीक है"), so the later "दर्द" does not belong to it (the recogniser writes no commas).
+ */
+export function verbBetween(text: string, from: number, to: number): boolean {
+  return tokens(text).some(t => !t.punct && t.start >= from && t.end <= to && (AFFIRM.has(t.norm) || t.norm === normWord('ठीक') || t.norm === 'theek' || t.norm === 'fine'));
 }
 
 /** Character span of the clause around a position (for pairing a body site with a finding). */
@@ -319,11 +347,12 @@ export function isHistorical(text: string, start: number, end: number, distantOn
 }
 
 /** Character span of the sentence around a position (clauses joined by commas and conjunctions). */
+const SENTENCE_END = new Set(['.', '?', '!', '।', '॥', '\n']);
 export function sentenceAt(text: string, pos: number): [number, number] {
   let a = pos;
-  while (a > 0 && !/[.?!।॥\n]/.test(text[a - 1])) a--;
+  while (a > 0 && !SENTENCE_END.has(text[a - 1])) a--;
   let b = pos;
-  while (b < text.length && !/[.?!।॥\n]/.test(text[b])) b++;
+  while (b < text.length && !SENTENCE_END.has(text[b])) b++;
   return [a, b];
 }
 
@@ -504,6 +533,133 @@ function severityInUncached(text: string): number {
   if (MODERATE.test(t)) return 5;
   if (MILD.test(t)) return 3;
   return 0;
+}
+
+// ---------------------------------------------------------------- SOCRATES detail
+// Where the pain goes, what makes it worse or better, when it comes, how it started — read from the sentence that
+// holds the complaint ("सीने में दर्द है जो बाएं हाथ तक जाता है", "चलने पर बढ़ता है, आराम करने से ठीक हो जाता है").
+export interface SocratesDetail { radiation?: string; exacerbating?: string; relieving?: string; timing?: string; onsetType?: 'Sudden' | 'Gradual' }
+
+const RAD_SITES: Array<[string, string]> = [
+  ['(?:बाएं|बायें|बाएँ|बायां|बाये|बाईं|बायीं|baaye|baayen|bayen|baen|left)\\s*(?:हाथ|बांह|बाँह|भुजा|haath|hath|arm|hand)', 'Left arm'],
+  ['(?:दाएं|दायें|दाएँ|दायां|दाहिने|daaye|dahine|right)\\s*(?:हाथ|बांह|बाँह|haath|hath|arm|hand)', 'Right arm'],
+  ['(?:जबड़े|जबड़ा|जबड़ों|jabde|jabda|jaw)', 'Jaw'],
+  ['(?:गर्दन|gardan|neck)', 'Neck'],
+  ['(?:कंधे|कंधा|कंधों|kandhe|kandha|shoulders?)', 'Shoulder'],
+  ['(?:पीठ|peeth|pith|back)', 'Back'],
+  ['(?:पैर|पैरों|टांग|टाँग|जांघ|pair|pairon|legs?|thigh)', 'Leg'],
+  ['(?:हाथ|बांह|बाँह|haath|hath|arms?)', 'Arm'],
+  ['(?:कमर|kamar|lower\\s+back)', 'Lower back'],
+  ['(?:कान|कानों|kaan|kan|ears?)', 'Ear'],
+  ['(?:सिर|सर|sir|sar|head)', 'Head'],
+  ['(?:जांघ\\s+के\\s+जोड़|ग्रोइन|groin)', 'Groin'],
+  ['(?:पेट|pet|stomach|abdomen)', 'Abdomen']
+];
+// compiled once: [label, Hindi "<area> तक" pattern, bare area pattern]
+const RAD_RES: Array<[string, RegExp, RegExp]> = RAD_SITES.map(([src, label]) => [label,
+  new RegExp(`${B}${src}${E}\\s*(?:तक|tak|की\\s+(?:तरफ|ओर)|ki\\s+taraf)`, 'iu'), new RegExp(`${B}${src}${E}`, 'iu')]);
+const MOTION = new RegExp(`${B}(?:जाता|जाती|जाते|जा\\s*रहा|जा\\s*रही|फैलता|फैलती|फैल|उतरता|उतरती|चढ़ता|jata|jaata|jati|jaati|ja\\s*raha|ja\\s*rahi|failta|phailta|fail|phail|radiat\\w*|spread\\w*|going|goes|moving|moves|shoot\\w*|travel\\w*|extends?)${E}`, 'iu');
+const EXAC: Array<[string, RegExp]> = [
+  ['Exertion', new RegExp(`${B}(?:चलने|चलते|चलना|सीढ़ी|सीढ़ियां|सीढ़ियाँ|सीढ़ियों|चढ़ने|चढ़ते|मेहनत|दौड़ने|chalne|chalte|sidhi|seedhi|chadhne|mehnat|daudne|walk(?:ing|s)?|climb\\w*|stairs|exert\\w*|exercise|running)${E}`, 'iu')],
+  ['After food', new RegExp(`${B}(?:खाने\\s+के\\s+बाद|खाना\\s+खाने\\s+के\\s+बाद|खाने\\s+पर|khane\\s+ke\\s+baad|khana\\s+khane\\s+ke\\s+baad|after\\s+(?:eating|meals?|food)|after\\s+i\\s+eat)${E}`, 'iu')],
+  ['Bending / lifting', new RegExp(`${B}(?:झुकने|झुकते|झुक|वज़न\\s+उठा\\w*|वजन\\s+उठा\\w*|उठाने|jhukne|jhukte|uthane|bend\\w*|lift\\w*)${E}`, 'iu')],
+  ['Lying down', new RegExp(`${B}(?:लेटने|लेटते|लेटे|letne|lette|lying\\s+down|lie\\s+down|lying)${E}`, 'iu')],
+  ['Coughing', new RegExp(`${B}(?:खांसने|खाँसने|khansne|when\\s+i\\s+cough|coughing\\s+makes)${E}`, 'iu')],
+  ['Cold', new RegExp(`${B}(?:ठंड\\s+में|thand\\s+(?:me|mein)|cold\\s+weather)${E}`, 'iu')]
+];
+const RELIEF_KIND: Array<[string, RegExp]> = [
+  ['Rest', new RegExp(`${B}(?:आराम\\s+करने|आराम\\s+करते|बैठने|बैठते|aaram\\s+karne|araam\\s+karne|baithne|rest\\w*|sitting\\s+down|sit\\s+down)${E}`, 'iu')],
+  ['Medicine', new RegExp(`${B}(?:दवा|दवाई|गोली|dawa|dawai|davai|goli|tablets?|medicines?|painkillers?|antacids?)${E}`, 'iu')],
+  ['Food', new RegExp(`${B}(?:खाना\\s+खाने\\s+से|खाने\\s+से|khane\\s+se|eating\\s+(?:helps|relieves))${E}`, 'iu')]
+];
+const RELIEF_CUE = new RegExp(`(?:${B}(?:से|se|after|with|by|when)${E}[^.!?।]{0,24}?${B}(?:ठीक|आराम|कम|बेहतर|thik|theek|aaram|araam|kam|better|relie\\w*|eases?|settles?)${E})|(?:${B}(?:आराम|aaram|araam)\\s+(?:मिलता|मिलती|मिल|milta|milti|mil|होता|hota)${E})|(?:${B}(?:better|relie\\w*|helps?|eases?)${E})`, 'iu');
+const WORSE_CUE = new RegExp(`${B}(?:बढ़|बढ़ता|बढ़ती|बढ़\\s+जाता|ज़्यादा|ज्यादा|तेज़|badh|badhta|zyada|jyada|worse|increases?|aggravat\\w*)${E}`, 'iu');
+const TIMES: Array<[string, RegExp]> = [
+  ['Night', new RegExp(`${B}(?:रात|raat|night|nighttime|nights)${E}(?!\\s*(?:से|se)${E})`, 'iu')],
+  ['Morning', new RegExp(`${B}(?:सुबह|subah|morning|mornings)${E}(?!\\s*(?:से|se)${E})`, 'iu')],
+  ['Evening', new RegExp(`${B}(?:शाम|shaam|evening|evenings)${E}(?!\\s*(?:से|se)${E})`, 'iu')]
+];
+const INTERMITTENT = new RegExp(`${B}(?:कभी\\s*-?\\s*कभी|रुक\\s*-?\\s*रुक\\s+कर|आता\\s+जाता|बार\\s*-?\\s*बार|kabhi\\s*-?\\s*kabhi|ruk\\s*ruk\\s+kar|aata\\s+jata|baar\\s*baar|on\\s+and\\s+off|off\\s+and\\s+on|comes\\s+and\\s+goes|intermittent\\w*|sometimes|from\\s+time\\s+to\\s+time)${E}`, 'iu');
+const CONTINUOUS = new RegExp(`${B}(?:लगातार|हर\\s+समय|हमेशा|lagatar|har\\s+samay|continuous\\w*|constant\\w*|all\\s+the\\s+time|non\\s*-?\\s*stop)${E}`, 'iu');
+const SUDDEN = new RegExp(`${B}(?:अचानक|एकदम\\s+से|achanak|ekdam\\s+se|sudden|suddenly|abrupt\\w*)${E}`, 'iu');
+const GRADUAL = new RegExp(`${B}(?:धीरे\\s*-?\\s*धीरे|dheere\\s*-?\\s*dheere|dhire\\s*dhire|gradual\\w*|slowly)${E}`, 'iu');
+const SINCE_BEFORE = /(?:since|from)\s*$/i;
+
+/** SOCRATES detail stated in the sentence around a position. */
+const socCache = new Map<string, { detail: SocratesDetail; targets: Array<[number, number]> }>();
+function socratesCached(text: string, pos: number) {
+  const [sa, sb] = sentenceAt(text, pos);
+  const key = text.slice(sa, sb);
+  let hit = socCache.get(key);
+  if (!hit) {
+    const targets: Array<[number, number]> = [];
+    hit = { detail: socratesInSentence(text, sa, sb, targets), targets };
+    if (socCache.size > 512) socCache.clear();
+    socCache.set(key, hit);
+  }
+  return { sa, ...hit };
+}
+export function socratesIn(text: string, pos: number): SocratesDetail {
+  return socratesCached(text, pos).detail;
+}
+/**
+ * Spans (in `text`) of body areas named only as where the pain spreads to — "बाएं हाथ" in "सीने में दर्द है जो बाएं
+ * हाथ तक जाता है", "the back" in "pain in the stomach spreading to the back". They are not separate complaints.
+ */
+export function radiationTargetsAt(text: string, pos: number): Array<[number, number]> {
+  const { sa, targets } = socratesCached(text, pos);
+  return targets.map(([a, b]) => [sa + a, sa + b]);
+}
+function socratesInSentence(text: string, sa: number, sb: number, targets: Array<[number, number]> = []): SocratesDetail {
+  const sent = text.slice(sa, sb);
+  const out: SocratesDetail = {};
+  // radiation: "<area> तक जाता / फैलता", "से <area> तक", "going / spreading / radiating to my left arm and jaw"
+  const motion = MOTION.exec(sent);
+  if (motion) {
+    const found: string[] = [];
+    const tailAt = motion.index + motion[0].length;
+    const tail = sent.slice(tailAt).split(/[.;!?।]/)[0];
+    const englishTail = /^\s*(?:up\s+|down\s+|out\s+)?(?:to|into|towards?)\b/i.test(tail) ? tail : '';
+    let hindi = sent;
+    let english = englishTail;
+    for (const [label, hRe, eRe] of RAD_RES) {
+      const h = hRe.exec(hindi);
+      const e = english ? eRe.exec(english) : null;
+      if (h) { hindi = hindi.slice(0, h.index) + ' '.repeat(h[0].length) + hindi.slice(h.index + h[0].length); targets.push([h.index, h.index + h[0].length]); }
+      if (e) { english = english.slice(0, e.index) + ' '.repeat(e[0].length) + english.slice(e.index + e[0].length); targets.push([tailAt + e.index, tailAt + e.index + e[0].length]); }
+      if ((h || e) && !found.includes(label)) found.push(label);
+    }
+    if (found.length) out.radiation = found.join(', ');
+  }
+  // aggravating vs relieving: a relief cue counts only inside the trigger's own phrase (up to "and / और / but / पर")
+  const phraseAfter = (from: number) => {
+    const rest = sent.slice(from);
+    const stop = rest.slice(1).search(/[,;.।]|\s(?:and|aur|और|but|लेकिन|lekin|magar|मगर)\s/iu);
+    return stop < 0 ? rest : rest.slice(0, stop + 1);
+  };
+  for (const [label, re] of EXAC) {
+    const m = re.exec(sent);
+    if (!m) continue;
+    const near = phraseAfter(m.index);
+    if (RELIEF_CUE.test(near) && !negationAt(text, sa + m.index, sa + m.index + m[0].length).negated && !WORSE_CUE.test(near)) out.relieving ||= label;
+    else out.exacerbating ||= label;
+  }
+  for (const [label, re] of RELIEF_KIND) {
+    const m = re.exec(sent);
+    if (!m) continue;
+    const from = Math.max(0, m.index - 25);
+    const near = sent.slice(from, m.index) .split(/\s(?:and|aur|और|but|लेकिन)\s/iu).pop()! + phraseAfter(m.index);
+    const cue = RELIEF_CUE.exec(near);
+    if (cue && !/(?:नहीं|नही|nahi|nahin|not|no|n't)/iu.test(near)) out.relieving ||= label;
+  }
+  // timing
+  const times = TIMES.filter(([, re]) => { const m = re.exec(sent); return m && !SINCE_BEFORE.test(sent.slice(0, m.index)); }).map(([l]) => l);
+  if (INTERMITTENT.test(sent)) times.push('Intermittent');
+  else if (CONTINUOUS.test(sent)) times.push('Continuous');
+  if (times.length) out.timing = times.join(', ');
+  if (SUDDEN.test(sent)) out.onsetType = 'Sudden';
+  else if (GRADUAL.test(sent)) out.onsetType = 'Gradual';
+  return out;
 }
 
 // ---------------------------------------------------------------- Vitals

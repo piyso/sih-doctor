@@ -58,6 +58,7 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_staff_sessions_user ON staff_sessions(user_id);
 `);
+try { db.exec('ALTER TABLE staff_users ADD COLUMN hpr_id TEXT;'); } catch { /* exists */ }
 
 export interface StaffUser {
   id: string;
@@ -67,6 +68,8 @@ export interface StaffUser {
   department: string | null;
   qualification: string | null;
   registrationNo: string | null;
+  /** ABDM Healthcare Professionals Registry id (written into FHIR Practitioner.identifier). */
+  hprId: string | null;
   mustChangePin: boolean;
   active: boolean;
   isDemo: boolean;
@@ -87,6 +90,7 @@ const toUser = (r: any): StaffUser => ({
   department: r.department,
   qualification: r.qualification,
   registrationNo: r.registration_no,
+  hprId: r.hpr_id || null,
   mustChangePin: !!r.must_change_pin,
   active: !!r.active,
   isDemo: !!r.is_demo,
@@ -154,7 +158,7 @@ export const AuthService = {
     return (db.prepare('SELECT * FROM staff_users ORDER BY role, display_name').all() as any[]).map(toUser);
   },
 
-  updateUser(id: string, patch: Partial<{ displayName: string; role: StaffRole; department: string; qualification: string; registrationNo: string; active: boolean }>): StaffUser | null {
+  updateUser(id: string, patch: Partial<{ displayName: string; role: StaffRole; department: string; qualification: string; registrationNo: string; hprId: string; active: boolean }>): StaffUser | null {
     const current: any = db.prepare('SELECT * FROM staff_users WHERE id = ?').get(id);
     if (!current) return null;
     if (patch.role && !STAFF_ROLES.includes(patch.role)) throw new Error('Unknown role.');
@@ -169,6 +173,11 @@ export const AuthService = {
       patch.active === undefined ? current.active : patch.active ? 1 : 0,
       id
     );
+    if (patch.hprId !== undefined) {
+      const hpr = String(patch.hprId || '').trim();
+      if (hpr && !/^[0-9]{2}-[0-9]{4}-[0-9]{4}-[0-9]{4}$|^[A-Za-z0-9.\-@_]{6,64}$/.test(hpr)) throw new Error('HPR id should look like 71-1234-5678-9012 (or the HPR address).');
+      db.prepare('UPDATE staff_users SET hpr_id = ? WHERE id = ?').run(hpr || null, id);
+    }
     if (patch.active === false) this.revokeAllSessions(id);
     return this.getUser(id);
   },

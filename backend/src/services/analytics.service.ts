@@ -45,7 +45,7 @@ export function getOperationalSnapshot() {
     SELECT s.triage_priority, s.status, s.care_stream, COALESCE(s.language, p.language) AS language, s.department,
            s.created_at, s.consult_started_at, s.completed_at
     FROM sessions s JOIN patients p ON p.id = s.patient_id
-    WHERE s.token_date = ? OR (s.token_date IS NULL AND date(s.created_at) = date('now'))
+    WHERE (s.token_date = ? OR (s.token_date IS NULL AND date(s.created_at) = date('now'))) AND s.status != 'DEMO_PARKED'
   `).all(today) as any[];
 
   const recent = db.prepare(`
@@ -120,7 +120,7 @@ export function getDailyTrend(days = 14) {
     SELECT date(created_at) AS day, COUNT(*) AS visits,
       SUM(CASE WHEN triage_priority = 'EMERGENCY_RED_FLAG' THEN 1 ELSE 0 END) AS emergencies,
       SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) AS completed
-    FROM sessions WHERE created_at > datetime('now', ?)
+    FROM sessions WHERE created_at > datetime('now', ?) AND status != 'DEMO_PARKED'
     GROUP BY day ORDER BY day
   `).all(`-${days} days`) as any[];
   return rows;
@@ -132,7 +132,7 @@ export function getDailyTrend(days = 14) {
  */
 export function getSyndromicSignals() {
   const rows = db.prepare(`
-    SELECT created_at, symptoms_json, raw_transcript FROM sessions WHERE created_at > datetime('now', '-35 days')
+    SELECT created_at, symptoms_json, raw_transcript FROM sessions WHERE created_at > datetime('now', '-35 days') AND status != 'DEMO_PARKED'
   `).all() as any[];
   const now = Date.now();
   return SYNDROMES.map(s => {

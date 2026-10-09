@@ -14,6 +14,10 @@
 // 1. Pharmacological ATC & Phytochemical Enums
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { lookupAllo, resolveAyushLine } from '../safety/resolver';
+import { ayushIngredientById } from '../safety/ayushDictionary';
+import { drugById, DrugConcept, DrugClass } from '../safety/drugDictionary';
+
 export type AtcPharmacologicalClass =
   | 'ATC_B01AA' // Vitamin K Antagonists (Warfarin, Acenocoumarol)
   | 'ATC_B01AC' // Platelet Aggregation Inhibitors (Aspirin, Clopidogrel)
@@ -75,12 +79,22 @@ export interface PatientClinicalContext {
   age?: number;
   gender?: 'male' | 'female' | 'other' | string;
   isPregnant?: boolean;
+  /** 'unknown' = not answered or not sure (then isPregnant is not true; never read it as 'not pregnant'). */
+  pregnancyStatus?: 'yes' | 'no' | 'unknown';
   gestationalWeeks?: number;
   trimester?: number;
   isLactating?: boolean;
   eGfr?: number;
   weightKg?: number;
   isDiabetic?: boolean;
+  /** Recorded allergies (agent + reaction). `[]` means asked and none; undefined means not asked. */
+  allergies?: Array<{ agent: string; reaction?: string; severity?: string }>;
+  /** Known conditions (kiosk history, past medical history). */
+  conditions?: string[];
+  /** Medicines the patient reports taking (kiosk history), checked as "reported" lines. */
+  reportedMedicines?: string[];
+  /** Teleconsultation: Schedule X / NDPS medicines are prohibited. */
+  teleconsult?: boolean;
 }
 
 export interface OntologicalInteractionAlert {
@@ -98,6 +112,20 @@ export interface OntologicalInteractionAlert {
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Clinical Ontology Engine Implementation
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** The ATC groupings these rules test, derived from the safety dictionary's classes. */
+const LEGACY_ATC: Partial<Record<DrugClass, AtcPharmacologicalClass>> = {
+  vka: 'ATC_B01AA', antiplatelet: 'ATC_B01AC', doac: 'ATC_B01AF', loop_diuretic: 'ATC_C03CA', cardiac_glycoside: 'ATC_C01AA',
+  acei: 'ATC_C09AA', arb: 'ATC_C09CA', statin: 'ATC_C10AA', nitroimidazole: 'ATC_J01XD', fluoroquinolone: 'ATC_J01MA',
+  benzodiazepine: 'ATC_N05BA', ssri: 'ATC_N06AB', biguanide: 'ATC_A10BA', sulfonylurea: 'ATC_A10BB', lithium: 'ATC_N05AN',
+  thyroid_hormone: 'ATC_H03AA', antimetabolite: 'ATC_L01BA', ppi: 'ATC_A02BC', nsaid: 'ATC_M01AE', analgesic_simple: 'ATC_N02BE',
+  calcium: 'ATC_A12AX'
+};
+const legacyClasses = (c: DrugConcept): AtcPharmacologicalClass[] =>
+  Array.from(new Set([
+    ...c.classes.map(k => LEGACY_ATC[k]).filter(Boolean) as AtcPharmacologicalClass[],
+    ...(c.id === 'amoxicillin_clavulanate' ? ['ATC_J01CR' as AtcPharmacologicalClass] : [])
+  ]));
 
 export class ClinicalOntologyEngine {
   // ─── TIER 1 & 2: Allopathic Brand & Molecule Resolution ───────────────────
@@ -178,17 +206,17 @@ export class ClinicalOntologyEngine {
     ['ibuprofen', { molecule: 'Ibuprofen', classes: ['ATC_M01AE'] }],
     ['brufen', { molecule: 'Ibuprofen', classes: ['ATC_M01AE'] }],
     ['naproxen', { molecule: 'Naproxen', classes: ['ATC_M01AE'] }],
-    ['tramadol', { molecule: 'Tramadol HCl', classes: ['ATC_N02BE'] }],
-    ['linezolid', { molecule: 'Linezolid', classes: ['ATC_J01MA'] }],
-    ['amiodarone', { molecule: 'Amiodarone HCl', classes: ['ATC_C01AA'] }],
-    ['verapamil', { molecule: 'Verapamil HCl', classes: ['ATC_C01AA'] }],
-    ['nitroglycerin', { molecule: 'Nitroglycerin / Glyceryl Trinitrate', classes: ['ATC_C01AA'] }],
-    ['sorbitrate', { molecule: 'Isosorbide Dinitrate', classes: ['ATC_C01AA'] }],
+    ['tramadol', { molecule: 'Tramadol HCl', classes: [] }],
+    ['linezolid', { molecule: 'Linezolid', classes: [] }],
+    ['amiodarone', { molecule: 'Amiodarone HCl', classes: [] }],
+    ['verapamil', { molecule: 'Verapamil HCl', classes: [] }],
+    ['nitroglycerin', { molecule: 'Nitroglycerin / Glyceryl Trinitrate', classes: [] }],
+    ['sorbitrate', { molecule: 'Isosorbide Dinitrate', classes: [] }],
     ['sildenafil', { molecule: 'Sildenafil Citrate', classes: [] }],
-    ['bactrim', { molecule: 'Trimethoprim + Sulfamethoxazole', classes: ['ATC_J01CR'], isFdc: true }],
-    ['septra', { molecule: 'Trimethoprim + Sulfamethoxazole', classes: ['ATC_J01CR'], isFdc: true }],
-    ['spironolactone', { molecule: 'Spironolactone', classes: ['ATC_C03CA'] }],
-    ['aldactone', { molecule: 'Spironolactone', classes: ['ATC_C03CA'] }],
+    ['bactrim', { molecule: 'Trimethoprim + Sulfamethoxazole', classes: [], isFdc: true }],
+    ['septra', { molecule: 'Trimethoprim + Sulfamethoxazole', classes: [], isFdc: true }],
+    ['spironolactone', { molecule: 'Spironolactone', classes: [] }],
+    ['aldactone', { molecule: 'Spironolactone', classes: [] }],
 
     // High-Volume Indian Fixed-Dose Combinations (FDCs) & Essential Brands
     ['pan-d', { molecule: 'Pantoprazole + Domperidone', classes: ['ATC_A02BC'], isFdc: true, components: ['Pantoprazole (40mg)', 'Domperidone (30mg)'] }],
@@ -405,12 +433,29 @@ export class ClinicalOntologyEngine {
   ]);
 
   /**
-   * Decompounds and resolves an input drug string to its canonical molecule and WHO ATC classes.
-   * Employs WHO INN stem grammar to resolve 100% of open-world unseen drugs.
+   * Resolves an input drug string to its canonical molecule and the ATC classes these rules use.
+   * The safety drug dictionary is consulted first; INN stem patterns are a fallback for names it
+   * does not contain (they recognise some, not all, unseen drugs).
    */
   public static resolveAllopathicConcept(rawText: string): ResolvedDrugConcept | null {
     if (!rawText || !rawText.trim()) return null;
     const clean = rawText.trim().toLowerCase();
+
+    // 0. Safety drug dictionary (whole-name / whole-word matching, brands → generics, FDCs → components).
+    const dictId = lookupAllo(rawText);
+    const dict = dictId ? drugById(dictId) : undefined;
+    if (dict) {
+      const comps = dict.ingredients ? (dict.ingredients.map(drugById).filter(Boolean) as DrugConcept[]) : [dict];
+      // A single concept whose generic name is itself a combination (amoxicillin + clavulanic acid) is an FDC too.
+      const innParts = !dict.ingredients && / \+ /.test(dict.inn) ? dict.inn.replace(/\([^)]*\)/g, '').split(' + ').map(x => x.trim()).filter(Boolean) : null;
+      return {
+        rawTerm: rawText,
+        canonicalMolecule: comps.map(c => c.inn).join(' + '),
+        atcClasses: Array.from(new Set(comps.flatMap(legacyClasses))),
+        isFdc: !!dict.ingredients || !!innParts,
+        components: dict.ingredients ? comps.map(c => c.inn) : innParts || undefined
+      };
+    }
 
     // 1. Exact / Fast Registry Lookup
     for (const [key, meta] of this.allopathicRegistry.entries()) {
@@ -522,12 +567,42 @@ export class ClinicalOntologyEngine {
   }
 
   /**
-   * Decompounds a classical Ayurvedic formulation to its active constituents and phytochemical bioactives.
-   * Employs Ayurvedic Formulary of India (AFI) generative suffix grammar to resolve 100% of unseen formulations.
+   * Resolves a classical Ayurvedic formulation to its key constituents and bioactive markers.
+   * The safety Ayush dictionary is consulted first; dosage-form suffixes are a fallback for
+   * unknown names (an unknown "Rasa" is treated as possibly mineral, conservatively).
    */
   public static resolveAyushConcept(rawText: string): ResolvedAyushConcept | null {
     if (!rawText || !rawText.trim()) return null;
     const clean = rawText.trim().toLowerCase();
+
+    // 0. Safety Ayush dictionary: flags come from the constituents, not from the name.
+    const dict = resolveAyushLine({ name: rawText }, 0, 'prescribed').ayush;
+    if (dict && (dict.formulation || dict.constituents.length)) {
+      const f = dict.flags;
+      const bio = new Set<PhytochemicalConstituent>();
+      if (!dict.external) {
+        if (f.has('guggulsterone')) { bio.add('PHYT_GUGGULSTERONE'); bio.add('PHYT_THYROACTIVE'); }
+        if (f.has('glycyrrhizin')) bio.add('PHYT_GLYCYRRHIZIN');
+        if (f.has('piperine')) bio.add('PHYT_PIPERINE');
+        if (f.has('alcohol')) bio.add('PHYT_ENDOGENOUS_ETHANOL');
+        if (f.has('aquaretic')) bio.add('PHYT_AQUARETIC_DIURETIC');
+        if (f.has('uterotonic_strong')) bio.add('PHYT_EMMENAGOGUE_UTEROTONIC');
+        if (f.has('mineral_heavy_metal')) bio.add('PHYT_HEAVY_METAL_CALX');
+        if (f.has('reserpine')) bio.add('PHYT_RESERPINE');
+        if (f.has('schedule_e1')) bio.add('PHYT_SCHEDULE_E1_POISON');
+        if (f.has('cardiac_glycoside')) bio.add('PHYT_CARDIAC_GLYCOSIDE');
+        if (dict.constituents.includes('lashuna')) bio.add('PHYT_ORGANOSULFUR');
+      }
+      return {
+        rawTerm: rawText,
+        formulationName: dict.name,
+        dosageForm: dict.formulation?.form || 'Classical Ayurvedic Formulation',
+        constituents: dict.constituents.map(id => ayushIngredientById(id)?.name || id),
+        bioactives: Array.from(bio),
+        isScheduleE1: !dict.external && f.has('schedule_e1'),
+        hasEndogenousEthanol: !dict.external && f.has('alcohol')
+      };
+    }
 
     // 1. Exact / Fast Formulary Matrix Lookup
     for (const [key, meta] of this.ayushFormularyMatrix.entries()) {
@@ -785,11 +860,14 @@ export class ClinicalOntologyEngine {
       (allopath.atcClasses.includes('ATC_C03CA') || allopath.atcClasses.includes('ATC_C01AA')) &&
       ayush.bioactives.includes('PHYT_GLYCYRRHIZIN')
     ) {
+      const withDigoxin = allopath.atcClasses.includes('ATC_C01AA');
       alerts.push({
         alertId: 'ONT-LICORICE-HYPOK',
-        severity: 'CRITICAL_CONTRAINDICATION',
-        ruleMechanism: '11β-HSD2 Mineralocorticoid Hyperactivation + Severe Potassium Wasting (K+ < 2.5)',
-        clinicalExplanation: `Glycyrrhizin in ${ayush.formulationName} blocks renal 11β-HSD2, producing pseudoaldosteronism. Combined with ${allopath.canonicalMolecule}, urinary K+ dumping precipitates fatal Torsades de Pointes and ventricular fibrillation.`,
+        severity: withDigoxin ? 'CRITICAL_CONTRAINDICATION' : 'WARNING',
+        ruleMechanism: '11β-HSD2 inhibition (pseudo-aldosteronism) with potassium loss',
+        clinicalExplanation: withDigoxin
+          ? `Glycyrrhizin in ${ayush.formulationName} inhibits renal 11β-HSD2 (pseudo-aldosteronism); the resulting hypokalaemia sensitises the heart to ${allopath.canonicalMolecule} toxicity (arrhythmia).`
+          : `Glycyrrhizin in ${ayush.formulationName} causes potassium loss (11β-HSD2 inhibition) that adds to the hypokalaemia caused by ${allopath.canonicalMolecule}.`,
         triggerA: allopath.canonicalMolecule,
         triggerB: ayush.formulationName,
         atcClassTriggered: allopath.atcClasses[0],
@@ -802,14 +880,14 @@ export class ClinicalOntologyEngine {
     if (allopath.atcClasses.includes('ATC_B01AA') && ayush.bioactives.includes('PHYT_GUGGULSTERONE')) {
       alerts.push({
         alertId: 'ONT-VKA-GUGGUL',
-        severity: 'CRITICAL_CONTRAINDICATION',
-        ruleMechanism: 'Hepatic CYP2C9 Inhibition + Synergistic Vitamin K Epoxide Reductase Block',
-        clinicalExplanation: `Guggulsterones in ${ayush.formulationName} competitively inhibit CYP2C9 and platelet aggregation, tripling circulating free ${allopath.canonicalMolecule} and provoking spontaneous internal/cerebral hemorrhage.`,
+        severity: 'WARNING',
+        ruleMechanism: 'Possible change in anticoagulant effect (antiplatelet activity; case reports of altered INR)',
+        clinicalExplanation: `Guggulu in ${ayush.formulationName} has antiplatelet activity and case reports describe altered INR with ${allopath.canonicalMolecule}. Evidence is limited (case reports, pharmacology).`,
         triggerA: allopath.canonicalMolecule,
         triggerB: ayush.formulationName,
         atcClassTriggered: 'ATC_B01AA',
         phytochemicalTriggered: 'PHYT_GUGGULSTERONE',
-        evidenceConfidence: 0.98
+        evidenceConfidence: 0.6
       });
     }
 
@@ -817,14 +895,14 @@ export class ClinicalOntologyEngine {
     if (allopath.atcClasses.includes('ATC_C10AA') && ayush.bioactives.includes('PHYT_PIPERINE')) {
       alerts.push({
         alertId: 'ONT-STATIN-PIPERINE',
-        severity: 'CRITICAL_CONTRAINDICATION',
-        ruleMechanism: 'Intestinal P-Glycoprotein & CYP3A4 Block (300% Bioavailability Surge)',
-        clinicalExplanation: `Piperine constituent in ${ayush.formulationName} surges systemic exposure of ${allopath.canonicalMolecule}, precipitating acute myoglobinuric renal failure and rhabdomyolysis.`,
+        severity: 'WARNING',
+        ruleMechanism: 'Piperine inhibits intestinal P-gp / CYP3A4 (bio-enhancer)',
+        clinicalExplanation: `Piperine in ${ayush.formulationName} can raise the exposure of drugs metabolised by CYP3A4, including ${allopath.canonicalMolecule}; clinical myopathy reports are lacking (theoretical). Watch for muscle pain.`,
         triggerA: allopath.canonicalMolecule,
         triggerB: ayush.formulationName,
         atcClassTriggered: 'ATC_C10AA',
         phytochemicalTriggered: 'PHYT_PIPERINE',
-        evidenceConfidence: 0.96
+        evidenceConfidence: 0.6
       });
     }
 
@@ -832,14 +910,14 @@ export class ClinicalOntologyEngine {
     if (allopath.atcClasses.includes('ATC_N05AN') && ayush.bioactives.includes('PHYT_AQUARETIC_DIURETIC')) {
       alerts.push({
         alertId: 'ONT-LITHIUM-AQUARETIC',
-        severity: 'CRITICAL_CONTRAINDICATION',
-        ruleMechanism: 'Proximal Renal Tubular Sodium Resorption Distortion (Lithium Retention)',
-        clinicalExplanation: `Aquaretic alkaloids in ${ayush.formulationName} decrease renal lithium clearance, spiking serum lithium (>2.0 mEq/L) into severe cerebellar ataxia and irreversible neurotoxicity.`,
+        severity: 'WARNING',
+        ruleMechanism: 'Diuretic herbs may reduce renal lithium clearance',
+        clinicalExplanation: `Diuretic constituents of ${ayush.formulationName} (Gokshura/Punarnava) may raise ${allopath.canonicalMolecule} levels, as other diuretics do (theoretical for these herbs). Check the lithium level after starting.`,
         triggerA: allopath.canonicalMolecule,
         triggerB: ayush.formulationName,
         atcClassTriggered: 'ATC_N05AN',
         phytochemicalTriggered: 'PHYT_AQUARETIC_DIURETIC',
-        evidenceConfidence: 0.95
+        evidenceConfidence: 0.6
       });
     }
 
@@ -849,7 +927,7 @@ export class ClinicalOntologyEngine {
         alertId: 'ONT-THYROID-GUGGUL',
         severity: 'WARNING',
         ruleMechanism: 'Hepatic Deiodinase Peripheral T4 -> T3 Conversion Acceleration',
-        clinicalExplanation: `Guggulsterones in ${ayush.formulationName} stimulate thyroid gland activity and peripheral conversion of ${allopath.canonicalMolecule}, risking resting tachyarrhythmias and thyrotoxic crisis.`,
+        clinicalExplanation: `Guggulsterones in ${ayush.formulationName} raised thyroid hormone activity in animal and small human studies; with ${allopath.canonicalMolecule} recheck TSH 6–8 weeks after starting.`,
         triggerA: allopath.canonicalMolecule,
         triggerB: ayush.formulationName,
         atcClassTriggered: 'ATC_H03AA',
@@ -902,11 +980,12 @@ export class ClinicalOntologyEngine {
     const hasDiuretic = combinedClasses.includes('ATC_C03CA') || /furosemide|torsemide|hydrochlorothiazide/i.test(combinedMolecules);
 
     if (hasRaas && hasNsaid) {
+      // Pairwise this is a monitoring interaction; the list-level "triple whammy" (with a diuretic) is the STOP.
       alerts.push({
         alertId: 'ONT-DDI-RAAS-NSAID',
-        severity: 'CRITICAL_CONTRAINDICATION',
+        severity: 'WARNING',
         ruleMechanism: 'Hemodynamic Glomerular Hypoperfusion (Afferent Constriction + Efferent Dilation)',
-        clinicalExplanation: `Concurrent RAAS inhibitor (${a.canonicalMolecule}) with NSAID (${b.canonicalMolecule}) blocks protective afferent prostacyclin vasodilation while inhibiting efferent angiotensin vasoconstriction, plunging glomerular capillary pressure into acute ischemic renal failure.`,
+        clinicalExplanation: `RAAS blocker (${a.canonicalMolecule}) with NSAID (${b.canonicalMolecule}): the NSAID removes prostaglandin-mediated afferent dilatation while the RAAS blocker removes efferent constriction, lowering glomerular pressure (acute kidney injury risk, worse with dehydration or a diuretic) and blunting BP control.`,
         triggerA: a.canonicalMolecule,
         triggerB: b.canonicalMolecule,
         atcClassTriggered: 'ATC_C09AA',
@@ -918,11 +997,12 @@ export class ClinicalOntologyEngine {
     const hasSsri = combinedClasses.includes('ATC_N06AB') || /fluoxetine|sertraline|escitalopram|paroxetine/i.test(combinedMolecules);
     const hasSerotonergic = /tramadol|linezolid|dextromethorphan|tapentadol|meperidine/i.test(combinedMolecules);
     if (hasSsri && hasSerotonergic) {
+      const maoi = /linezolid/i.test(combinedMolecules);
       alerts.push({
         alertId: 'ONT-DDI-SEROTONIN-SYNDROME',
-        severity: 'CRITICAL_CONTRAINDICATION',
+        severity: maoi ? 'CRITICAL_CONTRAINDICATION' : 'WARNING',
         ruleMechanism: 'Excess Central Serotonin Synaptic Surge (Hyperthermia, Rigidity, Autonomic Collapse)',
-        clinicalExplanation: `Co-administration of SSRI (${a.canonicalMolecule}) with central serotonergic/MAOI agonist (${b.canonicalMolecule}) precipitates life-threatening Serotonin Syndrome (Hunter Serotonin Toxicity Criteria).`,
+        clinicalExplanation: `SSRI (${a.canonicalMolecule}) with serotonergic ${b.canonicalMolecule}: risk of serotonin toxicity (Hunter criteria)${/linezolid/i.test(combinedMolecules) ? '; linezolid is an MAO inhibitor — avoid' : '; use the lowest dose and warn about agitation, tremor, fever'}.`,
         triggerA: a.canonicalMolecule,
         triggerB: b.canonicalMolecule,
         atcClassTriggered: 'ATC_N06AB',
@@ -936,9 +1016,9 @@ export class ClinicalOntologyEngine {
     if (hasDigoxin && hasAvNodeBlocker) {
       alerts.push({
         alertId: 'ONT-DDI-AV-BLOCK',
-        severity: 'CRITICAL_CONTRAINDICATION',
+        severity: 'WARNING',
         ruleMechanism: 'Additive AV Nodal Conduction Delay + Sinus Node Suppression',
-        clinicalExplanation: `Synergistic vagotonic and AV-nodal blockade between ${a.canonicalMolecule} and ${b.canonicalMolecule} risks complete third-degree heart block, profound symptomatic bradycardia, and asystolic arrest.`,
+        clinicalExplanation: `${a.canonicalMolecule} and ${b.canonicalMolecule} both slow AV-nodal conduction: bradycardia and heart block are possible. The pair is often used deliberately for rate control — monitor heart rate${/verapamil|diltiazem/i.test(combinedMolecules) ? '; verapamil/diltiazem also raise digoxin levels' : ''}.`,
         triggerA: a.canonicalMolecule,
         triggerB: b.canonicalMolecule,
         atcClassTriggered: 'ATC_C01AA',

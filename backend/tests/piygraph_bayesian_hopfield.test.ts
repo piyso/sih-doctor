@@ -38,7 +38,9 @@ export async function runCognitiveTests() {
 
   // 2. Bayesian Beta-Binomial Conjugate Updating
   console.log('--- TEST 2: Bayesian Beta-Binomial Truth Engine Updating ---');
-  const posterior = BayesianTruthEngineService.evaluatePair('Warfarin', 'Yogaraja Guggulu');
+  // A pair with established evidence (registry INT-003). Warfarin + Guggulu rests on case reports
+  // and is correctly *not* significant from the registry prior alone.
+  const posterior = BayesianTruthEngineService.evaluatePair('Digoxin', 'Yashtimadhu Churna');
   console.log(`• Prior Parameters:         Alpha=${posterior.priorAlpha}, Beta=${posterior.priorBeta} (${posterior.prior.source} prior, ${posterior.observationsUsed} stored observations)`);
   console.log(`• Posterior Parameters:     Alpha=${posterior.alpha}, Beta=${posterior.beta}`);
   console.log(`• Expected Confidence E[θ]: ${(posterior.expectedConfidence * 100).toFixed(2)}%`);

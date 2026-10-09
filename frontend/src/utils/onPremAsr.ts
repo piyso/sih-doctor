@@ -8,13 +8,30 @@
 
 import { api } from '../services/api';
 
-let cached: { asr: boolean; llm: boolean; at: number } | null = null;
+let cached: { asr: boolean; llm: boolean; asrLanguages: string[]; at: number } | null = null;
 
-export async function aiCapabilities(): Promise<{ asr: boolean; llm: boolean }> {
+/** `asr`: the hospital's speech service is up; `asrLanguages`: the languages it has models for (e.g. hi, en). */
+export async function aiCapabilities(): Promise<{ asr: boolean; llm: boolean; asrLanguages: string[] }> {
   if (cached && Date.now() - cached.at < 60_000) return cached;
   const s = await api.getAiStatus();
-  cached = { asr: !!(s.online && s.capabilities?.asr?.available), llm: !!(s.online && s.capabilities?.llm?.available), at: Date.now() };
+  const asr = (s.capabilities?.asr || {}) as { available?: boolean; languages?: string[] };
+  cached = {
+    asr: !!(s.online && asr.available),
+    llm: !!(s.online && s.capabilities?.llm?.available),
+    asrLanguages: s.online && asr.available && Array.isArray(asr.languages) ? asr.languages : [],
+    at: Date.now()
+  };
   return cached;
+}
+
+/**
+ * How the kiosk can listen in a language: the hospital's own recogniser when it has that language, else the
+ * browser's (cloud) recogniser if the hospital allows it, else not at all (the patient taps or types).
+ */
+export function speechRouteFor(lang: string, caps: { asr: boolean; asrLanguages: string[] } | null): 'onprem' | 'cloud' | 'none' {
+  if (caps?.asr && (caps.asrLanguages.length === 0 || caps.asrLanguages.includes(lang))) return 'onprem';
+  const hasBrowserSpeech = typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  return cloudSpeechAllowed && hasBrowserSpeech ? 'cloud' : 'none';
 }
 
 /** Whether the hospital allows the browser's cloud speech recognition (set VITE_ALLOW_CLOUD_SPEECH=false to forbid). */
@@ -24,6 +41,8 @@ export interface Recorder {
   /** Stops and returns 16 kHz mono 16-bit WAV (what the speech models expect), or the raw recording if conversion fails. */
   stop: () => Promise<Blob>;
   cancel: () => void;
+  /** Whether speech was heard (null when speech detection was not running). Clips with no speech are not worth transcribing. */
+  heardSpeech: () => boolean | null;
 }
 
 export interface RecordingOptions {
@@ -31,6 +50,8 @@ export interface RecordingOptions {
   /** Called once the patient has spoken and then stayed quiet for `silenceMs` (auto-stop). */
   onSilence?: () => void;
   silenceMs?: number;
+  /** Run the speech detector even without `onSilence`, so `heardSpeech()` can answer. */
+  detectSpeech?: boolean;
 }
 
 /**
@@ -41,7 +62,7 @@ export interface RecordingOptions {
  * fixed with a close-talk or handset microphone and press-to-talk. Gain control stays on for quiet voices.
  */
 export async function startRecording(opts: RecordingOptions | number = {}): Promise<Recorder> {
-  const { maxSeconds = 45, onSilence, silenceMs = 1500 } = typeof opts === 'number' ? { maxSeconds: opts } : opts;
+  const { maxSeconds = 45, onSilence, silenceMs = 1500, detectSpeech = false } = typeof opts === 'number' ? { maxSeconds: opts } : opts;
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 }
   });
@@ -54,7 +75,9 @@ export async function startRecording(opts: RecordingOptions | number = {}): Prom
   // Simple energy-based end-of-speech detection: adapts to the room's noise floor.
   let ctx: AudioContext | null = null;
   let vadTimer: ReturnType<typeof setInterval> | null = null;
-  if (onSilence) {
+  let heard: boolean | null = null;
+  if (onSilence || detectSpeech) {
+    heard = false;
     try {
       ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
@@ -68,13 +91,13 @@ export async function startRecording(opts: RecordingOptions | number = {}): Prom
         const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
         if (Date.now() - started < 400) { floor = Math.max(floor, rms); return; } // calibrate on the first 0.4 s
         const speaking = rms > Math.max(0.015, floor * 2.5);
-        if (speaking) { spoke = true; quietSince = 0; } else {
+        if (speaking) { spoke = true; heard = true; quietSince = 0; } else {
           floor = floor * 0.98 + rms * 0.02;
           if (spoke && !quietSince) quietSince = Date.now();
         }
-        if (!fired && spoke && quietSince && Date.now() - quietSince > silenceMs) { fired = true; onSilence(); }
+        if (onSilence && !fired && spoke && quietSince && Date.now() - quietSince > silenceMs) { fired = true; onSilence(); }
       }, 100);
-    } catch { /* auto-stop is a convenience; the stop button still works */ }
+    } catch { heard = null; /* auto-stop is a convenience; the stop button still works */ }
   }
 
   const release = () => {
@@ -100,7 +123,8 @@ export async function startRecording(opts: RecordingOptions | number = {}): Prom
       clearTimeout(limit);
       try { rec.stop(); } catch {}
       release();
-    }
+    },
+    heardSpeech: () => heard
   };
 }
 

@@ -15,6 +15,7 @@ import {
   Laptop
 } from 'lucide-react';
 import { sovereignSound } from '../../utils/audio';
+import { DemoModeBadge } from '../../components/common/DemoModeControl';
 
 export type TerminalId = 'kiosk' | 'doctor' | 'nurse' | 'pharmacy' | 'display' | 'asha' | 'admin' | 'matrix';
 
@@ -177,6 +178,7 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
 
           {/* Right Header Status & BYOD Capsule */}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8 }}>
+            <DemoModeBadge />
             {!isMobile && (
               <div className="gateway-status-pill">
                 <span className="gateway-status-dot" />
@@ -233,10 +235,7 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
                   <div className="gateway-card-icon-wrapper">
                     {IconEl}
                   </div>
-                  <div className="gateway-code-capsule">
-                    <span>{terminal.code}</span>
-                    <span className="gateway-kbd-mini">[{terminal.shortcutKey}]</span>
-                  </div>
+                  <kbd className="gateway-kbd" title={`Press ${terminal.shortcutKey} to open`}>{terminal.shortcutKey}</kbd>
                 </div>
 
                 <div className="gateway-card-content">

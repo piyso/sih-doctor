@@ -7,7 +7,7 @@
 import crypto from 'crypto';
 import { SocratesSymptom, AllopathicMedication, AyushFormulation, DashavidhaPariksha, AgniType } from '../shared/types';
 import { PhoneticNormalizerService } from './phoneticNormalizer.service';
-import { clauseAt, findDurations, findPhrase, isHistorical, negationAt, normWord, parseVitals, sentenceAt, severityIn, tokens, windowAt, Found } from './clinicalText';
+import { clauseAt, findDurations, findPhrase, isHistorical, negationAt, normWord, parseVitals, sentenceAt, severityIn, socratesIn, tokens, windowAt, Found, SocratesDetail } from './clinicalText';
 import { attachedSites, conceptMentions, ConceptMention } from './clinicalLexicon';
 
 export interface CausalDagOverrideInfo {
@@ -118,19 +118,41 @@ const HISTORY_PATTERNS: Array<[string, RegExp]> = [
 ];
 
 /** True when some match of a global regex is neither denied nor past history ("chest pain last year"). */
-function affirmedMatch(re: RegExp, text: string): boolean {
+function affirmedMatch(re: RegExp, text: string, reject?: RegExp): boolean {
   for (const m of text.matchAll(re)) {
     const a = m.index!, b = a + m[0].length;
-    if (!negationAt(text, a, b).negated && !isHistorical(text, a, b)) return true;
+    if (reject?.test(m[0])) continue;
+    const neg = negationAt(text, a, b);
+    // a complaint that has stopped ("सीने का दर्द ठीक हो गया") still counts for the emergency rules
+    if ((!neg.negated || neg.cue === 'resolved') && !isHistorical(text, a, b)) return true;
   }
   return false;
 }
+
+// Compiled once (the parser runs thousands of times a second in the stress batteries).
+const BREATHLESS_RE = /(?<![\p{L}\p{M}])(?:saans\s*(?:phool|ghut|nahi\s*aa\s*rahi|band|ruk)|sans\s*phool|dam\s*phool|dum\s*phool|breathless\w*|short(?:ness)?\s+of\s+breath|difficulty\s+(?:in\s+)?breathing|gasping|सा(?:ं|ँ)स\s*(?:फूल|घुट|नहीं\s*आ\s*रही|बंद|रुक|लेने\s*में\s*(?:दिक्कत|तकलीफ|परेशानी))|दम\s*(?:घुट|फूल)|हांफ|हाँफ)/giu;
+const BREATHLESS_SEVERE_RE = /(?<![\p{L}\p{M}])(?:आराम\s*(?:में|करते)|बैठे\s*(?:बैठे|हुए)|लेटे\s*(?:लेटे|हुए)|बोल\s*नहीं\s*पा|बात\s*नहीं\s*कर\s*पा|अचानक|एकदम\s*से|बहुत\s*(?:ज़्यादा|ज्यादा|तेज़|तेज)|gasping|हांफ|हाँफ|at\s+rest|while\s+(?:resting|sitting|lying)|can'?t\s+(?:speak|talk)|cannot\s+(?:speak|talk|breathe)|sudden\w*|severe\w*|achanak|baithe\s*baithe|bol\s*nahi\s*pa|saans\s*(?:band|ruk|nahi\s*aa|nahi\s*le)|सा(?:ं|ँ)स\s*(?:बंद|रुक|नहीं\s*आ|नहीं\s*ले|नहीं\s*ली)|can'?t\s+breathe|unable\s+to\s+breathe|नीले?\s*(?:होंठ|पड़)|blue\s+lips)/iu;
+// "छाती ठीक है पेट में दर्द है": the chest was said to be normal, the pain belongs elsewhere
+const CHEST_NORMAL_RE = /(?<![\p{L}\p{M}])(?:ठीक|theek|thik|fine|normal|okay|ok|कुछ\s+नहीं|कुछ\s+नही|kuch\s+nahi|kuchh\s+nahi|nothing)(?![\p{L}\p{M}])/iu;
 
 const CHRONIC_TERMS: Array<[string, RegExp]> = [
   ['Type 2 Diabetes Mellitus', WB('sugar|शुगर|शूगर|शक्कर')],
   ['Essential Hypertension', WB('bp|b\\.p\\.|बीपी|बी\\s*पी|blood\\s*pressure|ब्लड\\s*प्रेशर|pressure|प्रेशर')]
 ];
 const CHRONIC_CONTEXT = new RegExp(`(?<![\\p{L}\\p{M}])(?:dawai|dawa|dava|davai|दवा|दवाई|गोली|goli|tablet|tablets|टेबलेट|टैबलेट|medicine|medicines|refill|insulin|इंसुलिन|मरीज|मरीज़|mareez|marij|patient|rehta|rahta|rehti|रहता|रहती|bimari|beemari|बीमारी|control|कंट्रोल|saal\\s+se|साल\\s+से|years)(?![\\p{L}\\p{M}])`, 'iu');
+
+/** SOCRATES fields for a symptom record; radiation only for pain-type complaints. */
+function socratesFields(name: string, soc: SocratesDetail): Partial<SocratesSymptom> {
+  const out: Partial<SocratesSymptom> = {};
+  // not the complaint's own area ("दर्द है जो बाएं हाथ तक जाता है" with no other site is arm pain, not radiation)
+  const spread = (soc.radiation || '').split(', ').filter(r => !new RegExp(`\\b${r.split(' ').pop()}`, 'i').test(name)).join(', ');
+  if (spread && /pain|ache|discomfort|pressure|colic|sciatica|heartburn|acidity|burning|cramp|headache|migraine/i.test(name)) out.radiation = spread;
+  if (soc.exacerbating) out.exacerbating = soc.exacerbating;
+  if (soc.relieving) out.relieving = soc.relieving;
+  if (soc.timing) out.timing = soc.timing;
+  if (soc.onsetType) out.onsetType = soc.onsetType;
+  return out;
+}
 
 /** Pain character stated in a clause, or '' when the patient did not describe one. */
 function characterOf(clause: string): string {
@@ -178,6 +200,9 @@ const SITE_RULES: Array<[string[], string[], string, string]> = [
   [['S_SHOULDER'], ['F_PAIN', 'F_STIFF'], 'Shoulder Pain', 'Shoulder'],
   [['S_ARM', 'S_FINGER'], ['F_PAIN'], 'Arm / Hand Pain', 'Arm & Hand'],
   [['S_LEG', 'S_FOOT', 'S_HEEL', 'S_HIP'], ['F_CRAMP'], 'Muscle Cramps / Pindikodveshtana', 'Leg'],
+  [['S_LEG', 'S_FOOT', 'S_HEEL'], ['F_BURN'], 'Burning Feet / Pada Daha', 'Leg & Foot'],
+  [['S_LEG', 'S_FOOT', 'S_HEEL'], ['F_WOUND'], 'Foot / Leg Wound or Ulcer (Vrana)', 'Leg & Foot'],
+  [['S_PRIVATE'], ['F_BLOOD'], 'Bleeding Per Vagina / Rectum', 'Pelvis'],
   [['S_LEG', 'S_FOOT', 'S_HEEL', 'S_HIP'], ['F_PAIN'], 'Leg / Foot Pain', 'Leg & Foot'],
   [['S_LEG', 'S_FOOT', 'S_HEEL'], ['F_SWELL'], 'Leg / Foot Swelling', 'Leg & Foot'],
   [['S_EAR'], ['F_PAIN', 'F_PUS', 'F_TROUBLE'], 'Ear Pain / Discharge', 'Ear'],
@@ -195,7 +220,7 @@ const FINDING_RULES: Record<string, [string, string]> = {
   F_GAS: ['Flatulence / Aanaha', 'Abdomen'], F_BLOAT: ['Flatulence / Aanaha', 'Abdomen'], F_ACID: ['Heartburn / Acidity / Dyspepsia', 'Epigastrium'],
   F_DIZZY: ['Vertigo / Giddiness', 'Head'], F_BREATHLESS: ['Dyspnea / Shortness of Breath', 'Respiratory'], F_WHEEZE: ['Wheezing / Stridor', 'Respiratory'],
   F_WEAK: ['General Weakness / Asthenia', 'General'], F_RASH: ['Skin Eruptions / Rash', 'Skin'], F_ITCH: ['Pruritus / Itching', 'Skin'],
-  F_PALPIT: ['Palpitations', 'Precordium'], F_SWEAT: ['Diaphoresis', 'General'], F_CHILLS: ['Chills / Rigors', 'Systemic'],
+  F_PALPIT: ['Palpitations', 'Precordium'], F_WOUND: ['Wound / Ulcer (Vrana)', 'Skin'], F_SWEAT: ['Diaphoresis', 'General'], F_CHILLS: ['Chills / Rigors', 'Systemic'],
   F_NUMB: ['Numbness / Tingling', 'Peripheral'], F_STONE: ['Renal Calculi Colic / Ashmari', 'Flank'], F_HOARSE: ['Hoarseness of Voice', 'Throat'],
   F_COLD: ['Common Cold / Coryza (Pratishyaya)', 'Nose'], F_THIRST: ['Polydipsia / Pipasa', 'Systemic'], F_ANXIETY: ['Anxiety / Ghabrahat', 'General'],
   F_SAD: ['Low Mood', 'General'], F_TREMOR: ['Tremor', 'General'], F_RINGING: ['Tinnitus', 'Ear'], F_SORE_THROAT: ['Sore Throat', 'Throat'],
@@ -635,8 +660,11 @@ export class ClinicalParserService {
     let duration = '';
     let severity = 0;
     let character = '';
+    let resolved = false;
     for (const [a, b] of spans) {
-      if (negationAt(text, a, b).negated || isHistorical(text, a, b)) continue;
+      const neg = negationAt(text, a, b);
+      if (neg.cue === 'resolved') resolved = true;
+      if (neg.negated || isHistorical(text, a, b)) continue;
       affirmed = true;
       const [ca, cb] = clauseAt(text, a);
       const clause = text.slice(ca, cb);
@@ -644,7 +672,7 @@ export class ClinicalParserService {
       severity = Math.max(severity, severityIn(windowAt(text, a, b)));
       if (!character) character = characterOf(clause);
     }
-    return { affirmed, duration, severity, character };
+    return { affirmed, duration, severity, character, resolved: resolved && !affirmed };
   }
 
   /** Symptoms from the concept lexicon: each finding paired with the nearest body site in its clause. */
@@ -666,14 +694,20 @@ export class ClinicalParserService {
       }
       return best;
     };
-    const out = new Map<string, { site: string; present: boolean; negated: boolean; duration: string; severity: number; raw: string }>();
+    const out = new Map<string, { site: string; present: boolean; negated: boolean; resolved?: boolean; duration: string; severity: number; raw: string; soc: SocratesDetail }>();
     const note = (name: string, site: string, m: ConceptMention, present: boolean) => {
-      const e = out.get(name) || { site, present: false, negated: false, duration: '', severity: 0, raw: raw.slice(m.start, m.end) };
+      const e = out.get(name) || { site, present: false, negated: false, duration: '', severity: 0, raw: raw.slice(m.start, m.end), soc: {} as SocratesDetail };
       if (present) {
         e.present = true;
         e.duration ||= durationFor(raw, m.start, durations);
         e.severity = Math.max(e.severity, severityIn(windowAt(raw, m.start, m.end)));
-      } else e.negated = true;
+        // where it goes, what makes it worse / better, when, how it started (from the complaint's sentence)
+        const soc = socratesIn(raw, m.start);
+        for (const k of Object.keys(soc) as Array<keyof SocratesDetail>) if (!e.soc[k]) (e.soc as any)[k] = soc[k];
+      } else {
+        e.negated = true;
+        e.resolved = (e.resolved ?? true) && !!m.resolved;
+      }
       out.set(name, e);
     };
     const clauseOf = (m: ConceptMention) => { const [a, b] = clauseAt(raw, m.start); return raw.slice(a, b); };
@@ -693,7 +727,7 @@ export class ClinicalParserService {
       return best;
     };
     const sitesFor = (m: ConceptMention): ConceptMention[] => {
-      const att = attachedSites(ms, m, raw).filter(x => !x.historical);
+      const att = attachedSites(ms, m, raw, { primary: true }).filter(x => !x.historical);
       if (att.length) return att;
       const near = nearestSite(m) || sentenceSite(m);
       return near ? [near] : [];
@@ -706,6 +740,18 @@ export class ClinicalParserService {
       if (has('F_APPETITE')) { if (m.negated || LOSS_WORDS.test(clauseOf(m))) note('Anorexia / Loss of Appetite', 'GI', m, true); continue; }
       if (has('F_SLEEP')) { if (m.negated || LOSS_WORDS.test(clauseOf(m)) || /insomnia/i.test(clauseOf(m))) note('Insomnia / Anidra', 'CNS', m, true); continue; }
       if (has('F_HEARING')) { if (m.negated || LOSS_WORDS.test(clauseOf(m))) note('Hearing Loss', 'Ear', m, true); continue; }
+      // "पेशाब बंद हो गया", "पेशाब नहीं हो रहा", "can't pass urine": urine not passing is retention (not when the clause
+      // is about burning, pain or blood — that is dysuria / haematuria)
+      if (has('S_URINE') && !ms.some(x => x !== m && x.concepts.some(c => c === 'F_BURN' || c === 'F_PAIN' || c === 'F_BLOOD') && clauseOf(x) === clauseOf(m)) &&
+        /(?<![\p{L}\p{M}])(?:बंद|band|bandh|रुक\s+(?:गया|गई|गयी)|ruk\s+(?:gaya|gayi|gai)|नहीं\s+(?:आ|हो|उतर)|नही\s+(?:आ|हो|उतर)|nahi\s+(?:aa|ho|utar)|stopped|can'?t\s+pass|cannot\s+pass|not\s+passing|unable\s+to\s+pass)/iu.test(clauseOf(m))) {
+        note('Urinary Retention / Mutrakrichra', 'Urethra', m, true);
+        continue;
+      }
+      // "पेशाब बार बार आता है", "baar baar peshab", "passing urine frequently": frequency (the dictionary only knows the
+      // exact phrase "बार-बार पेशाब आना")
+      if (has('S_URINE') && !m.negated && ms.some(x => x.concepts.includes('Q_FREQ') && !x.negated && clauseOf(x) === clauseOf(m))) {
+        note('Polyuria / Prabhutamutrata', 'Urethra', m, true);
+      }
       // "पॉटी नहीं हुई", "motion clear nahi", "latrine nahi aa rahi": stool not passed is constipation
       if (has('S_STOOL') && !ms.some(x => x.concepts.includes('F_DIARRHOEA') || x.concepts.includes('F_BLOOD')) && (m.negated || /(?<![\p{L}\p{M}])(?:saaf|clear|साफ)\s+(?:nahi|nahin|नहीं)/iu.test(clauseOf(m)))) {
         note('Constipation', 'GI', m, true);
@@ -717,6 +763,7 @@ export class ClinicalParserService {
         const sc = site?.concepts || [];
         const name = sc.includes('S_STOOL') || sc.includes('S_ANUS') ? 'Hematochezia / Rectal Bleeding'
           : sc.includes('S_URINE') ? 'Hematuria' : sc.includes('S_NOSE') ? 'Epistaxis'
+          : sc.includes('S_PRIVATE') ? 'Bleeding Per Vagina / Rectum'
           : /cough|khans|खांस|खाँस|balgam|बलगम/i.test(c) ? 'Hemoptysis' : /vomit|ulti|उल्टी|उलटी/i.test(c) ? 'Hematemesis' : null;
         if (name) note(name, 'Bleeding', m, !m.negated);
         continue;
@@ -749,7 +796,9 @@ export class ClinicalParserService {
       character: '',
       severity: e.present ? e.severity : 0,
       severityScore: e.present ? e.severity : 0,
-      isNegated: !e.present
+      isNegated: !e.present,
+      ...(!e.present && e.resolved ? { isResolved: true } : {}),
+      ...(e.present ? socratesFields(name, e.soc) : {})
     }));
   }
 
@@ -793,11 +842,13 @@ export class ClinicalParserService {
           character: found.character,
           severityScore: isNegated ? 0 : found.severity,
           severity: isNegated ? 0 : found.severity,
-          isNegated
+          isNegated,
+          ...(isNegated && !keyIsExplicitDenial && found.resolved ? { isResolved: true } : {})
         });
       } else if (existing.isNegated && !isNegated) {
         // Affirmative synonym override: the symptom was confirmed through another phrasing
         existing.isNegated = false;
+        delete existing.isResolved;
         existing.severity = existing.severityScore = found.severity;
         existing.rawVernacular = key;
         existing.symptom_name = meta.standard;
@@ -815,12 +866,24 @@ export class ClinicalParserService {
       const fam = symptomFamily(d.name);
       const existing = symptoms.find(s => (fam ? symptomFamily(s.name) === fam : s.name === d.name));
       if (!existing) { symptoms.push(d); continue; }
+      if (!d.isNegated) for (const k of ['radiation', 'exacerbating', 'relieving', 'timing', 'onsetType'] as const) if ((d as any)[k] && !(existing as any)[k]) (existing as any)[k] = (d as any)[k];
+      if (existing.isNegated && d.isNegated) existing.isResolved = !!(existing.isResolved && d.isResolved) || undefined;
       if (existing.isNegated && !d.isNegated) {
+        delete existing.isResolved;
         Object.assign(existing, { isNegated: false, severity: d.severity, severityScore: d.severityScore });
         if (d.onset !== 'Unspecified') existing.onset = d.onset;
       } else if (!existing.isNegated && !d.isNegated) {
         if ((!existing.onset || existing.onset === 'Unspecified') && d.onset !== 'Unspecified') existing.onset = d.onset;
         if ((d.severityScore || 0) > (existing.severityScore || 0)) existing.severity = existing.severityScore = d.severityScore || 0;
+      }
+    }
+
+    // A complaint that has just stopped is still the reason for the visit when it is an emergency-type one
+    // ("सीने का दर्द ठीक हो गया" — the emergency rules count it, so the doctor must see it too).
+    for (const sy of symptoms) {
+      if (sy.isResolved && /chest|substernal|angina|dyspn|breath|unconscious|faint|syncope|seizure|convuls|bleed|haemorrh|hemorrh|paralys|stroke|hematemesis/i.test(sy.name || '')) {
+        sy.isNegated = false;
+        delete sy.isResolved;
       }
     }
 
@@ -842,7 +905,12 @@ export class ClinicalParserService {
       if (pastHistory.includes(label)) continue;
       for (const m of rawText.matchAll(re)) {
         const [ca, cb] = clauseAt(rawText, m.index!);
-        if (CHRONIC_CONTEXT.test(rawText.slice(ca, cb)) && !negationAt(rawText, m.index!, m.index! + m[0].length).negated) { pastHistory.push(label); break; }
+        // the treatment / chronicity word must itself be affirmed ("कोई दवा नहीं लेता" is not treatment), and a reading
+        // called normal is not a disease ("बीपी नॉर्मल है"); "BP control में है" still is one
+        const clause = rawText.slice(ca, cb);
+        const context = [...clause.matchAll(new RegExp(CHRONIC_CONTEXT.source, 'giu'))].some(c => !negationAt(rawText, ca + c.index!, ca + c.index! + c[0].length).negated);
+        const saidNormal = /^\s*(?:(?:तो|to|toh|bhi|भी|बिल्कुल|bilkul|is|was)\s+)?(?:नॉर्मल|नार्मल|normal|ठीक|theek|thik|fine)(?![\p{L}\p{M}])/iu.test(rawText.slice(m.index! + m[0].length));
+        if (context && !saidNormal && !negationAt(rawText, m.index!, m.index! + m[0].length).negated) { pastHistory.push(label); break; }
       }
     }
 
@@ -860,7 +928,8 @@ export class ClinicalParserService {
         // Extract dosage
         const doseMatch = drugWindow.match(/(\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|tsp|drops?|tablets?|caps?|tab))\b/i) ||
                           drugWindow.match(/\b(\d+)\s*(?:OD|BD|TDS|QID|SOS|HS)\b/i);
-        let dosage = drugMeta.defaultDose;
+        // Only what was said: "metformin खाता हूं" names a medicine, not a dose, frequency or course length.
+        let dosage = '';
         if (doseMatch) {
           if (/OD|BD|TDS|QID|SOS|HS/i.test(doseMatch[0])) {
             dosage = `${doseMatch[1]} tab`;
@@ -870,7 +939,7 @@ export class ClinicalParserService {
         }
 
         // Extract frequency: select the earliest matching frequency pattern in this drug's clause
-        let frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS' = 'OD';
+        let frequency: AllopathicMedication['frequency'] = '';
         let earliestFreqIndex = Infinity;
         for (const fp of this.freqPatterns) {
           const match = fp.regex.exec(drugWindow);
@@ -883,7 +952,7 @@ export class ClinicalParserService {
         // Extract duration
         durationRegex.lastIndex = 0;
         const durMatch = durationRegex.exec(drugWindow);
-        const duration = durMatch ? `${durMatch[1]} ${durMatch[2]}` : '5 days';
+        const duration = durMatch ? `${durMatch[1]} ${durMatch[2]}` : '';
 
         if (!allopathicPrescriptions.some(r => r.drugName.toLowerCase() === drugMeta.name.toLowerCase())) {
           allopathicPrescriptions.push({
@@ -1092,16 +1161,19 @@ export class ClinicalParserService {
     const leftTerms = '(?:baaye|baayan|baam|dava|khabb[ae]|ult[ae]|left|edama|idathu|edagade|khowur|vama|बाएं|बायां|बाईं|डावा|डाव्या|लेफ्ट|বাঁ|বাম|இடது|ఎడమ)';
     const diaphoresisTerms = '(?:pasina|paseena|gham|ghamb|viyarvai|viyarppu|chematlu|arakh|bemaru|sweat|sveda|svedadhikya|पसीना|पसीने|घाम|थंडा\\s*घाम|ঘাম|ঠাণ্ডা\\s*ঘাম|வேர்வை|குளிர்ந்த\\s*வேர்வை|చెమట|చల్లని\\s*చెమట)';
     const armTerms = '(?:haath|arm|hand|bahu|bhuja|hatat|kai|kayyil|cheyyi|atha|हाथ|बांह|भुजा|हात|हातात|হাত|হাতে|கை|கையில்|చేయి|చేతి)';
+    // shortest span from the chest to its complaint, so a later clause's pain is not read as the chest's
     const isAcsRegex = new RegExp(
-      `${chestTerms}[^.!?:\n,]*${painTerms}|` +
+      `${chestTerms}[^.!?:\n,]*?${painTerms}|` +
       `chest\\s*pain|` +
-      `${leftTerms}\\s*${armTerms}[^.!?:\n,]*${painTerms}|` +
+      `${leftTerms}\\s*${armTerms}[^.!?:\n,]*?${painTerms}|` +
       `radiating\\s*pain|crushing\\s*(?:pain|pressure)|` +
-      `${diaphoresisTerms}[^.!?:\n,]*${chestTerms}|${chestTerms}[^.!?:\n,]*${diaphoresisTerms}`,
+      `${diaphoresisTerms}[^.!?:\n,]*?${chestTerms}|${chestTerms}[^.!?:\n,]*?${diaphoresisTerms}`,
       'giu'
     );
+    // "छाती ठीक है पेट में दर्द है", "chest is fine but my stomach hurts": the chest was said to be normal, and the
+    // pain belongs to another area (recogniser text has no commas to stop the match).
     // Any mention of the pattern that the patient did not deny ("I do not have chest pain" is denied).
-    const isAcsPattern = affirmedMatch(isAcsRegex, lower) && !(hasRegionalChestNegation && !affirmedMatch(isAcsRegex, lower.replace(/[^.!?\n]*(?:no|denies|without|nahi|naahi|nhi|illai|ledu|nei|nathi|naikhe)[^.!?\n]*/giu, ' ')));
+    const isAcsPattern = affirmedMatch(isAcsRegex, lower, CHEST_NORMAL_RE) && !(hasRegionalChestNegation && !affirmedMatch(isAcsRegex, lower.replace(/[^.!?\n]*(?:no|denies|without|nahi|naahi|nhi|illai|ledu|nei|nathi|naikhe)[^.!?\n]*/giu, ' ')));
     if (isAcsPattern) {
       if (isMalingeringSuspected) {
         // Triage to physical nurse evaluation rather than unverified emergency queue bypass
@@ -1175,11 +1247,28 @@ export class ClinicalParserService {
       redFlagTriggers.push(`Hyperpyrexia (temperature ${vitals.temp})`);
     }
 
-    // Respiratory distress: hypoxia, SpO2 < 90, gasping
-    const isRespPattern = (/(saans\s*(?:phool|ghut|nahi\s*aa\s*rahi)|severe\s*breathlessness|gasping|tachypnea|सांस\s*(?:फूल|घुट|नहीं\s*आ\s*रही)|दम\s*घुट)/i.test(lower) && (!vitals.spo2 || parseInt(vitals.spo2) < 92)) || (vitals.spo2 && parseInt(vitals.spo2) < 90);
-    if (isRespPattern) {
+    // Breathlessness, graded on what was actually said or measured — the label never states a reading nobody took.
+    //   emergency: oxygen below 90%; breathless with oxygen below 92%; breathless at rest, gasping, unable to speak,
+    //              suddenly or severely ("बैठे बैठे सांस फूल रही है", "बोल नहीं पा रहा")
+    //   urgent:    breathless on exertion or not graded ("सीढ़ियां चढ़ने पर सांस फूलती है") — oxygen to be checked
+    const spo2Value = vitals.spo2 ? parseInt(String(vitals.spo2), 10) : NaN;
+    const breathless = affirmedMatch(BREATHLESS_RE, lower);
+    const breathlessSevere = breathless && BREATHLESS_SEVERE_RE.test(lower);
+    // The oxygen reading and the distress are separate facts: both are reported when both are present.
+    const spo2Text = Number.isFinite(spo2Value) ? ` (SpO2 ${spo2Value}%)` : ' — no oxygen reading yet';
+    if (Number.isFinite(spo2Value) && spo2Value < 90) {
       isEmergencyRedFlag = true;
-      redFlagTriggers.push('Severe Hypoxemic Respiratory Distress (SpO2 < 90%)');
+      redFlagTriggers.push(`Low oxygen saturation (SpO2 ${spo2Value}%)`);
+    }
+    if (breathlessSevere) {
+      isEmergencyRedFlag = true;
+      redFlagTriggers.push(`Respiratory distress: severe breathlessness (at rest, sudden, gasping or unable to speak)${spo2Text}`);
+    } else if (breathless && Number.isFinite(spo2Value) && spo2Value < 92) {
+      isEmergencyRedFlag = true;
+      redFlagTriggers.push(`Respiratory distress: breathless with low oxygen saturation (SpO2 ${spo2Value}%)`);
+    } else if (breathless && Number.isFinite(spo2Value)) {
+      // without a reading the lexicon's "oxygen saturation to be checked" flag says it once
+      redFlagTriggers.push(`Breathlessness reported (SpO2 ${spo2Value}%)`);
     }
 
     // Stroke / CVA / Pakshaghata (FAST Protocol across Pan-Indian Vernaculars)
@@ -1243,7 +1332,9 @@ export class ClinicalParserService {
 
     // Acute Pancreatitis / Surgical Abdomen / Appendicitis
     const isAcuteAbdomen = /(pet\s*me.*(?:tez|bhayankar|severe)\s*dard.*peeth|acute\s*pancreatitis|perforation|acute\s*appendicitis|mcburney|rebound\s*tenderness|acute\s*abdomen|(?:abdominal|udar|bhayankar|severe).*(?:dard|pain|shool).*(?:peeth|back|lumbar)|radiating\s*to\s*back|पोटात.*(?:असह्य|तीव्र|भयंकर).*कळ.*पाठी|পেটে.*(?:প্রচণ্ড|মারাত্মক).*ব্যথা.*পিঠ|வயிற்றில்.*(?:கடுமையான|தீவிர).*வலி.*முதுகு|కడుపులో.*(?:తీవ్రమైన|భరించలేని).*నొప్పి.*వెన్ను)/i.test(lower) ||
-      /(?:pet|bhayankar|acute|पोटात|পেটে|வயிற்றில்|కడుపులో).*(?:peeth|back|pancrea|पाठी|পিঠ|முதுகு|వెన్ను)/i.test(rawLower);
+      /(?:pet|bhayankar|acute|पोटात|পেটে|வயிற்றில்|కడుపులో).*(?:peeth|back|pancrea|पाठी|পিঠ|முதுகு|వెన్ను)/i.test(rawLower) ||
+      // belly pain going through to the back, in any language the SOCRATES reader understands ("पेट में दर्द … पीठ तक जाता है")
+      symptoms.some(sy => !sy.isNegated && /abdominal|epigastr|udara/i.test(sy.name || '') && /\bback\b/i.test(sy.radiation || ''));
     if (isAcuteAbdomen) {
       isEmergencyRedFlag = true;
       redFlagTriggers.push('Acute Surgical Abdomen / Pancreatitis / Appendicitis / Peritonitis');

@@ -10,6 +10,7 @@ import { AbdmClient } from '../services/abdm.client';
 import { requireKioskOrStaff, requireStaff } from '../security/middleware';
 import { CLINICIAN_ROLES } from '../security/config';
 import { audit } from '../security/audit';
+import { TerminologyService } from '../services/terminology.service';
 
 export const abdmRouter = Router();
 
@@ -82,6 +83,21 @@ abdmRouter.get('/namaste/codes', requireKioskOrStaff, (req: Request, res: Respon
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * GET /api/abdm/namaste/search?q=&system=&limit=
+ * Ranked terminology search (NAMASTE, ICD-11 TM2 when imported, AFI formulations). Candidates, not a guess.
+ */
+abdmRouter.get('/namaste/search', requireKioskOrStaff, (req: Request, res: Response): void => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) {
+    res.json({ success: true, count: 0, data: [], index: TerminologyService.stats() });
+    return;
+  }
+  const system = typeof req.query.system === 'string' ? (req.query.system as any) : undefined;
+  const hits = TerminologyService.search(q, { system, limit: Number(req.query.limit) || 10 });
+  res.json({ success: true, count: hits.length, data: hits, index: TerminologyService.stats() });
 });
 
 /**

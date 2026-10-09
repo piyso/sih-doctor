@@ -42,7 +42,7 @@ export function runFhirBenchmark(bundleCount: number = 1000) {
       sanskritTerm: 'Sandhivata',
       englishEquivalent: 'Osteoarthritis / Degenerative Joint Disease',
       icd10DualCode: 'M17.9',
-      snomedConceptId: '399269003',
+      snomedConceptId: '239873007',
       icmrStandardWorkflowId: 'ICMR-STW-MSK-001',
       drug: { drugName: 'Paracetamol', dosage: '650mg', route: 'Oral' as const, frequency: 'SOS' as const, timing: 'After Food (PC)' as const, duration: '5 days' },
       ayush: { formulationName: 'Yograj Guggulu', category: 'Guggulu' as const, dosage: '2 tablets', frequency: 'BD' as const, anupana: 'Warm Water', timing: 'Prathakaal (Morning)' as const, duration: '30 days' }
@@ -62,7 +62,7 @@ export function runFhirBenchmark(bundleCount: number = 1000) {
       sanskritTerm: 'Kaphaja Kasa',
       englishEquivalent: 'Productive Cough / Acute Bronchitis',
       icd10DualCode: 'J20.9',
-      snomedConceptId: '49727002',
+      snomedConceptId: '10509002',
       icmrStandardWorkflowId: 'ICMR-STW-RES-004',
       drug: { drugName: 'Azithromycin', dosage: '500mg', route: 'Oral' as const, frequency: 'OD' as const, timing: 'Before Food (AC)' as const, duration: '5 days' },
       ayush: { formulationName: 'Sitopaladi Churna', category: 'Churna' as const, dosage: '3g', frequency: 'BD' as const, anupana: 'Madhu (Honey)', timing: 'Prathakaal (Morning)' as const, duration: '7 days' }
@@ -72,7 +72,7 @@ export function runFhirBenchmark(bundleCount: number = 1000) {
       sanskritTerm: 'Gridhrasi',
       englishEquivalent: 'Sciatica / Lumbar Radiculopathy',
       icd10DualCode: 'M54.3',
-      snomedConceptId: '279039007',
+      snomedConceptId: '23056005',
       icmrStandardWorkflowId: 'ICMR-STW-NEU-002',
       drug: { drugName: 'Pregabalin', dosage: '75mg', route: 'Oral' as const, frequency: 'HS' as const, timing: 'Bedtime (HS)' as const, duration: '14 days' },
       ayush: { formulationName: 'Trayodashang Guggulu', category: 'Guggulu' as const, dosage: '2 tablets', frequency: 'BD' as const, anupana: 'Warm Water', timing: 'Prathakaal (Morning)' as const, duration: '15 days' }

@@ -4,6 +4,7 @@ import { Step1Language } from './Step1Language';
 import { Step2AbhaAuth, KioskPatient } from './Step2AbhaAuth';
 import { Step3VoiceBodyIntake } from './Step3VoiceBodyIntake';
 import { Step4Socrates } from './Step4Socrates';
+import { StepInterview } from './StepInterview';
 import { Step5Pariksha } from './Step5Pariksha';
 import { Step6DocumentScanner } from './Step6DocumentScanner';
 import { Step7TokenSummary } from './Step7TokenSummary';
@@ -32,7 +33,11 @@ const emptyPatient = (): KioskPatient => ({
 const emptyPariksha = (): DashavidhaPariksha => ({});
 const emptyHistory = (): PatientHistory => ({ conditions: [], allergies: '', currentMedicines: '' });
 
-const STEP_TITLE_KEYS: KioskTextKey[] = ['stepTitle1', 'stepTitle2', 'stepTitle3', 'stepTitle4', 'stepTitle5', 'stepTitle6'];
+const STEP_TITLE_KEYS: KioskTextKey[] = ['stepTitle1', 'stepTitle2', 'stepTitle3', 'stepTitle4', 'stepTitleInterview', 'stepTitle5', 'stepTitle6'];
+const LAST_FORM_STEP = 7;
+const SUMMARY_STEP = 8;
+const DRAFT_MAX_AGE_MS = 3 * 60 * 1000; // a draft shown to the next person at the kiosk is a privacy leak, so only very recent ones are offered
+const stripIdentifiers = (p: KioskPatient) => ({ ...p, aadhaar: '', abhaId: '' });
 
 type SosState =
   | { phase: 'confirm' }
@@ -48,7 +53,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
   const getInitialStep = () => {
     try {
       const parsed = parseInt(new URLSearchParams(window.location.search).get('step') || '', 10);
-      if (parsed >= 1 && parsed <= 7) return parsed;
+      if (parsed >= 1 && parsed <= SUMMARY_STEP) return parsed;
     } catch {}
     return 1;
   };
@@ -74,6 +79,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
   const [sos, setSos] = useState<SosState | null>(null);
   const [consent, setConsent] = useState<KioskConsent>(() => emptyConsent('hi'));
   const [ticket, setTicket] = useState<IntakeResult | null>(null);
+  const [interviewId, setInterviewId] = useState<string | null>(null);
   const [showBlockedHint, setShowBlockedHint] = useState(false);
   const sosSlipRef = useRef<HTMLDivElement>(null);
   const serverDraftIdRef = useRef<string | null>(null);
@@ -117,14 +123,16 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
       const local = sessionStorage.getItem(DRAFT_KEY);
       if (local) {
         const parsed = JSON.parse(local);
-        if (parsed?.draftPayload && parsed.stepNumber >= 2) setSavedDraft(parsed);
+        if (parsed?.draftPayload && parsed.stepNumber >= 2 && Date.now() - Number(parsed.timestamp || 0) < DRAFT_MAX_AGE_MS) setSavedDraft(parsed);
+        else sessionStorage.removeItem(DRAFT_KEY);
       }
     } catch {}
   }, []);
 
   useEffect(() => {
-    if (currentStep < 2 || currentStep >= 7) return;
-    const draftPayload = { patient, symptoms, pariksha, history, vitals, transcript, selectedBodyRegion, redFlags, language, consent };
+    if (currentStep < 2 || currentStep >= SUMMARY_STEP) return;
+    // Identifiers (Aadhaar, ABHA) never go into a draft; they are re-entered if the check-in is resumed.
+    const draftPayload = { patient: stripIdentifiers(patient), symptoms, pariksha, history, vitals, transcript, selectedBodyRegion, redFlags, language, consent, interviewId };
     try {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ stepNumber: currentStep, draftPayload, serverDraftId: serverDraftIdRef.current, timestamp: Date.now() }));
     } catch {}
@@ -160,11 +168,12 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
     if (d.selectedBodyRegion) setSelectedBodyRegion(d.selectedBodyRegion);
     if (d.redFlags) setRedFlags(d.redFlags);
     if (d.consent) setConsent(d.consent);
+    if (d.interviewId) setInterviewId(d.interviewId);
     if (savedDraft.serverDraftId) serverDraftIdRef.current = savedDraft.serverDraftId;
     // Registration details are needed before anything else: go back to them if incomplete.
     const registrationComplete = !!d.patient?.name?.trim() && Number(d.patient?.age) > 0;
     setSavedDraft(null);
-    goToStep(registrationComplete ? Math.min(Math.max(savedDraft.stepNumber || 2, 2), 6) : 2);
+    goToStep(registrationComplete ? Math.min(Math.max(savedDraft.stepNumber || 2, 2), LAST_FORM_STEP) : 2);
   };
 
   // ---------------------------------------------------------------- Inactivity privacy guard
@@ -173,7 +182,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
   idleActiveRef.current = inactivityCountdown !== null;
 
   useEffect(() => {
-    if (currentStep < 2 || currentStep >= 7 || sos) {
+    if (currentStep < 2 || currentStep >= SUMMARY_STEP || sos) {
       setInactivityCountdown(null);
       return;
     }
@@ -226,6 +235,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
     rawTranscript: transcript,
     scannedDocs,
     consent: { ...consent, language },
+    interviewId,
     routingHints: { isAirborne: !!airborneIsolationInfo?.isAirborneRisk, isMlc: !!mlcCaseInfo?.isMlc },
     ...overrides
   });
@@ -249,7 +259,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
     }
     clearDraft();
     sovereignSound.playCrystalChime();
-    goToStep(7);
+    goToStep(SUMMARY_STEP);
   };
 
   const handleReset = () => {
@@ -271,6 +281,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
     setCausalDagOverride(null);
     setMlcCaseInfo(null);
     setAirborneIsolationInfo(null);
+    setInterviewId(null);
     setSos(null);
     goToStep(1);
   };
@@ -329,11 +340,11 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
     }
     sovereignSound.playMechanicalSnap();
     if (navRef.current.onNext) navRef.current.onNext();
-    else if (currentStep === 6) handleCompleteIntake();
+    else if (currentStep === LAST_FORM_STEP) handleCompleteIntake();
     else goToStep(currentStep + 1);
   };
 
-  const nextLabel = isSubmitting ? tx('submitting') : navView.nextLabel || (currentStep === 6 ? tx('finishBtn') : tx('nextBtn'));
+  const nextLabel = isSubmitting ? tx('submitting') : navView.nextLabel || (currentStep === LAST_FORM_STEP ? tx('finishBtn') : tx('nextBtn'));
 
   return (
     <div className="kiosk-panoramic-container">
@@ -427,6 +438,24 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
         )}
 
         {currentStep === 5 && (
+          <StepInterview
+            patient={patient}
+            language={language}
+            symptoms={symptoms}
+            transcript={transcript}
+            interviewId={interviewId}
+            setInterviewId={setInterviewId}
+            setHistory={setHistory}
+            setSymptoms={setSymptoms}
+            setRedFlags={setRedFlags}
+            onRequestSos={() => setSos({ phase: 'confirm' })}
+            onNext={() => goToStep(6)}
+            onBack={() => goToStep(4)}
+            registerNav={registerNav}
+          />
+        )}
+
+        {currentStep === 6 && (
           <Step5Pariksha
             pariksha={pariksha}
             setPariksha={setPariksha}
@@ -441,7 +470,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
           />
         )}
 
-        {currentStep === 6 && (
+        {currentStep === 7 && (
           <Step6DocumentScanner
             scannedDocs={scannedDocs}
             setScannedDocs={setScannedDocs}
@@ -455,7 +484,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
           />
         )}
 
-        {currentStep === 7 && (
+        {currentStep === SUMMARY_STEP && (
           <Step7TokenSummary
             patient={patient}
             symptoms={symptoms}
@@ -479,7 +508,7 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
       </main>
 
       {/* The single Back / Next control for steps 1–6 */}
-      {currentStep < 7 && (
+      {currentStep < SUMMARY_STEP && (
         <>
           {showBlockedHint && !navView.canNext && navView.blockedHint && (
             <div className="no-print fixed bottom-[86px] left-1/2 -translate-x-1/2 z-[1001] max-w-[min(92vw,520px)] px-4 py-2 rounded-xl bg-amber-50 dark:bg-amber-950 border border-amber-400/70 text-amber-900 dark:text-amber-100 text-xs sm:text-sm font-semibold shadow-lg text-center" role="alert">

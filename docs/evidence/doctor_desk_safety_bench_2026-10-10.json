@@ -1,0 +1,400 @@
+[
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Warfarin + ibuprofen (bleeding)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Warfarin + diclofenac (bleeding)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Warfarin + metronidazole (INR rise)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Warfarin + fluconazole (INR rise)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Simvastatin + clarithromycin (rhabdomyolysis)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Sildenafil + isosorbide mononitrate (hypotension)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Tizanidine + ciprofloxacin (contraindicated)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Methotrexate + cotrimoxazole (marrow toxicity)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Tramadol + sertraline (serotonin toxicity)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Spironolactone + enalapril (hyperkalaemia)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Lithium + ibuprofen (lithium toxicity)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Azathioprine + allopurinol (marrow toxicity)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Theophylline + ciprofloxacin (theophylline toxicity)",
+    "pass": true,
+    "alerts": [
+      "WARNING",
+      "WARNING",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DDI",
+    "label": "Rifampicin + oral contraceptive (failure)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DUP",
+    "label": "Ibuprofen + diclofenac (duplicate NSAID)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "DUP",
+    "label": "Pantoprazole + omeprazole (duplicate PPI)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "ALLERGY",
+    "label": "Penicillin allergy + amoxicillin",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PREG",
+    "label": "Pregnancy + enalapril",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PREG",
+    "label": "Pregnancy + atorvastatin",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PREG",
+    "label": "Pregnancy + doxycycline",
+    "pass": true,
+    "alerts": [
+      "WARNING",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PREG",
+    "label": "Pregnancy + sodium valproate",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PREG",
+    "label": "Pregnancy + misoprostol",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "RENAL",
+    "label": "eGFR 20 + metformin",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "RENAL",
+    "label": "eGFR 20 + nitrofurantoin",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING",
+      "INFO"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "RENAL",
+    "label": "eGFR 25 + diclofenac",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "INFO"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PAED",
+    "label": "Age 6 + aspirin (Reye syndrome)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PAED",
+    "label": "Age 8 + codeine",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "PAED",
+    "label": "Age 3, 13 kg + paracetamol 650 mg TDS (overdose)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "ELDER",
+    "label": "Age 78 + glibenclamide (Beers)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "FDC",
+    "label": "Banned FDC aceclofenac + paracetamol",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "FDC",
+    "label": "Banned FDC cetirizine + paracetamol + phenylephrine",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "HDI",
+    "label": "Digoxin + Yashtimadhu",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "HDI",
+    "label": "Metronidazole + Draksharishta (alcohol in arishta)",
+    "pass": true,
+    "alerts": [
+      "CRITICAL_CONTRAINDICATION",
+      "CRITICAL_CONTRAINDICATION",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "MUST",
+    "cat": "SCHED",
+    "label": "Sutshekhar Ras (contains mercury compounds) flagged as Schedule E(1)",
+    "pass": true,
+    "alerts": [
+      "STATUTORY_SCHEDULE_E1"
+    ]
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "HDI",
+    "label": "Aspirin + ginger juice (Adrak swarasa)",
+    "pass": true,
+    "alerts": []
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "HDI",
+    "label": "Metformin + Nisha Amalaki (registry itself says SAFE)",
+    "pass": true,
+    "alerts": []
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "VIRUDDHA",
+    "label": "Sitopaladi with honey + ghee (classical anupana)",
+    "pass": true,
+    "alerts": []
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "HDI",
+    "label": "Fluoxetine + Jatamansi (not St John's wort)",
+    "pass": true,
+    "alerts": []
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "HDI",
+    "label": "Ciprofloxacin + Praval Pishti (spacing issue, not contraindication)",
+    "pass": true,
+    "alerts": [
+      "WARNING",
+      "INFO"
+    ]
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "DDI",
+    "label": "Telmisartan + amlodipine (standard IHCI step)",
+    "pass": true,
+    "alerts": []
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "DDI",
+    "label": "Metoprolol + digoxin (common in AF; monitor)",
+    "pass": true,
+    "alerts": [
+      "WARNING",
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "DDI",
+    "label": "Telmisartan + ibuprofen 3 days (monitor, not contraindicated)",
+    "pass": true,
+    "alerts": [
+      "WARNING"
+    ]
+  },
+  {
+    "kind": "BENIGN",
+    "cat": "SCHED",
+    "label": "Ashwagandha Rasayana must not be called Schedule E(1)",
+    "pass": true,
+    "alerts": []
+  }
+]

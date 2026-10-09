@@ -41,7 +41,13 @@ export const FAMILIES: Record<string, RegExp> = {
   swelling: /swelling|oedema|edema|shotha/i,
   ear_pain: /\bear\b/i,
   toothache: /tooth|dental/i,
-  eye: /\beye|conjunctiv/i
+  eye: /\beye|conjunctiv/i,
+  retention: /retention/i,
+  polyuria: /polyuria|frequent urination/i,
+  thirst: /polydipsia|thirst/i,
+  burning_feet: /burning feet|pada daha/i,
+  wound: /wound|ulcer|vrana/i,
+  pv_bleed: /per vagina|rectum|rectal/i
 };
 const HISTORY: Record<string, RegExp> = {
   diabetes: /diabetes/i,
@@ -55,12 +61,14 @@ const HISTORY: Record<string, RegExp> = {
 interface Case {
   t: string; p?: string[]; n?: string[]; v?: Record<string, string | number>; nv?: string[];
   d?: Record<string, string>; sev?: Record<string, number>; h?: string[]; nh?: string[]; rf?: boolean;
+  /** SOCRATES detail per symptom family: radiation, exacerbating, relieving, timing, onsetType */
+  x?: Record<string, Record<string, string>>; split?: 'tune' | 'holdout';
 }
 
 /** `set`: 'gold' (tuning set, gated), 'blind' / 'holdout' (written before tuning; reported, not used for tuning). */
-export function runExtractionGold(verbose = false, set: 'gold' | 'blind' | 'holdout' = 'gold') {
+export function runExtractionGold(verbose = false, set: string = 'gold', split?: string) {
   const file = resolve(__dirname, `../../edge-ai/eval/${set === 'gold' ? 'extraction_cases' : `extraction_${set}`}.json`);
-  const cases: Case[] = JSON.parse(readFileSync(file, 'utf8')).cases;
+  const cases: Case[] = (JSON.parse(readFileSync(file, 'utf8')).cases as Case[]).filter(c => !split || c.split === split);
   const score: Record<string, [number, number]> = {};
   const fails: string[] = [];
   const check = (cat: string, ok: boolean, what: string) => {
@@ -86,6 +94,14 @@ export function runExtractionGold(verbose = false, set: 'gold' | 'blind' | 'hold
       const s = present(f)[0];
       const dur = (s as any)?.duration || s?.onset;
       check('duration', dur === want, `"${c.t}" ${f} duration should be ${want} — got ${dur ?? 'nothing'}`);
+    }
+    for (const [f, fields] of Object.entries(c.x || {})) {
+      const s: any = present(f)[0];
+      for (const [field, want] of Object.entries(fields)) {
+        const got = String(s?.[field] ?? '');
+        const same = field === 'radiation' ? got.split(/,\s*/).sort().join(', ') === want.split(/,\s*/).sort().join(', ') : got === want;
+        check('socrates detail', !!s && same, `"${c.t}" ${f}.${field} should be "${want}" — got "${got}"`);
+      }
     }
     for (const [f, min] of Object.entries(c.sev || {})) {
       const s = present(f)[0];
@@ -119,7 +135,8 @@ export function runExtractionGold(verbose = false, set: 'gold' | 'blind' | 'hold
 
 if (require.main === module) {
   const i = process.argv.indexOf('--set');
-  const set = (i > 0 ? process.argv[i + 1] : 'gold') as 'gold' | 'blind' | 'holdout';
-  const { gatesOk } = runExtractionGold(process.argv.includes('-v'), set);
+  const set = i > 0 ? process.argv[i + 1] : 'gold';
+  const j = process.argv.indexOf('--split');
+  const { gatesOk } = runExtractionGold(process.argv.includes('-v'), set, j > 0 ? process.argv[j + 1] : undefined);
   process.exit(gatesOk ? 0 : 1);
 }

@@ -4,6 +4,7 @@
  */
 
 import Database from 'better-sqlite3';
+import { runMigrations } from './migrations';
 import path from 'path';
 import fs from 'fs';
 
@@ -313,4 +314,5 @@ if (!countRow || countRow.cnt < 45 || !hasIndo || hasIndo.cnt === 0) {
   console.log(`[Database] Seeded ${initialSeed.length} canonical Allopathic & AFI formulations into FTS5 trigram virtual table.`);
 }
 
-console.log(`[Database] Sovereign SQLite engine initialized in WAL mode at: ${DB_PATH}`);
+const migrated = runMigrations(db);
+console.log(`[Database] SQLite (WAL) ready at ${DB_PATH}; schema v${migrated.current}${migrated.applied.length ? ` (applied: ${migrated.applied.join(', ')})` : ''}`);

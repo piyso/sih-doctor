@@ -24,14 +24,22 @@ export const AdminConsoleView: React.FC = () => {
   const user = useStaffUser();
   const isAdmin = user?.role === 'admin';
   const tabs = TABS.filter(t => isAdmin || !t.adminOnly);
-  const [tab, setTab] = useState<Tab>('analytics');
+  // ?tab=staff (etc.) opens a tab directly, e.g. from the demonstration-mode switch.
+  const [tab, setTab] = useState<Tab>(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+      return t && TABS.some(x => x.id === t) ? t : 'analytics';
+    } catch { return 'analytics'; }
+  });
+
+  const activeTab: Tab = tabs.some(t => t.id === tab) ? tab : 'analytics';
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-5 py-4">
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mb-4 pb-1" role="tablist">
         {tabs.map(t => {
           const Icon = t.icon;
-          const active = tab === t.id;
+          const active = activeTab === t.id;
           return (
             <button
               key={t.id}
@@ -46,12 +54,12 @@ export const AdminConsoleView: React.FC = () => {
           );
         })}
       </div>
-      {tab === 'analytics' && <AnalyticsPanel />}
-      {tab === 'staff' && isAdmin && <StaffPanel />}
-      {tab === 'devices' && isAdmin && <DevicesPanel />}
-      {tab === 'audit' && isAdmin && <AuditPanel />}
-      {tab === 'privacy' && isAdmin && <PrivacyPanel />}
-      {tab === 'system' && isAdmin && <SystemPanel />}
+      {activeTab === 'analytics' && <AnalyticsPanel />}
+      {activeTab === 'staff' && isAdmin && <StaffPanel />}
+      {activeTab === 'devices' && isAdmin && <DevicesPanel />}
+      {activeTab === 'audit' && isAdmin && <AuditPanel />}
+      {activeTab === 'privacy' && isAdmin && <PrivacyPanel />}
+      {activeTab === 'system' && isAdmin && <SystemPanel />}
     </div>
   );
 };

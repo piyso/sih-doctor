@@ -174,8 +174,10 @@ export function runTenDimensionalEdgeCaseMatrix(): TenDimensionalMatrixResult {
     [{ drugName: 'Furosemide', dosage: '40mg', route: 'Oral', frequency: 'OD', timing: 'Before Food (AC)', duration: '30d' }],
     [{ formulationName: 'Yashtimadhu Churna', category: 'Churna', dosage: '3g', frequency: 'BD', anupana: 'Water', timing: 'Prathakaal (Morning)', duration: '15d' }]
   );
+  // Licorice + a loop diuretic is additive potassium loss: a monitoring (WARN) interaction. It becomes a
+  // STOP only with digoxin on board (see the quadruple cardiotoxicity case). Recalibrated 2026-10-09.
   runSubTest(4, 'Clinical Toxicology', 'Yashtimadhu 11β-HSD2 Hypokalemic Crisis',
-    licoriceLasixAlerts.some(a => a.severity === 'CRITICAL_CONTRAINDICATION' && (a.mechanism.toLowerCase().includes('hypokalemia') || a.mechanism.toLowerCase().includes('11-beta'))),
+    licoriceLasixAlerts.some(a => a.tier === 'WARN' && /11β|11-beta|potassium|hypokal/i.test(a.mechanism)) && !licoriceLasixAlerts.some(a => a.tier === 'STOP'),
     'Failed to detect Licorice pseudoaldosteronism hypokalemic crash with loop diuretic');
 
   // 4.3 Guggulu x Levothyroxine (Thyrotoxic T4->T3 Conversion Surge)

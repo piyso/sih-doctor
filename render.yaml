@@ -12,10 +12,17 @@ services:
         value: 8001
       - key: NODE_ENV
         value: production
+      # Browser origins of the frontends (production ignores "*"; list each origin).
       - key: CORS_ORIGIN
-        value: "*"
+        value: "https://sih-doctor.vercel.app,https://hospitalos-doctor-frontend.onrender.com"
       - key: DB_PATH
         value: /app/data/hospital.db
+      # Public demonstration server: starts with demo data; an administrator can switch it off and on
+      # (Administration → System, or the "Demo mode" badge). Never use these two with real patients.
+      - key: ALLOW_DEMO_DATA
+        value: "true"
+      - key: DEMO_TOGGLE
+        value: "true"
 
   - type: web
     name: hospitalos-doctor-frontend

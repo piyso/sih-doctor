@@ -36,6 +36,7 @@ export interface SocratesSymptom {
   rawVernacular?: string;    // Spoken input (e.g. "chhati me dard aur jalan")
   site?: string;             // Anatomical site (e.g. "Substernal", "Epigastrium")
   onset?: string;            // Temporal onset (e.g. "since 3 days", "sudden 2h ago")
+  onsetType?: 'Sudden' | 'Gradual'; // how it started, when the patient said so ("अचानक", "धीरे धीरे")
   character?: string;        // Dull, Sharp, Burning, Throbbing, Constricting
   radiation?: string;        // Radiation to left arm, back, jaw, none
   associated?: string[];     // Associated symptoms (Nausea, Vomiting, Diaphoresis)
@@ -45,6 +46,7 @@ export interface SocratesSymptom {
   severity: number;          // 1-10 VAS scale
   severityScore?: number;    // Interoperability alias with frontend
   isNegated: boolean;        // true if "dard nahi hai"
+  isResolved?: boolean;      // denied only because it has stopped ("बुखार उतर गया", "the cough has gone")
 }
 
 export type AgniType = 'Mandagni' | 'Tikshnagni' | 'Vishamagni' | 'Samagni';
@@ -139,9 +141,9 @@ export interface DigitizedDocument {
 
 export interface AllopathicMedication {
   drugName: string;
-  dosage: string;            // e.g. 650mg, 40mg
+  dosage: string;            // e.g. 650mg, 40mg; '' when not stated
   route: 'Oral' | 'Topical' | 'Inhalation' | 'IV' | 'IM';
-  frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS';
+  frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS' | '';   // '' = not stated
   timing: 'Before Food (AC)' | 'After Food (PC)' | 'With Food' | 'Anytime' | 'Bedtime (HS)' | 'Morning' | 'Night' | 'After Food' | 'Before Food';
   duration: string;           // e.g. 5 days, 1 month
   instructions?: string;
@@ -158,7 +160,7 @@ export interface AyushFormulation {
   duration: string;
 }
 
-export type ContraindicationSeverity = 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'AYUSH_INCOMPATIBILITY' | 'INFO';
+export type ContraindicationSeverity = 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'AYUSH_INCOMPATIBILITY' | 'INFO' | 'STATUTORY_SCHEDULE_E1';
 
 export interface ConflictAlert {
   alertId: string;
@@ -166,9 +168,17 @@ export interface ConflictAlert {
   itemA: string;             // e.g. "Warfarin"
   itemB: string;             // e.g. "Guggulu"
   mechanism: string;         // Pharmacological/Pharmacokinetic mechanism
-  evidenceScore: number;     // 0.0 to 1.0 (Beta-Binomial Bayesian confidence)
+  evidenceScore: number;     // 0.0 to 1.0, from the stated evidence level
   clinicalAction: string;    // What the doctor must do
   citation?: string;         // Pharmacopoeia / BMJ / ICMR reference
+  /** STOP needs a typed reason before signing; WARN is shown inline; INFO is in the summary. */
+  tier?: 'STOP' | 'WARN' | 'INFO';
+  family?: string;
+  /** Alerts about the same lines and family share a key (one card, one acknowledgement). */
+  groupKey?: string;
+  lineRefs?: number[];
+  evidence?: 'established' | 'probable' | 'theoretical' | 'statutory';
+  source?: 'rules' | 'registry' | 'ontology' | 'ayush_engine';
 }
 
 export interface NamasteTriCodedDiagnosis {

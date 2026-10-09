@@ -11,6 +11,7 @@
  */
 
 import express, { Router, Request, Response } from 'express';
+import { BhashiniClient } from '../services/externalSigning.service';
 import { db } from '../db/database';
 import { requireKioskOrStaff, requireStaff, rateLimit } from '../security/middleware';
 import { CLINICIAN_ROLES } from '../security/config';
@@ -41,7 +42,7 @@ aiRouter.post('/asr', requireKioskOrStaff, aiLimiter, express.raw({ type: ['audi
     return;
   }
   try {
-    const r = await EdgeAiClient.transcribe(req.body, String(req.headers['content-type'] || ''), cleanLang(req.query.lang));
+    const r = await EdgeAiClient.transcribe(req.body, String(req.headers['content-type'] || ''), cleanLang(req.query.lang), req.query.profile === 'dictation' ? 'dictation' : undefined);
     res.json({ success: true, data: r });
   } catch (err: any) {
     res.status(502).json({ error: 'Speech recognition failed. Please try again or type instead.', detail: err.message });
@@ -84,12 +85,14 @@ aiRouter.post('/translate', requireStaff(...CLINICIAN_ROLES, 'pharmacist'), aiLi
     res.json({ success: true, data: { translations: texts, machine: false } });
     return;
   }
-  if (!(await EdgeAiClient.available('translate'))) {
+  const onPrem = await EdgeAiClient.available('translate');
+  if (!onPrem && !BhashiniClient.configured()) {
     res.status(503).json({ error: 'On-premise translation is not available.', code: 'TRANSLATE_UNAVAILABLE' });
     return;
   }
   try {
-    const r = await EdgeAiClient.translate(texts, 'en', target);
+    // On-premise first; Bhashini (MeitY) only when configured and the local model is absent.
+    const r = onPrem ? await EdgeAiClient.translate(texts, 'en', target) : await BhashiniClient.translate(texts, 'en', target);
     audit(req, 'ai.translate', null, { target, count: texts.length, model: r.model });
     res.json({ success: true, data: { translations: r.translations, machine: true, model: r.model } });
   } catch (err: any) {

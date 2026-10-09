@@ -41,9 +41,11 @@ export function runClinicalSafetyBattery() {
   check(ids(TruthEngineService.evaluatePrescriptions([med('Paracetamol')], [herb('Sitopaladi Churna')])).length === 0, 'safe pair stays silent');
 
   console.log('\n--- Evidence engine ---');
-  const pair = BayesianTruthEngineService.evaluatePair('Warfarin', 'Yograj Guggulu');
+  const pair = BayesianTruthEngineService.evaluatePair('Digoxin', 'Yashtimadhu Churna');
   check(pair.prior.source === 'registry' && pair.observationsUsed === 0, 'registry prior used, no fabricated observations');
-  check(pair.bayesFactor > 3 && pair.direction === 'interaction', `BF10 ${pair.bayesFactor} (Savage-Dickey) favours interaction`);
+  check(pair.bayesFactor > 3 && pair.direction === 'interaction', `BF10 ${pair.bayesFactor} (Savage-Dickey) favours interaction for an established pair`);
+  const weak = BayesianTruthEngineService.evaluatePair('Warfarin', 'Yograj Guggulu');
+  check(!weak.isStatisticallySignificant, `case-report-level pair (Warfarin + Guggulu) is not significant from the prior alone (BF10 ${weak.bayesFactor})`);
   const flat = TruthEngine.computePosterior('a', 'b', []);
   check(flat.bayesFactor === 1 && flat.direction === 'undetermined', 'no data: BF10 = 1, direction undetermined');
   const unknown = BayesianTruthEngineService.evaluatePair('Paracetamol', 'Triphala Churna');

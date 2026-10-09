@@ -17,9 +17,11 @@ const loginLimiter = rateLimit('login', 30, 60_000);
 authRouter.get('/status', (_req: Request, res: Response): void => {
   const users = AuthService.listUsers();
   res.json({
-    needsSetup: users.length === 0,
+    // Demo accounts cannot sign in while demonstration mode is off, so they do not count as set up.
+    needsSetup: !users.some(u => !u.isDemo) && !securityConfig.allowDemo,
     setupNeedsCode: securityConfig.isProduction,
     demoMode: securityConfig.allowDemo,
+    demoToggle: securityConfig.demoToggle,
     // Usernames only (never PINs), so testers know which demo accounts exist.
     demoAccounts: securityConfig.allowDemo
       ? users.filter(u => u.isDemo && u.active).map(u => ({ username: u.username, displayName: u.displayName, role: u.role }))
@@ -28,9 +30,11 @@ authRouter.get('/status', (_req: Request, res: Response): void => {
   });
 });
 
-/** First-run: create the first administrator. Only works while there are no staff accounts. */
+/** First-run: create the first administrator (no real staff account yet, demonstration mode off). */
 authRouter.post('/setup', loginLimiter, (req: Request, res: Response): void => {
-  if (AuthService.countUsers() > 0) {
+  // Open only while no real account exists and demo accounts cannot sign in (demonstration mode
+  // off); with demonstration mode on, the demo administrator adds accounts under Staff instead.
+  if (AuthService.listUsers().some(u => !u.isDemo) || securityConfig.allowDemo) {
     res.status(409).json({ error: 'Setup has already been completed.' });
     return;
   }
@@ -63,6 +67,11 @@ authRouter.post('/login', loginLimiter, (req: Request, res: Response): void => {
       ? 'This account has been deactivated. Contact the administrator.'
       : 'Username or PIN is not correct.';
     res.status(result.reason === 'locked' ? 423 : 401).json({ error: message, code: result.reason.toUpperCase() });
+    return;
+  }
+  if (result.user.isDemo && !securityConfig.allowDemo) {
+    AuthService.logout(result.token);
+    res.status(403).json({ error: 'Demo accounts are switched off on this server (demonstration mode is off). Sign in with your own account.', code: 'DEMO_ACCOUNT_OFF' });
     return;
   }
   res.json({ success: true, token: result.token, expiresAt: result.expiresAt, user: result.user, idleMinutes: securityConfig.idleMinutes });

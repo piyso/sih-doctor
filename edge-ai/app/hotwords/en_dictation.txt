@@ -1,0 +1,1064 @@
+# Medicine names for doctor dictation (profile=dictation): generics and Indian brands from
+# backend/src/services/safety/drugDictionary.ts plus common Ayurvedic formulation words. Regenerate when the formulary changes.
+paracetamol
+ibuprofen
+diclofenac
+aceclofenac
+naproxen
+mefenamic acid
+etoricoxib
+celecoxib
+ketorolac
+nimesulide
+aspirin
+tramadol
+tapentadol
+codeine
+morphine
+pentazocine
+buprenorphine
+amoxicillin
+amoxicillin clavulanic acid
+ampicillin
+cloxacillin
+phenoxymethylpenicillin
+benzathine benzylpenicillin
+cefalexin
+cefadroxil
+cefuroxime
+cefixime
+cefpodoxime
+ceftriaxone
+azithromycin
+clarithromycin
+erythromycin
+ciprofloxacin
+levofloxacin
+ofloxacin
+norfloxacin
+moxifloxacin
+doxycycline
+tetracycline
+co trimoxazole
+nitrofurantoin
+metronidazole
+tinidazole
+ornidazole
+clindamycin
+linezolid
+gentamicin
+fluconazole
+itraconazole
+ketoconazole
+terbinafine
+griseofulvin
+isoniazid
+rifampicin
+pyrazinamide
+ethambutol
+chloroquine
+hydroxychloroquine
+primaquine
+artemether lumefantrine
+albendazole
+mebendazole
+ivermectin
+diethylcarbamazine
+aciclovir
+oseltamivir
+amlodipine
+nifedipine
+cilnidipine
+diltiazem
+verapamil
+atenolol
+metoprolol
+bisoprolol
+nebivolol
+propranolol
+carvedilol
+labetalol
+enalapril
+ramipril
+lisinopril
+telmisartan
+losartan
+olmesartan
+hydrochlorothiazide
+chlorthalidone
+indapamide
+furosemide
+torasemide
+spironolactone
+eplerenone
+amiloride
+isosorbide mononitrate
+isosorbide dinitrate
+glyceryl trinitrate
+nicorandil
+digoxin
+amiodarone
+ivabradine
+prazosin
+clonidine
+methyldopa
+hydralazine
+sildenafil
+tadalafil
+warfarin
+acenocoumarol
+clopidogrel
+ticagrelor
+prasugrel
+rivaroxaban
+apixaban
+dabigatran
+enoxaparin
+atorvastatin
+rosuvastatin
+simvastatin
+lovastatin
+pravastatin
+fenofibrate
+gemfibrozil
+ezetimibe
+metformin
+glimepiride
+glibenclamide
+gliclazide
+glipizide
+sitagliptin
+vildagliptin
+teneligliptin
+empagliflozin
+dapagliflozin
+pioglitazone
+voglibose
+acarbose
+insulin
+pantoprazole
+omeprazole
+esomeprazole
+rabeprazole
+lansoprazole
+famotidine
+ranitidine
+domperidone
+metoclopramide
+ondansetron
+dicyclomine
+drotaverine
+hyoscine butylbromide
+loperamide
+oral rehydration salts
+zinc sulfate
+lactulose
+bisacodyl
+ispaghula husk
+sucralfate
+ursodeoxycholic acid
+mesalazine
+salbutamol
+levosalbutamol
+budesonide
+formoterol
+tiotropium
+montelukast
+theophylline
+etofylline
+doxofylline
+cetirizine
+levocetirizine
+fexofenadine
+loratadine
+chlorphenamine
+promethazine
+hydroxyzine
+diphenhydramine
+ambroxol
+bromhexine
+dextromethorphan
+guaifenesin
+phenylephrine
+pseudoephedrine
+levothyroxine
+carbimazole
+thiamazole
+propylthiouracil
+prednisolone
+dexamethasone
+methylprednisolone
+deflazacort
+hydrocortisone
+alprazolam
+clonazepam
+diazepam
+lorazepam
+chlordiazepoxide
+zolpidem
+amitriptyline
+nortriptyline
+imipramine
+fluoxetine
+sertraline
+escitalopram
+paroxetine
+fluvoxamine
+duloxetine
+venlafaxine
+mirtazapine
+haloperidol
+olanzapine
+risperidone
+quetiapine
+lithium carbonate
+phenytoin
+carbamazepine
+oxcarbazepine
+sodium valproate
+levetiracetam
+lamotrigine
+phenobarbital
+topiramate
+gabapentin
+pregabalin
+sumatriptan
+flunarizine
+betahistine
+cinnarizine
+prochlorperazine
+donepezil
+levodopa carbidopa
+trihexyphenidyl
+disulfiram
+tizanidine
+thiocolchicoside
+chlorzoxazone
+methocarbamol
+baclofen
+allopurinol
+febuxostat
+colchicine
+glucosamine
+calcium carbonate
+cholecalciferol
+ferrous salt
+folic acid
+vitamin b
+potassium chloride
+tamsulosin
+finasteride
+oxybutynin
+tolterodine
+flavoxate
+combined oral contraceptive
+medroxyprogesterone
+norethisterone
+dydrogesterone
+progesterone
+misoprostol
+clomifene
+tranexamic acid
+mifepristone
+methotrexate
+azathioprine
+leflunomide
+mycophenolate mofetil
+tacrolimus
+ciclosporin
+isotretinoin
+acitretin
+rabies vaccine
+rabies immunoglobulin
+metformin glimepiride
+metformin sitagliptin
+metformin vildagliptin
+pantoprazole domperidone
+rabeprazole domperidone
+mefenamic acid dicyclomine
+dicyclomine paracetamol
+montelukast levocetirizine
+etofylline theophylline
+ibuprofen paracetamol
+aceclofenac paracetamol
+aceclofenac paracetamol serratiopeptidase
+diclofenac paracetamol
+tramadol paracetamol
+telmisartan hydrochlorothiazide
+telmisartan amlodipine
+losartan hydrochlorothiazide
+atorvastatin aspirin
+aspirin clopidogrel
+amoxicillin dicloxacillin
+ofloxacin ornidazole
+norfloxacin tinidazole
+cefixime ofloxacin
+paracetamol phenylephrine chlorphenamine
+levocetirizine ambroxol
+chlorphenamine codeine
+acetaminophen
+dolo
+calpol
+crocin
+pacimol
+metacin
+fepanil
+sumo l
+brufen
+ibugesic
+voveran
+dynapar
+reactin
+zerodol
+hifenac
+acenac
+naprosyn
+naxdom
+meftal
+ponstan
+etoshine
+nucoxia
+arcoxia
+celebrex
+ketorol
+toradol
+nise
+nimulid
+acetylsalicylic acid
+ecosprin
+disprin
+loprin
+contramal
+tramazac
+ultram
+tapal
+tydol
+codeine phosphate
+fortwin
+amoxycillin
+novamox
+amoxil
+almox
+co amoxiclav
+amoxicillin clavulanate
+amoxycillin clavulanate
+augmentin
+moxclav
+clavam
+moxikind cv
+amoxyclav
+penicillin v
+pen v
+benzathine penicillin
+penidure
+pencom
+cephalexin
+sporidex
+phexin
+droxyl
+odoxil
+cefuroxime axetil
+ceftum
+zinnat
+taxim o
+zifi
+mahacef
+cefix
+cepodem
+monocef o
+monocef
+rocephin
+intacef
+azee
+azithral
+zithromax
+azax
+claribid
+klaricid
+althrocin
+erythrocin
+cifran
+ciplox
+ciprobid
+cipro
+levoflox
+glevo
+levomac
+tavanic
+zanocin
+oflox
+norflox
+moxif
+avelox
+doxt
+doxy
+microdox
+biodoxi
+trimethoprim sulfamethoxazole
+sulfamethoxazole trimethoprim
+bactrim
+septran
+septra
+smx tmp
+tmp smx
+niftran
+furadantin
+macrobid
+flagyl
+metrogyl
+metron
+fasigyn
+tiniba
+dazolic
+dalacin
+clindac
+linospan
+lizolid
+forcan
+zocon
+syscan
+itaspor
+canditral
+sporanox
+nizral
+terbicip
+lamisil
+grisovin
+rifampin
+r cin
+rimactane
+combutol
+myambutol
+lariago
+resochin
+hcqs
+plaquenil
+coartem
+lumerax
+falcynate lf
+zentel
+bandy
+mebex
+ivermectol
+iverjohn
+banocide
+hetrazan
+acyclovir
+acivir
+zovirax
+tamiflu
+fluvir
+amlong
+amlokind
+stamlo
+amlopres
+amlip
+norvasc
+depin
+nicardia
+calcigard
+cilacar
+cinod
+dilzem
+dilcontin
+calaptin
+aten
+tenormin
+betacard
+metoprolol succinate
+metoprolol tartrate
+metolar
+met xl
+betaloc
+seloken
+revelol
+metpure
+concor
+corbis
+nebicard
+nebistar
+ciplar
+inderal
+carca
+cardivas
+lobet
+envas
+enam
+vasotec
+cardace
+ramace
+altace
+listril
+lipril
+telma
+telmikind
+telsar
+telvas
+micardis
+losar
+repace
+losacar
+cozaar
+olmezest
+olsar
+hctz
+aquazide
+hydrazide
+thaloric
+clorpres
+natrilix
+lorvas
+frusemide
+lasix
+torsemide
+dytor
+tide
+aldactone
+eptus
+monotrate
+imdur
+ismo
+sorbitrate
+isordil
+nitroglycerin
+nitroglycerine
+nitrocontin
+angispan
+korandil
+nikoran
+lanoxin
+digox
+cordarone
+tachyra
+ivabrad
+bradia
+minipress
+arkamin
+catapres
+alphadopa
+aldomet
+viagra
+penegra
+manforce
+suhagra
+cialis
+megalis
+tadacip
+coumadin
+warf
+uniwarfin
+acitrom
+nicoumalone
+clopilet
+plavix
+clopitab
+deplatt
+brilinta
+axcer
+prasita
+effient
+xarelto
+eliquis
+apigat
+pradaxa
+clexane
+lomoh
+atorva
+lipitor
+storvas
+atocor
+tonact
+rosuvas
+crestor
+rozavel
+rosulip
+simvotin
+zocor
+lipicard
+fenolip
+tricor
+lopid
+ezedoc
+zetia
+glycomet
+glucophage
+gluconorm
+obimet
+glyciphage
+metformin hydrochloride
+amaryl
+glimy
+glimestar
+zoryl
+glyburide
+daonil
+euglucon
+diamicron
+glizid
+reclide
+glynase
+januvia
+istavel
+zita
+galvus
+jalra
+zomelis
+tenepride
+teneza
+zita plus
+jardiance
+gibtulio
+forxiga
+dapaglyn
+oxra
+pioz
+pioglit
+volix
+vobose
+glucobay
+human insulin
+insulin regular
+actrapid
+mixtard
+huminsulin
+insulatard
+lantus
+glargine
+insulin glargine
+novorapid
+aspart
+lispro
+humalog
+basalog
+pantocid
+pantop
+protonix
+pantodac
+omez
+ocid
+prilosec
+nexpro
+esoz
+nexium
+rablet
+razo
+rabicip
+happi
+lanzol
+prevacid
+famocid
+topcid
+rantac
+aciloc
+zinetac
+domstal
+vomistop
+motilium
+perinorm
+reglan
+emeset
+ondem
+vomikind
+zofran
+dicycloverine
+cyclopam
+colimex
+meftal spas
+drotin
+doverin
+no spa
+buscopan
+imodium
+eldoper
+lopamide
+oral rehydration solution
+electral
+ors sachet
+zinc
+zinconia
+zinc dispersible
+duphalac
+looz
+dulcolax
+psyllium
+isabgol
+isabgol husk
+sat isabgol
+sucral
+sparacid
+digene
+gelusil
+mucaine
+antacid
+aluminium hydroxide
+magnesium hydroxide
+udiliv
+ursocol
+udca
+mesacol
+asacol
+albuterol
+asthalin
+ventolin
+levolin
+budecort
+pulmicort
+foracort
+formonide
+tiova
+spiriva
+montair
+montek
+romilast
+singulair
+theo asthalin
+theobid
+unicontin
+doxobid
+doxolin
+synasma
+cetzine
+okacet
+alerid
+zyrtec
+cetrizine
+levocet
+xyzal
+teczine
+lecope
+allegra
+fexova
+lorfast
+claritin
+piriton
+phenergan
+avomine
+atarax
+benadryl
+mucolite
+ambrodil
+bisolvon
+guaiphenesin
+thyroxine
+thyronorm
+eltroxin
+thyrox
+lethyrox
+synthroid
+neo mercazole
+neomercazole
+methimazole
+thyrocab
+wysolone
+omnacortil
+predone
+dexona
+decadron
+medrol
+solu medrol
+defcort
+alprax
+restyl
+alzolam
+xanax
+rivotril
+clonotril
+lonazep
+petril
+valium
+calmpose
+ativan
+larpose
+librium
+zolfresh
+nitrest
+ambien
+tryptomer
+amitone
+elavil
+sensival
+primox
+depsonil
+fludac
+prodep
+prozac
+flunil
+serta
+daxid
+serlift
+zoloft
+nexito
+cipralex
+stalopam
+feliz s
+pari
+paxil
+fluvoxin
+luvox
+duzela
+dulane
+cymbalta
+venlor
+effexor
+mirtaz
+mirt
+serenace
+haldol
+oleanz
+olanex
+risdone
+sizodon
+qutipin
+seroquel
+lithosun
+licab
+eptoin
+dilantin
+phenytoin sodium
+tegretol
+mazetol
+zen retard
+oxetol
+trileptal
+valproic acid
+divalproex
+divalproex sodium
+valparin
+encorate
+epilex
+dicorate
+depakote
+levipil
+keppra
+levroxa
+lamitor
+lametec
+phenobarbitone
+gardenal
+topamac
+topamax
+gabapin
+gabantin
+neurontin
+lyrica
+pregaba
+pregalin
+suminat
+imigran
+sibelium
+flunarin
+vertin
+betaserc
+stugeron
+stemetil
+donecept
+aricept
+syndopa
+tidomet
+sinemet
+pacitane
+benzhexol
+esperal
+antabuse
+tizan
+sirdalud
+myoril
+thiospa
+robinax
+liofen
+lioresal
+zyloric
+zyloprim
+febutaz
+zurig
+febucip
+zycolchin
+goutnil
+glucosamine sulphate
+glucosamine sulfate
+calcium
+calcium citrate
+shelcal
+calcimax
+cipcal
+vitamin d
+calcirol
+uprise d
+d rise
+arachitol
+ferrous sulphate
+ferrous sulfate
+ferrous fumarate
+iron
+oral iron
+livogen
+autrin
+orofer
+dexorange
+iron folic acid
+folate
+folvite
+methylcobalamin
+mecobalamin
+cyanocobalamin
+nurokind
+methycobal
+potklor
+urimax
+veltam
+flomax
+finast
+fincar
+proscar
+cystran
+oxyspas
+roliten
+detrol
+urispas
+oral contraceptive
+oral contraceptive pill
+ethinylestradiol levonorgestrel
+levonorgestrel ethinylestradiol
+ethinylestradiol
+mala d
+ovral
+ovral l
+loette
+yasmin
+novelon
+meprate
+depo provera
+antara
+primolut n
+regestrone
+duphaston
+susten
+naturogest
+cytotec
+misoprost
+cytolog
+clomiphene citrate
+clomid
+fertyl
+siphene
+pause
+trapic
+cyklokapron
+mifegest
+folitrax
+imutrex
+trexall
+azoran
+imuran
+lefno
+arava
+cellcept
+mycept
+pangraf
+tacrograf
+cyclosporine
+sandimmun
+panimun
+isotroin
+sotret
+accutane
+acetec
+acitrin
+anti rabies vaccine
+rabipur
+verorab
+abhayrab
+indirab
+vaxirab
+rabivax s
+rabivax
+erig
+hrig
+equine rabies immunoglobulin
+human rabies immunoglobulin
+equirab
+kamrab
+berirab
+td vaccine
+tetanus toxoid
+tt injection
+tetanus vaccine
+hrze
+forecox
+glycomet gp
+gemer
+glimy m
+janumet
+istamet
+galvus met
+jalra m
+pan d
+pantocid d
+pantop d
+rablet d
+razo d
+rabicip d
+cyclopam tablet
+montair lc
+montek lc
+levocet m
+deriphyllin
+deriphylline
+combiflam
+ibugesic plus
+flexon
+zerodol p
+hifenac p
+acenac p
+zerodol sp
+hifenac d
+dynapar plus
+voveran p
+ultracet
+dolotram
+tramazac p
+telma h
+telsar h
+telma am
+telmikind am
+losar h
+repace h
+ecosprin av
+clopilet a
+deplatt a
+ecosprin gold
+novaclox
+oflox oz
+zanocin oz
+norflox tz
+zifi o
+taxim of
+calcimax p
+sinarest
+coldact
+d cold total
+cheston cold
+codeine syrup
+corex
+phensedyl
+ashwagandha
+triphala
+guduchi
+giloy
+chyawanprash
+churna
+guggulu
+arishta
+asava
+vati
+kashayam
+bhasma
+shatavari
+brahmi
+yashtimadhu
+trikatu
+haritaki
+sitopaladi
+dashamoola
+mahanarayan
+avipattikar

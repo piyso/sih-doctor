@@ -91,10 +91,10 @@ export function computeCompleteness(h: Omit<ClinicalHistory, 'completeness'>): H
   };
   mark('chiefComplaint', true, !!h.chiefComplaint);
   mark('pastMedical', h.pastMedical.length > 0 || h.conditions.length > 0 || (h as any)._askedPastMedical === true, h.pastMedical.length > 0 || h.conditions.length > 0);
-  mark('pastSurgical', (h as any)._askedPastSurgical === true || h.pastSurgical.length > 0, h.pastSurgical.length > 0 || (h as any)._askedPastSurgical === true);
+  mark('pastSurgical', (h as any)._askedPastSurgical === true || h.pastSurgical.length > 0, h.pastSurgical.length > 0 || (h as any)._deniedPastSurgical === true);
   mark('drugHistory', h.drugHistory.length > 0 || !!h.currentMedicines || (h as any)._askedDrugs === true, h.drugHistory.length > 0 || !!h.currentMedicines);
-  mark('allergies', h.allergyList.length > 0 || !!h.allergies || (h as any)._askedAllergies === true, h.allergyList.length > 0 || !!h.allergies || (h as any)._askedAllergies === true);
-  mark('familyHistory', h.familyHistory.length > 0 || (h as any)._askedFamily === true, h.familyHistory.length > 0 || (h as any)._askedFamily === true);
+  mark('allergies', h.allergyList.length > 0 || !!h.allergies || (h as any)._askedAllergies === true, h.allergyList.length > 0 || !!h.allergies || (h as any)._deniedAllergies === true);
+  mark('familyHistory', h.familyHistory.length > 0 || (h as any)._askedFamily === true, h.familyHistory.length > 0 || (h as any)._deniedFamily === true);
   mark('personal', Object.keys(h.personal).length > 0, Object.keys(h.personal).length >= 3);
   const rosAsked = ROS_SYSTEMS.filter(s => h.reviewOfSystems[s] && h.reviewOfSystems[s] !== 'not_asked').length;
   mark('reviewOfSystems', rosAsked > 0, rosAsked >= ROS_SYSTEMS.length);
@@ -142,7 +142,9 @@ export function normaliseHistory(raw: any): ClinicalHistory {
   };
   const flags: any = { _askedPastMedical: Array.isArray(r.conditions) || r.askedSections?.pastMedical === true, _askedPastSurgical: r.askedSections?.pastSurgical === true,
     _askedDrugs: typeof r.currentMedicines === 'string' || r.askedSections?.drugHistory === true, _askedAllergies: typeof r.allergies === 'string' || r.askedSections?.allergies === true,
-    _askedFamily: r.askedSections?.familyHistory === true };
+    _askedFamily: r.askedSections?.familyHistory === true,
+    // Explicit denials come from the interview (answered 'none' / 'no'); a blank kiosk text box is not a denial.
+    _deniedAllergies: r.deniedSections?.allergies === true, _deniedFamily: r.deniedSections?.familyHistory === true, _deniedPastSurgical: r.deniedSections?.pastSurgical === true };
   const completeness = r.completeness && typeof r.completeness === 'object' && Number.isFinite(r.completeness.asked)
     ? r.completeness as HistoryCompleteness
     : computeCompleteness({ ...base, ...flags });
@@ -210,25 +212,25 @@ export function buildHistorySummary(input: SummaryInput): HistorySummary {
   add('hpi', 'History of present illness', hpiText, hpi.length ? `${hpi.join('; ')}।${denied.length ? ` ${hi('denied')}: ${denied.join(', ')}।` : ''}` : 'कोई शिकायत दर्ज नहीं।', hpi.length ? 'complete' : 'not_asked');
 
   const pm = h.pastMedical.map(p => `${p.name}${p.since ? ` (since ${p.since})` : ''}${p.status && p.status !== 'unknown' ? `, ${p.status}` : ''}`);
-  add('pastMedical', 'Past medical history', st.pastMedical === 'not_asked' ? 'Not asked.' : pm.length ? pm.join('; ') + '.' : 'No known chronic illness (patient denies).',
-    st.pastMedical === 'not_asked' ? hi('notAsked') : pm.length ? pm.join('; ') + '।' : 'कोई पुरानी बीमारी नहीं (मरीज़ ने नकारा)।', st.pastMedical);
+  add('pastMedical', 'Past medical history', st.pastMedical === 'not_asked' ? 'Not asked.' : pm.length ? pm.join('; ') + '.' : st.pastMedical === 'partial' ? 'Asked at the kiosk, not answered.' : 'No known chronic illness (patient denies).',
+    st.pastMedical === 'not_asked' ? hi('notAsked') : pm.length ? pm.join('; ') + '।' : st.pastMedical === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कोई पुरानी बीमारी नहीं (मरीज़ ने नकारा)।', st.pastMedical);
 
   const ps = h.pastSurgical.map(p => `${p.name}${p.since ? ` (${p.since})` : ''}`);
-  add('pastSurgical', 'Past surgical history', st.pastSurgical === 'not_asked' ? 'Not asked.' : ps.length ? ps.join('; ') + '.' : 'No previous surgery (patient denies).',
-    st.pastSurgical === 'not_asked' ? hi('notAsked') : ps.length ? ps.join('; ') + '।' : 'कोई शल्य-चिकित्सा नहीं।', st.pastSurgical);
+  add('pastSurgical', 'Past surgical history', st.pastSurgical === 'not_asked' ? 'Not asked.' : ps.length ? ps.join('; ') + '.' : st.pastSurgical === 'partial' ? 'Asked, not answered.' : 'No previous surgery (patient denies).',
+    st.pastSurgical === 'not_asked' ? hi('notAsked') : ps.length ? ps.join('; ') + '।' : st.pastSurgical === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कोई शल्य-चिकित्सा नहीं।', st.pastSurgical);
 
   const drugs = h.drugHistory.map(d => [d.name, d.dose, d.frequency, d.adherence && d.adherence !== 'unknown' ? `(${d.adherence})` : ''].filter(Boolean).join(' '));
   const allergies = h.allergyList.map(a => `${a.agent}${a.reaction ? `: ${a.reaction}` : ''}${a.severity && a.severity !== 'unknown' ? ` (${a.severity})` : ''}`);
   const drugText = [
-    st.drugHistory === 'not_asked' ? 'Current medicines: not asked.' : drugs.length ? `Current medicines: ${drugs.join('; ')}.` : 'No current medicines (patient denies).',
-    st.allergies === 'not_asked' ? 'Allergies: not asked.' : allergies.length ? `ALLERGIES: ${allergies.join('; ')}.` : 'No known allergies (patient denies).'
+    st.drugHistory === 'not_asked' ? 'Current medicines: not asked.' : drugs.length ? `Current medicines: ${drugs.join('; ')}.` : st.drugHistory === 'partial' ? 'Current medicines: asked, not answered.' : 'No current medicines (patient denies).',
+    st.allergies === 'not_asked' ? 'Allergies: not asked.' : allergies.length ? `ALLERGIES: ${allergies.join('; ')}.` : st.allergies === 'partial' ? 'Allergies: asked, not answered. Confirm before prescribing.' : 'No known allergies (patient denies).'
   ].join(' ');
   const drugStatus: SectionStatus = st.drugHistory === 'not_asked' && st.allergies === 'not_asked' ? 'not_asked' : st.drugHistory === 'complete' && st.allergies === 'complete' ? 'complete' : 'partial';
   add('drugAllergy', 'Drug and allergy history', drugText,
     `${drugs.length ? `वर्तमान दवाइयाँ: ${drugs.join('; ')}।` : st.drugHistory === 'not_asked' ? `दवाइयाँ: ${hi('notAsked')}।` : 'कोई दवा नहीं।'} ${allergies.length ? `एलर्जी: ${allergies.join('; ')}।` : st.allergies === 'not_asked' ? `एलर्जी: ${hi('notAsked')}।` : 'कोई एलर्जी नहीं।'}`, drugStatus);
 
   const fam = h.familyHistory.map(f => `${f.condition}${f.relation ? ` (${f.relation})` : ''}`);
-  add('family', 'Family history', st.familyHistory === 'not_asked' ? 'Not asked.' : fam.length ? fam.join('; ') + '.' : 'Nothing significant (patient denies).',
+  add('family', 'Family history', st.familyHistory === 'not_asked' ? 'Not asked.' : fam.length ? fam.join('; ') + '.' : st.familyHistory === 'partial' ? 'Asked, not answered.' : 'Nothing significant (patient denies).',
     st.familyHistory === 'not_asked' ? hi('notAsked') : fam.length ? fam.join('; ') + '।' : 'कुछ विशेष नहीं।', st.familyHistory);
 
   const p = h.personal;

@@ -9,6 +9,7 @@
 
 import { db } from '../db/database';
 import { PatientClinicalContext } from './core/clinicalOntology.engine';
+import { normaliseHistory } from './clinicalHistory.service';
 
 export interface PatientContextResult extends PatientClinicalContext {
   patientId: string;
@@ -39,16 +40,29 @@ export function buildPatientContext(patientId: string): PatientContextResult | n
   const age = Number.isFinite(Number(p.age)) && Number(p.age) > 0 ? Number(p.age) : undefined;
   if (age === undefined) missing.push('age');
 
-  // Known conditions from the newest kiosk history (legacy or structured).
+  // Known conditions, allergies and current medicines from recent kiosk histories (legacy or structured).
   const sessions = db.prepare('SELECT history_json FROM sessions WHERE patient_id = ? ORDER BY created_at DESC LIMIT 5').all(patientId) as any[];
   const conditions = new Set<string>();
+  const allergyMap = new Map<string, { agent: string; reaction?: string; severity?: string }>();
+  let allergiesAsked = false;
+  let reportedMedicines: string[] | undefined;
   for (const s of sessions) {
-    const h = safe<any>(s.history_json, null);
-    if (!h) continue;
-    for (const c of h.conditions || []) if (typeof c === 'string' && c && c !== 'None') conditions.add(c);
-    for (const c of h.pastMedical || []) if (c?.name) conditions.add(String(c.name));
+    const raw = safe<any>(s.history_json, null);
+    if (!raw) continue;
+    const h: any = normaliseHistory(raw);
+    for (const c of h.conditions || []) if (typeof c === 'string' && c && !/^none$/i.test(c)) conditions.add(c);
+    for (const a of h.allergyList || []) {
+      if (!a?.agent || /^(none|nil|no|nkda|no known)/i.test(String(a.agent).trim())) continue;
+      const k = String(a.agent).toLowerCase();
+      if (!allergyMap.has(k)) allergyMap.set(k, { agent: String(a.agent), reaction: a.reaction || undefined, severity: a.severity || undefined });
+    }
+    // Stored v2 histories carry the interview's own section status instead of the _asked flags.
+    if (h._askedAllergies || (h.allergyList || []).length || h.completeness?.sections?.allergies === 'complete') allergiesAsked = true;
+    if (!reportedMedicines && (h.drugHistory || []).length) reportedMedicines = (h.drugHistory as any[]).map(d => String(d.name)).filter(n => n && !/^(none|nil|no)$/i.test(n));
   }
-  if (conditions.size) sources.push('kiosk history');
+  if (conditions.size || allergyMap.size || reportedMedicines?.length) sources.push('kiosk history');
+  const allergies = allergyMap.size ? Array.from(allergyMap.values()) : allergiesAsked ? [] : undefined;
+  if (!allergies) missing.push('allergy history');
 
   // Most recent creatinine / eGFR from digitized documents.
   const docs = db.prepare('SELECT metadata_json, created_at FROM documents WHERE patient_id = ? ORDER BY created_at DESC LIMIT 20').all(patientId) as any[];
@@ -74,11 +88,15 @@ export function buildPatientContext(patientId: string): PatientContextResult | n
 
   const gestationalWeeks = Number(p.gestational_weeks) || undefined;
   const isPregnant = !!p.is_pregnant;
+  // NULL is stored when the patient did not answer or was not sure: that is unknown, not "not pregnant".
+  const pregnancyStatus: 'yes' | 'no' | 'unknown' = p.is_pregnant === null || p.is_pregnant === undefined ? 'unknown' : isPregnant ? 'yes' : 'no';
+  if (pregnancyStatus === 'unknown' && /^f/i.test(String(sex || gender || '')) && age !== undefined && age >= 12 && age <= 50) missing.push('pregnancy status');
   return {
     patientId,
     age,
     gender: sex || (gender || undefined),
     isPregnant,
+    pregnancyStatus,
     gestationalWeeks,
     trimester: isPregnant && gestationalWeeks ? (gestationalWeeks <= 12 ? 1 : gestationalWeeks <= 27 ? 2 : 3) : undefined,
     isLactating: !!p.is_lactating,
@@ -88,6 +106,9 @@ export function buildPatientContext(patientId: string): PatientContextResult | n
     latestCreatinine,
     isDiabetic: Array.from(conditions).some(c => /diabet|sugar|prameha|madhumeha/i.test(c)),
     knownConditions: Array.from(conditions),
+    conditions: Array.from(conditions),
+    allergies,
+    reportedMedicines,
     sources,
     missing
   };
@@ -100,10 +121,15 @@ export function cleanContext(raw: any): PatientClinicalContext | undefined {
   if (Number.isFinite(Number(raw.age))) out.age = Number(raw.age);
   if (typeof raw.gender === 'string') out.gender = raw.gender.toLowerCase();
   if (raw.isPregnant === true) out.isPregnant = true;
+  if (['yes', 'no', 'unknown'].includes(raw.pregnancyStatus)) out.pregnancyStatus = raw.pregnancyStatus;
   if (Number.isFinite(Number(raw.gestationalWeeks))) out.gestationalWeeks = Number(raw.gestationalWeeks);
   if (raw.isLactating === true) out.isLactating = true;
   if (Number.isFinite(Number(raw.eGfr))) out.eGfr = Number(raw.eGfr);
   if (Number.isFinite(Number(raw.weightKg))) out.weightKg = Number(raw.weightKg);
   if (raw.isDiabetic === true) out.isDiabetic = true;
+  if (Array.isArray(raw.allergies)) out.allergies = raw.allergies.map((a: any) => typeof a === 'string' ? { agent: a } : { agent: String(a?.agent || ''), reaction: a?.reaction, severity: a?.severity }).filter((a: any) => a.agent);
+  if (Array.isArray(raw.conditions)) out.conditions = raw.conditions.map(String).filter(Boolean);
+  if (Array.isArray(raw.reportedMedicines)) out.reportedMedicines = raw.reportedMedicines.map(String).filter(Boolean);
+  if (raw.teleconsult === true) out.teleconsult = true;
   return Object.keys(out).length ? out : undefined;
 }

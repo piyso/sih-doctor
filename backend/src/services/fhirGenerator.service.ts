@@ -161,21 +161,35 @@ export class FhirGeneratorService {
     // ---- Chief complaints / diagnoses as Condition (tri-coded when resolvable)
     const diagnoses: any[] = (record.diagnoses && record.diagnoses.length > 0) ? record.diagnoses : [];
     const symptomsPresent = (record.symptoms || []).filter((s: any) => s && !s.isNegated);
-    const conditionFromDiag = (d: any) => ({
-      resourceType: 'Condition', id: uuidv4(), meta: { profile: [`${NDHM}/Condition`] },
-      clinicalStatus: { coding: [coding('http://terminology.hl7.org/CodeSystem/condition-clinical', 'active', 'Active')] },
-      category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/condition-category', 'encounter-diagnosis', 'Encounter Diagnosis')] }],
-      code: {
-        coding: [
-          ...(d.aCode ? [coding('https://namstp.ayush.gov.in', d.aCode, d.sanskritTerm)] : []),
-          ...(d.icd11Code ? [coding('http://id.who.int/icd/release/11/mms', d.icd11Code, d.englishEquivalent)] : []),
-          ...(d.icd10DualCode ? [coding('http://hl7.org/fhir/sid/icd-10', d.icd10DualCode, d.englishEquivalent)] : []),
-          ...(d.snomedConceptId ? [coding(SCT, String(d.snomedConceptId), d.englishEquivalent)] : [])
-        ],
-        text: d.sanskritTerm ? `${d.sanskritTerm} (${d.englishEquivalent})` : String(d.englishEquivalent || d.name || 'Diagnosis')
-      },
-      subject: ref(ids.patient), encounter: ref(ids.encounter), recordedDate: timestamp
-    });
+    const conditionFromDiag = (d: any) => {
+      // Doctor-confirmed diagnosis ({ display, system, code, icd10, snomed, status, source }) or a resolved suggestion.
+      const doctor = d && typeof d === 'object' && d.display && !d.sanskritTerm;
+      const codings = doctor ? [
+        ...(d.system === 'NAMASTE' && d.code && d.codeVerified ? [coding('https://namstp.ayush.gov.in', String(d.code), d.display)] : []),
+        ...(d.system === 'ICD-11-MMS' && d.code ? [coding('http://id.who.int/icd/release/11/mms', String(d.code), d.display)] : []),
+        ...(d.system === 'ICD-11-TM2' && d.code ? [coding('http://id.who.int/icd/release/11/mms', String(d.code), d.display)] : []),
+        ...(d.icd10 ? [coding('http://hl7.org/fhir/sid/icd-10', String(d.icd10), d.english || d.display)] : []),
+        ...(d.snomed ? [coding(SCT, String(d.snomed), d.english || d.display)] : [])
+      ] : [
+        ...(d.aCode ? [coding('https://namstp.ayush.gov.in', d.aCode, d.sanskritTerm)] : []),
+        ...(d.icd11Code ? [coding('http://id.who.int/icd/release/11/mms', d.icd11Code, d.englishEquivalent)] : []),
+        ...(d.icd10DualCode ? [coding('http://hl7.org/fhir/sid/icd-10', d.icd10DualCode, d.englishEquivalent)] : []),
+        ...(d.snomedConceptId ? [coding(SCT, String(d.snomedConceptId), d.englishEquivalent)] : [])
+      ];
+      const final = doctor && d.status === 'final';
+      return {
+        resourceType: 'Condition', id: uuidv4(), meta: { profile: [`${NDHM}/Condition`] },
+        clinicalStatus: { coding: [coding('http://terminology.hl7.org/CodeSystem/condition-clinical', 'active', 'Active')] },
+        verificationStatus: { coding: [coding('http://terminology.hl7.org/CodeSystem/condition-ver-status', final ? 'confirmed' : 'provisional', final ? 'Confirmed' : 'Provisional')] },
+        category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/condition-category', 'encounter-diagnosis', 'Encounter Diagnosis')] }],
+        code: {
+          ...(codings.length ? { coding: codings } : {}),
+          text: doctor ? String(d.display) : d.sanskritTerm ? `${d.sanskritTerm} (${d.englishEquivalent})` : String(d.englishEquivalent || d.name || 'Diagnosis')
+        },
+        subject: ref(ids.patient), encounter: ref(ids.encounter), recordedDate: timestamp,
+        ...(doctor && d.source ? { note: [{ text: d.source === 'accepted_suggestion' ? 'Suggested from the kiosk intake; confirmed by the prescriber.' : 'Recorded by the prescriber.' }] } : {})
+      };
+    };
     if (diagnoses.length) {
       for (const d of diagnoses) sectionEntries.chiefComplaints.push(add(conditionFromDiag(d)));
     } else {
@@ -270,17 +284,20 @@ export class FhirGeneratorService {
       resourceType: 'MedicationRequest', id: uuidv4(), meta: { profile: [`${NDHM}/MedicationRequest`] }, status: 'active', intent: 'order',
       medicationCodeableConcept: { ...(extra.coding ? { coding: extra.coding } : {}), text: name },
       subject: ref(ids.patient), encounter: ref(ids.encounter), authoredOn: timestamp, requester: ref(ids.practitioner),
-      dosageInstruction: [{ text: dosage }]
+      ...(extra.reason ? { reasonCode: [text(String(extra.reason))] } : {}),
+      dosageInstruction: [{ text: dosage }],
+      ...(extra.quantity ? { dispenseRequest: { quantity: { value: Number(extra.quantity), unit: 'unit' } } } : {})
     });
     for (const m of allopathic) {
       const name = m?.drugName || m?.name || m?.genericName || 'Medication';
       const dose = [m?.dosage, m?.frequency, m?.timing, m?.duration || (m?.durationDays ? `${m.durationDays} days` : '')].filter(Boolean).join(' ').trim() || 'As directed';
-      sectionEntries.medications.push(medRequest(String(name), dose));
+      sectionEntries.medications.push(medRequest(String(name), dose, { reason: m?.indication, quantity: m?.quantity }));
     }
     for (const a of ayush) {
+      // Classical formulations have no national code system yet: the name is carried as text, never as an invented code.
       const name = a?.formulationName || a?.classicalName || a?.name || 'Ayurvedic formulation';
       const dose = [a?.dosage || a?.dose, a?.frequency, a?.anupana ? `with ${a.anupana}` : '', a?.timing, a?.duration || (a?.durationDays ? `${a.durationDays} days` : '')].filter(Boolean).join(' ').trim() || 'As directed';
-      sectionEntries.medications.push(medRequest(String(name), dose, { coding: [coding('https://namstp.ayush.gov.in/formulations', String(name), String(name))] }));
+      sectionEntries.medications.push(medRequest(String(name), dose, { quantity: a?.quantity }));
     }
     for (const o of [...(record.ongoingMedicines || []), ...history.drugHistory]) {
       const name = typeof o === 'string' ? o : (o?.drugName || o?.name || o?.formulationName || o?.classicalName || '');
@@ -293,11 +310,14 @@ export class FhirGeneratorService {
     }
 
     // ---- Investigation advice
-    for (const inv of record.investigationsOrdered || []) {
+    for (const inv of (record.investigationsOrdered || []) as any[]) {
       if (!inv) continue;
+      const label = typeof inv === 'string' ? inv : String(inv.display || inv.id || 'Investigation');
+      const code = typeof inv === 'object' && inv.loinc ? { coding: [coding(LOINC, String(inv.loinc), label)], text: label } : text(label);
       sectionEntries.investigationAdvice.push(add({
         resourceType: 'ServiceRequest', id: uuidv4(), meta: { profile: [`${NDHM}/ServiceRequest`] }, status: 'active', intent: 'order',
-        code: text(String(inv)), subject: ref(ids.patient), encounter: ref(ids.encounter), authoredOn: timestamp, requester: ref(ids.practitioner)
+        code, subject: ref(ids.patient), encounter: ref(ids.encounter), authoredOn: timestamp, requester: ref(ids.practitioner),
+        ...(typeof inv === 'object' && inv.urgency === 'urgent' ? { priority: 'urgent' } : {})
       }));
     }
 
@@ -363,6 +383,35 @@ export class FhirGeneratorService {
       identifier: { system: `${HOSPITAL}/bundle`, value: ids.bundle },
       type: 'document', timestamp, entry: entries
     };
+  }
+
+  /**
+   * NRCES PrescriptionRecord document derived from the consultation bundle: the same Patient,
+   * Practitioner, Organization, Conditions and MedicationRequests (prescribed only), with a
+   * Composition typed SNOMED 440545006 |Prescription record|.
+   */
+  static buildPrescriptionRecord(consultBundle: AbdmFhirBundle): AbdmFhirBundle {
+    const keep = new Set(['Patient', 'Practitioner', 'Organization', 'Encounter', 'Condition', 'MedicationRequest']);
+    const entries = consultBundle.entry.filter((e: any) => keep.has(e.resource?.resourceType));
+    const by = (t: string) => entries.find((e: any) => e.resource.resourceType === t)?.resource as any;
+    const meds = entries.filter((e: any) => e.resource.resourceType === 'MedicationRequest');
+    const timestamp = consultBundle.timestamp;
+    const compositionId = uuidv4();
+    const bundleId = uuidv4();
+    const refTo = (r: any) => ({ reference: `urn:uuid:${r.id}` });
+    const composition = {
+      resourceType: 'Composition', id: compositionId, meta: { profile: [`${NDHM}/PrescriptionRecord`] }, language: 'en-IN',
+      identifier: { system: `${HOSPITAL}/prescription`, value: compositionId },
+      status: 'final', type: { coding: [coding(SCT, '440545006', 'Prescription record')], text: 'Prescription record' },
+      subject: refTo(by('Patient')), ...(by('Encounter') ? { encounter: refTo(by('Encounter')) } : {}), date: timestamp, author: [refTo(by('Practitioner'))],
+      title: 'Prescription record', ...(by('Organization') ? { custodian: refTo(by('Organization')) } : {}),
+      section: meds.length ? [{ title: 'Prescription record', code: { coding: [coding(SCT, '440545006', 'Prescription record')] }, entry: meds.map((e: any) => refTo(e.resource)) }] : []
+    };
+    return {
+      resourceType: 'Bundle', id: bundleId, meta: { versionId: '1', lastUpdated: timestamp, profile: [`${NDHM}/DocumentBundle`] },
+      identifier: { system: `${HOSPITAL}/bundle`, value: bundleId }, type: 'document', timestamp,
+      entry: [{ fullUrl: `urn:uuid:${compositionId}`, resource: composition }, ...entries]
+    } as AbdmFhirBundle;
   }
 
   /** Structural pre-validation: what a FHIR validator fails first on. */

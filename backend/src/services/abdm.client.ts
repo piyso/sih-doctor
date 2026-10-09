@@ -37,6 +37,19 @@ export const AbdmClient = {
     return token.value;
   },
 
+  /** Authenticated POST to the gateway (used by the HIP layer). */
+  async gatewayPost(path: string, body: unknown): Promise<any> {
+    const t = await this.sessionToken();
+    const r = await fetch(`${GATEWAY}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}`, 'X-CM-ID': process.env.ABDM_CM_ID || 'sbx' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000)
+    });
+    if (!r.ok) throw new Error(`ABDM ${path} failed (${r.status})`);
+    return r.status === 202 ? { accepted: true } : r.json().catch(() => ({}));
+  },
+
   /** Look up an ABHA number. Returns null when the number is not found. */
   async searchAbha(abhaNumber: string): Promise<{ status: string; name?: string; abhaAddress?: string[] } | null> {
     const t = await this.sessionToken();

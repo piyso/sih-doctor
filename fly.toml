@@ -10,7 +10,12 @@ primary_region = "bom" # Mumbai, India (Lowest Latency for Indian OPD)
   PORT = "8001"
   NODE_ENV = "production"
   DB_PATH = "/app/data/hospital.db"
-  CORS_ORIGIN = "*"
+  # Public demonstration server: starts with demo data; an administrator can switch it off and on.
+  # Never use these two with real patients.
+  ALLOW_DEMO_DATA = "true"
+  DEMO_TOGGLE = "true"
+  # Browser origins of the frontends (production ignores "*"; list each origin).
+  CORS_ORIGIN = "https://sih-doctor.vercel.app,https://hospitalos-doctor-frontend.onrender.com"
 
 [http_service]
   internal_port = 8001

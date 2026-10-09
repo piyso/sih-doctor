@@ -121,7 +121,7 @@ export const DevicesPanel: React.FC = () => {
                       {!d.revokedAt && (
                         <div className="flex gap-1.5">
                           <Btn onClick={() => setPrinter(d)}><Printer size={12} /> Printer</Btn>
-                          <Btn tone="danger" onClick={() => revoke(d.id)}><Ban size={12} /> Revoke</Btn>
+                          <Btn tone="quietDanger" onClick={() => revoke(d.id)}><Ban size={12} /> Revoke</Btn>
                         </div>
                       )}
                     </td>

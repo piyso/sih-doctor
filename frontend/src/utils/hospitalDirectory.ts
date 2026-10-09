@@ -71,7 +71,7 @@ export const DOCTOR_PROFILES: Record<'AYURVEDA' | 'ALLOPATHY', { name: string; t
   AYURVEDA: {
     name: 'Vaidya V. K. Sharma',
     title: 'BAMS, MD (Ayu) · Kayachikitsa',
-    registration: 'CCIM Reg. AYU/84920',
+    registration: 'NCISM Reg. AYU/84920',
     department: 'KAYA',
     unit: 'Kayachikitsa OPD (Unit I)'
   },
@@ -95,7 +95,7 @@ interface RoutingInput {
   careStream: CareStream;
   age?: number;
   gender?: string;
-  isPregnant?: boolean;
+  isPregnant?: boolean | null;   // null = not answered: routed as not pregnant (the obstetric desk needs a yes)
   isEmergency: boolean;
   isAirborne: boolean;
   isMlc: boolean;

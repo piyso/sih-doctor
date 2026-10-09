@@ -16,6 +16,8 @@ export interface StaffUser {
   department: string | null;
   qualification: string | null;
   registrationNo: string | null;
+  /** ABDM Healthcare Professionals Registry id, when set by the administrator. */
+  hprId?: string | null;
   mustChangePin: boolean;
   isDemo: boolean;
 }

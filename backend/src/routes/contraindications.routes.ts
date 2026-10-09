@@ -71,7 +71,12 @@ contraindicationsRouter.post('/evaluate', (req: Request, res: Response): void =>
     const allopathic = req.body.allopathic || req.body.allopathicMeds || req.body.allopathicPrescriptions || req.body.drugs || [];
     const ayush = req.body.ayush || req.body.ayushFormulations || req.body.ayushPrescriptions || req.body.herbs || [];
     const { context, source } = resolveContext(req.body);
-    const evaluation = TruthEngineService.evaluatePrescriptionsDetailed(allopathic, ayush, context);
+    // careStream says which list is being prescribed; the other list is what the patient already takes.
+    const stream = req.body.careStream === 'AYURVEDA' || req.body.careStream === 'ALLOPATHY' ? req.body.careStream : null;
+    const evaluation = TruthEngineService.evaluatePrescriptionsDetailed(allopathic, ayush, context, {
+      roles: stream === 'AYURVEDA' ? { ayush: 'prescribed', allopathic: 'ongoing' } : stream === 'ALLOPATHY' ? { allopathic: 'prescribed', ayush: 'ongoing' } : undefined,
+      diet: Array.isArray(req.body.diet) ? req.body.diet.map(String).slice(0, 30) : undefined
+    });
     const alerts = augment(evaluation.alerts);
     const viruddhaWarnings = AyushEngineService.checkViruddhaAhara(ayush);
     const hypergraphPolypharmacy = PiyGraphService.evaluateHigherOrderPolypharmacy(allopathic, ayush);
@@ -85,7 +90,10 @@ contraindicationsRouter.post('/evaluate', (req: Request, res: Response): void =>
       safetyChecks: evaluation.checks,
       patientContextUsed: evaluation.contextUsed,
       patientContextSource: source,
-      itemsConsidered: evaluation.itemsConsidered
+      itemsConsidered: evaluation.itemsConsidered,
+      stopGroups: evaluation.stopGroups,
+      coverage: evaluation.coverage,
+      resolvedLines: evaluation.resolvedLines
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

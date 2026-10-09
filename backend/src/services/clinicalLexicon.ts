@@ -20,7 +20,7 @@
  * `node scripts/sync-clinical-lexicon.mjs` from the repository root.
  */
 
-import { clauseAt, isHistorical, negationAt, sentenceAt } from './clinicalText';
+import { clauseAt, isHistorical, negationAt, radiationTargetsAt, sentenceAt, verbBetween } from './clinicalText';
 
 // ---------------------------------------------------------------- Phonetic key
 const DEV: Record<string, string> = {};
@@ -202,6 +202,10 @@ add('S_SKIN', 'त्वचा', 'चमड़ी', 'skin', 'स्किन');
 add('S_BODY', 'शरीर', 'बदन', 'sharir', 'sharer', 'badan', 'body', 'बॉडी');
 add('S_FACE', 'चेहरा', 'चेहरे', 'मुँह', 'मुंह', 'chehra', 'muh', 'munh', 'face');
 add('S_PRIVATE', 'गुप्तांग', 'private', 'vagina', 'yoni', 'योनि');
+// "नीचे से खून आ रहा है" is how many patients say bleeding from the vagina (or back passage)
+add('S_PRIVATE F_BLOOD', 'नीचे से खून', 'niche se khoon', 'neeche se khoon', 'niche se khun', 'खून आ रहा है नीचे से', 'खून जा रहा है नीचे से', 'bleeding per vagina', 'vaginal bleeding', 'bleeding from vagina');
+add('F_WOUND', 'घाव', 'ghaav', 'ghav', 'घाउ', 'जख्म', 'ज़ख्म', 'zakhm', 'zakham', 'नासूर', 'wound', 'wounds', 'ulcer', 'ulcers');
+add('Q_NOT_HEALING', 'भर नहीं रहा', 'भर नहीं रही', 'भरता नहीं', 'भर नहीं रहे', 'सूख नहीं रहा', 'bhar nahi raha', 'bhar nahi rahi', 'sukh nahi raha', 'not healing', 'won\'t heal', 'does not heal', 'not getting better');
 add('S_ANUS', 'गुदा', 'बवासीर', 'piles', 'bawasir', 'anus');
 // findings (a few spellings are recogniser slips heard in testing: दर्व = दर्द, ख्यासी = खांसी)
 add('F_PAIN', 'दर्द', 'दर्व', 'dard', 'pain', 'pains', 'paining', 'पेन', 'ache', 'aching', 'hurts', 'hurt', 'hurting', 'painful', 'aches', 'टूट रहा', 'टूट रही', 'toot raha', 'toot rahi', 'tut raha', 'दुखना', 'दुखता', 'दुख', 'dukh', 'dukhta', 'वेदना', 'चुभन', 'sore');
@@ -220,7 +224,7 @@ add('F_PHLEGM', 'बलगम', 'balgam', 'phlegm', 'sputum', 'cough with mucus'
 add('F_DRY', 'सूखी', 'सूखा', 'सूखापन', 'sukhi', 'dry', 'ड्राई');
 add('F_BLOOD', 'खून', 'ख़ून', 'khoon', 'khun', 'blood', 'ब्लड', 'bleeding', 'ब्लीडिंग', 'रक्त');
 add('F_VOMIT', 'उल्टी', 'उलटी', 'उल्टियां', 'ulti', 'vomit', 'vomiting', 'vomited', 'vomits', 'वोमिटिंग', 'vomitting', 'throwing up', 'threw up');
-add('F_NAUSEA', 'मिचली', 'मिचलाना', 'मितली', 'nausea', 'जी मिचला', 'जी मिचलाना', 'जी घबरा', 'जी घबराना', 'ji ghabrana', 'ji michlana', 'vomiting sensation', 'vomiting feeling', 'उल्टी जैसा', 'ulti jaisa', 'nauseous', 'nauseated', 'queasy', 'नॉज़िया', 'नॉसिया');
+add('F_NAUSEA', 'मिचली', 'मिचलाना', 'मितली', 'nausea', 'जी मिचला', 'जी मिचलाना', 'जी मिचलाता', 'जी मिचलाती', 'जी मचला', 'जी मचलाना', 'जी मचलाता', 'जी मचलाती', 'जी मचल', 'ji machla', 'ji machlana', 'ji michla', 'ji machal', 'ji michlata', 'ji machlata', 'जी घबरा', 'जी घबराना', 'ji ghabrana', 'ji michlana', 'vomiting sensation', 'vomiting feeling', 'उल्टी जैसा', 'ulti jaisa', 'nauseous', 'nauseated', 'queasy', 'नॉज़िया', 'नॉसिया');
 add('F_DIARRHOEA', 'दस्त', 'डायरिया', 'dast', 'loose motion', 'loose motions', 'loose stool', 'loose stools', 'watery stool', 'watery stools', 'पतले दस्त', 'लूज़ मोशन', 'लूज मोशन', 'लूज़ मोशंस', 'diarrhoea', 'diarrhea', 'पतला शौच', 'patla');
 add('F_CONSTIP', 'कब्ज़', 'कब्ज', 'kabj', 'kabz', 'constipation', 'कॉन्स्टिपेशन', 'पेट साफ नहीं', 'पखाना साफ नहीं', 'pet saaf nahi', 'motion clear nahi');
 add('F_GAS', 'गैस', 'gas', 'डकार', 'burping');
@@ -233,7 +237,8 @@ add('F_COLD', 'सर्दी', 'कोल्ड', 'जुकाम', 'जु�
 add('F_THIRST', 'प्यास', 'pyaas', 'pyas', 'thirst', 'thirsty');
 add('F_BREATHLESS', 'सांस फूल', 'साँस फूल', 'सांस फूलना', 'saans phool', 'saans phoolti', 'breathless', 'breathlessness', 'breathing problem', 'breathing difficulty',
   'difficulty breathing', 'shortness of breath', 'short of breath', 'out of breath', 'ब्रेथलेसनेस', 'ब्रीदिंग प्रॉब्लम', 'हांफना', 'हाँफ', 'सांस में तकलीफ', 'सांस लेने में तकलीफ', 'दम फूलना', 'दमा', 'asthma', 'अस्थमा');
-add('F_BREATHLESS R_CANT_BREATHE', 'सांस नहीं ले', 'साँस नहीं ले', 'सांस नहीं आ', 'not able to breathe', 'cannot breathe', "can't breathe", 'unable to breathe', 'saans nahi');
+add('F_BREATHLESS R_CANT_BREATHE', 'सांस नहीं ले', 'साँस नहीं ले', 'सांस नहीं आ रही', 'सांस नहीं आती', 'सांस नहीं आता', 'not able to breathe', 'cannot breathe', "can't breathe", 'unable to breathe', 'saans nahi aa rahi', 'saans nahi aati', 'saans nahi le', 'sans nahi aa rahi', 'सांस नहीं ली जा', 'साँस नहीं आ रही', 'साँस नहीं आती', 'साँस नहीं ले',
+  'सांस बंद', 'साँस बंद', 'सांस रुक', 'साँस रुक', 'दम घुट', 'saans band', 'sans band', 'saans ruk', 'dam ghut', 'dum ghut', 'breath is stopping', 'choking');
 add('F_WHEEZE', 'सीटी', 'घरघराहट', 'wheezing', 'wheeze', 'whistling');
 add('F_SLEEP', 'नींद', 'neend', 'nind', 'sleep', 'insomnia', 'नीद');
 add('F_APPETITE', 'भूख', 'bhookh', 'bhukh', 'bhook', 'appetite', 'hunger', 'eating', 'खा नहीं रहा', 'खा नहीं रही', 'kha nahi raha', 'kha nahi rahi', 'kuch kha nahi');
@@ -253,7 +258,7 @@ add('F_RED', 'लाल', 'laal', 'lal', 'red', 'redness', 'लालिमा',
 add('F_ANXIETY', 'घबराहट', 'ghabrahat', 'chinta', 'चिंता', 'anxiety', 'panic', 'tension', 'टेंशन', 'बेचैनी', 'bechaini', 'restless');
 add('F_SAD', 'उदासी', 'उदास', 'udaas', 'sad', 'hopeless', 'depression', 'डिप्रेशन', 'निराशा');
 add('F_TREMOR', 'काँपना', 'कांपना', 'काँपते', 'tremor', 'shaking', 'kaanpna');
-add('F_CONSTIP', 'motion saaf nahi');
+add('F_CONSTIP', 'motion saaf nahi', 'पॉटी बंद', 'पोटी बंद', 'शौच बंद', 'पखाना बंद', 'लैट्रिन बंद', 'potty band', 'latrine band', 'motion band', 'toilet band');
 add('F_BODYACHE S_BODY F_PAIN', 'बदन टूट', 'बदन दर्द', 'badan toot', 'badan dard', 'body pain', 'बॉडी पेन', 'body ache', 'bodyache');
 add('S_HEAD F_PAIN Q_SEVERE', 'सिर फट', 'sir phat', 'सर फट');
 add('F_PERIOD', 'मासिक', 'माहवारी', 'पीरियड', 'पीरियड्स', 'period', 'periods', 'mc', 'menses', 'mahwari');
@@ -385,7 +390,8 @@ function wordMatch(alias: string, aliasFk: string, aliasRk: string, aliasDev: bo
 /** A slip allowed for one word inside a multi-word phrase (the phrase's other words confirm it): three or more sounds. */
 const slipMatch = (alias: string, tok: Token) => tok.dev && alias.length >= 3 && !VOCAB.has(tok.key) && !COMMON_KEYS.has(tok.key) && plausibleSlip(alias, tok.key);
 
-export interface ConceptMention { concepts: string[]; start: number; end: number; negated: boolean; historical: boolean }
+/** `resolved`: denied only because it has stopped ("बुखार उतर गया") — still counted by the emergency rules. */
+export interface ConceptMention { concepts: string[]; start: number; end: number; negated: boolean; historical: boolean; resolved?: boolean }
 
 /** Every lexicon phrase in the text with its position and whether the speaker denied it. */
 export function conceptMentions(text: string): ConceptMention[] {
@@ -397,7 +403,8 @@ export function conceptMentions(text: string): ConceptMention[] {
     // Emergencies (R_) count as past history only with an explicit distant past ("पिछले साल बेहोश हुआ था"), never
     // for "एक घंटे पहले बेहोश हो गई थी".
     const distantOnly = concepts.some(c => c.startsWith('R_'));
-    out.push({ concepts, start: toks[a].start, end: toks[b].end, negated: negationAt(src, toks[a].start, toks[b].end).negated, historical: isHistorical(src, toks[a].start, toks[b].end, distantOnly) });
+    const neg = negationAt(src, toks[a].start, toks[b].end);
+    out.push({ concepts, start: toks[a].start, end: toks[b].end, negated: neg.negated, historical: isHistorical(src, toks[a].start, toks[b].end, distantOnly), ...(neg.cue === 'resolved' ? { resolved: true } : {}) });
   };
   // Multi-word idioms first (they claim their words), then single words not inside an idiom.
   for (const multi of [true, false]) {
@@ -439,11 +446,11 @@ export const NEVER_NEGATED = (concept: string) =>
  * Concepts the speaker affirmed, e.g. {S_CHEST, F_PAIN, Q_LEFT}; denied and past-history ones are left out. `ignoreNegation`
  * reads a label rather than a complaint (catalog card names such as "Fever that does not come down").
  */
-export function extractConcepts(text: string, opts: { ignoreNegation?: boolean } = {}): Set<string> {
+export function extractConcepts(text: string, opts: { ignoreNegation?: boolean; keepResolved?: boolean } = {}): Set<string> {
   const found = new Set<string>();
   for (const m of conceptMentions(text)) {
     if (m.historical && !opts.ignoreNegation) continue; // "दो साल पहले हार्ट अटैक हुआ था" is history, not today's complaint
-    for (const c of m.concepts) if (opts.ignoreNegation || !m.negated || NEVER_NEGATED(c)) found.add(c);
+    for (const c of m.concepts) if (opts.ignoreNegation || !m.negated || (opts.keepResolved && m.resolved) || NEVER_NEGATED(c)) found.add(c);
   }
   return found;
 }
@@ -469,6 +476,9 @@ const FLAG_INFO: Record<string, { tier: RedFlagTier; label: string }> = {
   abdomen: { tier: 'urgent', label: 'Severe pain in the lower right abdomen' },
   injury: { tier: 'urgent', label: 'Injury or accident — check whether this is a medico-legal case' },
   pregnancy: { tier: 'urgent', label: 'Pain or problem during pregnancy' },
+  'breath-check': { tier: 'urgent', label: 'Breathlessness — oxygen saturation to be checked' },
+  'gyn-bleeding': { tier: 'urgent', label: 'Bleeding from below (vagina / back passage) — check pregnancy and blood loss' },
+  wound: { tier: 'urgent', label: 'Wound or ulcer that is not healing — check for diabetes and infection (same day)' },
   'child-danger': { tier: 'sos', label: 'Child very drowsy or not responding (danger sign)' }
 };
 
@@ -480,6 +490,7 @@ export function redFlagsFromConcepts(c: Set<string>): RedFlag[] {
   if (has('X_CHEST_PAIN')) ids.add('cardiac');
   if (has('F_PALPIT') && has('F_SWEAT')) ids.add('cardiac');
   if (has('R_CANT_BREATHE') || (has('F_BREATHLESS') && has('Q_SUDDEN', 'Q_SEVERE'))) ids.add('breathing');
+  else if (has('F_BREATHLESS')) ids.add('breath-check'); // on exertion or not graded: urgent, not an emergency
   if (has('F_BLOOD') && has('F_COUGH', 'F_VOMIT', 'S_STOOL', 'R_PREGNANT', 'R_INJURY')) ids.add('bleeding');
   if (has('R_STROKE') || (has('Q_SUDDEN') && has('F_WEAK', 'F_NUMB') && has('S_FACE', 'S_ARM', 'S_LEG', 'Q_ONESIDE'))) ids.add('stroke');
   if (has('Q_ONESIDE') && has('S_FACE', 'S_ARM') && has('F_WEAK')) ids.add('stroke');
@@ -495,6 +506,8 @@ export function redFlagsFromConcepts(c: Set<string>): RedFlag[] {
   if (has('S_STOMACH') && has('Q_RIGHT') && has('Q_LOWER') && has('Q_SEVERE')) ids.add('abdomen');
   if (has('R_INJURY')) ids.add('injury');
   if (has('R_PREGNANT') && has('F_PAIN', 'F_BLOOD')) ids.add('pregnancy');
+  if (has('F_BLOOD') && has('S_PRIVATE') && !ids.has('bleeding')) ids.add('gyn-bleeding');
+  if (has('F_WOUND') && has('Q_NOT_HEALING')) ids.add('wound');
   if (has('R_CHILD') && has('F_DROWSY')) ids.add('child-danger');
   return [...ids].sort().map(id => ({ id, ...FLAG_INFO[id] }));
 }
@@ -521,17 +534,30 @@ const isFinding = (m: ConceptMention) => m.concepts.some(c => c.startsWith('F_')
  * ("सीने में और बाएं हाथ में दर्द" → chest and arm), plus the sites after it when nothing came before or no other
  * finding follows ("pain in my chest and left arm", "दर्द हो रहा है सीने में", "पेट में दर्द है और सिर में भी").
  */
-export function attachedSites(ms: ConceptMention[], m: ConceptMention, text: string): ConceptMention[] {
+export function attachedSites(ms: ConceptMention[], m: ConceptMention, text: string, opts: { primary?: boolean } = {}): ConceptMention[] {
   if (isSite(m)) return [m];
+  if (opts.primary) {
+    // Where the complaint is, without the areas it only spreads to ("सीने में दर्द … बाएं हाथ तक जाता है" is chest
+    // pain, radiating to the left arm). Safety checks call without `primary` and still see every area.
+    const all = attachedSites(ms, m, text);
+    const targets = radiationTargetsAt(text, m.start);
+    const own = all.filter(x => !targets.some(([a, b]) => x.start >= a && x.end <= b));
+    return own.length ? own : all;
+  }
   const [ca, cb] = clauseAt(text, m.start);
   const inClause = ms.filter(x => x.start >= ca && x.start < cb && x !== m);
   const prevEnd = Math.max(ca, ...inClause.filter(x => isFinding(x) && x.end <= m.start).map(x => x.end));
-  const before = inClause.filter(x => isSite(x) && !isFinding(x) && x.start >= prevEnd && x.end <= m.start);
+  // a site with its own predicate in between ("पेट ठीक है, सिर में दर्द") is not this finding's site
+  const before = inClause.filter(x => isSite(x) && !isFinding(x) && x.start >= prevEnd && x.end <= m.start && !verbBetween(text, x.end, m.start));
   const next = inClause.filter(x => isFinding(x) && x.start >= m.end).map(x => x.start);
   // After it: up to the next finding when nothing came before; to the clause end when this is the last finding
   // ("पेट में दर्द है और सिर में भी" — the head belongs to the same pain).
+  // A site right in front of the next finding is that finding's ("दर्द है घुटने में और सीने में भारीपन नहीं है":
+  // the chest goes with the heaviness, which is denied, not with the knee pain).
+  const ownedByNext = (x: ConceptMention) => inClause.some(n => isFinding(n) && !isSite(n) && n.start >= x.end && n.start > m.end &&
+    text.slice(x.end, n.start).trim().split(/\s+/).filter(Boolean).length <= 2 && !verbBetween(text, x.end, n.start));
   const after = !before.length || !next.length
-    ? inClause.filter(x => isSite(x) && !isFinding(x) && x.start >= m.end && x.start < (next.length ? Math.min(...next) : cb))
+    ? inClause.filter(x => isSite(x) && !isFinding(x) && x.start >= m.end && x.start < (next.length ? Math.min(...next) : cb) && !ownedByNext(x))
     : [];
   if (before.length || after.length) return [...before, ...after];
   // "सीने में दर्द तो नहीं है पर भारीपन सा लगता है": the heaviness belongs to the chest named in the previous clause,
@@ -543,12 +569,15 @@ export function attachedSites(ms: ConceptMention[], m: ConceptMention, text: str
 
 export function analyseComplaint(text: string): ComplaintAnalysis {
   const concepts = extractConcepts(text);
+  // Emergency rules stay recall-first: a complaint that "has gone" ("सीने का दर्द ठीक हो गया") is still checked.
+  const safety = extractConcepts(text, { keepResolved: true });
   const ms = conceptMentions(text);
-  const live = ms.filter(m => !m.negated && !m.historical);
-  const chestPain = live.some(m => m.concepts.some(c => c === 'F_PAIN' || c === 'F_PRESSURE' || c === 'F_TROUBLE' || c === 'F_STIFF') &&
+  const chestPain = (withResolved: boolean) => ms.some(m => (!m.negated || (withResolved && m.resolved)) && !m.historical &&
+    m.concepts.some(c => c === 'F_PAIN' || c === 'F_PRESSURE' || c === 'F_TROUBLE' || c === 'F_STIFF') &&
     attachedSites(ms, m, text).some(s => !s.negated && !s.historical && s.concepts.some(c => c === 'S_CHEST' || c === 'S_HEART')));
-  if (chestPain) concepts.add('X_CHEST_PAIN');
-  const redFlags = redFlagsFromConcepts(concepts);
+  if (chestPain(false)) concepts.add('X_CHEST_PAIN');
+  if (chestPain(true)) safety.add('X_CHEST_PAIN');
+  const redFlags = redFlagsFromConcepts(safety);
   return { concepts, redFlags, sos: redFlags.some(f => f.tier === 'sos'), visitReason: visitReasonFromConcepts(concepts) };
 }
 

@@ -1,22 +1,15 @@
 import React, { useState } from 'react';
 import {
   ShieldCheck,
-  Cpu,
   Layers,
   Activity,
-  TrendingUp,
   Coins,
   Clock,
   CheckCircle2,
-  AlertOctagon,
   Mic,
   FileCode,
   Lock,
-  ChevronRight,
-  Database,
-  Terminal,
   ShieldAlert,
-  Server,
   Zap
 } from 'lucide-react';
 
@@ -660,7 +653,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                 </div>
 
                 <div style={{ padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 10.5, color: '#78350f' }}>
-                  <strong>Relation to this product:</strong> none of the claimed subsystems runs in this repository. The application is the roadmap for a multi-facility encrypted retrieval layer, of which this kiosk would be a client.
+                  <strong>Relation to this product:</strong> a first single-node embodiment runs here since 9 Oct 2026: the doctor desk's de-identified similar-case search uses the claimed two-stage retrieval, a real CKKS homomorphic path, the latency-predicted mode choice and the deterministic guards (enclave-ratio, secure-memory, noise-floor, tier override). The enclave is a software stand-in on this host; the multi-node hardware-enclave form is the state-level roadmap. See docs/RETRIEVAL_LAYER.md.
                 </div>
               </div>
             </div>
@@ -685,7 +678,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                     { s: 'Records are tamper-evident', i: 'Ed25519 signature over canonical JSON, a SHA-256 provenance node per encounter, and a hash-chained audit log.', c: 'POST /api/security/verify-offline-seal · GET /api/security/verify-merkle · button above', ok: true },
                     { s: 'Identifiers are encrypted at rest', i: 'AES-256-GCM field encryption; HMAC blind index so phone lookups work without decrypting.', c: 'backend/src/security/fieldCrypto.ts', ok: true },
                     { s: '"Zero-knowledge proofs seal every prescription"', i: 'Not implemented. Only a Groth16 verifier self-test on a demo circuit exists; no proof generation; nothing bound to records.', c: 'backend/src/data/zkp_circuit/integrity_check.circom', ok: false },
-                    { s: '"Homomorphic encryption, enclaves and an RL arbiter run on the kiosk"', i: 'Not implemented. This is the subject of the pending application and needs enclave hardware the Raspberry Pi 5 does not have.', c: 'Pending application, claims 1 to 21', ok: false },
+                    { s: 'Encrypted similar-case retrieval (pending application, single-node embodiment)', i: 'Real: two-stage index, CKKS query encryption (Microsoft SEAL), latency predictor with release gate, enclave-ratio and secure-memory guards, noise-floor refresh, tier override, smudged scores. Stand-in: the enclave is a worker thread, not hardware. Not implemented: RL-tuned threshold, zero-knowledge proofs, multiple nodes.', c: 'GET /api/retrieval/status · backend/tests/retrieval_layer.test.ts', ok: true },
                     { s: 'BYOD intake is limited to the waiting hall', i: 'Local Wi-Fi perimeter plus a 60-second rotating QR nonce. A product feature; not part of the patent.', c: 'ByodProximityModal.tsx', ok: true },
                     { s: 'Evidence under BSA 2023 §63', i: 'Signature plus hash chain give integrity. Admissibility also requires the §63(4) certificate from the person in charge of the system.', c: 'backend/src/routes/security.routes.ts', ok: true }
                   ].map((row, i) => (
@@ -915,13 +908,13 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
 
                   <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
                     <td style={{ padding: '8px 10px', fontWeight: 700, color: '#f43f5e' }}>
-                      10. Multi-Order Hypergraph Polypharmacy
+                      10. List-level polypharmacy checks
                     </td>
                     <td style={{ padding: '8px 10px', color: '#cbd5e1', lineHeight: 1.4 }}>
-                      Higher-order hypergraph traversal modeling simultaneous CYP2C9 (92%) and CYP3A4 microsomal saturation plus Platelet Glycoprotein IIb/IIIa blockade. Catches synergistic quad-hit coagulopathy ($BF_{'{'}10{'}'}=248.9$) with 1-click safe substitution (*Rasnasaptaka Kwatha* + *Shallaki*).
+                      Rules over the whole prescription, not only pairs: an anticoagulant plus two or more bleeding-risk agents (antiplatelet, NSAID, SSRI, garlic, guggulu), the ACE-inhibitor/ARB + diuretic + NSAID "triple whammy", sedative and serotonergic load. Substitutes are offered as options with their evidence, never applied automatically. Measured on a 150-case benchmark (eval:safety).
                     </td>
                     <td style={{ padding: '8px 10px', color: '#34d399', fontWeight: 600 }}>
-                      AIIA NPvCC Pharmacovigilance &amp; Zero Fatal Coagulopathy
+                      Cited rules (BNF, labels, Beers 2023); DTC review pending
                     </td>
                   </tr>
 

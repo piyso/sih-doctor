@@ -34,10 +34,11 @@ import {
 } from 'lucide-react';
 import { recognizeOnDevice, warmUpOcr, OcrTimeoutError } from '../../utils/ocrEngine';
 import { BCP47, kioskText, normalizeLang } from '../../utils/kioskLocalization';
+import { intakeText } from '../../utils/kioskIntakeText';
 import { RegisterNav, useStepNav } from './kioskNav';
 import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
-import { ConflictAlert } from '../../types/api';
+import { ConflictAlert, PatientHistory } from '../../types/api';
 import { RealQrCode } from '../common/RealQrCode';
 
 interface Step6DocumentScannerProps {
@@ -50,7 +51,15 @@ interface Step6DocumentScannerProps {
   pariksha?: any;
   selectedBodyRegion?: string;
   registerNav?: RegisterNav;
+  /** The medicines the patient typed in the health-history step are checked together with the scanned ones,
+   *  and scanned medicines can be added to that list. */
+  history?: PatientHistory;
+  setHistory?: React.Dispatch<React.SetStateAction<PatientHistory>>;
 }
+
+/** Medicine names typed by the patient ("metformin, ashwagandha; BP medicine"). */
+const typedMedicineNames = (text?: string) =>
+  (text || '').split(/[,;\n]|\s+(?:and|aur|और)\s+/i).map(s => s.trim()).filter(s => s.length > 1);
 
 // -------------------------------------------------------------
 // Verified Clinical Benchmark Datasets
@@ -143,10 +152,15 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
   vitals,
   pariksha,
   selectedBodyRegion,
-  registerNav
+  registerNav,
+  history,
+  setHistory
 }) => {
   const lang = normalizeLang(language);
   const tx = kioskText(lang);
+  const it = intakeText(lang);
+  const typedMedsRef = useRef<string[]>([]);
+  typedMedsRef.current = typedMedicineNames(history?.currentMedicines);
   const [showDetails, setShowDetails] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const ocrAbortRef = useRef<AbortController | null>(null);
@@ -306,8 +320,10 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
           if (name && !allMeds.includes(name)) allMeds.push(name);
         });
       });
+      // what the patient said they take, checked together with what was scanned
+      typedMedsRef.current.forEach(n => { if (!allMeds.some(m => m.toLowerCase() === n.toLowerCase())) allMeds.push(n); });
 
-      if (allMeds.length === 0) {
+      if (allMeds.length < 2) {
         setCollisionAlerts([]);
         return;
       }
@@ -325,7 +341,8 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
         }
       });
 
-      if (allopathicCandidates.length > 0 && ayushCandidates.length > 0) {
+      // any two medicines can clash (drug–drug as well as herb–drug)
+      if (allopathicCandidates.length + ayushCandidates.length >= 2) {
         const alerts = await api.checkContraindications(allopathicCandidates, ayushCandidates);
         setCollisionAlerts(alerts);
         if (alerts.length > 0) {
@@ -348,7 +365,29 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
     } else {
       setCollisionAlerts([]);
     }
-  }, [scannedDocs, evaluateCollisions]);
+  }, [scannedDocs, evaluateCollisions, history?.currentMedicines]);
+
+  // Scanned medicines not yet in the patient's own medicine list
+  const scannedMedNames = useMemo(() => {
+    const names: string[] = [];
+    scannedDocs.forEach(d => (d.extractedMeds || []).forEach((m: any) => {
+      const n = typeof m === 'string' ? m : m?.name;
+      if (n && !names.some(x => x.toLowerCase() === String(n).toLowerCase())) names.push(String(n));
+    }));
+    return names;
+  }, [scannedDocs]);
+  const missingFromList = scannedMedNames.filter(n => !typedMedsRef.current.some(t => t.toLowerCase() === n.toLowerCase()));
+  const [medsAdded, setMedsAdded] = useState(false);
+  const addScannedToList = () => {
+    if (!setHistory || !missingFromList.length) return;
+    sovereignSound.playCrystalChime();
+    setHistory(prev => {
+      const current = typedMedicineNames(prev.currentMedicines);
+      const merged = [...current, ...missingFromList.filter(n => !current.some(c => c.toLowerCase() === n.toLowerCase()))];
+      return { ...prev, currentMedicines: merged.join(', '), medicineStatus: 'listed' };
+    });
+    setMedsAdded(true);
+  };
 
   // -----------------------------------------------------------
   // Canvas-Based Image Preprocessing (Adaptive Sauvola Binarization)
@@ -1232,6 +1271,21 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
               {showDetails ? tx('s6HideDetails') : tx('s6Details')}
             </button>
           </div>
+          {setHistory && (missingFromList.length > 0 || medsAdded) && (
+            <div style={{ marginTop: 10 }}>
+              {missingFromList.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={addScannedToList}
+                  style={{ fontSize: 13, fontWeight: 700, color: '#065f46', background: '#ecfdf5', border: '1px solid #6ee7b7', padding: '8px 12px', borderRadius: 10, cursor: 'pointer' }}
+                >
+                  + {it('s6AddMeds')}: {missingFromList.slice(0, 4).join(', ')}{missingFromList.length > 4 ? '…' : ''}
+                </button>
+              ) : (
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>✓ {it('s6MedsAdded')}</span>
+              )}
+            </div>
+          )}
         </div>
       )}
 

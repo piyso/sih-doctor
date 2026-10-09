@@ -4,7 +4,7 @@
  */
 
 export type TriagePriority = 'EMERGENCY_RED_FLAG' | 'HIGH_PRIORITY' | 'ROUTINE';
-export type ConsultationStatus = 'WAITING' | 'PENDING_DOCTOR' | 'IN_CONSULTATION' | 'COMPLETED' | 'DIVERTED_EMERGENCY';
+export type ConsultationStatus = 'WAITING' | 'PENDING_DOCTOR' | 'IN_CONSULTATION' | 'COMPLETED' | 'DIVERTED_EMERGENCY' | 'PHARMACY_REFERRED';
 export type AgniType = 'SAMAGNI' | 'VISHAMAGNI' | 'TIKSHNAGNI' | 'MANDAGNI';
 
 export interface SocratesSymptom {
@@ -18,6 +18,8 @@ export interface SocratesSymptom {
   timing: string;
   exacerbatingFactors: string[];
   relievingFactors: string[];
+  /** How it started, when the patient said so ("अचानक", "धीरे धीरे"). */
+  onsetType?: 'Sudden' | 'Gradual';
   severityScore: number; // 1 - 10
   intensity?: number;
   location?: string;
@@ -39,6 +41,87 @@ export interface PatientHistory {
   conditions: string[];
   allergies: string;
   currentMedicines: string;
+  /** 'none' = patient said no; 'unknown' = asked, not sure; 'listed' = named in `allergies` / `currentMedicines`.
+   *  Missing means not asked — never read as "no allergy". */
+  allergyStatus?: 'none' | 'unknown' | 'listed';
+  medicineStatus?: 'none' | 'unknown' | 'listed';
+  /** What the patient mentioned while describing the complaint (speech or typing), for the doctor. */
+  mentionedInSpeech?: { conditions: string[]; medicines: string[] };
+  /** Structured v2 fields (present when the server has normalised the history). */
+  version?: 2;
+  chiefComplaint?: string;
+  pastMedical?: Array<{ name: string; since?: string; status?: string; notes?: string }>;
+  pastSurgical?: Array<{ name: string; since?: string }>;
+  drugHistory?: Array<{ name: string; dose?: string; frequency?: string; adherence?: string }>;
+  allergyList?: Array<{ agent: string; reaction?: string; severity?: string; type?: string }>;
+  familyHistory?: Array<{ condition: string; relation?: string }>;
+  personal?: Record<string, string | undefined>;
+  reviewOfSystems?: Record<string, 'present' | 'denied' | 'not_asked'>;
+  obstetric?: { isPregnant?: boolean; gestationalWeeks?: number; isLactating?: boolean; lmp?: string };
+  completeness?: HistoryCompleteness;
+}
+
+export interface HistoryCompleteness {
+  asked: number;
+  answered: number;
+  skipped: number;
+  score: number;
+  sections: Record<string, 'complete' | 'partial' | 'not_asked'>;
+}
+
+export interface HistorySummarySection {
+  id: string;
+  title: string;
+  titleHi: string;
+  text: string;
+  textHi: string;
+  status: 'complete' | 'partial' | 'not_asked';
+}
+
+export interface HistorySummary {
+  generatedAt: string;
+  method: 'deterministic-template';
+  sections: HistorySummarySection[];
+  text: string;
+  textHi: string;
+  completeness: HistoryCompleteness;
+}
+
+export interface VitalsAssessment {
+  applicable: boolean;
+  reason?: string;
+  news2: number;
+  band: 'LOW' | 'LOW_MEDIUM' | 'MEDIUM' | 'HIGH';
+  anySingleThree: boolean;
+  parameters: Array<{ parameter: string; value: number | string; score: number }>;
+  missing: string[];
+  complete: boolean;
+  selfReported: boolean;
+  suggestedPriority: TriagePriority;
+  clinicalResponse: string;
+  reference: string;
+}
+
+export interface PatientSafetyContext {
+  patientId: string;
+  age?: number;
+  gender?: string;
+  isPregnant?: boolean;
+  gestationalWeeks?: number;
+  trimester?: number;
+  isLactating?: boolean;
+  weightKg?: number;
+  eGfr?: number;
+  eGfrMethod?: 'CKD-EPI-2021' | 'reported';
+  latestCreatinine?: { value: number; unit: string; recordedAt: string | null };
+  isDiabetic?: boolean;
+  knownConditions: string[];
+  /** `[]` = asked, none; undefined = not asked. */
+  allergies?: Array<{ agent: string; reaction?: string; severity?: string }>;
+  conditions?: string[];
+  reportedMedicines?: string[];
+  sources: string[];
+  missing: string[];
 }
 
 export interface VitalsData {
@@ -53,6 +136,16 @@ export interface VitalsData {
   temperature_f?: number;
   respiratoryRate?: number;
   bloodSugar?: number;
+  bloodSugarType?: 'fasting' | 'random' | 'post_prandial';
+  weightKg?: number;
+  heightCm?: number;
+  /** AVPU: A (alert), C (new confusion), V, P, U. */
+  consciousness?: string;
+  onOxygen?: boolean;
+  news2?: { score: number; band: string; at: string; missing?: string[] } | null;
+  recordedBy?: string;
+  recordedAt?: string;
+  source?: string;
 }
 
 export interface DashavidhaPariksha {
@@ -67,6 +160,9 @@ export interface DashavidhaPariksha {
   vyayamaShakti?: string;
   vaya?: string;
   agni?: AgniType;
+  /** Patient's own answers — provisional, never the Vaidya's assessment (prakriti, sara and satva are left to them). */
+  prakritiScreen?: { answers: Array<'V' | 'P' | 'K'>; provisional: string };
+  energySelfReport?: 'Good all day' | 'Enough for daily work' | 'Tires quickly';
 }
 
 export interface AllopathicMedication {
@@ -75,15 +171,24 @@ export interface AllopathicMedication {
   genericName?: string;
   dosage: string;
   route: string;
+  /** Indian notation "1-0-1" (morning-noon-night) or OD/BD/TDS/SOS, optionally with food timing. */
   frequency: string;
   durationDays: number;
   instructions?: string;
+  /** Why it is given (required for antibiotics: MoHFW 2024). */
+  indication?: string;
+  /** Units to dispense, computed from dose × frequency × days where possible. */
+  quantity?: number;
+  source?: 'doctor' | 'order_set' | 'favourite' | 'repeat' | 'dictation' | 'scanned_document' | 'reported';
 }
 
 export interface AyushFormulation {
   id?: string;
   classicalName: string;
+  /** @deprecated formulations have no national code system; never filled with invented codes. */
   namasteCode?: string;
+  quantity?: number;
+  source?: AllopathicMedication['source'];
   dosageForm: string;
   dose: string;
   anupana: string;
@@ -93,13 +198,24 @@ export interface AyushFormulation {
   apathya?: string[];
 }
 
+export type SafetyTier = 'STOP' | 'WARN' | 'INFO';
+
 export interface ConflictAlert {
   alertId?: string;
   itemA?: string;
   itemB?: string;
   allopathicDrug: string;
   ayushHerb: string;
-  severity: 'CRITICAL_LETHAL' | 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'MODERATE_MONITOR' | 'BIOAVAILABILITY_ALTERATION' | 'VIRUDDHA_AHARA';
+  severity: 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'INFO' | 'AYUSH_INCOMPATIBILITY' | 'STATUTORY_SCHEDULE_E1';
+  /** STOP: needs a typed reason to sign. WARN: shown beside the medicine. INFO: summary only. */
+  tier?: SafetyTier;
+  family?: string;
+  /** Alerts about the same lines and family share a group (one card, one reason). */
+  groupKey?: string;
+  /** Indexes of the lines involved (allopathic list first, then Ayurvedic list). */
+  lineRefs?: number[];
+  evidence?: 'established' | 'probable' | 'theoretical' | 'statutory';
+  source?: 'rules' | 'registry' | 'ontology' | 'ayush_engine';
   mechanism: string;
   clinicalConsequence: string;
   clinicalAction?: string;
@@ -156,6 +272,10 @@ export interface PatientQueueItem {
   room?: string;
   calledAt?: string;
   callCount?: number;
+  /** Clinician who has taken the patient (set when the token is called). */
+  claimedBy?: { id: string; name: string; at: string };
+  visitType?: 'NEW' | 'REVISIT' | 'FOLLOW_UP' | 'PHARMACY_REFERRED';
+  pharmacyReferral?: { encounterId: string; note: string; pharmacist: string; at: string; prescriber: string; prescriberId: string };
   normalizedLabMarkers?: Array<{
     marker: string;
     originalValue?: string;
@@ -183,16 +303,26 @@ export interface SessionDetail {
   /** Complaints the patient explicitly denied at the kiosk (pertinent negatives). */
   deniedSymptoms?: string[];
   scannedDocs?: any[];
-  isPregnant?: boolean;
+  isPregnant?: boolean | null; // null = not answered / not sure
   gestationalWeeks?: number;
-  isLactating?: boolean;
+  isLactating?: boolean | null;
   weightKg?: number;
   abhaId?: string;
   existingEncounter?: any;
   careStream?: CareStream;
   history?: PatientHistory;
+  historySummary?: HistorySummary;
+  vitalsAssessment?: VitalsAssessment;
+  patientContext?: PatientSafetyContext;
   parikshaAdvisory?: any;
   provisionalDiagnoses?: any[];
+  claimedBy?: { id: string; name: string; at: string } | null;
+  sinceLastVisit?: { firstVisit: boolean; previousVisit?: string; changes: string[] };
+  previousEncounters?: TimelineEncounter[];
+  savedDraft?: { draft: any; updatedAt: string } | null;
+  recordingConsent?: RecordingConsentState | null;
+  legalSignature?: { configured: boolean; method: string; seal: string; note: string };
+  dispense?: { status: string; note?: string; pharmacist?: string; at?: string } | null;
   concordance?: {
     status: 'CONCORDANT' | 'MALINGERING_SUSPECTED' | 'SILENT_ISCHEMIA_RISK' | 'CONCORDANT_PAIN_VITALS';
     rationale?: string;
@@ -264,6 +394,10 @@ export interface ExtractionResult {
   causalDagOverride?: CausalDagOverrideInfo;
   mlcCaseInfo?: MlcCaseInfo;
   airborneIsolationInfo?: AirborneIsolationInfo;
+  /** Long-standing illnesses the patient mentioned while speaking ("शुगर की बीमारी है"), as standard labels. */
+  pastHistory?: string[];
+  /** Medicine names the patient mentioned ("metformin खाता हूं"); names only, no dose is inferred. */
+  mentionedMedicines?: string[];
 }
 
 export interface EnzymeSaturation {
@@ -352,22 +486,25 @@ export interface OfflineVerificationResult {
   details: string;
 }
 
-export interface LeverDiagnosticInfo {
+export interface SubsystemDiagnostics {
   connected: boolean;
   path: string;
   subsystems?: string[];
   protocol?: string;
+  graph?: { nodeCount: number; edgeCount: number };
+  conformal?: { calibrated: boolean; n?: number; alpha?: number; qHat?: number; source?: string };
+  signingKeyId?: string;
+  auditChain?: { valid: boolean; checked: number; brokenAtId?: number };
+  provenanceChain?: { isValid: boolean; totalNodes: number; brokenAt?: number; error?: string };
+  device?: string | null;
 }
+export type LeverDiagnosticInfo = SubsystemDiagnostics;
 
 /** Shape returned by GET /api/security/diagnostics (alias /lever-diagnostics). */
 export interface LeverDiagnosticsData {
-  cognitiveEngine: LeverDiagnosticInfo & { graph?: { nodeCount: number; edgeCount: number }; conformal?: Record<string, unknown> };
-  integrityLedger: LeverDiagnosticInfo & {
-    signingKeyId?: string;
-    auditChain?: { valid: boolean; checked: number; brokenAtId?: number };
-    provenanceChain?: { isValid: boolean; totalNodes: number; brokenAt?: number; error?: string };
-  };
-  speechPipeline: LeverDiagnosticInfo & { device?: string | null };
+  cognitiveEngine: SubsystemDiagnostics;
+  integrityLedger: SubsystemDiagnostics;
+  speechPipeline: SubsystemDiagnostics;
 }
 
 export interface LeverDiagnosticsResponse {
@@ -481,3 +618,117 @@ export interface PvpiAdverseReactionAnomaly {
   statutoryNotice: string;
 }
 
+
+
+// ── Doctor desk ────────────────────────────────────────────────────────────
+
+export interface StopGroup { groupKey: string; alertIds: string[]; summary: string }
+
+export interface SafetyCoverage {
+  linesChecked: number;
+  unresolved: Array<{ line: number; name: string }>;
+  contextUsed: string[];
+  contextMissing: string[];
+  reviewStatus: string;
+}
+
+export interface ResolvedLineInfo {
+  index: number; raw: string; kind: string; role: string; generics: string[]; unresolved: string[];
+  schedule?: string[]; aware?: string[]; scheduleE1?: string[];
+}
+
+export interface SafetyEvaluation {
+  alerts: ConflictAlert[];
+  stopGroups: StopGroup[];
+  coverage: SafetyCoverage | null;
+  resolvedLines: ResolvedLineInfo[];
+  checks: Array<{ check: string; ran: boolean; detail?: string }>;
+  /** false when the hospital server could not be reached: nothing was checked. */
+  checked: boolean;
+}
+
+export interface DiagnosisEntry {
+  display: string;
+  system: 'NAMASTE' | 'ICD-11-MMS' | 'ICD-11-TM2' | 'ICD-10' | 'FREE_TEXT';
+  code?: string;
+  codeVerified?: boolean;
+  icd10?: string;
+  snomed?: string;
+  english?: string;
+  status: 'provisional' | 'final';
+  source: 'doctor' | 'accepted_suggestion';
+}
+
+export interface InvestigationOrder { id?: string; display: string; loinc?: string; urgency?: 'routine' | 'urgent'; note?: string }
+
+export interface OrderSet {
+  id: string; careStream: 'ALLOPATHY' | 'AYURVEDA'; name: string; condition?: string; source?: string; mine?: boolean;
+  medicines: any[]; investigations?: string[]; advice?: string; pathya?: string[]; apathya?: string[]; followUpDays?: number;
+  steps?: Array<{ step: number; label: string; medicines: any[] }>;
+}
+
+export interface FormularyHit {
+  id: string; generic: string; isCombination: boolean; matchedBrand?: string; brands: string[];
+  aware?: 'ACCESS' | 'WATCH' | 'RESERVE'; schedule?: string; ndps: boolean; nlem: boolean; highAlert: boolean;
+  defaults?: { dosage: string; frequency: string; durationDays: number; food?: string };
+}
+
+export interface AyushFormularyHit {
+  id: string; name: string; form: string; external: boolean; keyConstituents: string[]; scheduleE1: string[]; heavyMetal: boolean; alcohol: boolean;
+  defaults?: { dose: string; frequency: string; anupana: string; durationDays: number };
+}
+
+export interface TimelineEncounter {
+  encounterId: string; sessionId: string; date: string; doctorName: string; department?: string; careStream?: string;
+  diagnoses: string[]; medicines: Array<{ name: string; dosage?: string; frequency?: string; durationDays?: number; anupana?: string; stream: string }>;
+  advice?: string; followUpDays?: number | null; investigations: string[]; dispensed: string; dispensedAt?: string | null; dispenseNote?: string | null;
+  acknowledgedAlerts?: Array<{ summary: string; reason: string }>;
+}
+
+export interface SeenTodayItem {
+  encounterId: string; sessionId: string; at: string; patientName: string; age?: number; gender?: string; tokenNo?: string;
+  items: number; diagnosis: string | null; dispenseStatus: string; dispenseNote: string | null; amended: boolean;
+}
+
+export interface QualityIndicator { id: string; label: string; value: number | null; target: string; unit: string }
+export interface PrescribingQuality { windowDays: number; encounters: number; indicators: QualityIndicator[]; aware: { access: number; watch: number; reserve: number }; coverage: { medicines: number; recognised: number }; source: string }
+
+export interface NotifiableEvent { id: string; type: string; status: string; patientId: string; patientName: string; age?: number; gender?: string; abhaId?: string; sessionId?: string; encounterId?: string; details: any; referenceNo?: string; createdAt: string }
+
+
+// ── Scribe: room-recording consent and transcription ────────────────────────
+export type ConsentEvent = 'given' | 'declined' | 'withdrawn';
+export interface RecordingConsentState {
+  given: boolean;
+  event: ConsentEvent;
+  at: string;
+  /** Clinician who recorded the event. */
+  by: string;
+  consenter?: 'patient' | 'guardian' | 'representative' | string;
+  consenterName?: string;
+  relationship?: string;
+  noticeVersion?: string;
+  noticeLanguage?: string;
+  othersInformed?: boolean;
+}
+export interface RecordingConsentInput {
+  event: ConsentEvent;
+  consenter?: 'patient' | 'guardian' | 'representative';
+  consenterName?: string;
+  relationship?: string;
+  noticeLanguage?: string;
+  othersInformed?: boolean;
+  method?: string;
+}
+export interface ScribeTranscript {
+  text: string;
+  /** Re-decodes of the same audio at other speeds (Hindi): where they disagree, the words are uncertain. */
+  alternatives: string[];
+  durationSec: number;
+  engine?: string;
+  language: string;
+  mode: 'dictation' | 'room';
+  /** false when the speech server judged the clip to be noise, not speech (text is then empty). */
+  speech?: boolean;
+  rejected?: string;
+}

@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { db } from '../db/database';
 import { securityConfig } from './config';
 import { appendAudit } from './audit';
+import { purgeInterviews } from '../services/interview.service';
 
 export const CONSENT_VERSION = 'kiosk-consent-2026-10-v1';
 export const CONSENT_PURPOSES = ['care', 'abha_link', 'sms', 'research'] as const;
@@ -125,11 +126,11 @@ export function eraseIdentifiers(patientId: string, actor: string, note?: string
   const pseudonym = `Erased patient ${crypto.createHash('sha256').update(patientId).digest('hex').slice(0, 6).toUpperCase()}`;
   const now = new Date().toISOString();
   db.transaction(() => {
+    db.prepare(`DELETE FROM ephemeral_drafts WHERE phone_hash IS NOT NULL AND phone_hash = (SELECT phone_hash FROM patients WHERE id = ?)`).run(patientId);
     db.prepare(`UPDATE patients SET name = ?, abha_id = NULL, abha_address = NULL, phone_masked = NULL, phone_hash = NULL, phone_enc = NULL, aadhaar_masked = NULL, erased_at = ? WHERE id = ?`)
       .run(pseudonym, now, patientId);
     db.prepare(`UPDATE sessions SET raw_transcript = NULL WHERE patient_id = ?`).run(patientId);
     db.prepare(`UPDATE documents SET extracted_text = NULL WHERE patient_id = ?`).run(patientId);
-    db.prepare(`DELETE FROM ephemeral_drafts WHERE name IN (SELECT name FROM patients WHERE id = ?)`).run(patientId);
     db.prepare(`UPDATE consents SET withdrawn_at = ?, withdrawn_purposes_json = ? WHERE patient_id = ?`).run(now, JSON.stringify(['abha_link', 'sms', 'research']), patientId);
     db.prepare(`INSERT INTO rights_requests (id, patient_id, kind, status, note, handled_by, created_at, completed_at) VALUES (?, ?, 'erasure', 'COMPLETED', ?, ?, ?, ?)`)
       .run(`rr-${crypto.randomUUID()}`, patientId, note || null, actor, now, now);
@@ -148,6 +149,7 @@ export function runRetention(): Record<string, number> {
 
   const result = db.transaction(() => ({
     draftsDeleted: db.prepare('DELETE FROM ephemeral_drafts WHERE updated_at < ?').run(draftCutoff).changes,
+    interviewsDeleted: purgeInterviews(securityConfig.draftRetentionHours),
     abandonedVisitsClosed: db.prepare(`UPDATE sessions SET status = 'NOT_SEEN' WHERE status IN ('PENDING_DOCTOR', 'IN_CONSULTATION') AND created_at < ?`).run(abandonedCutoff).changes,
     staffSessionsDeleted: db.prepare('DELETE FROM staff_sessions WHERE expires_at < ? OR (revoked_at IS NOT NULL AND revoked_at < ?)').run(sessionCutoff, sessionCutoff).changes,
     // Past the legal retention period with no newer visit: delete the clinical record entirely.

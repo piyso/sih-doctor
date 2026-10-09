@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { HardDriveDownload, RefreshCw, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Panel, Btn, ErrorNote, Loading, fmtTime } from './adminUi';
+import { DemoModePanel } from '../../components/common/DemoModeControl';
 
 const Row: React.FC<{ label: string; ok?: boolean; value: React.ReactNode; hint?: string }> = ({ label, ok, value, hint }) => (
   <div className="flex items-start justify-between gap-3 py-2 border-b border-border/40 text-xs">
@@ -74,10 +75,14 @@ export const SystemPanel: React.FC = () => {
       {notice && <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/40 text-xs font-semibold text-emerald-800 dark:text-emerald-200">{notice}</div>}
       <ErrorNote message={error} />
 
+      <Panel title="Demonstration mode" subtitle="Sample patients and demo accounts for showing the system, or the hospital exactly as it runs live.">
+        <DemoModePanel onSwitched={() => load()} />
+      </Panel>
+
       <div className="grid lg:grid-cols-2 gap-4">
         <Panel title="Security & configuration" actions={<Btn onClick={load}><RefreshCw size={13} /> Refresh</Btn>}>
           <Row label="Environment" value={sys.environment} ok={sys.environment === 'production'} hint="Set NODE_ENV=production on the hospital server." />
-          <Row label="Demo data" value={sys.demoData ? 'ON' : 'off'} ok={!sys.demoData} hint="Must be off (ALLOW_DEMO_DATA=false) once real patients are seen." />
+          <Row label="Demo data" value={sys.demoData ? 'ON' : 'off'} ok={!sys.demoData} hint="Must be off once real patients are seen (switch above, or ALLOW_DEMO_DATA=false)." />
           <Row label="Kiosk enrolment" value={sys.kioskEnrollmentRequired ? 'required' : 'not required'} ok={sys.kioskEnrollmentRequired} />
           <Row label="Allowed browser origins" value={sys.corsOrigins.length ? sys.corsOrigins.join(', ') : 'same-origin only'} ok />
           <Row label="Audit chain" value={sys.auditChain.valid ? `intact · ${sys.auditChain.checked} entries` : `BROKEN at ${sys.auditChain.brokenAtId}`} ok={sys.auditChain.valid} />

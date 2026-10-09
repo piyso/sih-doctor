@@ -20,13 +20,20 @@
     "restore-backup": "tsx scripts/restore-backup.ts",
     "backup": "tsx -e \"require('./src/services/backup.service').runBackup().then(r=>{console.log(r);process.exit(0)})\"",
     "test:lexicon": "tsx tests/clinical_lexicon.test.ts",
-    "test:extraction": "tsx tests/extraction_gold.test.ts"
+    "test:extraction": "tsx tests/extraction_gold.test.ts",
+    "test:safety": "tsx tests/clinical_safety_context.test.ts",
+    "test:interview": "tsx tests/interview_engine.test.ts",
+    "calibrate:conformal": "tsx scripts/calibrate-conformal.ts",
+    "import:namaste": "tsx scripts/import-namaste.ts",
+    "test:http": "tsx tests/http_api.test.ts",
+    "eval:safety": "tsx tests/safety_benchmark.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "node-seal": "^5.1.5",
     "snarkjs": "^0.7.5",
     "uuid": "^11.0.5",
     "ws": "^8.18.0"

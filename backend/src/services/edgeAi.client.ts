@@ -62,9 +62,14 @@ export const EdgeAiClient = {
     return s.online && !!s.capabilities[cap]?.available;
   },
 
-  transcribe(audio: Buffer, contentType: string, lang: string) {
-    return call<{ text: string; language: string; confidence?: number; durationSec?: number }>(
-      `/asr?lang=${encodeURIComponent(lang)}`,
+  /**
+   * alternatives: re-check decodes of the same audio (speed-perturbed); the extractor combines their findings.
+   * speech: false (with `rejected`) when the audio held no speech — tones, hum, fan noise — and text is "".
+   * profile "dictation" adds medicine-name hotwords for a doctor's dictation (English).
+   */
+  transcribe(audio: Buffer, contentType: string, lang: string, profile?: 'dictation') {
+    return call<{ text: string; language: string; confidence?: number; durationSec?: number; alternatives?: string[]; speech?: boolean; rejected?: string }>(
+      `/asr?lang=${encodeURIComponent(lang)}${profile ? `&profile=${profile}` : ''}`,
       { method: 'POST', headers: headers({ 'Content-Type': contentType || 'application/octet-stream' }), body: new Uint8Array(audio) },
       30_000
     );

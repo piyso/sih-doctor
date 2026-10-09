@@ -89,7 +89,8 @@ export const authenticate: RequestHandler = (req, _res, next) => {
   const token = bearer(req);
   if (token) {
     const s = AuthService.resolveSession(token);
-    if (s) {
+    // Demo accounts (published PINs) only work while demonstration mode is on.
+    if (s && !(s.user.isDemo && !securityConfig.allowDemo)) {
       req.staff = s.user;
       req.staffSessionId = s.sessionId;
     }

@@ -55,14 +55,20 @@ export const AbdmFhirExportModal: React.FC<AbdmFhirExportModalProps> = ({ sessio
   const [bundle, setBundle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isLocal, setIsLocal] = useState(false);
+  const [finalized, setFinalized] = useState(false);
   const [tab, setTab] = useState<'document' | 'json'>('document');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    api.generateFhirBundle(sessionId)
-      .then(b => { if (alive) { setBundle(b); setIsLocal(false); } })
+    // Built from the doctor's current draft, so the preview shows what signing will send.
+    api.previewFhirDraft(sessionId, {
+      symptoms: session.symptoms, pariksha: session.pariksha, vitals: session.vitals,
+      diagnoses: draft.diagnoses, allopathicPrescription: draft.allopathic, ayushPrescription: draft.ayush,
+      investigationsOrdered: draft.investigations, pathya: draft.pathya, apathya: draft.apathya, advice: draft.advice, followUpDays: draft.followUpDays || undefined
+    })
+      .then(r => { if (alive) { setBundle(r.bundle); setFinalized(r.finalized); setIsLocal(false); } })
       .catch(err => {
         console.warn('[FHIR] Server bundle unavailable, showing local preview:', err);
         if (alive) { setBundle(buildLocalBundle(session, role, draft)); setIsLocal(true); }
@@ -156,6 +162,12 @@ export const AbdmFhirExportModal: React.FC<AbdmFhirExportModalProps> = ({ sessio
           {!loading && <span className="text-[11px] text-muted-foreground">{resources.length} resources</span>}
         </div>
 
+        {!loading && !isLocal && !finalized && (
+          <div className="mx-5 mt-3 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/40 text-xs font-semibold text-sky-900 dark:text-sky-100 flex items-center gap-2">
+            <AlertTriangle size={14} className="shrink-0" />
+            Draft preview built from this prescription (status “preliminary”). Nothing is sent to ABDM until you sign; the signed record is shared when the patient’s consent request arrives.
+          </div>
+        )}
         {isLocal && (
           <div className="mx-5 mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
             <AlertTriangle size={14} className="shrink-0" />

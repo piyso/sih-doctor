@@ -1,0 +1,64 @@
+fever
+cough
+phlegm
+vomiting
+nausea
+nauseous
+diarrhea
+loose motions
+constipation
+headache
+migraine
+dizziness
+dizzy
+breathless
+shortness of breath
+wheezing
+chest pain
+chest tightness
+palpitations
+abdominal pain
+stomach ache
+heartburn
+acidity
+burning urine
+urinating
+swelling
+rash
+itching
+numbness
+tingling
+weakness
+fatigue
+seizure
+fits
+unconscious
+fainted
+stroke
+snake bite
+poison
+bleeding
+vomiting blood
+pulse
+blood pressure
+oxygen
+saturation
+temperature
+sugar
+diabetes
+diabetic
+hypertension
+asthma
+thyroid
+tuberculosis
+knee pain
+back pain
+joint pain
+sore throat
+ear pain
+toothache
+s p o two
+denies
+denied
+no history of
+negative for

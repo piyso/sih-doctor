@@ -3,6 +3,7 @@
  * Executes all 20 test batteries and displays the sovereign validation report.
  */
 
+import './env';
 import { runOPDBenchmark } from './opd_benchmark.test';
 import { runKYCBenchmark } from './kyc_pii_redaction.test';
 import { runContraindicationBenchmark } from './contraindications.test';
@@ -25,13 +26,20 @@ import { runProductionOCRVerificationTests } from './production_ocr_verification
 import { runSOTAClinicalVisionEngineTests } from './sota_clinical_vision_engine.test';
 import { runFarFieldAcousticVadTests } from './far_field_acoustic_vad.test';
 import { runExtractionGold } from './extraction_gold.test';
+import { runClinicalSafetyBattery } from './clinical_safety_context.test';
+import { runInterviewBattery } from './interview_engine.test';
+import { runHttpApiBattery } from './http_api.test';
+import { runSafetyBenchmark } from './safety_benchmark.test';
+import { runRetrievalBattery } from './retrieval_layer.test';
+import { runDeskHttpBattery } from './desk_http.test';
+import { runDemoModeBattery } from './demo_mode.test';
 
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════════════╗
 ║             ALL INDIA INSTITUTE OF AYURVEDA (AIIA) & MINISTRY OF AYUSH               ║
 ║             SOVEREIGN MEDIKIOSK & AMBIENT SCRIBE SYSTEM                              ║
-║             22-BATTERY SCIENTIFIC CLINICAL VALIDATION & RIGOR HARNESS                ║
+║             28-BATTERY CLINICAL VALIDATION HARNESS                                   ║
 ╚══════════════════════════════════════════════════════════════════════════════════════╝
   `);
 
@@ -83,6 +91,21 @@ async function main() {
   const r22 = runFarFieldAcousticVadTests();
   settle();
   const r23 = runExtractionGold();
+  settle();
+  const r24 = runClinicalSafetyBattery();
+  settle();
+  const r25 = runInterviewBattery();
+  settle();
+  const r26 = await runHttpApiBattery();
+  settle();
+  console.log('\n=== PRESCRIPTION SAFETY BENCHMARK (eval/safety_cases.json) ===');
+  const r27 = runSafetyBenchmark();
+  settle();
+  const r28 = await runRetrievalBattery();
+  settle();
+  const r29 = await runDeskHttpBattery();
+  settle();
+  const r30 = await runDemoModeBattery();
 
   const tEndAll = performance.now();
   const totalDuration = (tEndAll - tStartAll) / 1000;
@@ -109,7 +132,14 @@ async function main() {
     r20: !!r20?.isPassed,
     r21: (r21?.passed || 0) === (r21?.total || 33),
     r22: true, // runFarFieldAcousticVadTests() throws on any failed assertion, which aborts the run
-    r23: r23.gatesOk
+    r23: r23.gatesOk,
+    r24: !!r24?.isPassed,
+    r25: !!r25?.isPassed,
+    r26: !!r26?.isPassed,
+    r27: !!r27?.isPassed,
+    r28: !!r28?.isPassed,
+    r29: !!r29?.isPassed,
+    r30: !!r30?.isPassed
   };
 
   const allPassed = Object.values(results).every(Boolean);
@@ -120,7 +150,7 @@ async function main() {
   console.log(`
 
 +----------------------------------------------------------------------------------------+
-|                   MASTER 22-BATTERY EMPIRICAL CLINICAL RIGOR SCORECARD                 |
+|                   MASTER 29-BATTERY CLINICAL VALIDATION SCORECARD                      |
 +--------------------------------------------+--------------------+----------------------+
 | Test Battery                               | Result / Metric    | Status               |
 +--------------------------------------------+--------------------+----------------------+
@@ -146,9 +176,16 @@ async function main() {
 | 20. SOTA Clinical Vision & BSA §63 Ledger  | ${r21?.passed || 33}/${r21?.total || 33} Assertions   | [PASS] (Prior+BSA)   |
 | 21. Far-Field VAD & Whisper-Boost Rigor    | 13/13 Assertions   | [PASS] (PreRoll/DSP) |
 | 22. Transcript Extraction Gold Set         | ${r23.passed}/${r23.total} Checks    | ${r23.gatesOk ? '[PASS]' : '[FAIL]'} (Negation/Vitals)|
+| 23. Patient-Context Safety & History       | ${r24.passed}/${r24.total} Checks      | ${r24.isPassed ? '[PASS]' : '[FAIL]'} (Pregnancy/Renal)|
+| 24. Adaptive Interview Engine              | ${r25.passed}/${r25.total} Checks      | ${r25.isPassed ? '[PASS]' : '[FAIL]'} (Branch/RedFlag)|
+| 25. HTTP API Journey (real server)         | ${r26.passed}/${r26.total} Checks      | ${r26.isPassed ? '[PASS]' : '[FAIL]'} (Kiosk→Rx→ABDM)|
+| 26. Prescription safety benchmark          | ${r27.passed}/${r27.total} Cases     | ${r27.isPassed ? '[PASS]' : '[FAIL]'} (Sens ${(r27.sensitivity * 100).toFixed(0)}% · 0 false STOP)|
+| 27. Encrypted similar-case retrieval       | ${r28.passed}/${r28.total} Checks      | ${r28.isPassed ? '[PASS]' : '[FAIL]'} (CKKS/guards)  |
+| 28. Doctor desk HTTP journey               | ${r29.passed}/${r29.total} Checks      | ${r29.isPassed ? '[PASS]' : '[FAIL]'} (Ack/Rx/Pharmacy)|
+| 29. Demonstration-mode switch              | ${r30.passed}/${r30.total} Checks      | ${r30.isPassed ? '[PASS]' : '[FAIL]'} (Off=closed/On=restored)|
 +--------------------------------------------+--------------------+----------------------+
-| TOTAL 22-BATTERY HARNESS DURATION: ${totalDuration.toFixed(2)} seconds                                        |
-| OVERALL VERDICT:                  ${allPassed ? '[PASS] ALL 22 TEST BATTERIES EMPIRICALLY VALIDATED' : '[FAIL] SUITE FAILED'}           |
+| TOTAL 29-BATTERY HARNESS DURATION: ${totalDuration.toFixed(2)} seconds                                        |
+| OVERALL VERDICT:                  ${allPassed ? '[PASS] ALL 29 TEST BATTERIES PASSED' : '[FAIL] SUITE FAILED'}           |
 +----------------------------------------------------------------------------------------+
   `);
   process.exit(allPassed ? 0 : 1);

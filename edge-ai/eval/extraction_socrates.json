@@ -1,0 +1,32 @@
+{
+  "_about": "SOCRATES detail from speech (radiation, aggravating, relieving, timing, onset type), written 2026-10-09 BEFORE implementing it. Key x: { family: { field: expected } }. Fields: radiation (body area the pain goes to), exacerbating, relieving, timing, onsetType. 'tune' cases may guide the implementation; 'holdout' cases are scored once. Run: npm run test:extraction -- --set socrates",
+  "cases": [
+    { "split": "tune", "t": "सीने में दर्द है जो बाएं हाथ तक जाता है", "p": ["chest_pain"], "n": ["arm_pain"], "x": { "chest_pain": { "radiation": "Left arm" } } },
+    { "split": "tune", "t": "chest pain going to my left arm and jaw", "p": ["chest_pain"], "n": ["arm_pain"], "x": { "chest_pain": { "radiation": "Left arm, Jaw" } } },
+    { "split": "tune", "t": "चलने पर सीने में दर्द होता है और आराम करने से ठीक हो जाता है", "p": ["chest_pain"], "x": { "chest_pain": { "exacerbating": "Exertion", "relieving": "Rest" } } },
+    { "split": "tune", "t": "पेट में जलन होती है खाने के बाद", "p": ["acidity"], "x": { "acidity": { "exacerbating": "After food" } } },
+    { "split": "tune", "t": "कमर दर्द झुकने पर बढ़ जाता है", "p": ["back_pain"], "x": { "back_pain": { "exacerbating": "Bending / lifting" } } },
+    { "split": "tune", "t": "खांसी रात को ज़्यादा होती है", "p": ["cough"], "x": { "cough": { "timing": "Night" } } },
+    { "split": "tune", "t": "अचानक बहुत तेज़ सिर दर्द शुरू हुआ", "p": ["headache"], "x": { "headache": { "onsetType": "Sudden" } } },
+    { "split": "tune", "t": "my knee hurts when I climb stairs and gets better with rest", "p": ["knee_pain"], "x": { "knee_pain": { "exacerbating": "Exertion", "relieving": "Rest" } } },
+    { "split": "tune", "t": "pet dard kabhi kabhi hota hai, dawai se aaram milta hai", "p": ["abdominal_pain"], "x": { "abdominal_pain": { "timing": "Intermittent", "relieving": "Medicine" } } },
+    { "split": "tune", "t": "kamar se pair tak dard jata hai", "p": ["back_pain"], "x": { "back_pain": { "radiation": "Leg" } } },
+    { "split": "tune", "t": "headache is worse in the morning", "p": ["headache"], "x": { "headache": { "timing": "Morning" } } },
+    { "split": "tune", "t": "सीने में दर्द लगातार हो रहा है", "p": ["chest_pain"], "x": { "chest_pain": { "timing": "Continuous" } } },
+    { "split": "tune", "t": "पेट में दर्द है जो पीठ तक जाता है", "p": ["abdominal_pain"], "n": ["back_pain"], "x": { "abdominal_pain": { "radiation": "Back" } } },
+    { "split": "tune", "t": "chest pain and my back also hurts", "p": ["chest_pain", "back_pain"] },
+    { "split": "tune", "t": "मुझे दर्द है जो बाएं हाथ तक जाता है", "p": ["arm_pain"] },
+    { "split": "holdout", "t": "दर्द सीने से गर्दन तक फैलता है", "p": ["chest_pain"], "x": { "chest_pain": { "radiation": "Neck" } } },
+    { "split": "holdout", "t": "pain in the stomach spreading to the back", "p": ["abdominal_pain"], "x": { "abdominal_pain": { "radiation": "Back" } } },
+    { "split": "holdout", "t": "सीढ़ियां चढ़ने पर सांस फूलती है", "p": ["breathless"], "x": { "breathless": { "exacerbating": "Exertion" } } },
+    { "split": "holdout", "t": "खाना खाने के बाद पेट में दर्द बढ़ जाता है", "p": ["abdominal_pain"], "x": { "abdominal_pain": { "exacerbating": "After food" } } },
+    { "split": "holdout", "t": "back pain gets worse when I lift something", "p": ["back_pain"], "x": { "back_pain": { "exacerbating": "Bending / lifting" } } },
+    { "split": "holdout", "t": "सिर दर्द दवा लेने से कम हो जाता है", "p": ["headache"], "x": { "headache": { "relieving": "Medicine" } } },
+    { "split": "holdout", "t": "the cough comes and goes", "p": ["cough"], "x": { "cough": { "timing": "Intermittent" } } },
+    { "split": "holdout", "t": "बुखार रात में चढ़ता है", "p": ["fever"], "x": { "fever": { "timing": "Night" } } },
+    { "split": "holdout", "t": "sudden chest pain while walking", "p": ["chest_pain"], "x": { "chest_pain": { "onsetType": "Sudden", "exacerbating": "Exertion" } } },
+    { "split": "holdout", "t": "घुटने का दर्द धीरे धीरे बढ़ा है", "p": ["knee_pain"], "x": { "knee_pain": { "onsetType": "Gradual" } } },
+    { "split": "holdout", "t": "seene me dard hai jo left haath tak jata hai", "p": ["chest_pain"], "x": { "chest_pain": { "radiation": "Left arm" } } },
+    { "split": "holdout", "t": "lying down makes the burning in my chest worse", "p": ["acidity"], "x": { "acidity": { "exacerbating": "Lying down" } } }
+  ]
+}

@@ -4,7 +4,7 @@
  * Zero Mocks • Zero Fake Fallbacks • Direct SQLite WAL, Ed25519 record seals, clinical rules & Truth Engine
  */
 
-import {
+import { RecordingConsentInput, RecordingConsentState, ScribeTranscript, PatientHistory, SocratesSymptom,
   PatientQueueItem,
   SessionDetail,
   ConflictAlert,
@@ -16,7 +16,16 @@ import {
   FamilyTokenGroup,
   OfflineVerificationResult,
   HypergraphPolypharmacyResult,
-  AshaFieldRecord
+  AshaFieldRecord,
+  SafetyEvaluation,
+  TimelineEncounter,
+  SeenTodayItem,
+  OrderSet,
+  InvestigationOrder,
+  FormularyHit,
+  AyushFormularyHit,
+  PrescribingQuality,
+  NotifiableEvent,
 } from '../types/api';
 import { session, StaffUser } from './session';
 
@@ -24,6 +33,40 @@ export interface KioskConsent {
   purposes: { care: boolean; abha_link: boolean; sms: boolean; research: boolean };
   language?: string;
   method?: 'kiosk_self' | 'kiosk_assisted' | 'emergency';
+}
+
+export interface InterviewQuestion {
+  id: string;
+  section: string;
+  type: 'single' | 'multi' | 'yesno' | 'number' | 'text' | 'scale';
+  text: string;
+  textEn: string;
+  textHi: string;
+  options?: Array<{ value: string; label: string; labelEn: string; labelHi: string }>;
+  optional: boolean;
+  voice: boolean;
+  min?: number;
+  max?: number;
+  progress: { answered: number; planned: number; section: string; sectionIndex: number; sectionCount: number };
+}
+
+export interface InterviewRedFlag { questionId: string; label: string; tier: 'sos' | 'urgent' }
+
+export interface InterviewStep {
+  interviewId: string;
+  question: InterviewQuestion | null;
+  done: boolean;
+  redFlags: InterviewRedFlag[];
+  progress: InterviewQuestion['progress'] | null;
+}
+
+export interface InterviewResult {
+  interviewId: string;
+  history: PatientHistory;
+  symptoms: SocratesSymptom[];
+  redFlags: InterviewRedFlag[];
+  suggestedPriority: 'EMERGENCY_RED_FLAG' | 'HIGH_PRIORITY' | 'ROUTINE';
+  transcript: Array<{ questionId: string; section: string; question: string; answer: unknown; status: 'answered' | 'skipped' | 'not_asked' }>;
 }
 
 export interface IntakeResult {
@@ -39,6 +82,8 @@ export interface IntakeResult {
   ahead?: number;
   estimatedWaitMinutes?: number;
   smsConfigured?: boolean;
+  vitalsAssessment?: { news2: number; band: string; applicable: boolean } | null;
+  historyCompleteness?: { asked: number; answered: number; skipped: number; score: number } | null;
   message: string;
 }
 
@@ -256,9 +301,9 @@ class ApiService {
           age: patient.age || d.age,
           gender: patient.gender || d.gender,
           language: patient.language || d.language || 'hi',
-          isPregnant: patient.isPregnant || false,
+          isPregnant: patient.isPregnant === null || patient.isPregnant === undefined ? null : !!patient.isPregnant, // null = not answered / not sure
           gestationalWeeks: patient.gestationalWeeks,
-          isLactating: patient.isLactating || false,
+          isLactating: patient.isLactating === null || patient.isLactating === undefined ? null : !!patient.isLactating,
           weightKg: patient.weightKg,
           abhaId: patient.abhaId,
           symptoms: d.symptoms || [],
@@ -275,7 +320,18 @@ class ApiService {
           existingEncounter: d.existingEncounter || null,
           careStream: d.careStream || patient.careStream || 'UNDECIDED',
           history: d.history || undefined,
-          concordance: d.concordance || undefined
+          historySummary: d.historySummary || undefined,
+          vitalsAssessment: d.vitalsAssessment || undefined,
+          patientContext: d.patientContext || undefined,
+          concordance: d.concordance || undefined,
+          deniedSymptoms: d.deniedSymptoms || [],
+          claimedBy: d.claimedBy || null,
+          sinceLastVisit: d.sinceLastVisit || undefined,
+          previousEncounters: d.previousEncounters || [],
+          savedDraft: d.savedDraft || null,
+          recordingConsent: d.recordingConsent || null,
+          legalSignature: d.legalSignature || undefined,
+          dispense: d.dispense || null
         };
       }
       return null;
@@ -323,7 +379,8 @@ class ApiService {
    * Deep Multi-Modal Audio Parsing (Phonetic -> Clinical -> Hopfield -> PAC Gate)
    * With Zero-Latency Local Deterministic Fallback on Air-Gapped Kiosks
    */
-  public async parseAudioTranscript(transcript: string, patientId?: string): Promise<ExtractionResult> {
+  /** `alternatives`: the speech service's re-check decodes of the same recording; the server combines their findings. */
+  public async parseAudioTranscript(transcript: string, patientId?: string, alternatives: string[] = []): Promise<ExtractionResult> {
     const empty: ExtractionResult = {
       symptoms: [],
       vitals: {},
@@ -340,7 +397,7 @@ class ApiService {
     const res = await fetchWithTimeout(`${BASE_URL}/api/kiosk/parse-audio`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: transcript.trim(), patientId })
+      body: JSON.stringify({ transcript: transcript.trim(), patientId, alternatives: alternatives.slice(0, 4) })
     }, 6000);
     if (!res.ok) throw new Error(`parse-audio failed with status ${res.status}`);
     const data = await res.json();
@@ -356,9 +413,11 @@ class ApiService {
         character: s.character || '',
         radiation: s.radiation || '',
         associations: s.associated || [],
-        timing: s.duration || s.timing || '',
-        exacerbatingFactors: s.exacerbatingFactors || [],
-        relievingFactors: s.relievingFactors || [],
+        // duration stays in onset; timing is when it comes ("Night", "Intermittent") as read from speech
+        timing: s.timing || s.duration || '',
+        exacerbatingFactors: s.exacerbatingFactors || (s.exacerbating ? [s.exacerbating] : []),
+        relievingFactors: s.relievingFactors || (s.relieving ? [s.relieving] : []),
+        ...(s.onsetType === 'Sudden' || s.onsetType === 'Gradual' ? { onsetType: s.onsetType } : {}),
         severityScore: s.severityScore || s.severity || 0
       }))
       // The parser can emit "X" and "Severe X" for one phrase; keep one entry per site + base name.
@@ -378,7 +437,12 @@ class ApiService {
       causalDagOverride: data.data.causalDagOverride,
       mlcCaseInfo: data.data.mlcCaseInfo,
       airborneIsolationInfo: data.data.airborneIsolationInfo,
-      dashavidhaPariksha: ext.dashavidhaPariksha || {}
+      dashavidhaPariksha: ext.dashavidhaPariksha || {},
+      pastHistory: Array.isArray(ext.pastHistory) ? ext.pastHistory.filter((h: unknown) => typeof h === 'string') : [],
+      mentionedMedicines: [...new Set<string>([
+        ...(ext.allopathicPrescriptions || []).map((m: any) => m?.drugName || m?.name),
+        ...(ext.ayushPrescriptions || []).map((a: any) => a?.formulationName || a?.classicalName)
+      ].filter((n: unknown): n is string => typeof n === 'string' && !!n.trim()))]
     } as ExtractionResult;
   }
 
@@ -412,148 +476,12 @@ class ApiService {
   }
 
   /**
-   * Dual-Pharmacology Causal DAG & Bayesian Truth Engine Evaluation
+   * Interaction check used by the kiosk document scanner. Returns only what the hospital server
+   * found; when the server cannot be reached it returns [] (nothing is invented offline).
    */
-  public async checkContraindications(
-    allopathic: any[],
-    ayush: any[]
-  ): Promise<ConflictAlert[]> {
-    try {
-      const res = await apiFetch(`${BASE_URL}/api/contraindications/evaluate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          allopathic: allopathic.map(a => ({
-            name: a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : ''),
-            dosage: a?.dosage || 'standard',
-            route: a?.route || 'ORAL',
-            frequency: a?.frequency || 'OD',
-            durationDays: a?.durationDays || 30
-          })),
-          ayush: ayush.map(a => ({
-            classicalName: a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : ''),
-            dosageForm: a?.dosageForm || 'Vati',
-            dose: a?.dose || '1',
-            anupana: a?.anupana || 'Water',
-            frequency: a?.frequency || 'OD',
-            durationDays: a?.durationDays || 30
-          }))
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.alerts) && data.alerts.length > 0) {
-          return data.alerts;
-        }
-      }
-    } catch (err) {
-      console.warn('[ApiService] Server-side contraindication check unreachable, evaluating offline:', err);
-    }
-    return this.evaluateContraindicationsOffline(allopathic, ayush);
-  }
-
-  /**
-   * Client-Side Deterministic Interaction Evaluator (Zero-Latency Offline Fallback)
-   */
-  public evaluateContraindicationsOffline(
-    allopathic: any[] = [],
-    ayush: any[] = []
-  ): ConflictAlert[] {
-    const alerts: ConflictAlert[] = [];
-    const alloNames = allopathic.map(a => (a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : '')).toLowerCase()).filter(Boolean);
-    const ayushNames = ayush.flatMap(a => [
-      (a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : '')).toLowerCase(),
-      (a?.anupana || '').toLowerCase()
-    ]).filter(Boolean);
-
-    // 1. Digoxin + Yashtimadhu / Licorice / Mulethi
-    const hasDigoxin = alloNames.some(n => n.includes('digoxin') || n.includes('lanoxin') || n.includes('digitalis'));
-    const hasYashtimadhu = ayushNames.some(n => n.includes('yashtimadhu') || n.includes('licorice') || n.includes('mulethi') || n.includes('glycyrrhiza'));
-    if (hasDigoxin && hasYashtimadhu) {
-      alerts.push({
-        alertId: 'INT-003',
-        severity: 'CRITICAL_CONTRAINDICATION' as any,
-        itemA: 'Digoxin',
-        itemB: 'Yashtimadhu',
-        allopathicDrug: 'Digoxin',
-        ayushHerb: 'Yashtimadhu (Licorice / Mulethi)',
-        mechanism: 'Glycyrrhizin inhibits 11-beta-hydroxysteroid dehydrogenase type 2 (11-beta-HSD2), producing pseudoaldosteronism, urinary potassium wasting, and severe hypokalemia (K+ < 2.5 mEq/L), precipitating fatal Digoxin-induced ventricular arrhythmias.',
-        evidenceScore: 0.99,
-        clinicalAction: 'Absolute contraindication. Never co-prescribe Yashtimadhu/Licorice with Digoxin or potassium-wasting loop diuretics.',
-        citation: 'AIIA Pharmacovigilance Advisory / WHO Monographs on Selected Medicinal Plants',
-        clinicalConsequence: 'Severe hypokalemia triggering Digoxin cardiac toxicity and fatal ventricular fibrillation.',
-        recommendedAction: 'Discontinue Yashtimadhu immediately. Substitute with Draksharishta or Arjuna Kwatha.',
-        counterfactualSubstitution: {
-          recommendedHerb: 'Draksharishta (AIIA Safe Alternative)',
-          explanation: 'Substituting Yashtimadhu with Draksharishta eliminates hypokalemia risk while providing cardioprotective pacification.'
-        }
-      });
-    }
-
-    // 2. Warfarin / Aspirin / Clopidogrel + Guggulu / Garlic
-    const hasAnticoag = alloNames.some(n => n.includes('warfarin') || n.includes('coumadin') || n.includes('aspirin') || n.includes('clopidogrel'));
-    const hasGuggulu = ayushNames.some(n => n.includes('guggulu') || n.includes('guggul') || n.includes('garlic') || n.includes('lashuna') || n.includes('lasuna'));
-    if (hasAnticoag && hasGuggulu) {
-      alerts.push({
-        alertId: 'INT-001',
-        severity: 'CRITICAL_CONTRAINDICATION' as any,
-        itemA: 'Warfarin',
-        itemB: 'Guggulu',
-        allopathicDrug: 'Warfarin / Antiplatelet',
-        ayushHerb: 'Guggulu (Commiphora mukul)',
-        mechanism: 'Guggulsterones inhibit platelet aggregation and potentiate Vitamin K antagonism, markedly increasing prothrombin time (INR) and risk of spontaneous catastrophic hemorrhage.',
-        evidenceScore: 0.98,
-        clinicalAction: 'Discontinue Guggulu immediately in patients on anticoagulant/antiplatelet therapy. Monitor baseline PT/INR.',
-        citation: 'BMJ Case Rep / Indian Journal of Pharmacology',
-        clinicalConsequence: 'Uncontrolled INR surge leading to internal hemorrhage or gastrointestinal bleeding.',
-        recommendedAction: 'Discontinue Guggulu. 1-Click switch to Rasnasaptaka Kwatha or Shallaki.',
-        counterfactualSubstitution: {
-          recommendedHerb: 'Rasnasaptaka Kwatha (AIIA Safe Alternative)',
-          explanation: 'Rasnasaptaka Kwatha achieves anti-inflammatory joint relief without CYP2C9 inhibition or INR elevation.'
-        }
-      });
-    }
-
-    // 3. Metformin + Shilajit / Nisha Amalaki
-    const hasMetformin = alloNames.some(n => n.includes('metformin') || n.includes('glimepiride') || n.includes('insulin'));
-    const hasShilajit = ayushNames.some(n => n.includes('shilajit') || n.includes('karela') || n.includes('meshashringi') || n.includes('nisha amalaki'));
-    if (hasMetformin && hasShilajit) {
-      alerts.push({
-        alertId: 'INT-002',
-        severity: 'CRITICAL_CONTRAINDICATION' as any,
-        itemA: 'Metformin',
-        itemB: 'Shilajit',
-        allopathicDrug: 'Metformin',
-        ayushHerb: 'Shilajit (Asphaltum)',
-        mechanism: 'Fulvic acids and dibenzo-alpha-pyrones in Shilajit enhance peripheral glucose uptake additively with Metformin, causing sudden severe hypoglycemia (blood glucose < 40 mg/dL).',
-        evidenceScore: 0.95,
-        clinicalAction: 'Mandatory SMBG monitoring. Adjust antidiabetic dosage under strict supervision.',
-        citation: 'Journal of Ethnopharmacology',
-        clinicalConsequence: 'Profound neuroglycopenic hypoglycemia and collapse.',
-        recommendedAction: 'Space doses by 4+ hours and monitor capillary blood glucose.'
-      });
-    }
-
-    // 4. Telmisartan / ACEI + Yashtimadhu
-    const hasArb = alloNames.some(n => n.includes('telmisartan') || n.includes('amlodipine') || n.includes('losartan') || n.includes('enalapril'));
-    if (hasArb && hasYashtimadhu && !hasDigoxin) {
-      alerts.push({
-        alertId: 'INT-004',
-        severity: 'WARNING' as any,
-        itemA: 'Telmisartan',
-        itemB: 'Yashtimadhu',
-        allopathicDrug: 'Antihypertensive (ARB/ACEI)',
-        ayushHerb: 'Yashtimadhu (Licorice)',
-        mechanism: 'Renal mineralocorticoid activation by Licorice induces sodium and water retention, blunting antihypertensive efficacy.',
-        evidenceScore: 0.91,
-        clinicalAction: 'Monitor blood pressure twice daily. Restrict Mulethi consumption.',
-        citation: 'Hypertension (AHA Guidelines on Dietary Glycyrrhizin)',
-        clinicalConsequence: 'Refractory hypertension and fluid retention.',
-        recommendedAction: 'Limit Yashtimadhu dosage or switch to non-glycyrrhizin formulation.'
-      });
-    }
-
-    return alerts;
+  public async checkContraindications(allopathic: any[], ayush: any[]): Promise<ConflictAlert[]> {
+    const r = await this.evaluateSafety({ allopathic, ayush });
+    return r.alerts.filter(a => a.tier !== 'INFO');
   }
 
   /**
@@ -571,7 +499,11 @@ class ApiService {
     diagnoses?: any[];
     allopathicPrescription: any[];
     ayushPrescription: any[];
-    investigationsOrdered?: string[];
+    investigationsOrdered?: Array<string | InvestigationOrder>;
+    alertAcknowledgements?: Array<{ groupKey: string; reason: string }>;
+    takeOver?: boolean;
+    clinicalExamination?: any;
+    consultationMinutes?: number;
     doctorNotes?: string;
     careStream?: string;
     pathya?: string[];
@@ -589,8 +521,9 @@ class ApiService {
     }, 15000);
     const data = await res.json().catch(() => ({}));
     if (data.success) return data;
-    const err: Error & { code?: string } = new Error(data.error || 'Failed to finalize prescription');
+    const err: Error & { code?: string; details?: any } = new Error(data.error || 'Failed to finalize prescription');
     err.code = data.code;
+    err.details = data;
     throw err;
   }
 
@@ -695,7 +628,7 @@ class ApiService {
   }
 
   /**
-   * Sovereign Core Subsystems Diagnostics (Cognitive Engine, Acoustic Scribe, Integrity Arbiter)
+   * Core subsystem diagnostics (cognitive engine, speech pipeline, integrity ledger)
    */
   public async getLeverDiagnostics(): Promise<LeverDiagnosticsData | null> {
     const res = await apiFetch(`${BASE_URL}/api/security/lever-diagnostics`);
@@ -709,14 +642,14 @@ class ApiService {
    */
   public async processDocumentOcr(
     text: string,
-    patientId: string = 'pat-default',
+    patientId: string = '',
     documentType: string = 'OLD_PRESCRIPTION',
     clinicalPrior?: any
   ): Promise<any> {
     const res = await apiFetch(`${BASE_URL}/api/documents/ocr`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, patientId, documentType, clinicalPrior })
+      body: JSON.stringify({ text, patientId: patientId || undefined, documentType, clinicalPrior })
     });
     const data = await res.json();
     if (data.success) return data.data;
@@ -729,13 +662,13 @@ class ApiService {
   public async processDocumentImage(
     imageBase64: string,
     fileName: string = 'document.png',
-    patientId: string = 'pat-default',
+    patientId: string = '',
     documentType: string = 'OLD_PRESCRIPTION'
   ): Promise<any> {
     const res = await apiFetch(`${BASE_URL}/api/documents/ocr-image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64, fileName, patientId, documentType })
+      body: JSON.stringify({ imageBase64, fileName, patientId: patientId || undefined, documentType })
     });
     const data = await res.json();
     if (data.success) return data.data;
@@ -832,10 +765,13 @@ class ApiService {
    * Offline Ed25519 record-seal verification (optionally simulating a tampered payload)
    */
   public async verifyOfflineSeal(proofBadge: any, prescriptionPayload: any, simulateTamper: boolean = false): Promise<OfflineVerificationResult> {
+    // Verifies the Ed25519 signature over the finalized record (needs only the hospital public key, works offline).
+    const encounterId = proofBadge?.encounterId || prescriptionPayload?.encounterId;
+    const signature = proofBadge?.signature || (proofBadge?.algorithm === 'Ed25519' ? proofBadge : undefined);
     const res = await apiFetch(`${BASE_URL}/api/security/verify-offline-seal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ proofBadge, prescriptionPayload, simulateTamper })
+      body: JSON.stringify(encounterId && !signature ? { encounterId, simulateTamper } : { record: prescriptionPayload, signature, simulateTamper })
     });
     const data = await res.json();
     if (data.success && data.verification) return data.verification;
@@ -843,87 +779,101 @@ class ApiService {
   }
 
   /**
-   * Multi-Order Hypergraph Polypharmacy Evaluation (CYP2C9/CYP3A4 saturation, quad-hit coagulopathy)
+   * Live prescription safety check (the same evaluation the signing gate uses). Sends the session
+   * so the server applies the patient's allergies, pregnancy, kidney function, age, weight,
+   * conditions and reported medicines. If the server is unreachable, `checked` is false and no
+   * alerts are returned: the desk must say "not checked", never "safe".
    */
-  public async checkContraindicationsFull(
-    allopathic: any[],
-    ayush: any[]
-  ): Promise<{
-    alerts: ConflictAlert[];
-    hasConflicts: boolean;
-    viruddhaWarnings: any[];
-    hypergraphPolypharmacy: HypergraphPolypharmacyResult;
-  }> {
+  public async evaluateSafety(input: { sessionId?: string; careStream?: string; allopathic: any[]; ayush: any[]; diet?: string[] }): Promise<SafetyEvaluation> {
+    const empty: SafetyEvaluation = { alerts: [], stopGroups: [], coverage: null, resolvedLines: [], checks: [], checked: false };
+    if (!input.allopathic.length && !input.ayush.length) return { ...empty, checked: true };
     try {
-      const res = await apiFetch(`${BASE_URL}/api/contraindications/evaluate`, {
+      const res = await fetchWithTimeout(`${BASE_URL}/api/contraindications/evaluate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          allopathic: allopathic.map(a => ({
-            name: a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : ''),
-            dosage: a?.dosage || 'standard',
-            route: a?.route || 'ORAL',
-            frequency: a?.frequency || 'OD',
-            durationDays: a?.durationDays || 30
-          })),
-          ayush: ayush.map(a => ({
-            classicalName: a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : ''),
-            dosageForm: a?.dosageForm || 'Vati',
-            dose: a?.dose || '1',
-            anupana: a?.anupana || 'Water',
-            frequency: a?.frequency || 'OD',
-            durationDays: a?.durationDays || 30
-          }))
+          sessionId: input.sessionId || undefined,
+          careStream: input.careStream,
+          diet: input.diet,
+          allopathic: input.allopathic.map(a => ({ name: a?.name || a?.genericName || a?.drugName || (typeof a === 'string' ? a : ''), dosage: a?.dosage || '', route: a?.route || 'ORAL', frequency: a?.frequency || '', durationDays: a?.durationDays || 0, indication: a?.indication || undefined })),
+          ayush: input.ayush.map(a => ({ classicalName: a?.classicalName || a?.name || a?.formulationName || (typeof a === 'string' ? a : ''), dose: a?.dose || '', anupana: a?.anupana || '', frequency: a?.frequency || '', durationDays: a?.durationDays || 0 }))
         })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        let alerts = Array.isArray(data.alerts) ? data.alerts : [];
-        if (alerts.length === 0) {
-          const offlineAlerts = this.evaluateContraindicationsOffline(allopathic, ayush);
-          if (offlineAlerts.length > 0) {
-            alerts = offlineAlerts;
-          }
-        }
-        return {
-          alerts,
-          hasConflicts: alerts.length > 0 || !!data.hasConflicts,
-          viruddhaWarnings: data.viruddhaWarnings || [],
-          hypergraphPolypharmacy: data.hypergraphPolypharmacy || {
-            hypergraphConflictDetected: false,
-            participatingNodes: [],
-            synergisticInteractions: [],
-            enzymeSaturations: [],
-            cumulativeSaturationIndex: 0,
-            bayesFactorBF10: 1.0,
-            overallRiskCategory: 'NONE',
-            substitutions: []
-          }
-        };
-      }
+      }, 8000);
+      if (!res.ok) return empty;
+      const data = await res.json();
+      return {
+        alerts: Array.isArray(data.alerts) ? data.alerts : [],
+        stopGroups: data.stopGroups || [],
+        coverage: data.coverage || null,
+        resolvedLines: data.resolvedLines || [],
+        checks: data.safetyChecks || [],
+        checked: true
+      };
     } catch (e) {
-      console.warn('[ApiService] checkContraindicationsFull failed, falling back to offline evaluator:', e);
+      console.warn('[ApiService] Safety check unreachable:', e);
+      return empty;
     }
-
-    const offlineAlerts = this.evaluateContraindicationsOffline(allopathic, ayush);
-    return {
-      alerts: offlineAlerts,
-      hasConflicts: offlineAlerts.length > 0,
-      viruddhaWarnings: [],
-      hypergraphPolypharmacy: {
-        hypergraphConflictDetected: false,
-        participatingNodes: [],
-        synergisticInteractions: [],
-        enzymeSaturations: [],
-        cumulativeSaturationIndex: 0,
-        bayesFactorBF10: 1.0,
-        overallRiskCategory: 'NONE',
-        substitutions: []
-      }
-    };
   }
 
-  /** ASHA field visits stored on the server (an ASHA sees her own; supervisors see all). Throws when offline. */
+  // ── Doctor desk ──────────────────────────────────────────────────────────
+  private async deskJson<T>(path: string, init: RequestInit = {}, timeout = 8000): Promise<T> {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/doctor${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers || {}) } }, timeout);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      const err: Error & { code?: string; status?: number; details?: any } = new Error(data.error || `Request failed (${res.status})`);
+      err.code = data.code; err.status = res.status; err.details = data;
+      throw err;
+    }
+    return data as T;
+  }
+  /** The ABDM record as it would be built from the current draft (not stored); a signed visit returns its signed bundle. */
+  public previewFhirDraft(sessionId: string, body: Record<string, unknown>) { return this.deskJson<{ bundle: any; finalized: boolean }>(`/encounter/${encodeURIComponent(sessionId)}/fhir-preview`, { method: 'POST', body: JSON.stringify(body) }, 10000); }
+  public claimPatient(sessionId: string, takeOver = false) { return this.deskJson<{ claimedBy: { id: string; name: string; at: string } }>(`/encounter/${encodeURIComponent(sessionId)}/claim`, { method: 'POST', body: JSON.stringify({ takeOver }) }); }
+  public releasePatient(sessionId: string) { return this.deskJson<{ success: boolean }>(`/encounter/${encodeURIComponent(sessionId)}/claim`, { method: 'DELETE' }); }
+  public async saveRxDraft(sessionId: string, draft: unknown): Promise<string | null> {
+    try { return (await this.deskJson<{ updatedAt: string }>(`/drafts/${encodeURIComponent(sessionId)}`, { method: 'PUT', body: JSON.stringify({ draft }) })).updatedAt; } catch { return null; }
+  }
+  public async getPatientTimeline(patientId: string): Promise<{ encounters: TimelineEncounter[]; vitals: any[]; labs: any[] } | null> {
+    try { return (await this.deskJson<{ data: any }>(`/patient/${encodeURIComponent(patientId)}/timeline`)).data; } catch { return null; }
+  }
+  public async getSeenToday(): Promise<SeenTodayItem[]> { try { return (await this.deskJson<{ data: SeenTodayItem[] }>('/seen-today')).data; } catch { return []; } }
+  public async getFavourites(stream: string): Promise<any[]> { try { return (await this.deskJson<{ data: any[] }>(`/favourites?stream=${stream}`)).data; } catch { return []; } }
+  public async getOrderSets(stream: string): Promise<OrderSet[]> { try { return (await this.deskJson<{ data: OrderSet[] }>(`/order-sets?stream=${stream}`)).data; } catch { return []; } }
+  public saveOrderSet(input: Partial<OrderSet>) { return this.deskJson<{ id: string }>('/order-sets', { method: 'POST', body: JSON.stringify(input) }); }
+  public deleteOrderSet(id: string) { return this.deskJson<{ success: boolean }>(`/order-sets/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+  public async getInvestigationCatalog(): Promise<InvestigationOrder[]> { try { return (await this.deskJson<{ data: InvestigationOrder[] }>('/investigations')).data; } catch { return []; } }
+  public async searchDiagnoses(q: string): Promise<any[]> { try { return (await this.deskJson<{ data: any[] }>(`/diagnosis-search?q=${encodeURIComponent(q)}`)).data; } catch { return []; } }
+  public async searchFormulary(q: string, stream: string): Promise<Array<FormularyHit | AyushFormularyHit>> {
+    try { return (await this.deskJson<{ data: any[] }>(`/formulary/search?q=${encodeURIComponent(q)}&stream=${stream}`)).data; } catch { return []; }
+  }
+  public async getPrescribingQuality(scope: 'me' | 'hospital' = 'me', days = 30): Promise<PrescribingQuality | null> {
+    try { return (await this.deskJson<{ data: PrescribingQuality }>(`/prescribing-quality?scope=${scope}&days=${days}`)).data; } catch { return null; }
+  }
+  public createAdrReport(input: any) { return this.deskJson<{ data: { id: string; channel: string; status: string; report: any } }>('/adr', { method: 'POST', body: JSON.stringify(input) }); }
+  public async getNotifiable(status?: string): Promise<NotifiableEvent[]> { try { return (await this.deskJson<{ data: NotifiableEvent[] }>(`/notifiable${status ? `?status=${status}` : ''}`)).data; } catch { return []; } }
+  public markNotifiableSubmitted(id: string, referenceNo: string) { return this.deskJson<{ success: boolean }>(`/notifiable/${encodeURIComponent(id)}/submitted`, { method: 'POST', body: JSON.stringify({ referenceNo }) }); }
+  /** A consent event for room recording (given / declined / withdrawn), with who agreed and the notice language. */
+  public recordRecordingConsent(sessionId: string, input: boolean | RecordingConsentInput) {
+    const body = typeof input === 'boolean' ? { event: input ? 'given' : 'declined', method: 'verbal' } : input;
+    return this.deskJson<{ data: RecordingConsentState | null }>(`/encounter/${encodeURIComponent(sessionId)}/recording-consent`, { method: 'POST', body: JSON.stringify(body) });
+  }
+  /**
+   * One scribe clip, transcribed on the hospital's own speech server. The server refuses room clips
+   * without the patient's consent for this visit (code RECORDING_CONSENT_REQUIRED) and keeps no audio.
+   */
+  public async scribeTranscribe(sessionId: string, audio: Blob, mode: 'dictation' | 'room', lang: string): Promise<ScribeTranscript> {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/encounter/${encodeURIComponent(sessionId)}/scribe/transcribe?mode=${mode}&lang=${encodeURIComponent(lang)}`, {
+      method: 'POST', headers: { 'Content-Type': audio.type || 'audio/webm' }, body: audio
+    }, 35000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      const err: Error & { code?: string; status?: number } = new Error(data.error || `Request failed (${res.status})`);
+      err.code = data.code; err.status = res.status;
+      throw err;
+    }
+    return data.data;
+  }
+
   public async getAshaRecords(): Promise<AshaFieldRecord[]> {
     const res = await fetchWithTimeout(`${BASE_URL}/api/asha/records`, {}, 10000);
     return (await jsonOrThrow(res)).data;
@@ -1171,13 +1121,34 @@ class ApiService {
     }
   }
 
-  public async transcribeAudio(audio: Blob, lang: string): Promise<{ text: string; language: string; confidence?: number }> {
+  public async transcribeAudio(audio: Blob, lang: string): Promise<{ text: string; language: string; confidence?: number; alternatives?: string[] }> {
     const res = await fetchWithTimeout(`${BASE_URL}/api/ai/asr?lang=${encodeURIComponent(lang)}`, {
       method: 'POST',
       headers: { 'Content-Type': audio.type || 'audio/webm' },
       body: audio
     }, 35000);
     return (await jsonOrThrow(res)).data;
+  }
+
+  // ---------------------------------------------------------------- Adaptive history interview (server-side state machine)
+  public async startInterview(input: { language?: string; careStream?: string; patient?: { age?: number | null; gender?: string | null; isPregnant?: boolean } }): Promise<{ interviewId: string; question: InterviewQuestion }> {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/kiosk/interview/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, 8000);
+    return jsonOrThrow(res);
+  }
+
+  public async answerInterview(interviewId: string, body: { questionId: string; value?: unknown; skip?: boolean }): Promise<InterviewStep> {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/kiosk/interview/${encodeURIComponent(interviewId)}/answer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 8000);
+    return jsonOrThrow(res);
+  }
+
+  public async resumeInterview(interviewId: string): Promise<{ question: InterviewQuestion | null; done: boolean }> {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/kiosk/interview/${encodeURIComponent(interviewId)}`, {}, 8000);
+    return jsonOrThrow(res);
+  }
+
+  public async finishInterview(interviewId: string): Promise<InterviewResult> {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/kiosk/interview/${encodeURIComponent(interviewId)}/finish`, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, 10000);
+    return jsonOrThrow(res);
   }
 
   public async synthesizeSpeech(text: string, lang: string): Promise<Blob> {

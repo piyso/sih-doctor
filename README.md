@@ -23,7 +23,7 @@
 3. [Official System Engineering Datasheet](#3-official-system-engineering-datasheet)
 4. [Core Technical Approach (In Accessible Terms)](#4-core-technical-approach-in-simple-terms)
 5. [Formal Mathematical Proofs & Scientific Derivations](#5-formal-mathematical-proofs--scientific-derivations)
-6. [Master 22-Battery Empirical Benchmark Scorecard](#6-master-22-battery-empirical-benchmark-scorecard)
+6. [Verification Harness (25 batteries)](#6-verification-harness-25-batteries)
 7. [Official Research Corpora & Real Dataset Specifications](#7-official-research-corpora--real-dataset-specifications)
 8. [Cryptographic Data Integrity & Legal Admissibility](#8-cryptographic-data-integrity--legal-admissibility)
 9. [Standardized Physical & Digital Health Records Specification](#9-standardized-physical--digital-health-records-specification)
@@ -298,7 +298,7 @@ When a rural or urban citizen visits a crowded government hospital in Madhya Pra
 * **In Everyday Words:** To verify that a medical document is authentic, a hospital normally has to trust a central database that an administrator could edit. Our system signs every consultation and prescription with the hospital's Ed25519 key and links records in a SHA-256 hash chain [21]. A kiosk, a phone or another hospital can check a printed prescription offline with the hospital's public key; any altered digit breaks the signature. Patient data stays inside the hospital [19].
 
 #### 2. The Dual-Pharmacology Truth Engine (Stopping Lethal Drug-Herb Interactions)
-* **In Everyday Words:** The system includes a Bayesian clinical mathematical engine ($BF_{10}$) [23]. In less than 3 milliseconds, on an offline computer, it cross-references every modern medicine against traditional Ayurvedic herbs, heavy-metal *Bhasmas*, and dietary rules [10, 12, 13, 27, 34–37]. If a patient is prescribed *Warfarin* alongside *Yogaraja Guggulu* (which causes lethal bleeding) [12] or *Digoxin* alongside *Yashtimadhu* (licorice, which causes fatal cardiac arrhythmia) [13], the system immediately flashes an emergency clinical interlock, stopping the mistake before medicine is dispensed.
+* **In Everyday Words:** The system cross-references every modern medicine against traditional Ayurvedic herbs, heavy-metal *Bhasmas*, and dietary rules [10, 12, 13, 27, 34–37], using the patient's own record: pregnancy, age, and kidney function derived from the last creatinine on file (CKD-EPI 2021). Each rule carries a citation and a Savage–Dickey Bayes factor computed from the registry evidence and any locally recorded pharmacovigilance observations [23]; nothing is fabricated. If a patient is prescribed *Warfarin* alongside *Yogaraja Guggulu* (which causes lethal bleeding) [12] or *Digoxin* alongside *Yashtimadhu* (licorice, which causes fatal cardiac arrhythmia) [13], the system immediately flashes an emergency clinical interlock, stopping the mistake before medicine is dispensed.
 
 #### 3. The Dihedral $D_5$ Error Shield (Eliminating Patient Identity Typos)
 * **In Everyday Words:** The system uses the mathematical **Dihedral Group $D_5$ (Verhoeff) algorithm** [14]. If a health worker or patient mistypes a single digit or accidentally swaps two adjacent numbers when entering an Aadhaar or ABHA number, the system catches the error 100% of the time, in under 0.001 milliseconds [14]. It prevents medical files from ever being corrupted or swapped.
@@ -410,40 +410,39 @@ The clinical validation engine enforces biological conservation laws across labo
 
 ---
 
-## 6. Master 22-Battery Empirical Benchmark Scorecard
+## 6. Verification Harness (25 batteries)
 
-The system undergoes continuous validation across 22 independent test batteries executing on bare-metal hardware. All tests run via `npm test` or `./backend/scripts/run_benchmarks.sh`.
+`cd backend && npm test` runs every battery below on a throw-away SQLite database in about 25 seconds. Numbers are from the run on 2026-10-09 on an Apple M4; throughput figures vary by machine, pass/fail does not.
 
-Across the full suite, **over 140,000 synthetic and real clinical vectors, 269 hard invariants, and 40 physiological analytes are evaluated in 5.94 seconds**:
+| Battery | What it checks | Recorded result | Status |
+| :---: | :--- | :--- | :---: |
+| **01** | 5,000 synthetic OPD transcripts parsed end to end | ~5,000 cases/s | [PASS] |
+| **02** | Verhoeff checksum over 10,000 Aadhaar-format numbers | 0.0008 ms/record, 100% | [PASS] |
+| **03** | Herb–drug registry and ATC/phytochemical ontology on lethal pairs; zero false positives on safe pairs | 6 pairs | [PASS] |
+| **04** | 1,000 FHIR R4 document bundles: NDHM profiles, 11 OPConsultRecord sections, references resolve, no invented identifiers | ~30,000 bundles/s | [PASS] |
+| **05** | Groth16 verifier self-test on the demo circuit (rejects perturbed proofs; not bound to records) | ~6 ms | [PASS] |
+| **06** | 100,000-transcript stress run with heap check | ~5,000 cases/s, no leak | [PASS] |
+| **07** | Knowledge graph paths, Savage–Dickey Bayes factor, Hopfield recall, split-conformal gate (abstains when uncalibrated) | all assertions | [PASS] |
+| **08** | Adversarial multi-modal battery (negation, injection, OCR, VAD) | 52/52 | [PASS] |
+| **09** | Grandmaster universal suite | 147/147 | [PASS] |
+| **10** | 22-language red-flag matrix | 34/34 | [PASS] |
+| **11** | NPvCC polypharmacy cocktails and Viruddha Ahara | 20/20 | [PASS] |
+| **12** | Real-world limits (noise, missing data) | sensitivity 100%, specificity 94% | [PASS] |
+| **13** | Hardest adversarial battery (1,000 cases) | sensitivity 100%, MCC 0.98 | [PASS] |
+| **14** | Noisy-transcript reality trial | WER 0%: 100%, WER 30%: 86% | [PASS] |
+| **15** | Grand apex clinical benchmark (5,000 cases) | sensitivity 100%, MCC 1.00 | [PASS] |
+| **16** | 10-dimensional failure modes | 31/31 | [PASS] |
+| **17** | Omnimodal long-context trajectories | 19/19 | [PASS] |
+| **18** | 10-domain edge-case crucible | 10/10 | [PASS] |
+| **19** | Native OCR and tessdata presence | 18/18 | [PASS] |
+| **20** | Clinical vision plausibility and BSA §63 ledger | 33/33 | [PASS] |
+| **21** | Far-field VAD and gain | 13/13 | [PASS] |
+| **22** | Transcript extraction gold set (91 Hindi/Hinglish/English transcripts, 163 checks) | 163/163 | [PASS] |
+| **23** | Patient-context safety: pregnancy, renal (CKD-EPI 2021), paediatric gates; matcher hygiene; NEWS2; structured history | 41/41 | [PASS] |
+| **24** | Adaptive interview engine: branching, red-flag probes, skips, gating, completeness | 34/34 | [PASS] |
+| **25** | HTTP journey on the real server: kiosk → interview → intake → doctor → blocked warfarin → signed Rx → FHIR → seal → ABDM HIP exchange → erasure | 39/39 | [PASS] |
 
-| Battery | Test Suite Name | Evaluated Metric & Operational Target | Recorded Performance | Benchmark Citation | Status |
-| :---: | :--- | :--- | :--- | :---: | :---: |
-| **01** | High-Density Indian Clinical OPD | High-throughput triage state serialization under burst load | 16,837 cases/second | [1, 17] | [PASS] |
-| **02** | Verhoeff Dihedral $D_5$ Aadhaar KYC | Error-detecting checksum validation over 10,000 UID records | 0.0008 ms/record (100% accuracy) | [14] | [PASS] |
-| **03** | Dual-Pharmacology Truth Engine | Herb-drug cross-reactivity lookup & contraindication detection | 2.50 ms latency (0% false positives) | [10, 12, 13, 23, 27, 34–37] | [PASS] |
-| **04** | ABDM FHIR R4 Interoperability | Complete serialization of Composition, Patient, Condition bundles | 174,241 bundles/second | [29] | [PASS] |
-| **05** | Groth16 verifier self-test (demo circuit) | snarkjs verification of a sample proof and rejection of perturbed proofs; not bound to records | 5.30 ms verification | [22] | [PASS] |
-| **06** | Bare-Metal Concurrency Stress | Continuous heap and event-loop profiling over 100,000 records | 27,415 cases/sec (0 memory leaks) | [17, 40] | [PASS] |
-| **07** | AyushGraph, Hopfield & PAC Gate | Conformal bound evaluation ($1-\alpha = 0.99$) and associative retrieval | 3.90 ms execution latency | [26, 28] | [PASS] |
-| **08** | Core Tri-Subsystem Architecture | Subsystem binding verification across core clinical modules | 7.00 ms initialization | [17, 30] | [PASS] |
-| **09** | Extreme Adversarial Triage Suite | Fault-tolerance under corrupted, malformed, and out-of-order payloads | 51 of 50 invariants sustained | [17] | [PASS] |
-| **10** | Grandmaster Universal Suite | Complex multi-morbid triage scenarios with polypharmacy | 147 of 147 invariants sustained | [10, 26, 27] | [PASS] |
-| **11** | Pan-Indian 22-Dialect Matrix | Lexical parsing across 22 Eighth-Schedule languages + 4 dialects | 34 of 34 invariants (0% FN on red flags) | [39] | [PASS] |
-| **12** | AIIA NPvCC & Charaka Viruddha | Pharmacovigilance criteria and classical dietary incompatibilities | 20 of 20 interaction vectors flagged | [10, 12, 13, 28] | [PASS] |
-| **13** | Real-World Clinical Limits | Extreme edge validation across degraded clinical observations | Sensitivity: 100.0%, Specificity: 80.0% | [1, 17] | [PASS] |
-| **14** | Adversarial Diagnostic Battery | High-stress diagnostic classification under ambiguous complaints | Sensitivity: 100.0%, MCC: 0.982 | [1, 10] | [PASS] |
-| **15** | Clinical Reality Noise Trial | Robustness against noisy, corrupted speech-to-text transcripts | WER 0%: 100% match; WER 30%: 82% match | [15, 38] | [PASS] |
-| **16** | Grand Apex Clinical Challenge | Polypharmacy conflict resolution against AIIMS/PvPI datasets | Sensitivity: 100.0%, MCC: 1.000 | [10, 11, 34–37] | [PASS] |
-| **17** | 10-Dimensional Failure Modes | Boundary behavior under power loss, buffer overflows, and corruption | 31 of 31 test assertions verified | [17, 19] | [PASS] |
-| **18** | Grand Unified Omnimodal Reality | Long-context multi-encounter history and chronic disease mapping | 19 of 19 complex trajectories mapped | [1, 29] | [PASS] |
-| **19** | 10-Domain Edge-Case Crucible | Deep stress testing across pediatric, geriatric, and renal domains | 10 of 10 clinical gates passed | [10, 31] | [PASS] |
-| **20** | Production OCR & Neural Vision | Document normalization, table extraction, and image preprocessing | 18 of 18 document structures extracted | [25] | [PASS] |
-| **21** | SOTA Vision & BSA §63 Ledger | 40 biological analytes, Bayesian prior boost, and hash-chain audit | 33 of 33 clinical assertions verified | [21, 24, 32, 33] | [PASS] |
-| **22** | Far-Field Acoustic VAD Rigor | Ambient noise tracking, soft-knee gain, and whisper detection | 17 of 17 acoustic assertions verified | [15, 38] | [PASS] |
-
-**Comprehensive Verification Summary:**  
-Total test execution time: **5.94 seconds**  
-Suite outcome: **22 of 22 test batteries passed (100% empirical compliance)**
+Also measured outside the harness: on-premise Hindi ASR (IndicConformer, sherpa-onnx) character error rate 2.5% clean / 8% at 10 dB SNR, English (Parakeet) word error rate 3.6% clean; real-audio extraction 98% on 62 sentences (`edge-ai/eval`).
 
 ---
 
@@ -514,12 +513,13 @@ Every OPD prescription, triage classification, and clinical override is sequenti
 $$\text{Hash}_n = \text{SHA-256}(\text{Hash}_{n-1} \parallel \text{Timestamp} \parallel \text{ConsultationData} \parallel \text{DoctorSignature})$$
 This cryptographic chain satisfies the technical admissibility conditions for electronic medical records under Section 63 of the Bharatiya Sakshya Adhiniyam, 2023 (formerly Section 65B of the Indian Evidence Act), guaranteeing non-repudiation in medicolegal audits [21].
 
-### 8.2 ABDM Milestone 3 (M3) FHIR R4 Bundle Architecture [29]
-Consultation summaries serialize directly into compliant Health Level Seven (HL7) FHIR Release 4 document bundles [29]:
-* **Bundle Resource:** Type `document`, identifier mapped to patient's 14-digit ABHA [29].
-* **Composition Resource:** Clinical encounter document signed with practitioner registration number [29].
-* **Condition Resources:** Tri-coded with Ayush NAMASTE A-Codes, WHO ICD-11 Chapter 26, and SNOMED-CT [26, 29].
-* **MedicationRequest Resources:** Formatted with posology, duration, classical *Anupana* (carrier), and *Aushadha Sevana Kala* (administration timing relative to food intake) [27, 28, 29].
+### 8.2 ABDM FHIR R4 Bundle Architecture [29]
+Each finalized consultation is serialized as an HL7 FHIR R4 document bundle following the NRCES NDHM implementation guide (see `docs/ABDM_INTEGRATION.md`):
+* **Bundle / Composition:** `type: document`, Composition profile `OPConsultRecord` with the IG's coded sections (chief complaints, physical examination, allergies, medical history, family history, investigation advice, medications, follow-up, procedure, other observations, document reference).
+* **Patient / Practitioner / Organization:** ABHA number and address only when the patient has them, hospital MRN otherwise; the practitioner carries the council registration number from the staff record; facility id only when configured. Nothing is invented.
+* **Condition:** NAMASTE code with ICD-10 and SNOMED CT (ICD-11 TM2 when the terminology import provides it).
+* **Observation / AllergyIntolerance / FamilyMemberHistory / MedicationStatement / Procedure / ServiceRequest / Appointment / DocumentReference:** vitals (LOINC), allergies, family history, ongoing medicines, past surgery, investigations, follow-up and scanned documents from the structured history.
+* **HIP flows:** care-context linking, consent artefact intake and encrypted health-information push (ECDH Curve25519 + HKDF-SHA256 + AES-256-GCM), with a local HIU simulation for demonstrations.
 
 ---
 

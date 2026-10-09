@@ -20,6 +20,9 @@ import { analyseComplaint } from '../services/clinicalLexicon';
 import { AlertsService } from '../services/alerts.service';
 import { publish } from '../services/eventBus.service';
 import { SmsService } from '../services/sms.service';
+import { normaliseHistory } from '../services/clinicalHistory.service';
+import { assessVitals, raisePriority } from '../services/triage.service';
+import { loadInterview, historyFrom } from '../services/interview.service';
 
 export const kioskRouter = Router();
 
@@ -34,8 +37,12 @@ kioskRouter.post('/parse-audio', (req: Request, res: Response): void => {
       res.status(400).json({ error: 'transcript is required' });
       return;
     }
+    // re-check decodes of the same recording from the speech service (optional, at most 4)
+    const alternatives: string[] = Array.isArray(req.body.alternatives)
+      ? req.body.alternatives.filter((a: unknown) => typeof a === 'string').slice(0, 4).map((a: string) => a.slice(0, 5000))
+      : [];
 
-    res.json({ success: true, data: analyseTranscript(String(transcript), patientId, abhaId) });
+    res.json({ success: true, data: analyseTranscript(String(transcript).slice(0, 5000), patientId, abhaId, alternatives) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -50,7 +57,10 @@ const normName = (n: string) => n.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ')
 
 kioskRouter.post('/intake', (req: Request, res: Response): void => {
   try {
-    const { patient, symptoms, pariksha, vitals, rawTranscript, scannedDocs, careStream, history, language, triageOverride, sosTriggered, routingHints } = req.body || {};
+    const { patient, symptoms, pariksha, vitals, rawTranscript, scannedDocs, careStream, history, language, triageOverride, sosTriggered, routingHints, interviewId } = req.body || {};
+    // The adaptive interview's answers live on the server (encrypted); red flags and history are re-derived here, not trusted from the kiosk.
+    const interview = typeof interviewId === 'string' ? loadInterview(interviewId) : null;
+    const interviewResult = interview ? historyFrom(interview) : null;
     const isSos = triageOverride === 'EMERGENCY_RED_FLAG' || !!sosTriggered;
 
     // DPDP Act: process health data only with consent. A medical emergency is a permitted
@@ -76,7 +86,7 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     }
     const gender = GENDERS.includes(patient?.gender) ? patient.gender : 'OTHER';
     const cleanAbha = typeof patient?.abhaId === 'string' && patient.abhaId.trim() ? patient.abhaId.trim().slice(0, 40) : null;
-    const cleanSymptoms = Array.isArray(symptoms) ? symptoms.slice(0, 30) : [];
+    const cleanSymptoms = (Array.isArray(symptoms) && symptoms.length ? symptoms : (interviewResult?.symptoms || [])).slice(0, 30);
     const transcript = typeof rawTranscript === 'string' ? rawTranscript.slice(0, 5000) : '';
     const lang = typeof language === 'string' ? language.slice(0, 8) : (patient?.language || 'hi');
 
@@ -131,7 +141,46 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
       priority = 'HIGH_PRIORITY';
       redFlags = [...lexiconFlags];
     }
+    // NEWS2 on the self-reported vitals (RCP 2017): can only raise the priority, and a nurse verifies before acting.
+    const vitalsAssessment = assessVitals(vitals, { selfReported: true, age: Number.isFinite(age) ? age : null, isPregnant: !!patient?.isPregnant });
+    if (vitalsAssessment.applicable && vitalsAssessment.suggestedPriority !== 'ROUTINE') {
+      priority = raisePriority(priority, vitalsAssessment.suggestedPriority);
+      redFlags.push(`NEWS2 ${vitalsAssessment.news2} (${vitalsAssessment.band.toLowerCase().replace('_', '-')}) on patient-reported vitals: nurse to verify`);
+    }
+    // Interview red-flag probes (chest pain radiation, thunderclap headache, obstetric danger signs, ...).
+    if (interviewResult?.redFlags.length) {
+      priority = raisePriority(priority, interviewResult.suggestedPriority);
+      redFlags.push(...interviewResult.redFlags.map(f => f.label));
+    }
+    // Age- and pregnancy-aware rules that keyword triage alone misses.
+    const complaintAll = [transcript, ...cleanSymptoms.map((s: any) => `${s?.name || ''} ${s?.labelLocal || ''}`), typeof patient?.chiefComplaint === 'string' ? patient.chiefComplaint : ''].join(' . ').toLowerCase();
+    if (Number.isFinite(age) && age < 2 && patient?.age !== undefined && patient?.age !== '' && /fever|bukhar|बुखार|breath|saans|सांस|साँस|vomit|ulti|उल्टी|dast|दस्त|diarrh|not feeding|doodh nahi|दूध नहीं|lethargic|sust|सुस्त/.test(complaintAll)) {
+      priority = raisePriority(priority, 'HIGH_PRIORITY');
+      redFlags.push('Infant under 2 years with fever, breathing, feeding or fluid-loss complaint: same-day paediatric review (IMNCI)');
+    }
+    if (patient?.isPregnant) {
+      if (/bleed|khoon|खून|रक्त|rakt|fits|convuls|jhatke|झटके|daura|दौरा|blurred|dhundhla|धुंधला|severe headache|tez sir dard|तेज़ सिर दर्द|तेज सिर दर्द/.test(complaintAll)) {
+        priority = 'EMERGENCY_RED_FLAG';
+        redFlags.push('Pregnancy danger sign reported (bleeding, fits, or severe headache / visual disturbance): obstetric emergency pathway');
+      } else if (/movement less|halchal kam|हलचल कम|hil nahi|leaking|pani nikal|पानी निकल|swelling|sujan|सूजन|labour|dard uth|प्रसव/.test(complaintAll)) {
+        priority = raisePriority(priority, 'HIGH_PRIORITY');
+        redFlags.push('Pregnancy warning sign reported (reduced fetal movement, leaking fluid, swelling or labour pains): priority obstetric review');
+      }
+    }
     redFlags = Array.from(new Set(redFlags));
+    let structuredHistory = history ? normaliseHistory(history) : null;
+    if (interviewResult) {
+      // Interview answers are the richer source; keep anything the kiosk forms added on top.
+      const kiosk = structuredHistory;
+      structuredHistory = normaliseHistory({
+        ...interviewResult.history,
+        conditions: Array.from(new Set([...(interviewResult.history.conditions || []), ...(kiosk?.conditions || [])])),
+        allergies: interviewResult.history.allergies || kiosk?.allergies || '',
+        currentMedicines: interviewResult.history.currentMedicines || kiosk?.currentMedicines || '',
+        completeness: interviewResult.history.completeness,
+        ayush: interviewResult.history.ayush || kiosk?.ayush
+      });
+    }
 
     // ---- Department and token ----
     const complaintText = [...cleanSymptoms.map((s: any) => `${s?.site || ''} ${s?.name || ''}`), transcript].join(' ');
@@ -185,9 +234,9 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
         // only complaints the patient affirmed; denied ones ("बुखार नहीं है") are shown to the doctor separately
         JSON.stringify(cleanSymptoms.length ? cleanSymptoms : (parserResult.symptoms || []).filter(s => !s.isNegated)),
         JSON.stringify(pariksha || {}),
-        JSON.stringify(vitals ? { ...vitals, source: 'patient_self_report' } : {}),
+        JSON.stringify(vitals ? { ...vitals, source: 'patient_self_report', news2: vitalsAssessment.applicable ? { score: vitalsAssessment.news2, band: vitalsAssessment.band } : null } : {}),
         priority, JSON.stringify(redFlags), transcript, status, now, cleanCareStream,
-        history ? JSON.stringify(history) : null, lang, department, tokenNo, tokenDate, req.kioskDevice?.id || null
+        structuredHistory ? JSON.stringify(structuredHistory) : null, lang, department, tokenNo, tokenDate, req.kioskDevice?.id || null
       );
 
       recordConsent(patientId!, sessionId, consent!, req.kioskDevice ? `kiosk:${req.kioskDevice.id}` : req.staff?.id || 'kiosk');
@@ -247,6 +296,8 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
       patientId,
       triagePriority: priority,
       redFlags,
+      vitalsAssessment,
+      historyCompleteness: structuredHistory?.completeness || null,
       status,
       tokenNo,
       department,

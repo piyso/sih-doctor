@@ -8,6 +8,13 @@
  *     constituent mechanisms, plus pregnancy / renal / Schedule E(1) gates that need patient context.
  *  3. Vulnerable-demographics gate (ayushEngine.service.ts): pregnancy and paediatrics vs
  *     Rasashastra minerals and emmenagogues.
+ *  4. Rule engine (safety/safetyEngine.ts) over a drug dictionary: allergy and cross-reactivity,
+ *     duplicate ingredients/classes, drug–drug pairs and list-level stacks, herb–drug flags,
+ *     pregnancy, lactation, renal, paediatric and Beers checks, conditions, dose ceilings,
+ *     banned FDCs, Schedule E(1)/H1/NDPS and antibiotic stewardship.
+ *
+ * Every alert carries a tier (STOP / WARN / INFO), a family and a group key; alerts on the same
+ * lines and family form one group, and the earlier layers keep their established alert ids.
  *
  * `evaluatePrescriptionsDetailed` reports which checks ran and what context they had, so the
  * finalized record can say "checked for pregnancy: yes" rather than leaving it implicit.
@@ -18,12 +25,40 @@ import { AllopathicMedication, AyushFormulation, ConflictAlert, Contraindication
 import { ClinicalOntologyEngine, PatientClinicalContext } from './core/clinicalOntology.engine';
 import { AyushEngineService } from './ayushEngine.service';
 import { canonicalNames } from './bayesianTruthEngine.service';
+import { ResolvedLine, resolveAllopathicLine, resolveAyushLine, cleanName } from './safety/resolver';
+import { evaluateSafety, groupKeyOf, tierForSeverity, Family, SafetyCoverage } from './safety/safetyEngine';
+import { drugById } from './safety/drugDictionary';
+import { constituentsWithFlag } from './safety/ayushDictionary';
 
 export interface SafetyEvaluation {
   alerts: ConflictAlert[];
   contextUsed: PatientClinicalContext | null;
   checks: Array<{ check: string; ran: boolean; detail?: string }>;
   itemsConsidered: { drugs: string[]; herbs: string[]; ignoredAsNegated: string[] };
+  coverage: SafetyCoverage;
+  /** What each line resolved to (generic names for printing in capitals; statutory flags). */
+  resolvedLines: Array<{ index: number; raw: string; kind: string; role: string; generics: string[]; unresolved: string[]; schedule?: string[]; aware?: string[]; scheduleE1?: string[] }>;
+  /** Distinct STOP groups: each needs a typed reason before the prescription can be signed. */
+  stopGroups: Array<{ groupKey: string; alertIds: string[]; summary: string }>;
+}
+
+export interface EvaluateOptions {
+  /** Which list the prescriber is writing; the other list is what the patient already takes. */
+  roles?: { allopathic?: 'prescribed' | 'ongoing'; ayush?: 'prescribed' | 'ongoing' };
+  /** Pathya / diet advice lines checked for interacting foods (garlic, licorice, alcohol). */
+  diet?: string[];
+}
+
+/** Family of an alert from the earlier layers, by its established id. */
+function legacyFamily(alertId: string, itemA: string): Family {
+  if (/^INT-0(08|09|15|16|17|18)$/.test(alertId) || alertId.startsWith('viruddha')) return 'viruddha';
+  if (alertId === 'INT-014' || alertId.startsWith('ONT-RENAL')) return 'renal';
+  if (alertId === 'INT-034' || alertId.startsWith('ONT-PREG') || alertId === 'ONT-GARBHINI-ABORT' || alertId.startsWith('VULN-PREG')) return 'pregnancy';
+  if (alertId === 'INT-035' || alertId === 'ONT-SCHED-E1') return 'statutory';
+  if (alertId.startsWith('VULN-PAED')) return 'paediatric';
+  if (alertId.startsWith('ONT-DDI')) return 'ddi';
+  if (/^pregnan/i.test(itemA)) return 'pregnancy';
+  return 'herb_drug';
 }
 
 const NEGATION = /(?:^|[^\p{L}])(?:no|not|stopped|discontinued|never|without|allergic to|nahi|nahin|band|bandh|chhod|नहीं|बंद|छोड़)(?=[^\p{L}]|$)/iu;
@@ -47,6 +82,8 @@ function namesOf(items: any[], keys: string[]): { names: string[]; negated: stri
   }
   return { names: Array.from(new Set(names)), negated };
 }
+
+for (const rule of drugInteractions.interactions) for (const t of [rule.itemA, rule.itemB, ...(rule.aliasesA || []), ...(rule.aliasesB || [])]) wholeWord(t);
 
 export class TruthEngineService {
   private static registry = drugInteractions.interactions;
@@ -73,7 +110,7 @@ export class TruthEngineService {
     return names.some(n => (canon.get(n) || [n]).some(c => re.test(c)));
   }
 
-  static evaluatePrescriptionsDetailed(allopathicList: (AllopathicMedication | any)[] = [], ayushList: (AyushFormulation | any)[] = [], patientContext?: PatientClinicalContext | null): SafetyEvaluation {
+  static evaluatePrescriptionsDetailed(allopathicList: (AllopathicMedication | any)[] = [], ayushList: (AyushFormulation | any)[] = [], patientContext?: PatientClinicalContext | null, options: EvaluateOptions = {}): SafetyEvaluation {
     const alerts: ConflictAlert[] = [];
     const checks: SafetyEvaluation['checks'] = [];
     const drugs = namesOf(allopathicList, ['drugName', 'name', 'genericName', 'brandName']);
@@ -87,8 +124,10 @@ export class TruthEngineService {
     };
 
     // 1. Registry rules.
+    const fullText = [...(allopathicList || []), ...(ayushList || [])].map((x: any) => typeof x === 'string' ? x : [x?.name, x?.classicalName, x?.formulationName, x?.anupana, x?.dose, x?.dosage, x?.frequency].filter(Boolean).join(' ')).join(' ; ');
     for (const rule of this.registry) {
       if (rule.severity === 'SAFE_COMBINATION') continue;
+      if ((rule as any).requires && !new RegExp((rule as any).requires, 'i').test(fullText)) continue;
       const termsA = [rule.itemA, ...(rule.aliasesA || [])];
       const termsB = [rule.itemB, ...(rule.aliasesB || [])];
       const all = [...drugs.names, ...herbNames];
@@ -139,13 +178,101 @@ export class TruthEngineService {
     checks.push({ check: 'pregnancy_gate', ran: !!ctx, detail: ctx ? (ctx.isPregnant ? 'pregnant' : 'not pregnant') : 'no patient context supplied' });
     checks.push({ check: 'renal_gate', ran: !!ctx && ctx.eGfr !== undefined, detail: ctx?.eGfr !== undefined ? `eGFR ${ctx.eGfr}` : 'no renal function on file' });
 
-    const rank: Record<string, number> = { CRITICAL_CONTRAINDICATION: 0, STATUTORY_SCHEDULE_E1: 1, WARNING: 2, AYUSH_INCOMPATIBILITY: 3, INFO: 4 };
-    alerts.sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9));
-    return { alerts, contextUsed: ctx, checks, itemsConsidered: { drugs: drugs.names, herbs: herbNames, ignoredAsNegated: [...drugs.negated, ...herbs.negated] } };
+    // 4. Rule engine over resolved lines.
+    const lines: ResolvedLine[] = [];
+    (allopathicList || []).forEach((it: any) => lines.push(resolveAllopathicLine(it, lines.length, options.roles?.allopathic || 'prescribed')));
+    (ayushList || []).forEach((it: any) => lines.push(resolveAyushLine(it, lines.length, options.roles?.ayush || 'prescribed')));
+    const onList = new Set(lines.flatMap(l => l.conceptIds));
+    const onListAyush = new Set(lines.map(l => l.ayush?.formulation?.id).filter(Boolean));
+    const unrecognisedReported: string[] = [];
+    for (const name of ctx?.reportedMedicines || []) {
+      const allo = resolveAllopathicLine({ name }, lines.length, 'reported');
+      if (allo.conceptIds.length && !allo.unresolved.length) {
+        if (allo.conceptIds.some(id => onList.has(id))) continue;
+        allo.conceptIds.forEach(id => onList.add(id));
+        lines.push(allo);
+        continue;
+      }
+      const ay = resolveAyushLine({ name }, lines.length, 'reported');
+      if (ay.ayush?.formulation && !onListAyush.has(ay.ayush.formulation.id)) { onListAyush.add(ay.ayush.formulation.id); lines.push(ay); continue; }
+      if (!ay.ayush?.formulation) unrecognisedReported.push(name);
+    }
+    for (const d of options.diet || []) {
+      const l = resolveAyushLine({ name: d }, lines.length, 'prescribed', 'diet');
+      if (l.ayush && (l.ayush.flags.has('antiplatelet') || l.ayush.flags.has('glycyrrhizin') || l.ayush.flags.has('alcohol'))) lines.push(l);
+    }
+    const engine = evaluateSafety(lines, {
+      age: ctx?.age, gender: ctx?.gender, isPregnant: ctx?.isPregnant, pregnancyStatus: (ctx as any)?.pregnancyStatus, gestationalWeeks: ctx?.gestationalWeeks, isLactating: ctx?.isLactating,
+      eGfr: ctx?.eGfr, weightKg: ctx?.weightKg, isDiabetic: ctx?.isDiabetic, allergies: ctx?.allergies, conditions: ctx?.conditions, teleconsult: ctx?.teleconsult
+    });
+
+    // Annotate the earlier layers' alerts with lines, family, tier and group.
+    const findLines = (term: string): number[] => {
+      const t = cleanName(term);
+      if (!t || t.length < 3) return [];
+      return lines.filter(l => {
+        const names = [cleanName(l.raw), cleanName(l.ayush?.name || ''), ...l.components.map(c => cleanName(c.name)), cleanName(l.anupana || '')].filter(Boolean);
+        return names.some(n => n.includes(t) || (n.length >= 4 && t.includes(n)));
+      }).map(l => l.index);
+    };
+    for (const a of alerts) {
+      const family = legacyFamily(a.alertId, a.itemA);
+      const lineRefs = Array.from(new Set([...findLines(a.itemA), ...findLines(a.itemB)]));
+      Object.assign(a, {
+        tier: tierForSeverity(a.severity),
+        family,
+        lineRefs,
+        groupKey: groupKeyOf(family, lineRefs),
+        source: a.alertId.startsWith('INT-') ? 'registry' : a.alertId.startsWith('ONT-') ? 'ontology' : 'ayush_engine'
+      });
+    }
+    const tierRank: Record<string, number> = { STOP: 0, WARN: 1, INFO: 2 };
+    for (const n of engine.alerts) {
+      const sameGroup = alerts.filter(a => a.groupKey === n.groupKey);
+      // An earlier-layer alert on the same lines and family stands, unless the new rule is stricter.
+      if (sameGroup.some(a => tierRank[a.tier || 'WARN'] <= tierRank[n.tier])) continue;
+      alerts.push(n as ConflictAlert);
+    }
+    // A herb–drug alert that names every formulation carrying the herb replaces the earlier layers'
+    // per-formulation copies of the same interaction (unless one of those is stricter).
+    for (const n of engine.alerts.filter(x => x.family === 'herb_drug' && x.lineRefs.length > 2)) {
+      for (let i = alerts.length - 1; i >= 0; i--) {
+        const a = alerts[i];
+        if (a === (n as any) || a.family !== 'herb_drug' || !a.lineRefs?.length) continue;
+        if (a.lineRefs.every(r => n.lineRefs.includes(r)) && tierRank[a.tier || 'WARN'] >= tierRank[n.tier] && alerts.includes(n as any)) alerts.splice(i, 1);
+      }
+    }
+    checks.push({ check: 'allergy', ran: ctx?.allergies !== undefined, detail: ctx?.allergies === undefined ? 'allergy history not on file' : ctx.allergies.length ? ctx.allergies.map(a => a.agent).join(', ') : 'no known allergies' });
+    checks.push({ check: 'duplicate_therapy', ran: true });
+    checks.push({ check: 'drug_drug', ran: true, detail: 'pairs and list-level combinations' });
+    checks.push({ check: 'dose_ceiling', ran: true, detail: ctx?.age !== undefined && ctx.age < 12 ? (ctx.weightKg ? `weight-based (${ctx.weightKg} kg)` : 'weight missing') : 'adult maximum daily dose' });
+    checks.push({ check: 'banned_fdc', ran: true, detail: 'Section 26A notifications (Aug 2024, Jun 2023)' });
+    checks.push({ check: 'conditions', ran: !!ctx?.conditions?.length, detail: ctx?.conditions?.length ? ctx.conditions.join(', ') : 'no conditions on file' });
+    checks.push({ check: 'stewardship', ran: true, detail: 'WHO AWaRe; antibiotic indication' });
+
+    const rank: Record<string, number> = { CRITICAL_CONTRAINDICATION: 0, STATUTORY_SCHEDULE_E1: 3, WARNING: 1, AYUSH_INCOMPATIBILITY: 2, INFO: 4 };
+    alerts.sort((a, b) => (tierRank[a.tier || 'WARN'] - tierRank[b.tier || 'WARN']) || ((rank[a.severity] ?? 9) - (rank[b.severity] ?? 9)));
+
+    const stopMap = new Map<string, ConflictAlert[]>();
+    for (const a of alerts) if (a.tier === 'STOP' && a.groupKey) stopMap.set(a.groupKey, [...(stopMap.get(a.groupKey) || []), a]);
+    const stopGroups = Array.from(stopMap.entries()).map(([groupKey, list]) => ({ groupKey, alertIds: list.map(a => a.alertId), summary: `${list[0].itemA} × ${list[0].itemB}` }));
+    const coverage: SafetyCoverage = { ...engine.coverage, unresolved: [...engine.coverage.unresolved, ...unrecognisedReported.map(name => ({ line: -1, name: `${name} (reported)` }))] };
+    const resolvedLines = lines.map(l => {
+      const concepts = l.conceptIds.map(id => drugById(id)).filter(Boolean) as any[];
+      return {
+        index: l.index, raw: l.raw, kind: l.kind, role: l.role,
+        generics: l.kind === 'allopathic' ? concepts.map(c => c.inn) : (l.ayush?.formulation ? [l.ayush.formulation.name] : []),
+        unresolved: l.unresolved,
+        schedule: concepts.map(c => c.ndps ? 'NDPS' : c.schedule).filter(Boolean),
+        aware: concepts.map(c => c.aware).filter(Boolean),
+        scheduleE1: l.ayush?.formulation && l.ayush.flags.has('schedule_e1') ? constituentsWithFlag(l.ayush.formulation, 'schedule_e1') : undefined
+      };
+    });
+    return { alerts, contextUsed: ctx, checks, itemsConsidered: { drugs: drugs.names, herbs: herbNames, ignoredAsNegated: [...drugs.negated, ...herbs.negated] }, coverage, stopGroups, resolvedLines };
   }
 
-  static evaluatePrescriptions(allopathicList: (AllopathicMedication | any)[] = [], ayushList: (AyushFormulation | any)[] = [], patientContext?: PatientClinicalContext | null): ConflictAlert[] {
-    return this.evaluatePrescriptionsDetailed(allopathicList, ayushList, patientContext).alerts;
+  static evaluatePrescriptions(allopathicList: (AllopathicMedication | any)[] = [], ayushList: (AyushFormulation | any)[] = [], patientContext?: PatientClinicalContext | null, options: EvaluateOptions = {}): ConflictAlert[] {
+    return this.evaluatePrescriptionsDetailed(allopathicList, ayushList, patientContext, options).alerts;
   }
 
   static checkSingleCandidate(candidateName: string, existingAllopathic: string[] = [], existingAyush: string[] = [], patientContext?: PatientClinicalContext | null): ConflictAlert[] {

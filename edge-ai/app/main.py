@@ -53,20 +53,20 @@ def run(engine_name: str, fn):
 def health(_: None = Depends(require_token)):
     caps = {name: e.status() for name, e in ENGINES.items()}
     caps["asr"]["languages"] = asr.languages() if caps["asr"]["available"] else []
-    for name in ("tts", "translate"):
-        caps[name]["languages"] = list(LANGS) if caps[name]["available"] else []
+    caps["tts"]["languages"] = tts.languages() if caps["tts"]["available"] else []
+    caps["translate"]["languages"] = list(LANGS) if caps["translate"]["available"] else []
     return {"status": "ok", "device": f"{_device()} ({platform.machine()})", "capabilities": caps}
 
 
 @app.post("/asr")
-async def transcribe(request: Request, lang: str = Query("hi"), _: None = Depends(require_token)):
+async def transcribe(request: Request, lang: str = Query("hi"), profile: str = Query("", pattern="^[a-z]{0,20}$"), _: None = Depends(require_token)):
     audio = await request.body()
     if len(audio) < 1000:
         raise HTTPException(status_code=400, detail="No audio received")
     if len(audio) > 12 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Audio too long")
     check_lang(lang)
-    return run("asr", lambda: asr.transcribe(audio, lang))
+    return run("asr", lambda: asr.transcribe(audio, lang, profile))
 
 
 class TtsIn(BaseModel):

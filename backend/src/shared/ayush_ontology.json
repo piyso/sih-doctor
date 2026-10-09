@@ -1,6 +1,7 @@
 {
   "version": "2026.1",
   "authority": "All India Institute of Ayurveda (AIIA) & Ministry of Ayush, Govt. of India",
+  "codeReview": "SNOMED CT ids checked against tx.fhir.org (SNOMED CT International 2025-02-01) on 2026-10-09: all active and matching the condition. aCode values are placeholders, not official NAMASTE codes.",
   "namasteEntries": [
     {
       "aCode": "AYU-JWA-001",
@@ -19,7 +20,7 @@
       "englishEquivalent": "Productive Cough / Acute Bronchitis",
       "system": "Ayurveda",
       "icd10DualCode": "J20.9",
-      "snomedConceptId": "49727002",
+      "snomedConceptId": "10509002",
       "icmrStandardWorkflowId": "ICMR-STW-RES-004",
       "classicalFormulations": ["Sitopaladi Churna", "Vasavaleha", "Kanthakari Avaleha", "Talisadi Churna"],
       "recommendedAnupana": "Madhu (Honey)"
@@ -41,7 +42,7 @@
       "englishEquivalent": "Osteoarthritis / Degenerative Joint Disease",
       "system": "Ayurveda",
       "icd10DualCode": "M17.9",
-      "snomedConceptId": "399269003",
+      "snomedConceptId": "239873007",
       "icmrStandardWorkflowId": "ICMR-STW-MSK-001",
       "classicalFormulations": ["Yograj Guggulu", "Dashmoolarishta", "Mahanarayan Taila", "Shallaki Vati"],
       "recommendedAnupana": "Maharasnadi Kwath or Warm Water"
@@ -85,7 +86,7 @@
       "englishEquivalent": "Sciatica / Lumbar Radiculopathy",
       "system": "Ayurveda",
       "icd10DualCode": "M54.3",
-      "snomedConceptId": "279039007",
+      "snomedConceptId": "23056005",
       "icmrStandardWorkflowId": "ICMR-STW-NEU-002",
       "classicalFormulations": ["Trayodashang Guggulu", "Rasnasaptak Kwath", "Sameera Pannaga Ras", "Balarishta"],
       "recommendedAnupana": "Warm Water or Castor Oil mixed with Milk"
@@ -96,7 +97,7 @@
       "englishEquivalent": "Cardiovascular Disease / Ischemic Heart Disease",
       "system": "Ayurveda",
       "icd10DualCode": "I25.9",
-      "snomedConceptId": "53741008",
+      "snomedConceptId": "414545008",
       "icmrStandardWorkflowId": "ICMR-STW-CAR-001",
       "classicalFormulations": ["Arjunarishta", "Prabhakar Vati", "Hridyarnava Ras", "Arjuna Ksheerapaka"],
       "recommendedAnupana": "Cow's Milk or Warm Water"
@@ -140,7 +141,7 @@
       "englishEquivalent": "Hemorrhoids / Piles",
       "system": "Ayurveda",
       "icd10DualCode": "K64.9",
-      "snomedConceptId": "73529008",
+      "snomedConceptId": "70153002",
       "icmrStandardWorkflowId": "ICMR-STW-GAS-008",
       "classicalFormulations": ["Arshoghni Vati", "Triphala Guggulu", "Abhayarishta", "Kankayan Vati"],
       "recommendedAnupana": "Warm Water or Takra (Buttermilk)"
@@ -162,7 +163,7 @@
       "englishEquivalent": "Angina Pectoris / Ischemic Chest Pain",
       "system": "Ayurveda",
       "icd10DualCode": "I20.9",
-      "snomedConceptId": "29857009",
+      "snomedConceptId": "194828000",
       "icmrStandardWorkflowId": "ICMR-STW-CAR-002",
       "classicalFormulations": ["Prabhakar Vati", "Hridyarnava Ras", "Arjunarishta", "Akik Pishti"],
       "recommendedAnupana": "Warm Cow's Milk"
@@ -172,7 +173,7 @@
       "sanskritTerm": "Vrikkashotha",
       "englishEquivalent": "Glomerulonephritis / Acute Nephritic Syndrome",
       "system": "Ayurveda",
-      "icd10DualCode": "N05",
+      "icd10DualCode": "N05.9",
       "snomedConceptId": "36171008",
       "icmrStandardWorkflowId": "ICMR-STW-NEP-001",
       "classicalFormulations": ["Punarnavadi Kwath", "Gokshuradi Guggulu", "Chandraprabha Vati", "Trinapanchamool Kwath"],
@@ -184,7 +185,7 @@
       "englishEquivalent": "Schizophrenia Spectrum / Acute Psychosis / Delirium",
       "system": "Ayurveda",
       "icd10DualCode": "F20.9",
-      "snomedConceptId": "191489008",
+      "snomedConceptId": "58214004",
       "icmrStandardWorkflowId": "ICMR-STW-PSY-001",
       "classicalFormulations": ["Brahmi Ghrita", "Saraswatarishta", "Manasamitra Vati", "Kalyanaka Ghrita"],
       "recommendedAnupana": "Warm Cow's Milk or Honey"
@@ -206,7 +207,7 @@
       "englishEquivalent": "Erectile Dysfunction / Male Sexual Weakness",
       "system": "Ayurveda",
       "icd10DualCode": "F52.2",
-      "snomedConceptId": "8609008",
+      "snomedConceptId": "860914002",
       "icmrStandardWorkflowId": "ICMR-STW-URO-002",
       "classicalFormulations": ["Ashwagandhadi Lehyam", "Makaradhwaja", "Shilajit Vati", "Vanari Kalpa"],
       "recommendedAnupana": "Warm Cow's Milk with Mishri"
@@ -217,7 +218,7 @@
       "englishEquivalent": "Fistula-in-Ano / Perianal Fistula",
       "system": "Ayurveda",
       "icd10DualCode": "K60.3",
-      "snomedConceptId": "65853000",
+      "snomedConceptId": "786878009",
       "icmrStandardWorkflowId": "ICMR-STW-SUR-004",
       "classicalFormulations": ["Triphala Guggulu", "Khadirarishta", "Gandhak Rasayana", "Jatyadi Taila"],
       "recommendedAnupana": "Warm Water or Takra"

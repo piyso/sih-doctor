@@ -32,11 +32,13 @@ export const Stat: React.FC<{ label: string; value: React.ReactNode; hint?: stri
   );
 };
 
-export const Btn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'primary' | 'default' | 'danger'; busy?: boolean }> = ({ tone = 'default', busy, children, className = '', ...rest }) => {
+export const Btn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'primary' | 'default' | 'danger' | 'quietDanger'; busy?: boolean }> = ({ tone = 'default', busy, children, className = '', ...rest }) => {
   const cls = {
     primary: 'bg-primary text-primary-foreground hover:bg-primary/90 border-primary',
     default: 'bg-background text-foreground hover:bg-muted border-border',
-    danger: 'bg-rose-600 text-white hover:bg-rose-700 border-rose-600'
+    danger: 'bg-rose-600 text-white hover:bg-rose-700 border-rose-600',
+    /** For a destructive action repeated on every row: visible, but not a wall of red. */
+    quietDanger: 'bg-background text-rose-700 dark:text-rose-300 hover:bg-rose-500/10 border-border'
   }[tone];
   return (
     <button type="button" {...rest} disabled={rest.disabled || busy} className={`h-9 px-3.5 rounded-xl border text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 ${cls} ${className}`}>

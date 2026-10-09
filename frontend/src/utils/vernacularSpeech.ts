@@ -12,7 +12,7 @@
  */
 import { SocratesSymptom } from '../types/api';
 import { normalizeLang, regionName, SupportedKioskLanguage } from './kioskLocalization';
-import { clauseAt, findDurations, isHistorical, negationAt, severityIn, windowAt } from './clinicalText';
+import { clauseAt, findDurations, isHistorical, negationAt, radiationTargetsAt, sentenceAt, severityIn, verbBetween, windowAt } from './clinicalText';
 
 // ------------------------------------------------------------------------------------------------
 // Scripts
@@ -170,17 +170,17 @@ const RULES: SymptomRule[] = [
   {
     key: 'chest_pain', en: 'Chest pain / pressure', isEmergency: true, character: 'Crushing heaviness',
     labels: { en: 'Chest pain', hi: 'सीने में दर्द', mr: 'छातीत दुखणे', bn: 'বুকে ব্যথা', ta: 'நெஞ்சு வலி', te: 'ఛాతీ నొప్పి', gu: 'છાતીમાં દુખાવો', kn: 'ಎದೆ ನೋವು', ml: 'നെഞ്ചുവേദന', pa: 'ਛਾਤੀ ਵਿੱਚ ਦਰਦ', or: 'ଛାତି ଯନ୍ତ୍ରଣା' },
-    patterns: /chest\s*(?:pain|pressure|tight)|सीने\s*में\s*(?:दर्द|भारीपन|दबाव|जकड़न)|छाती\s*में\s*(?:दर्द|भारीपन)|seene\s*me\s*dard|chhati\s*me\s*dard|छातीत\s*(?:दुख|कळ|वेदना)|বুকে\s*(?:ব্যথা|চাপ)|நெஞ்சு\s*வலி|மார்பு\s*வலி|ఛాతీ\s*నొప్పి|గుండె\s*నొప్పి|છાતી(?:માં)?\s*(?:દુખ|દર્દ|ભાર|દબાણ)|ಎದೆ\s*(?:ನೋವು|ಭಾರ|ಒತ್ತಡ)|ಎದೆನೋವು|നെഞ്ചു?\s*വേദന|നെഞ്ചിൽ\s*(?:വേദന|ഭാരം)|ਛਾਤੀ\s*(?:ਵਿੱਚ|ਚ)?\s*(?:ਦਰਦ|ਭਾਰ|ਦਬਾਅ)|ଛାତି\s*(?:ରେ)?\s*(?:ଯନ୍ତ୍ରଣା|ବିନ୍ଧା|ଦରଜ|ଭାରି|ଚାପ)/i
+    patterns: /chest\s*(?:pain|pressure|tight)|सीने\s*(?:में|का|की)?\s*(?:दर्द|भारीपन|दबाव|जकड़न)|छाती\s*(?:में|का|की)?\s*(?:दर्द|भारीपन)|seene\s*me\s*dard|chhati\s*me\s*dard|छातीत\s*(?:दुख|कळ|वेदना)|বুকে\s*(?:ব্যথা|চাপ)|நெஞ்சு\s*வலி|மார்பு\s*வலி|ఛాతీ\s*నొప్పి|గుండె\s*నొప్పి|છાતી(?:માં)?\s*(?:દુખ|દર્દ|ભાર|દબાણ)|ಎದೆ\s*(?:ನೋವು|ಭಾರ|ಒತ್ತಡ)|ಎದೆನೋವು|നെഞ്ചു?\s*വേദന|നെഞ്ചിൽ\s*(?:വേദന|ഭാരം)|ਛਾਤੀ\s*(?:ਵਿੱਚ|ਚ)?\s*(?:ਦਰਦ|ਭਾਰ|ਦਬਾਅ)|ଛାତି\s*(?:ରେ)?\s*(?:ଯନ୍ତ୍ରଣା|ବିନ୍ଧା|ଦରଜ|ଭାରି|ଚାପ)/i
   },
   {
     key: 'breathless', en: 'Breathlessness', isEmergency: true,
     labels: { en: 'Breathlessness', hi: 'साँस फूलना', mr: 'धाप लागणे', bn: 'শ্বাসকষ্ট', ta: 'மூச்சுத்திணறல்', te: 'ఆయాసం', gu: 'શ્વાસ ચડવો', kn: 'ಉಸಿರಾಟದ ತೊಂದರೆ', ml: 'ശ്വാസംമുട്ടൽ', pa: 'ਸਾਹ ਚੜ੍ਹਨਾ', or: 'ଶ୍ୱାସକଷ୍ଟ' },
-    patterns: /breathless|short(?:ness)?\s*of\s*breath|can'?t\s*breathe|सा(?:ं|ँ)स\s*(?:फूल|लेने\s*में)|दम\s*(?:फूल|घुट)|saans\s*phool|धाप\s*लाग|श्वास\s*(?:घेण्यास|कोंड)|শ্বাসকষ্ট|দম\s*বন্ধ|மூச்சுத்\s*திணறல்|மூச்சு\s*(?:வாங்க|விட)|ఆయాసం|ఊపిరి\s*(?:ఆడ|అంద)|శ్వాస|શ્વાસ\s*(?:ચડ|લેવામાં)|હાંફ|ಉಸಿರಾಟ\S*\s*ತೊಂದರೆ|ಉಸಿರು\s*(?:ಕಟ್ಟ|ಗಟ್ಟ)|ಉಸಿರುಗಟ್ಟ|ದಮ್ಮು|ശ്വാസം\s*മുട്ട|ശ്വാസംമുട്ട|കിതപ്പ്|ਸਾਹ\s*(?:ਚੜ੍ਹ|ਲੈਣ\s*ਵਿੱਚ|ਫੁੱਲ)|ਦਮ\s*ਘੁ|ଶ୍ୱାସ\s*କଷ୍ଟ|ଶ୍ୱାସକଷ୍ଟ/i
+    patterns: /breathless|short(?:ness)?\s*of\s*breath|can'?t\s*breathe|सा(?:ं|ँ)स\s*(?:फूल|लेने\s*में|बंद|रुक)|दम\s*(?:फूल|घुट)|saans\s*(?:phool|band|ruk)|धाप\s*लाग|श्वास\s*(?:घेण्यास|कोंड)|শ্বাসকষ্ট|দম\s*বন্ধ|மூச்சுத்\s*திணறல்|மூச்சு\s*(?:வாங்க|விட)|ఆయాసం|ఊపిరి\s*(?:ఆడ|అంద)|శ్వాస|શ્વાસ\s*(?:ચડ|લેવામાં)|હાંફ|ಉಸಿರಾಟ\S*\s*ತೊಂದರೆ|ಉಸಿರು\s*(?:ಕಟ್ಟ|ಗಟ್ಟ)|ಉಸಿರುಗಟ್ಟ|ದಮ್ಮು|ശ്വാസം\s*മുട്ട|ശ്വാസംമുട്ട|കിതപ്പ്|ਸਾਹ\s*(?:ਚੜ੍ਹ|ਲੈਣ\s*ਵਿੱਚ|ਫੁੱਲ)|ਦਮ\s*ਘੁ|ଶ୍ୱାସ\s*କଷ୍ଟ|ଶ୍ୱାସକଷ୍ଟ/i
   },
   {
     key: 'headache', en: 'Headache',
     labels: { en: 'Headache', hi: 'सिरदर्द', mr: 'डोकेदुखी', bn: 'মাথাব্যথা', ta: 'தலைவலி', te: 'తలనొప్పి', gu: 'માથાનો દુખાવો', kn: 'ತಲೆನೋವು', ml: 'തലവേദന', pa: 'ਸਿਰਦਰਦ', or: 'ମୁଣ୍ଡବିନ୍ଧା' },
-    patterns: /headache|सिर\s*(?:में\s*)?दर्द|सिरदर्द|sir\s*dard|sar\s*dard|डोके\s*दुख|डोकेदुखी|মাথা\s*ব্যথা|মাথাব্যথা|தலைவலி|தலை\s*வலி|తలనొప్పి|తల\s*నొప్పి|માથ(?:ું|ામાં|ાનો)\s*(?:દુખ|દર્દ)|ತಲೆ\s*ನೋವು|ತಲೆನೋವು|തല\s*വേദന|തലവേദന|ਸਿਰ\s*(?:ਵਿੱਚ\s*|ਚ\s*)?(?:ਦਰਦ|ਪੀੜ)|ਸਿਰਦਰਦ|ମୁଣ୍ଡ\s*(?:ବିନ୍ଧା|ଯନ୍ତ୍ରଣା|ଦରଜ)|ମୁଣ୍ଡବିନ୍ଧା/i
+    patterns: /headache|सिर\s*(?:में\s*)?दर्द|सिरदर्द|s[ai]r\s*(?:me|mein|main|m)?\s*dard|डोके\s*दुख|डोकेदुखी|মাথা\s*ব্যথা|মাথাব্যথা|தலைவலி|தலை\s*வலி|తలనొప్పి|తల\s*నొప్పి|માથ(?:ું|ામાં|ાનો)\s*(?:દુખ|દર્દ)|ತಲೆ\s*ನೋವು|ತಲೆನೋವು|തല\s*വേദന|തലവേദന|ਸਿਰ\s*(?:ਵਿੱਚ\s*|ਚ\s*)?(?:ਦਰਦ|ਪੀੜ)|ਸਿਰਦਰਦ|ମୁଣ୍ଡ\s*(?:ବିନ୍ଧା|ଯନ୍ତ୍ରଣା|ଦରଜ)|ମୁଣ୍ଡବିନ୍ଧା/i
   },
   {
     key: 'fever', en: 'Fever',
@@ -200,7 +200,7 @@ const RULES: SymptomRule[] = [
   {
     key: 'nausea', en: 'Nausea',
     labels: { en: 'Nausea', hi: 'जी मिचलाना', mr: 'मळमळ', bn: 'বমি ভাব', ta: 'குமட்டல்', te: 'వికారం', gu: 'ઉબકા', kn: 'ವಾಕರಿಕೆ', ml: 'ഓക്കാനം', pa: 'ਜੀ ਕੱਚਾ ਹੋਣਾ', or: 'ବାନ୍ତି ଭାବ' },
-    patterns: /nause|जी\s*मिचला|ji\s*michla|मळमळ|বমি\s*ভাব|குமட்டல்|వికారం|ઉબકા|ವಾಕರಿಕೆ|ഓക്കാന|ਜੀ\s*ਕੱਚਾ|ਮਤਲੀ|ବାନ୍ତି\s*ଭାବ/i
+    patterns: /nause|जी\s*मि?चला|जी\s*मचल|ji\s*m[ia]chla|ji\s*machal|मळमळ|বমি\s*ভাব|குமட்டல்|వికారం|ઉબકા|ವಾಕರಿಕೆ|ഓക്കാന|ਜੀ\s*ਕੱਚਾ|ਮਤਲੀ|ବାନ୍ତି\s*ଭାବ/i
   },
   {
     key: 'diarrhoea', en: 'Loose motions / diarrhoea',
@@ -252,7 +252,7 @@ const BODY_PARTS: Array<{ region: string; lateral?: boolean; patterns: RegExp }>
   { region: 'Neck', patterns: /throat|neck|गला|गले|घसा|मान|গলা|ঘাড়|தொண்டை|கழுத்து|గొంతు|మెడ|ગળ|ડોક|ಗಂಟಲು|ಕುತ್ತಿಗೆ|തൊണ്ട|കഴുത്ത്|ਗਲ|ਗਰਦਨ|ଗଳା|ବେକ/i },
   { region: 'Left Chest / Precordium', patterns: /chest|heart|सीने|सीना|छाती|दिल|हृदय|छातीत|বুক|হৃদ|நெஞ்சு|மார்பு|இதய|ఛాతీ|గుండె|છાતી|હૃદય|ಎದೆ|ಹೃದಯ|നെഞ്ച|ഹൃദയ|ਛਾਤੀ|ਦਿਲ|ଛାତି|ହୃଦୟ/i },
   { region: 'Epigastrium', patterns: /stomach|belly|abdom|tummy|पेट|pet\b|पोट|পেট|வயிறு|வயிற்று|కడుపు|પેટ|ಹೊಟ್ಟೆ|വയറ|ਪੇਟ|ପେଟ/i },
-  { region: 'Lumbar Spine (Kati)', patterns: /back\s*pain|lower\s*back|कमर|पीठ|kamar|कंबर|पाठ|কোমর|পিঠ|முதுகு|இடுப்பு|నడుము|వీపు|કમર|પીઠ|ಬೆನ್ನು|ಸೊಂಟ|മുതുക|നടു|ਕਮਰ|ਪਿੱਠ|ପିଠି|ଅଣ୍ଟା/i },
+  { region: 'Lumbar Spine (Kati)', patterns: /back\s*(?:pain|ache|hurts?)|backache|lower\s*back|upper\s*back|\bmy\s+back\b|कमर|पीठ|kamar|कंबर|पाठ|কোমর|পিঠ|முதுகு|இடுப்பு|నడుము|వీపు|કમર|પીઠ|ಬೆನ್ನು|ಸೊಂಟ|മുതുക|നടു|ਕਮਰ|ਪਿੱਠ|ପିଠି|ଅଣ୍ଟା/i },
   { region: 'Left Shoulder', lateral: true, patterns: /shoulder|कंधे|कंधा|खांदा|কাঁধ|தோள்|భుజం|ખભ|ಭುಜ|തോൾ|ਮੋਢ|କାନ୍ଧ/i },
   { region: 'Left Hand', lateral: true, patterns: /\bhand|wrist|हाथ|हात|कलाई|मनगट|হাত|কব্জি|கை|மணிக்கட்டு|చేయి|చేతి|మణికట్టు|હાથ|કાંડ|ಕೈ|ಮಣಿಕಟ್ಟು|കൈ|മണിബന്ധ|ਹੱਥ|ਬਾਂਹ|ਗੁੱਟ|ହାତ|ବାହୁ|ମଣିବନ୍ଧ/i },
   { region: 'Left Knee', lateral: true, patterns: /knee|घुटने|घुटना|घुटनों|ghutn[aeo]|गुडघ|হাঁটু|முழங்கால்|మోకాలు|మోకాలి|ઘૂંટણ|ಮೊಣಕಾಲು|കാൽമുട്ട്|ਗੋਡ|ଆଣ୍ଠୁ/i },
@@ -276,7 +276,7 @@ const GENERIC_PART: Record<string, Record<SupportedKioskLanguage, string>> = {
 
 const RIGHT_WORDS = /\bright\b|दाय|दाहिन|दाएं|उजव|ডান|வலது|కుడి|જમણ|ಬಲ(?:ಗೈ|ಗಾಲ|ಭಾಗ|ದ|\s)|വലത്|ਸੱਜ|ଡାହାଣ/i;
 const LEFT_WORDS = /\bleft\b|बाय|बाएं|बाँय|डाव|বাঁ|বাম|இடது|ఎడమ|ડાબ|ಎಡ|ഇടത്|ਖੱਬ|ବାମ/i;
-const PAIN_WORDS = /pain|ache|hurt|दर्द|dard|दुख|वेदना|कळ|ব্যথা|ব্যাথা|வலி|வலிக்க|నొప్పి|દુખ|દર્દ|ನೋವು|ನೋಯ|വേദന|ਦਰਦ|ਪੀੜ|ଯନ୍ତ୍ରଣା|ବିନ୍ଧା|ଦରଜ/i;
+const PAIN_WORDS = /pain|ache|hurt|cramp|दर्द|dard|मरोड़|मरोड|marod|ऐंठन|ainthan|दुख|वेदना|कळ|ব্যথা|ব্যাথা|வலி|வலிக்க|నొప్పి|દુખ|દર્દ|ನೋವು|ನೋಯ|വേദന|ਦਰਦ|ਪੀੜ|ଯନ୍ତ୍ରଣା|ବିନ୍ଧା|ଦରଜ/i;
 const SEVERE_WORDS = /severe|very\s*bad|unbearable|a\s*lot|बहुत|तेज़|तेज|ज़्यादा|ज्यादा|असहनीय|खूप|तीव्र|असह्य|খুব|তীব্র|অসহ্য|மிக|கடுமை|தாங்க\s*முடிய|చాలా|తీవ్ర|భరించలేని|ખૂબ|બહુ|તીવ્ર|અસહ્ય|ತುಂಬಾ|ತೀವ್ರ|ಅಸಹನೀಯ|വളരെ|കഠിന|ਬਹੁਤ|ਤੇਜ਼|ਅਸਹਿ|ବହୁତ|ତୀବ୍ର|ଅସହ୍ୟ/i;
 const MILD_WORDS = /mild|little|slight|थोड़ा|थोडा|हल्का|थोडे|सौम्य|একটু|হালকা|கொஞ்சம்|லேசா|కొంచెం|తేలిక|થોડ|હળવ|ಸ್ವಲ್ಪ|അൽപ്പം|ചെറിയ|ਥੋੜ੍ਹ|ਹਲਕ|ଟିକେ|ହାଲୁକା/i;
 
@@ -349,11 +349,14 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
   };
   const global = (re: RegExp) => new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
   /** The first mention the patient neither denied nor placed in the past ("दो साल पहले …"), or null. */
-  const affirmedIn = (re: RegExp, within = text, offset = 0, emergency = false) => {
+  const affirmedIn = (re: RegExp, within = text, offset = 0, emergency = false, accept?: (a: number, b: number) => boolean) => {
     for (const m of within.matchAll(global(re))) {
       const a = offset + m.index!;
       const b = a + m[0].length;
-      if (!negationAt(text, a, b).negated && !isHistorical(text, a, b, emergency)) return a;
+      if (accept && !accept(a, b)) continue;
+      const neg = negationAt(text, a, b);
+      // an emergency-type complaint that has just stopped ("सीने का दर्द ठीक हो गया") is still shown
+      if ((!neg.negated || (emergency && neg.cue === 'resolved')) && !isHistorical(text, a, b, emergency)) return a;
     }
     return null;
   };
@@ -388,6 +391,26 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
   // Pain attached to a body part ("मेरे हाथ में बहुत दर्द"): the pain word must be in the same clause as the
   // part and not denied ("सिर में दर्द नहीं, पेट में है" → stomach only). Matched words are blanked out (same
   // length, so positions stay valid) so that "முழங்கால்" (knee) is not matched again by the shorter "கால்" (leg).
+  // A part named only as where the pain goes ("पेट में दर्द है जो पीठ तक जाता है") is not a second complaint when
+  // another part of the same sentence has the pain.
+  const anyPart = new RegExp(BODY_PARTS.map(p => p.patterns.source).join('|'), 'gi');
+  const onlySpreadsHere = (at: number, len: number) => {
+    const targets = radiationTargetsAt(text, at);
+    const inside = (x: number, l: number) => targets.some(([a, b]) => x < b && x + l > a); // "my back" overlaps "back
+    if (!inside(at, len)) return false;
+    const [sa, sb] = sentenceAt(text, at);
+    for (const m of text.slice(sa, sb).matchAll(anyPart)) if (!inside(sa + m.index!, m[0].length)) return true;
+    return false;
+  };
+  // The pain word is this part's when no other pain word comes between them ("सिर में दर्द नहीं है सीने में दर्द है"),
+  // nor another part with its own predicate ("छाती ठीक है पेट में दर्द है"); "pain in my hand and leg" shares one pain.
+  const painBelongs = (partA: number, partB: number, painA: number, painB: number) => {
+    const [x, y] = painA >= partB ? [partB, painA] : [painB, partA];
+    if (x >= y) return true;
+    const between = text.slice(x, y);
+    if (new RegExp(PAIN_WORDS.source, 'i').test(between)) return false;
+    return !(new RegExp(anyPart.source, 'i').test(between) && verbBetween(text, x, y));
+  };
   if (PAIN_WORDS.test(text)) {
     let rest = text;
     const hasRight = RIGHT_WORDS.test(text) && !LEFT_WORDS.test(text);
@@ -396,8 +419,9 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
       const re = global(new RegExp(part.patterns.source, 'i'));
       let painAt: number | null = null;
       for (const m of rest.matchAll(re)) {
+        if (onlySpreadsHere(m.index!, m[0].length)) continue;
         const [a, b] = clauseAt(text, m.index!);
-        painAt = affirmedIn(PAIN_WORDS, text.slice(a, b), a);
+        painAt = affirmedIn(PAIN_WORDS, text.slice(a, b), a, false, (pa, pb) => painBelongs(m.index!, m.index! + m[0].length, pa, pb));
         if (painAt !== null) break;
       }
       rest = rest.replace(re, w => ' '.repeat(w.length));
@@ -433,6 +457,34 @@ export const extractSymptomsFromSpeech = (text: string, lang?: string): SpeechFi
   }
 
   return { symptoms: out, hasEmergency: out.some(s => s.isEmergency), duration };
+};
+
+/**
+ * On-device findings combined with the speech service's re-check decodes of the same recording (speed-perturbed
+ * copies make different mistakes in noise). A symptom heard in a re-check is added unless the main transcript
+ * explicitly denies it ("बुखार नहीं है" wins over a re-check that lost the "नहीं"); the patient confirms the list.
+ */
+export const extractWithRechecks = (text: string, rechecks: string[], lang?: string): SpeechFindings => {
+  const main = extractSymptomsFromSpeech(text, lang);
+  if (!rechecks.length) return main;
+  const denied = new Set(RULES.filter(r => {
+    const g = new RegExp(r.patterns.source, r.patterns.flags.includes('g') ? r.patterns.flags : `${r.patterns.flags}g`);
+    const ms = [...text.matchAll(g)];
+    return ms.length > 0 && ms.every(m => negationAt(text, m.index!, m.index! + m[0].length).negated);
+  }).map(r => `voice:${r.key}`));
+  const keys = new Set(main.symptoms.map(s => s.key));
+  const symptoms = [...main.symptoms];
+  let duration = main.duration;
+  for (const alt of rechecks) {
+    const f = extractSymptomsFromSpeech(alt, lang);
+    duration ||= f.duration;
+    for (const s of f.symptoms) {
+      if (!s.key || keys.has(s.key) || denied.has(s.key)) continue;
+      keys.add(s.key);
+      symptoms.push({ ...s, onset: s.onset || duration || '' });
+    }
+  }
+  return { symptoms, hasEmergency: symptoms.some(s => s.isEmergency), duration };
 };
 
 /**

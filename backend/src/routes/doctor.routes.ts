@@ -1,5 +1,8 @@
 /**
- * Physician consultation desk: queue, pre-consultation brief, vitals, finalization, pharmacy.
+ * Physician / Vaidya consultation desk: queue (with claims and pharmacy referrals), the
+ * pre-consultation brief, vitals, signing with per-alert reasons, and the pharmacy view.
+ * Desk utilities (drafts, timeline, order sets, quality, ADR, notifiable events) are in
+ * desk.routes.ts and mounted on the same router.
  */
 
 import { Router, Request, Response } from 'express';
@@ -23,9 +26,21 @@ import { SmsService } from '../services/sms.service';
 import { buildPatientContext } from '../services/patientContext.service';
 import { normaliseHistory, buildHistorySummary } from '../services/clinicalHistory.service';
 import { assessVitals, raisePriority } from '../services/triage.service';
+import { AbdmHipService } from '../services/abdmHip.service';
+import { deniedSymptoms } from '../services/intakeExtraction.service';
+import { claimOf, deleteDraft, detectNotifiable, createNotifiable, getDraft, recordingConsent, documentationAids, sinceLastVisit, patientTimeline, INVESTIGATIONS } from '../services/doctorDesk.service';
+import { quantityToDispense } from '../services/safety/sig';
+import { resolveAyushLine } from '../services/safety/resolver';
+import { constituentsWithFlag } from '../services/safety/ayushDictionary';
+import { drugById } from '../services/safety/drugDictionary';
+import { resolveAllopathicLine } from '../services/safety/resolver';
+import { ESignService } from '../services/externalSigning.service';
+import { deskRouter } from './desk.routes';
+import ayushOntology from '../shared/ayush_ontology.json';
 
 try { db.exec('ALTER TABLE encounters ADD COLUMN signature_json TEXT;'); } catch {}
 try { db.exec('ALTER TABLE encounters ADD COLUMN care_stream TEXT;'); } catch {}
+try { db.exec('ALTER TABLE encounters ADD COLUMN prescription_bundle_json TEXT;'); } catch {}
 db.exec(`
   CREATE TABLE IF NOT EXISTS dispenses (
     id TEXT PRIMARY KEY,
@@ -75,7 +90,10 @@ doctorRouter.post('/demo-queue', demoOnly, requireStaff(...CLINICIAN_ROLES), (re
   }
 });
 
-/** GET /api/doctor/queue: live OPD queue ordered by triage priority. */
+/**
+ * GET /api/doctor/queue: live OPD queue ordered by triage priority, plus prescriptions the
+ * pharmacy referred back in the last 3 days (shown at the top for the prescriber to amend).
+ */
 doctorRouter.get('/queue', requireStaff(...CLINICIAN_ROLES, 'reception'), (_req: Request, res: Response): void => {
   try {
     const missing = db.prepare(`SELECT id FROM sessions WHERE status IN ('PENDING_DOCTOR', 'DIVERTED_EMERGENCY', 'IN_CONSULTATION') AND token_no IS NULL`).all() as Array<{ id: string }>;
@@ -83,46 +101,69 @@ doctorRouter.get('/queue', requireStaff(...CLINICIAN_ROLES, 'reception'), (_req:
 
     const rows: any[] = db.prepare(`
       SELECT s.id as session_id, s.triage_priority, s.status, s.created_at, s.vitals_json, s.red_flag_triggers,
-             s.care_stream, s.symptoms_json, s.department, s.token_no, s.called_at, s.call_count,
+             s.care_stream, s.symptoms_json, s.department, s.token_no, s.called_at, s.call_count, s.history_json,
+             s.claimed_by, s.claimed_by_name, s.claimed_at,
              p.id as patient_id, p.name as patient_name, p.age, p.gender, p.language, p.prakriti, p.abha_id,
-             p.is_pregnant, p.gestational_weeks, p.is_lactating, p.weight_kg
+             p.is_pregnant, p.gestational_weeks, p.is_lactating, p.weight_kg,
+             (SELECT COUNT(*) FROM sessions s2 WHERE s2.patient_id = p.id AND s2.status = 'COMPLETED' AND s2.created_at < s.created_at) AS prior_visits
       FROM sessions s
       JOIN patients p ON s.patient_id = p.id
       WHERE s.status IN ('PENDING_DOCTOR', 'DIVERTED_EMERGENCY', 'IN_CONSULTATION')
       ORDER BY CASE s.triage_priority WHEN 'EMERGENCY_RED_FLAG' THEN 1 WHEN 'HIGH_PRIORITY' THEN 2 ELSE 3 END, s.created_at ASC
     `).all();
 
-    const queue = rows.map(r => ({
-      sessionId: r.session_id,
-      patientId: r.patient_id,
-      patientName: r.patient_name,
-      age: r.age,
-      gender: r.gender,
-      language: r.language,
-      prakriti: r.prakriti,
-      abhaId: r.abha_id,
-      isPregnant: Boolean(r.is_pregnant),
-      gestationalWeeks: r.gestational_weeks || undefined,
-      isLactating: Boolean(r.is_lactating),
-      weightKg: r.weight_kg || undefined,
-      triagePriority: r.triage_priority,
-      status: r.status,
-      redFlags: safeJsonParse(r.red_flag_triggers, []),
-      vitals: safeJsonParse(r.vitals_json, {}),
-      careStream: r.care_stream || 'UNDECIDED',
-      primaryComplaint: (() => {
-        const first: any = safeJsonParse<any[]>(r.symptoms_json, [])[0];
-        return first ? (first.name || first.symptom_name || first.site || undefined) : undefined;
-      })(),
-      registeredAt: r.created_at,
-      department: r.department || undefined,
-      tokenNo: r.token_no || undefined,
-      room: r.department && DEPARTMENT_ROOMS[r.department as DepartmentCode] ? DEPARTMENT_ROOMS[r.department as DepartmentCode].room : undefined,
-      calledAt: r.called_at || undefined,
-      callCount: r.call_count || 0
+    const queue = rows.map(r => {
+      const symptoms = safeJsonParse<any[]>(r.symptoms_json, []);
+      const followUp = symptoms.some((s: any) => /follow.?up|refill|medicine (finished|over)|repeat/i.test(String(s?.name || s?.category || '')));
+      return {
+        sessionId: r.session_id,
+        patientId: r.patient_id,
+        patientName: r.patient_name,
+        age: r.age,
+        gender: r.gender,
+        language: r.language,
+        prakriti: r.prakriti,
+        abhaId: r.abha_id,
+        isPregnant: r.is_pregnant === null || r.is_pregnant === undefined ? null : Boolean(r.is_pregnant), // null = not answered / not sure
+        gestationalWeeks: r.gestational_weeks || undefined,
+        isLactating: r.is_lactating === null || r.is_lactating === undefined ? null : Boolean(r.is_lactating),
+        weightKg: r.weight_kg || undefined,
+        triagePriority: r.triage_priority,
+        status: r.status,
+        redFlags: safeJsonParse(r.red_flag_triggers, []),
+        vitals: safeJsonParse(r.vitals_json, {}),
+        careStream: r.care_stream || 'UNDECIDED',
+        primaryComplaint: (() => {
+          const first: any = symptoms.find((s: any) => !s?.isNegated);
+          return first ? (first.name || first.symptom_name || first.site || undefined) : undefined;
+        })(),
+        registeredAt: r.created_at,
+        department: r.department || undefined,
+        tokenNo: r.token_no || undefined,
+        room: r.department && DEPARTMENT_ROOMS[r.department as DepartmentCode] ? DEPARTMENT_ROOMS[r.department as DepartmentCode].room : undefined,
+        calledAt: r.called_at || undefined,
+        callCount: r.call_count || 0,
+        claimedBy: r.claimed_by ? { id: r.claimed_by, name: r.claimed_by_name, at: r.claimed_at } : undefined,
+        visitType: followUp ? 'FOLLOW_UP' : r.prior_visits > 0 ? 'REVISIT' : 'NEW'
+      };
+    });
+
+    // Pharmacy referrals back to the prescriber (latest encounter of the visit, last 3 days).
+    const referred = (db.prepare(`
+      SELECT e.id AS encounter_id, e.session_id, e.doctor_id, e.doctor_name, e.created_at, d.note, d.pharmacist_name, d.created_at AS referred_at,
+             s.triage_priority, s.care_stream, s.department, s.token_no, p.id AS patient_id, p.name AS patient_name, p.age, p.gender, p.language
+      FROM encounters e JOIN dispenses d ON d.encounter_id = e.id JOIN sessions s ON s.id = e.session_id JOIN patients p ON p.id = e.patient_id
+      WHERE d.status = 'REFERRED_BACK' AND d.created_at > datetime('now', '-3 days')
+        AND e.created_at = (SELECT MAX(e2.created_at) FROM encounters e2 WHERE e2.session_id = e.session_id)
+      ORDER BY d.created_at DESC
+    `).all() as any[]).map(r => ({
+      sessionId: r.session_id, patientId: r.patient_id, patientName: r.patient_name, age: r.age, gender: r.gender, language: r.language,
+      triagePriority: r.triage_priority, status: 'PHARMACY_REFERRED', careStream: r.care_stream || 'UNDECIDED', department: r.department || undefined,
+      tokenNo: r.token_no || undefined, registeredAt: r.referred_at, redFlags: [], vitals: {}, visitType: 'PHARMACY_REFERRED',
+      pharmacyReferral: { encounterId: r.encounter_id, note: r.note, pharmacist: r.pharmacist_name, at: r.referred_at, prescriber: r.doctor_name, prescriberId: r.doctor_id }
     }));
 
-    res.json({ success: true, data: queue });
+    res.json({ success: true, data: [...referred, ...queue] });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -131,7 +172,8 @@ doctorRouter.get('/queue', requireStaff(...CLINICIAN_ROLES, 'reception'), (_req:
 /**
  * GET /api/doctor/encounter/:sessionId
  * Pre-consultation brief: structured history and summary, documents, provisional codes,
- * patient safety context and vitals assessment.
+ * patient safety context, vitals assessment, what changed since the last visit, the doctor's
+ * saved draft, who has claimed the patient, and recording consent.
  */
 doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
   const t0 = performance.now();
@@ -171,8 +213,9 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(
     const redFlags: any[] = safeJsonParse(sessionRow.red_flag_triggers, []);
     const history = normaliseHistory(safeJsonParse(sessionRow.history_json, null));
 
-    const encounterRow: any = db.prepare(`SELECT * FROM encounters WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`).get(sessionRow.id);
-    const existingEncounter: any = encounterRow ? safeJsonParse(encounterRow.case_sheet_json, null) : null;
+    const encounterRow: any = visitEncounter(sessionRow.id);
+    const existingEncounter: any = encounterRow ? { ...safeJsonParse<any>(encounterRow.case_sheet_json, {}), encounterId: encounterRow.id, doctorId: encounterRow.doctor_id, doctorName: encounterRow.doctor_name } : null;
+    const dispense: any = encounterRow ? db.prepare('SELECT status, note, pharmacist_name, created_at FROM dispenses WHERE encounter_id = ?').get(encounterRow.id) : null;
 
     const provisionalDiagnoses = symptoms.filter((s: any) => !s?.isNegated).map((s: any) => AyushEngineService.resolveDiagnosis(s)).filter(Boolean);
     const parikshaAdvisory = AyushEngineService.evaluatePariksha(pariksha);
@@ -183,16 +226,17 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(
       gender: sessionRow.gender,
       language: sessionRow.language,
       prakriti: sessionRow.prakriti,
-      isPregnant: Boolean(sessionRow.is_pregnant),
+      isPregnant: sessionRow.is_pregnant === null || sessionRow.is_pregnant === undefined ? null : Boolean(sessionRow.is_pregnant), // null = not answered / not sure
       gestationalWeeks: sessionRow.gestational_weeks || undefined,
-      isLactating: Boolean(sessionRow.is_lactating),
+      isLactating: sessionRow.is_lactating === null || sessionRow.is_lactating === undefined ? null : Boolean(sessionRow.is_lactating),
       weightKg: sessionRow.weight_kg || undefined,
       abhaId: sessionRow.abha_id,
       abhaAddress: sessionRow.abha_address
     };
-    const historySummary = buildHistorySummary({ patient, symptoms, history, vitals, pariksha, documents, rawTranscript: sessionRow.raw_transcript });
+    const historySummary = buildHistorySummary({ patient: { ...patient, isPregnant: patient.isPregnant ?? undefined, isLactating: patient.isLactating ?? undefined }, symptoms, history, vitals, pariksha, documents, rawTranscript: sessionRow.raw_transcript });
     const patientContext = buildPatientContext(sessionRow.patient_id);
     const vitalsAssessment = assessVitals(vitals, { selfReported: vitals.source !== 'clinician', age: sessionRow.age, isPregnant: !!sessionRow.is_pregnant });
+    const timeline = patientTimeline(sessionRow.patient_id, sessionRow.id);
 
     audit(req, 'record.view', sessionRow.id, { patientId: sessionRow.patient_id });
 
@@ -205,6 +249,7 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(
         triagePriority: sessionRow.triage_priority,
         redFlags,
         symptoms,
+        deniedSymptoms: deniedSymptoms(sessionRow.raw_transcript || ''),
         pariksha,
         parikshaAdvisory,
         vitals,
@@ -217,9 +262,16 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(
         pastDocuments: documents,
         provisionalDiagnoses,
         existingEncounter,
+        dispense: dispense ? { status: dispense.status, note: dispense.note, pharmacist: dispense.pharmacist_name, at: dispense.created_at } : null,
         tokenNo: sessionRow.token_no || undefined,
         department: sessionRow.department || undefined,
-        status: sessionRow.status
+        status: sessionRow.status,
+        claimedBy: claimOf(sessionRow.id),
+        sinceLastVisit: sinceLastVisit(sessionRow.patient_id, sessionRow.id, { symptoms, vitals }),
+        previousEncounters: timeline.encounters.slice(0, 5),
+        savedDraft: getDraft(sessionRow.id, req.staff!.id),
+        recordingConsent: recordingConsent(sessionRow.id),
+        legalSignature: ESignService.status()
       }
     });
   } catch (err: any) {
@@ -230,6 +282,7 @@ doctorRouter.get(['/encounter/:sessionId', '/session/:sessionId'], requireStaff(
 /**
  * PATCH /api/doctor/encounter/:sessionId/vitals
  * Nurse / doctor measured vitals. NEWS2 is recomputed and can only raise the triage priority.
+ * A measured weight also updates the patient record (used for children's dose checks).
  */
 doctorRouter.patch('/encounter/:sessionId/vitals', requireStaff(...CLINICIAN_ROLES), (req: Request, res: Response): void => {
   try {
@@ -239,13 +292,13 @@ doctorRouter.patch('/encounter/:sessionId/vitals', requireStaff(...CLINICIAN_ROL
       return;
     }
     const row: any = db.prepare(`
-      SELECT s.vitals_json, s.triage_priority, p.age, p.is_pregnant FROM sessions s JOIN patients p ON p.id = s.patient_id WHERE s.id = ?
+      SELECT s.vitals_json, s.triage_priority, s.patient_id, p.age, p.is_pregnant FROM sessions s JOIN patients p ON p.id = s.patient_id WHERE s.id = ?
     `).get(String(req.params.sessionId));
     if (!row) {
       res.status(404).json({ error: 'Consultation session not found' });
       return;
     }
-    const allowed = ['bp', 'pulse', 'spo2', 'temp', 'respiratoryRate', 'bloodSugar', 'weightKg', 'consciousness', 'onOxygen'];
+    const allowed = ['bp', 'pulse', 'spo2', 'temp', 'respiratoryRate', 'bloodSugar', 'bloodSugarType', 'weightKg', 'heightCm', 'consciousness', 'onOxygen'];
     const merged: Record<string, any> = { ...safeJsonParse(row.vitals_json, {}) };
     for (const key of allowed) {
       if (key in incoming) {
@@ -254,13 +307,21 @@ doctorRouter.patch('/encounter/:sessionId/vitals', requireStaff(...CLINICIAN_ROL
         else merged[key] = value;
       }
     }
+    const w = Number(merged.weightKg);
+    if (merged.weightKg !== undefined && !(w > 0.3 && w < 350)) {
+      res.status(400).json({ error: 'Weight must be between 0.3 and 350 kg.' });
+      return;
+    }
     merged.recordedAt = new Date().toISOString();
     merged.recordedBy = req.staff!.displayName;
     merged.source = 'clinician';
     const assessment = assessVitals(merged, { selfReported: false, age: row.age, isPregnant: !!row.is_pregnant });
-    merged.news2 = assessment.applicable ? { score: assessment.news2, band: assessment.band, at: merged.recordedAt } : null;
+    merged.news2 = assessment.applicable ? { score: assessment.news2, band: assessment.band, at: merged.recordedAt, missing: (assessment as any).missing || [] } : null;
     const newPriority = assessment.applicable ? raisePriority(row.triage_priority, assessment.suggestedPriority) : row.triage_priority;
-    db.prepare(`UPDATE sessions SET vitals_json = ?, triage_priority = ? WHERE id = ?`).run(JSON.stringify(merged), newPriority, String(req.params.sessionId));
+    db.transaction(() => {
+      db.prepare(`UPDATE sessions SET vitals_json = ?, triage_priority = ? WHERE id = ?`).run(JSON.stringify(merged), newPriority, String(req.params.sessionId));
+      if ('weightKg' in incoming && w > 0) db.prepare('UPDATE patients SET weight_kg = ? WHERE id = ?').run(w, row.patient_id);
+    })();
     audit(req, 'record.vitals_updated', String(req.params.sessionId), { fields: Object.keys(incoming).filter(k => allowed.includes(k)), news2: assessment.news2, priority: newPriority });
     publish({ type: 'queue.changed', reason: 'vitals', sessionId: String(req.params.sessionId) });
     res.json({ success: true, vitals: merged, vitalsAssessment: assessment, triagePriority: newPriority, priorityRaised: newPriority !== row.triage_priority });
@@ -296,6 +357,13 @@ doctorRouter.patch('/encounter/:sessionId/status', requireStaff(...CLINICIAN_ROL
   }
 });
 
+/** Schedule E(1) ingredients of a formulation, from its constituents (never from its name). */
+function scheduleE1Of(name: string): string[] {
+  const line = resolveAyushLine({ name }, 0, 'prescribed');
+  if (!line.ayush || line.ayush.external || !line.ayush.flags.has('schedule_e1')) return [];
+  return line.ayush.formulation ? constituentsWithFlag(line.ayush.formulation, 'schedule_e1') : ['(ingredient named in the product)'];
+}
+
 /** GET /api/doctor/encounters & /api/doctor/pharmacy-queue */
 doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', ...CLINICIAN_ROLES), (_req: Request, res: Response): void => {
   try {
@@ -307,7 +375,7 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
       JOIN patients p ON e.patient_id = p.id
       JOIN sessions s ON e.session_id = s.id
       LEFT JOIN dispenses d ON d.encounter_id = e.id
-      WHERE e.created_at > datetime('now', '-3 days')
+      WHERE e.created_at > datetime('now', '-3 days') AND s.status != 'DEMO_PARKED'
       ORDER BY (d.status IS NOT NULL), e.created_at DESC
     `).all();
 
@@ -315,6 +383,10 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
       const sheet: any = safeJsonParse(r.case_sheet_json, {});
       const signature: any = safeJsonParse(r.signature_json, null);
       const stream = r.care_stream || sheet.careStream;
+      const allo: any[] = stream === 'AYURVEDA' ? [] : (sheet.allopathicPrescription || []);
+      const ayush: any[] = stream === 'ALLOPATHY' ? [] : (sheet.ayushPrescription || []);
+      const e1 = ayush.map((m: any) => ({ name: m.classicalName || m.formulationName || '', ingredients: scheduleE1Of(m.classicalName || m.formulationName || '') })).filter(x => x.ingredients.length);
+      const h1 = allo.flatMap((m: any) => resolveAllopathicLine(m, 0, 'prescribed').conceptIds.map(drugById).filter(c => c && (c.schedule === 'H1' || c.ndps)).map(c => ({ medicine: m.name || m.drugName, generic: c!.inn, schedule: c!.schedule || 'NDPS', ndps: !!c!.ndps })));
       return {
         id: r.id,
         prescriptionToken: r.token_no || `RX-${r.id.slice(0, 6).toUpperCase()}`,
@@ -328,25 +400,30 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
         department: r.department,
         careStream: stream,
         prescribedAt: r.created_at,
-        allopathicMeds: stream === 'AYURVEDA' ? [] : (sheet.allopathicPrescription || []),
-        ayushFormulations: stream === 'ALLOPATHY' ? [] : (sheet.ayushPrescription || []),
+        allopathicMeds: allo,
+        ayushFormulations: ayush,
         ongoingMedicines: sheet.ongoingMedicines || [],
+        diagnoses: (sheet.diagnoses || []).map((d: any) => typeof d === 'string' ? d : d.display || d.englishEquivalent || d.sanskritTerm).filter(Boolean),
         advice: sheet.advice || '',
         followUpDays: sheet.followUpDays || null,
         lasaAlerts: (sheet.conflictAlerts || []).filter((a: any) => a.severity === 'CRITICAL_LASA' || a.severity === 'CRITICAL_CONTRAINDICATION'),
         conflictAlerts: sheet.conflictAlerts || [],
+        acknowledgedAlerts: sheet.criticalAlertsAcknowledged?.items || [],
         safetyChecks: sheet.safetyChecks || [],
+        scheduleH1: h1,
         scheduleE1PoisonVerification: {
-          containsScheduleE1: (sheet.ayushPrescription || []).some((m: any) => /rasa|bhasma|sindura|vatsanabha|kupilu|gunja|bhanga/i.test(m.classicalName || m.formulationName || '')),
+          containsScheduleE1: e1.length > 0,
+          items: e1,
           doctorSigned: !!signature,
-          digitalSignatureDigest: signature ? `Ed25519 · key ${signature.keyId} · record ${String(signature.recordSha256).slice(0, 16)}…` : 'Not signed',
-          statutoryRule: 'Drugs & Cosmetics Rules 1945 — Schedule E(1) items need a registered practitioner\'s prescription'
+          digitalSignatureDigest: signature ? `Ed25519 seal · key ${signature.keyId} · record ${String(signature.recordSha256).slice(0, 16)}…` : 'Not sealed',
+          statutoryRule: 'Drugs & Cosmetics Rules 1945 — Schedule E(1) items carry "Caution: to be taken under medical supervision" and are dispensed only against a registered practitioner\'s prescription'
         },
         signature,
         dispenseStatus: r.dispense_status || 'PENDING_VERIFICATION',
         dispensedBy: r.pharmacist_name || null,
         dispensedAt: r.dispensed_at || null,
-        dispenseNote: r.dispense_note || null
+        dispenseNote: r.dispense_note || null,
+        amendsEncounterId: sheet.amendsEncounterId || null
       };
     });
 
@@ -364,7 +441,11 @@ doctorRouter.post('/encounters/:encounterId/dispense', requireStaff('pharmacist'
       res.status(400).json({ error: 'status must be DISPENSED, PARTIAL, NOT_DISPENSED or REFERRED_BACK' });
       return;
     }
-    const enc: any = db.prepare('SELECT id FROM encounters WHERE id = ?').get(String(req.params.encounterId));
+    if (status === 'REFERRED_BACK' && String(req.body?.note || '').trim().length < 5) {
+      res.status(400).json({ error: 'Write why the prescription is referred back to the doctor.' });
+      return;
+    }
+    const enc: any = db.prepare('SELECT id, session_id FROM encounters WHERE id = ?').get(String(req.params.encounterId));
     if (!enc) {
       res.status(404).json({ error: 'Prescription not found' });
       return;
@@ -377,6 +458,7 @@ doctorRouter.post('/encounters/:encounterId/dispense', requireStaff('pharmacist'
         pharmacist_name = excluded.pharmacist_name, items_json = excluded.items_json, note = excluded.note, created_at = excluded.created_at
     `).run(uuidv4(), enc.id, status, req.staff!.id, req.staff!.displayName, JSON.stringify(req.body?.items || null), String(req.body?.note || '').slice(0, 500) || null, now);
     audit(req, 'pharmacy.dispense', enc.id, { status });
+    if (status === 'REFERRED_BACK') publish({ type: 'queue.changed', reason: 'pharmacy_referred', sessionId: enc.session_id });
     res.json({ success: true, status, dispensedAt: now, dispensedBy: req.staff!.displayName });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -412,32 +494,98 @@ const asArray = (v: unknown): any[] => (Array.isArray(v) ? v : []);
 const cleanText = (v: unknown, max = 2000) => (typeof v === 'string' ? v.slice(0, max) : '');
 
 /**
+ * This visit's latest signed encounter. A demo visit that was re-opened keeps its earlier encounters as
+ * history (nothing is deleted); only an encounter signed since the visit (re)started belongs to it.
+ */
+function visitEncounter<T = any>(sessionId: string, columns = '*'): T | undefined {
+  return db.prepare(`SELECT ${columns} FROM encounters e WHERE e.session_id = ? AND e.created_at >= (SELECT created_at FROM sessions WHERE id = ?) ORDER BY e.created_at DESC LIMIT 1`).get(sessionId, sessionId) as T | undefined;
+}
+
+/** Ontology entries by aCode: a draft saved before a code correction must not carry the old code into the record. */
+const ONTOLOGY_BY_ACODE = new Map<string, { icd10DualCode?: string; snomedConceptId?: string }>(ayushOntology.namasteEntries.map((e: any) => [e.aCode, e]));
+
+/** Doctor-confirmed diagnoses: { display, system?, code?, icd10?, snomed?, status, source }. Strings are kept as text. */
+function cleanDiagnoses(raw: unknown): any[] {
+  return asArray(raw).slice(0, 10).map((d: any) => {
+    const known = d && typeof d === 'object' ? ONTOLOGY_BY_ACODE.get(String(d.code || d.aCode || '')) : undefined;
+    if (known) d = { ...d, icd10: known.icd10DualCode, icd10DualCode: known.icd10DualCode, snomed: known.snomedConceptId, snomedConceptId: known.snomedConceptId };
+    if (typeof d === 'string') return d.trim() ? { display: d.trim().slice(0, 200), status: 'provisional', source: 'doctor' } : null;
+    if (!d || typeof d !== 'object') return null;
+    if (d.sanskritTerm || d.englishEquivalent) return d; // a resolved suggestion object (legacy clients)
+    const display = cleanText(d.display, 200).trim();
+    if (!display) return null;
+    return {
+      display,
+      system: ['NAMASTE', 'ICD-11-MMS', 'ICD-11-TM2', 'ICD-10', 'FREE_TEXT'].includes(d.system) ? d.system : 'FREE_TEXT',
+      code: d.code ? cleanText(String(d.code), 40) : undefined,
+      codeVerified: d.codeVerified === true,
+      icd10: d.icd10 ? cleanText(String(d.icd10), 12) : undefined,
+      snomed: d.snomed ? cleanText(String(d.snomed), 20) : undefined,
+      english: d.english ? cleanText(d.english, 200) : undefined,
+      status: d.status === 'final' ? 'final' : 'provisional',
+      source: d.source === 'accepted_suggestion' ? 'accepted_suggestion' : 'doctor'
+    };
+  }).filter(Boolean);
+}
+
+function cleanInvestigations(raw: unknown): any[] {
+  return asArray(raw).slice(0, 30).map((i: any) => {
+    if (typeof i === 'string') {
+      const hit = INVESTIGATIONS.find(x => x.id === i || x.display.toLowerCase() === i.toLowerCase());
+      return hit ? { id: hit.id, display: hit.display, loinc: hit.loinc } : (i.trim() ? { display: i.trim().slice(0, 120) } : null);
+    }
+    if (!i || typeof i !== 'object') return null;
+    const hit = INVESTIGATIONS.find(x => x.id === i.id);
+    const display = cleanText(i.display || hit?.display, 120).trim();
+    return display ? { id: hit?.id || i.id, display, loinc: hit?.loinc, urgency: i.urgency === 'urgent' ? 'urgent' : 'routine', note: cleanText(i.note, 200) || undefined } : null;
+  }).filter(Boolean);
+}
+
+/** Adds the quantity to dispense where it can be computed; keeps the indication. */
+function withQuantity(list: any[]): any[] {
+  return list.map(m => {
+    if (!m || typeof m !== 'object') return m;
+    const q = m.quantity ?? quantityToDispense(m.dosage || m.dose, m.frequency, Number(m.durationDays) || undefined);
+    return { ...m, ...(q ? { quantity: q } : {}), ...(m.indication ? { indication: cleanText(m.indication, 200) } : {}) };
+  });
+}
+
+/**
  * POST /api/doctor/prescribe
- * Finalize: safety checks with the patient's real context, FHIR bundle, Ed25519 signature,
- * provenance node, close the visit. The prescriber is always the signed-in doctor or vaidya.
+ * Finalize: safety checks with the patient's real context, typed reasons for every STOP group,
+ * FHIR OPConsultRecord + PrescriptionRecord, Ed25519 seal, provenance node, notifiable-disease
+ * prompts, close the visit. The prescriber is always the signed-in doctor or vaidya.
  */
 doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Request, res: Response): Promise<void> => {
   try {
     const staff = req.staff!;
     const {
       sessionId, symptoms, pariksha, vitals, diagnoses, allopathicPrescription, ayushPrescription, investigationsOrdered,
-      doctorNotes, pathya, apathya, advice, followUpDays, adviceLocal, adviceLanguage, amend, acknowledgeAlerts
+      doctorNotes, pathya, apathya, advice, followUpDays, adviceLocal, adviceLanguage, amend, acknowledgeAlerts, alertAcknowledgements,
+      acknowledgementReason, takeOver, clinicalExamination, consultationMinutes
     } = req.body || {};
 
-    const session: any = sessionId ? db.prepare('SELECT id, patient_id, status, department, history_json FROM sessions WHERE id = ?').get(sessionId) : null;
+    const session: any = sessionId ? db.prepare('SELECT id, patient_id, status, department, history_json, claimed_by, claimed_by_name FROM sessions WHERE id = ?').get(sessionId) : null;
     if (!session) {
       res.status(404).json({ error: 'This visit was not found. Refresh the queue and try again.' });
       return;
     }
-    const existing: any = db.prepare('SELECT id FROM encounters WHERE session_id = ? ORDER BY created_at DESC LIMIT 1').get(sessionId);
+    if (session.claimed_by && session.claimed_by !== staff.id && session.status !== 'COMPLETED' && takeOver !== true) {
+      res.status(409).json({ error: `${session.claimed_by_name} is seeing this patient. Take over only if you have agreed with them.`, code: 'CLAIMED_BY_OTHER', claimedBy: { id: session.claimed_by, name: session.claimed_by_name } });
+      return;
+    }
+    const existing: any = visitEncounter(sessionId, 'id, doctor_id, doctor_name');
     if (existing && !amend) {
-      res.status(409).json({ error: 'A prescription was already finalized for this visit.', code: 'ALREADY_FINALIZED', encounterId: existing.id });
+      res.status(409).json({
+        error: existing.doctor_id === staff.id ? 'You already signed a prescription for this visit.' : `${existing.doctor_name} already signed a prescription for this visit.`,
+        code: 'ALREADY_FINALIZED', encounterId: existing.id, finalizedBy: existing.doctor_name, sameDoctor: existing.doctor_id === staff.id
+      });
       return;
     }
 
     const careStream = staff.role === 'vaidya' ? 'AYURVEDA' : 'ALLOPATHY';
-    const allo = asArray(allopathicPrescription);
-    const ayush = asArray(ayushPrescription);
+    const allo = withQuantity(asArray(allopathicPrescription));
+    const ayush = withQuantity(asArray(ayushPrescription));
     const prescribed = careStream === 'AYURVEDA' ? ayush : allo;
     const ongoing = careStream === 'AYURVEDA' ? allo : ayush;
     if (prescribed.length === 0 && !cleanText(advice).trim()) {
@@ -455,22 +603,51 @@ doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Re
 
     // 1. Safety checks over everything the patient will be taking, with the patient's real context.
     const patientContext = buildPatientContext(session.patient_id);
-    const safety = TruthEngineService.evaluatePrescriptionsDetailed(allo, ayush, patientContext);
+    const safety = TruthEngineService.evaluatePrescriptionsDetailed(allo, ayush, patientContext, {
+      roles: careStream === 'AYURVEDA' ? { ayush: 'prescribed', allopathic: 'ongoing' } : { allopathic: 'prescribed', ayush: 'ongoing' },
+      diet: careStream === 'AYURVEDA' ? asArray(pathya).map(String) : []
+    });
     const conflictAlerts = safety.alerts;
     for (const w of AyushEngineService.checkViruddhaAhara(ayush)) {
-      conflictAlerts.push({ alertId: `viruddha-${uuidv4().substring(0, 6)}`, severity: 'AYUSH_INCOMPATIBILITY', itemA: 'Prescribed Anupana', itemB: 'Incompatible Vehicle', mechanism: w, evidenceScore: 0.99, clinicalAction: 'Modify the vehicle per the classical pharmacopoeia directive.' });
+      if (conflictAlerts.some(a => a.mechanism === w)) continue;
+      conflictAlerts.push({ alertId: `viruddha-${uuidv4().substring(0, 6)}`, severity: 'AYUSH_INCOMPATIBILITY', tier: 'WARN', family: 'viruddha', itemA: 'Prescribed Anupana', itemB: 'Incompatible Vehicle', mechanism: w, evidenceScore: 0.99, clinicalAction: 'Modify the vehicle per the classical pharmacopoeia directive.' } as any);
     }
-    const critical = conflictAlerts.filter(a => a.severity === 'CRITICAL_CONTRAINDICATION');
-    // A critical contraindication must be acknowledged explicitly by the prescriber (recorded in the signed record).
-    if (critical.length && acknowledgeAlerts !== true) {
+
+    // Every STOP group needs a typed reason (stored in the signed record). The legacy boolean
+    // acknowledgeAlerts is accepted only with a reason that then applies to every group.
+    const ackList: Array<{ groupKey: string; reason: string }> = asArray(alertAcknowledgements)
+      .map((a: any) => ({ groupKey: String(a?.groupKey || ''), reason: cleanText(a?.reason, 500).trim() }))
+      .filter(a => a.groupKey);
+    const legacyReason = acknowledgeAlerts === true ? cleanText(acknowledgementReason, 500).trim() : '';
+    const missing = safety.stopGroups.filter(g => {
+      const r = ackList.find(a => a.groupKey === g.groupKey)?.reason || legacyReason;
+      return !r || r.length < 5;
+    });
+    if (missing.length) {
       res.status(422).json({
-        error: 'Critical contraindications were found. Review them and re-submit with acknowledgeAlerts: true to proceed on your clinical judgement.',
+        error: missing.length === 1
+          ? `One serious safety alert needs your reason before signing: ${missing[0].summary}.`
+          : `${missing.length} serious safety alerts need your reason before signing.`,
         code: 'CRITICAL_CONTRAINDICATION',
+        stopGroups: safety.stopGroups,
+        missingAcknowledgements: missing.map(g => g.groupKey),
         conflictAlerts,
         safetyChecks: safety.checks,
+        coverage: safety.coverage,
         patientContextUsed: patientContext
       });
       return;
+    }
+    const acknowledged = safety.stopGroups.map(g => ({ groupKey: g.groupKey, alertIds: g.alertIds, summary: g.summary, reason: ackList.find(a => a.groupKey === g.groupKey)?.reason || legacyReason }));
+    // WHO AWaRe stewardship: every prescribed antibiotic carries its indication (checked here too, not only on screen).
+    if (careStream === 'ALLOPATHY') {
+      const noIndication = safety.resolvedLines
+        .filter(l => l.kind === 'allopathic' && l.role === 'prescribed' && (l.aware?.length || 0) > 0 && !String(allo[l.index]?.indication || '').trim())
+        .map(l => ({ index: l.index, name: allo[l.index]?.name || l.raw }));
+      if (noIndication.length) {
+        res.status(422).json({ error: `Record the indication for ${noIndication.map(n => n.name).join(', ')} (antibiotic stewardship).`, code: 'INDICATION_REQUIRED', lines: noIndication });
+        return;
+      }
     }
 
     const deptCode = session.department as DepartmentCode | undefined;
@@ -480,6 +657,8 @@ doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Re
 
     // 2. The consultation record.
     const history = normaliseHistory(safeJsonParse(session.history_json, null));
+    const cleanDx = cleanDiagnoses(diagnoses);
+    const cleanInv = cleanInvestigations(investigationsOrdered);
     const consultationRecord: ConsultationRecord = {
       encounterId,
       sessionId,
@@ -490,18 +669,19 @@ doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Re
       symptoms: asArray(symptoms),
       pariksha: careStream === 'AYURVEDA' ? (pariksha || {}) : {} as any,
       vitals: vitals || {},
-      diagnoses: asArray(diagnoses),
+      diagnoses: cleanDx,
       allopathicPrescription: careStream === 'ALLOPATHY' ? allo : [],
       ayushPrescription: careStream === 'AYURVEDA' ? ayush : [],
-      investigationsOrdered: asArray(investigationsOrdered).map(String),
+      investigationsOrdered: cleanInv as any,
       conflictAlerts,
-      doctorNotes: cleanText(doctorNotes),
+      doctorNotes: cleanText(doctorNotes, 6000),
       createdAt: now
     };
     Object.assign(consultationRecord as any, {
       careStream,
       doctorQualification: staff.qualification || '',
       doctorRegistration: staff.registrationNo || '',
+      doctorHprId: (staff as any).hprId || undefined,
       ongoingMedicines: ongoing,
       pathya: careStream === 'AYURVEDA' ? asArray(pathya).map(String) : [],
       apathya: careStream === 'AYURVEDA' ? asArray(apathya).map(String) : [],
@@ -509,14 +689,19 @@ doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Re
       adviceLocal: cleanText(adviceLocal) || undefined,
       adviceLanguage: typeof adviceLanguage === 'string' ? adviceLanguage.slice(0, 5) : undefined,
       followUpDays: Number.isFinite(followUp) && followUp > 0 ? followUp : undefined,
+      clinicalExamination: clinicalExamination && typeof clinicalExamination === 'object' ? clinicalExamination : undefined,
+      consultationMinutes: Number(consultationMinutes) > 0 && Number(consultationMinutes) < 240 ? Number(consultationMinutes) : undefined,
       amendsEncounterId: existing ? existing.id : undefined,
       history,
       safetyChecks: safety.checks,
-      patientContextUsed: patientContext ? { age: patientContext.age, gender: patientContext.gender, isPregnant: patientContext.isPregnant, gestationalWeeks: patientContext.gestationalWeeks, isLactating: patientContext.isLactating, eGfr: patientContext.eGfr, eGfrMethod: patientContext.eGfrMethod, sources: patientContext.sources, missing: patientContext.missing } : null,
-      criticalAlertsAcknowledged: critical.length ? { count: critical.length, by: staff.id, at: now } : undefined
+      safetyCoverage: safety.coverage,
+      patientContextUsed: patientContext ? { age: patientContext.age, gender: patientContext.gender, isPregnant: patientContext.isPregnant, gestationalWeeks: patientContext.gestationalWeeks, isLactating: patientContext.isLactating, eGfr: patientContext.eGfr, eGfrMethod: patientContext.eGfrMethod, weightKg: patientContext.weightKg, allergies: patientContext.allergies, conditions: patientContext.conditions, sources: patientContext.sources, missing: patientContext.missing } : null,
+      criticalAlertsAcknowledged: acknowledged.length ? { count: acknowledged.length, by: staff.id, byName: staff.displayName, at: now, items: acknowledged } : undefined,
+      // How the notes were prepared (from the scribe usage log: mode and seconds, never audio or text).
+      documentationAids: documentationAids(sessionId)
     });
 
-    // 3. ABDM FHIR R4 bundle (patient and practitioner details come from the records, never invented).
+    // 3. ABDM FHIR R4: OPConsultRecord and PrescriptionRecord (identifiers from the records, never invented).
     const patientRow: any = db.prepare('SELECT id, name, age, gender, abha_id, abha_address, is_pregnant, gestational_weeks, weight_kg FROM patients WHERE id = ?').get(session.patient_id);
     const scannedDocuments = (db.prepare('SELECT id, document_type, extracted_text, metadata_json, created_at FROM documents WHERE patient_id = ? ORDER BY created_at DESC LIMIT 10').all(session.patient_id) as any[])
       .map(d => ({ id: d.id, documentType: d.document_type, extractedText: d.extracted_text, recordedDate: safeJsonParse<any>(d.metadata_json, {}).recordedDate, createdAt: d.created_at }));
@@ -524,23 +709,32 @@ doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Re
       ...consultationRecord,
       scannedDocuments,
       patient: patientRow ? { id: patientRow.id, name: patientRow.name, age: patientRow.age, gender: patientRow.gender, abhaId: patientRow.abha_id, abhaAddress: patientRow.abha_address, isPregnant: !!patientRow.is_pregnant, gestationalWeeks: patientRow.gestational_weeks, weightKg: patientRow.weight_kg } : undefined,
-      practitioner: { id: staff.id, name: staff.displayName, registrationNo: staff.registrationNo, qualification: staff.qualification, role: staff.role }
-    });
+      practitioner: { id: staff.id, name: staff.displayName, registrationNo: staff.registrationNo, qualification: staff.qualification, role: staff.role, hprId: (staff as any).hprId || null }
+    } as any);
+    const prescriptionBundle = FhirGeneratorService.buildPrescriptionRecord(fhirBundle);
     consultationRecord.fhirBundleId = fhirBundle.id;
 
-    // 4. Signature over the complete canonical record, then the provenance node inside the same transaction.
-    const signature = signRecord(consultationRecord, staff.id);
+    // 4. Seal over the complete canonical record, then the provenance node inside the same transaction.
+    const signature: any = signRecord(consultationRecord, staff.id);
+    const legal = ESignService.status();
     db.transaction(() => {
       db.prepare(`
-        INSERT INTO encounters (id, session_id, patient_id, doctor_id, doctor_name, department, case_sheet_json, fhir_bundle_json, zkp_proof_json, created_at, signature_json, care_stream)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
-      `).run(encounterId, sessionId, session.patient_id, staff.id, staff.displayName, department, JSON.stringify(consultationRecord), JSON.stringify(fhirBundle), now, JSON.stringify(signature), careStream);
+        INSERT INTO encounters (id, session_id, patient_id, doctor_id, doctor_name, department, case_sheet_json, fhir_bundle_json, zkp_proof_json, created_at, signature_json, care_stream, prescription_bundle_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+      `).run(encounterId, sessionId, session.patient_id, staff.id, staff.displayName, department, JSON.stringify(consultationRecord), JSON.stringify(fhirBundle), now, JSON.stringify(signature), careStream, JSON.stringify(prescriptionBundle));
       db.prepare(`UPDATE sessions SET status = 'COMPLETED', completed_at = ?, consult_started_at = COALESCE(consult_started_at, ?) WHERE id = ?`).run(now, now, sessionId);
       ZkProofService.recordEncounterMerkleNode(encounterId, session.patient_id, consultationRecord, signature);
     })();
+    deleteDraft(sessionId);
+
+    // ABDM: an ABHA-linked patient's visit becomes a care context (linked only with their abha_link consent).
+    const careContext = AbdmHipService.registerCareContext({ patientId: session.patient_id, sessionId, encounterId, at: now });
+
+    // Notifiable diseases (TB → Nikshay): create a pending notification for the desk to complete.
+    const notifiable = detectNotifiable({ diagnoses: cleanDx, medicines: prescribed }).map(n => ({ ...n, id: createNotifiable(n.type, session.patient_id, sessionId, encounterId, { reason: n.reason, diagnoses: cleanDx.map((d: any) => d.display || d), medicines: prescribed.map((m: any) => m.name || m.classicalName), prescriber: staff.displayName }) }));
 
     audit(req, existing ? 'prescription.amended' : 'prescription.finalized', encounterId, {
-      sessionId, patientId: session.patient_id, items: prescribed.length, warnings: conflictAlerts.length, critical: critical.length, contextSources: patientContext?.sources || []
+      sessionId, patientId: session.patient_id, items: prescribed.length, warnings: conflictAlerts.length, stopGroupsAcknowledged: acknowledged.length, contextSources: patientContext?.sources || []
     });
     publish({ type: 'queue.changed', reason: 'completed', sessionId });
 
@@ -552,14 +746,64 @@ doctorRouter.post('/prescribe', requireStaff('doctor', 'vaidya'), async (req: Re
       encounterId,
       consultationRecord,
       fhirBundle,
-      signature,
+      prescriptionBundle,
+      signature: { ...signature, legal },
       sms,
       safetyChecks: safety.checks,
+      safetyCoverage: safety.coverage,
       patientContextUsed: patientContext,
-      hasCriticalContraindications: critical.length > 0,
-      message: 'Prescription finalized and digitally signed.'
+      abdmCareContext: careContext,
+      notifiable,
+      hasCriticalContraindications: safety.stopGroups.length > 0,
+      message: 'Prescription finalized and sealed.'
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * POST /api/doctor/encounter/:id/fhir-preview — the ABDM record as it would be built from the doctor's
+ * current draft (Composition status "preliminary"; nothing is stored). A signed visit returns its signed bundle.
+ */
+doctorRouter.post('/encounter/:id/fhir-preview', requireStaff('doctor', 'vaidya'), (req: Request, res: Response): void => {
+  try {
+    const staff = req.staff!;
+    const sessionId = String(req.params.id);
+    const session: any = db.prepare('SELECT id, patient_id, department, created_at FROM sessions WHERE id = ?').get(sessionId);
+    if (!session) { res.status(404).json({ error: 'This visit was not found.' }); return; }
+    const signed: any = visitEncounter(sessionId, 'fhir_bundle_json');
+    if (signed?.fhir_bundle_json) { res.json({ success: true, bundle: safeJsonParse(signed.fhir_bundle_json, null), finalized: true }); return; }
+
+    const { symptoms, pariksha, vitals, diagnoses, allopathicPrescription, ayushPrescription, investigationsOrdered, pathya, apathya, advice, followUpDays } = req.body || {};
+    const careStream = staff.role === 'vaidya' ? 'AYURVEDA' : 'ALLOPATHY';
+    const allo = withQuantity(asArray(allopathicPrescription));
+    const ayush = withQuantity(asArray(ayushPrescription));
+    const followUp = Number(followUpDays);
+    const patientRow: any = db.prepare('SELECT id, name, age, gender, abha_id, abha_address, is_pregnant, gestational_weeks, weight_kg FROM patients WHERE id = ?').get(session.patient_id);
+    const record: any = {
+      encounterId: `draft-${sessionId}`, sessionId, patientId: session.patient_id, doctorId: staff.id, doctorName: staff.displayName, department: session.department,
+      symptoms: asArray(symptoms), pariksha: careStream === 'AYURVEDA' ? (pariksha || {}) : {}, vitals: vitals || {},
+      diagnoses: cleanDiagnoses(diagnoses),
+      allopathicPrescription: careStream === 'ALLOPATHY' ? allo : [], ayushPrescription: careStream === 'AYURVEDA' ? ayush : [],
+      ongoingMedicines: careStream === 'AYURVEDA' ? allo : ayush,
+      investigationsOrdered: cleanInvestigations(investigationsOrdered), conflictAlerts: [], doctorNotes: '', createdAt: new Date().toISOString(),
+      careStream, doctorQualification: staff.qualification || '', doctorRegistration: staff.registrationNo || '', doctorHprId: (staff as any).hprId || undefined,
+      pathya: careStream === 'AYURVEDA' ? asArray(pathya).map(String) : [], apathya: careStream === 'AYURVEDA' ? asArray(apathya).map(String) : [],
+      advice: cleanText(advice), followUpDays: Number.isFinite(followUp) && followUp > 0 ? followUp : undefined,
+      patient: patientRow ? { id: patientRow.id, name: patientRow.name, age: patientRow.age, gender: patientRow.gender, abhaId: patientRow.abha_id, abhaAddress: patientRow.abha_address, isPregnant: !!patientRow.is_pregnant, gestationalWeeks: patientRow.gestational_weeks, weightKg: patientRow.weight_kg } : undefined,
+      practitioner: { id: staff.id, name: staff.displayName, registrationNo: staff.registrationNo, qualification: staff.qualification, role: staff.role, hprId: (staff as any).hprId || null }
+    };
+    const bundle: any = FhirGeneratorService.buildBundle(record);
+    for (const e of bundle.entry || []) {
+      if (e.resource?.resourceType === 'Composition') e.resource.status = 'preliminary';
+      if (e.resource?.resourceType === 'Encounter') { e.resource.status = 'in-progress'; if (e.resource.period) delete e.resource.period.end; }
+      if (e.resource?.resourceType === 'MedicationRequest' && e.resource.intent === 'order') e.resource.status = 'draft';
+    }
+    res.json({ success: true, bundle, finalized: false, preview: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+doctorRouter.use(deskRouter);

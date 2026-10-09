@@ -13,7 +13,8 @@ export type HospitalEvent =
   | { type: 'queue.changed'; reason: string; sessionId?: string }
   | { type: 'token.called'; tokenNo: string; room: string; department: string; callCount: number; sessionId: string }
   | { type: 'sos.raised'; alertId: string; tokenNo?: string | null; location?: string | null; message: string; createdAt: string }
-  | { type: 'sos.updated'; alertId: string; status: 'ACKNOWLEDGED' | 'RESOLVED'; by: string; at: string };
+  | { type: 'sos.updated'; alertId: string; status: 'ACKNOWLEDGED' | 'RESOLVED'; by: string; at: string }
+  | { type: 'system.mode'; demoMode: boolean };
 
 const bus = new EventEmitter();
 bus.setMaxListeners(500);

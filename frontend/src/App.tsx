@@ -22,9 +22,23 @@ const ViewLoading: React.FC = () => (
 import { Button } from './components/ui/button';
 import { StaffGate, StaffChip } from './components/auth/StaffGate';
 import { KioskShell, isKioskLocked } from './components/kiosk/KioskShell';
+import { DemoModeBadge } from './components/common/DemoModeControl';
 import { sovereignSound } from './utils/audio';
 import { api } from './services/api';
-import { ArrowLeft, Smartphone } from 'lucide-react';
+import { ArrowLeft, Smartphone, MonitorSmartphone, Stethoscope, HeartPulse, Pill, Tv, Footprints, LayoutDashboard, Network } from 'lucide-react';
+
+/** Each terminal's name in the top bar, so staff always know which screen they are on. */
+const TERMINAL_META: Partial<Record<ActiveViewMode, { name: string; icon: React.ComponentType<{ size?: number; className?: string }> }>> = {
+  kiosk: { name: 'Patient check-in kiosk', icon: MonitorSmartphone },
+  doctor: { name: 'Doctor / Vaidya desk', icon: Stethoscope },
+  nurse: { name: 'Nurse station', icon: HeartPulse },
+  pharmacy: { name: 'Pharmacy counter', icon: Pill },
+  display: { name: 'Waiting-room display', icon: Tv },
+  asha: { name: 'ASHA field app', icon: Footprints },
+  admin: { name: 'Hospital administration', icon: LayoutDashboard },
+  matrix: { name: 'Architecture notes', icon: Network },
+  byod: { name: 'Mobile waiting companion', icon: Smartphone }
+};
 
 export function App() {
   const getInitialView = (): ActiveViewMode => {
@@ -59,16 +73,6 @@ export function App() {
     api.checkHealth().catch(() => {});
   }, []);
 
-  // Dynamic pointer coordinates for Fresnel spotlight across cards
-  useEffect(() => {
-    const handlePointerMove = (e: PointerEvent) => {
-      document.documentElement.style.setProperty('--mouse-x', `${e.clientX}px`);
-      document.documentElement.style.setProperty('--mouse-y', `${e.clientY}px`);
-    };
-    window.addEventListener('pointermove', handlePointerMove);
-    return () => window.removeEventListener('pointermove', handlePointerMove);
-  }, []);
-
   // Global Pro Shortcuts: Esc to Portal, 1-6 on Portal (or Alt+1-6 globally)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -95,42 +99,47 @@ export function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
-      {/* Top Utility Bar for Standalone Terminals */}
-      {activeView !== 'portal' && !lockedKiosk && (
-        <div className="no-print sticky top-0 z-50 glass border-b border-border/70 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 shadow-2xs">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              try { sovereignSound.playMechanicalSnap(); } catch {}
-              setActiveView('portal');
-            }}
-            className="h-8 gap-1.5 rounded-xl font-medium text-xs border-border/70 cursor-pointer"
-            title="Return to Hospital OS Gateway (Shortcut: Esc)"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Gateway</span>
-            <kbd className="hidden sm:inline-block px-1 py-0.2 rounded bg-muted text-[10px] font-mono">Esc</kbd>
-          </Button>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-muted-foreground">
-              <img
-                src="/ashoka-stambh-hd.png"
-                alt="Ashoka Stambh"
-                className="h-5 w-5 object-contain shrink-0 pointer-events-none select-none"
-                style={{ height: '20px', width: '20px', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.06))' }}
-              />
-              <span className="font-semibold text-foreground/90">Sovereign Hospital OS</span>
+      {/* Terminal top bar: back to the gateway, which screen this is, demo/live mode, who is signed in.
+          Not on the waiting-room TV (a public screen) or a locked kiosk. */}
+      {activeView !== 'portal' && activeView !== 'display' && !lockedKiosk && (() => {
+        const meta = TERMINAL_META[activeView];
+        const Icon = meta?.icon;
+        return (
+          <header className="app-bar no-print sticky top-0 z-50 glass border-b border-border/70 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  try { sovereignSound.playMechanicalSnap(); } catch {}
+                  setActiveView('portal');
+                }}
+                className="h-8 pl-2 pr-2.5 rounded-lg border border-border/70 bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5 shrink-0"
+                title="Back to all screens (Esc)"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">All screens</span>
+              </button>
+              <div className="h-5 w-px bg-border hidden sm:block" />
+              <img src="/ashoka-stambh-hd.png" alt="" className="h-5 w-5 object-contain shrink-0 pointer-events-none select-none hidden sm:block" />
+              <div className="min-w-0 leading-tight">
+                <div className="text-[10.5px] font-semibold text-muted-foreground truncate hidden sm:block">Sovereign Hospital OS</div>
+                <div className="text-sm font-bold text-foreground truncate flex items-center gap-1.5">
+                  {Icon && <Icon size={14} className="text-primary shrink-0" />}
+                  {meta?.name || 'Hospital OS'}
+                </div>
+              </div>
             </div>
 
-            <StaffChip />
-          </div>
-        </div>
-      )}
+            <div className="flex items-center gap-2 shrink-0">
+              <DemoModeBadge />
+              <StaffChip />
+            </div>
+          </header>
+        );
+      })()}
 
       {/* Main Terminal View Container */}
-      <main className={`flex-1 ${activeView === 'portal' || activeView === 'display' ? '' : 'pb-10'}`}>
+      <main className={`flex-1 ${activeView === 'portal' || activeView === 'display' || activeView === 'doctor' ? '' : 'pb-10'}`}>
         <Suspense fallback={<ViewLoading />}>
         {activeView === 'portal' && (
           <HospitalOsGateway
@@ -159,7 +168,7 @@ export function App() {
           </StaffGate>
         )}
 
-        {activeView === 'display' && <QueueDisplayView />}
+        {activeView === 'display' && <QueueDisplayView onExit={() => setActiveView('portal')} />}
 
         {activeView === 'pharmacy' && (
           <StaffGate roles={['pharmacist', 'admin']} terminalName="Pharmacy counter">

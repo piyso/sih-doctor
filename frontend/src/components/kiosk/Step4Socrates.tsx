@@ -8,6 +8,7 @@ import {
   pulseStatus, spo2Status, sysStatus, tempStatus
 } from '../../utils/vitals';
 import { RegisterNav, useStepNav } from './kioskNav';
+import { intakeText } from '../../utils/kioskIntakeText';
 
 interface Step4SocratesProps {
   symptoms: SocratesSymptom[];
@@ -66,7 +67,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   const lang = normalizeLang(language);
   const tx = kioskText(lang);
 
-  const primary: SocratesSymptom = symptoms[0] || {
+  // Every complaint gets its own details (not only the first one).
+  const [activeIdx, setActiveIdx] = useState(0);
+  const idx = Math.min(activeIdx, Math.max(0, symptoms.length - 1));
+  const primary: SocratesSymptom = symptoms[idx] || {
     key: 'manual:general',
     site: selectedBodyRegion || 'General',
     onset: '', character: '', radiation: '', associations: [], timing: '',
@@ -75,8 +79,8 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
 
   const updatePrimary = (patch: Partial<SocratesSymptom>) => {
     setSymptoms(prev => {
-      const base = prev[0] || primary;
-      return [{ ...base, ...patch }, ...prev.slice(1)];
+      if (!prev.length) return [{ ...primary, ...patch }];
+      return prev.map((s, i) => (i === idx ? { ...s, ...patch } : s));
     });
   };
 
@@ -135,7 +139,10 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
   const vitalCritical = [status.bp, status.pulse, status.spo2, status.temp].some(isCritical);
   const isChest = /chest|precordium|heart/i.test(primary.site) || /chest/i.test(primary.name || '');
   const isHead = /^head$/i.test(primary.site) || /headache/i.test(primary.name || '');
-  const isEmergency = score >= 8 || vitalCritical;
+  // Severe pain alone is "seen sooner", not an emergency: severe chest pain, a sudden severe headache, a complaint
+  // already flagged as an emergency, or a critical reading are.
+  const severeEmergency = score >= 8 && (isChest || !!primary.isEmergency || (isHead && primary.onsetType === 'Sudden'));
+  const isEmergency = severeEmergency || vitalCritical;
 
   const playGuidance = () => {
     sovereignSound.playMechanicalSnap();
@@ -182,6 +189,26 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
         {/* About the pain */}
         <div className="physical-card p-5 rounded-2xl flex flex-col gap-4">
           <h3 className="text-sm font-bold text-foreground border-b border-border/70 pb-2">{tx('s4PainCard')}</h3>
+          {symptoms.length > 1 && (
+            <div>
+              <span className="block text-xs font-semibold text-muted-foreground mb-1.5">{intakeText(lang)('s4WhichProblem')}</span>
+              <div className="flex flex-wrap gap-1.5" role="tablist">
+                {symptoms.map((s, i) => (
+                  <button
+                    key={s.key || i}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === idx}
+                    onClick={() => { sovereignSound.playDialNotch(); setActiveIdx(i); }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${i === idx ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'}`}
+                  >
+                    {s.labelLocal || s.name || regionName(s.site, lang)}
+                    {(s.onset || s.severityScore) ? ' ✓' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <span className="block text-sm font-semibold text-foreground/90 mb-1.5">{tx('s4Site')}</span>
@@ -333,9 +360,9 @@ export const Step4Socrates: React.FC<Step4SocratesProps> = ({
               <AlertOctagon size={20} className="text-rose-600 shrink-0 mt-0.5" />
               <div className="text-sm text-rose-800 dark:text-rose-200">
                 <div className="font-bold">
-                  {score >= 8 ? (isChest ? tx('emergencyChest') : isHead ? tx('emergencyHead') : tx('emergencyGeneral')) : tx('statusVitalsAlert')}
+                  {severeEmergency ? (isChest ? tx('emergencyChest') : isHead ? tx('emergencyHead') : tx('emergencyGeneral')) : tx('statusVitalsAlert')}
                 </div>
-                {score >= 8 && vitalCritical && <div className="text-xs mt-0.5">{tx('statusVitalsAlert')}</div>}
+                {severeEmergency && vitalCritical && <div className="text-xs mt-0.5">{tx('statusVitalsAlert')}</div>}
               </div>
             </div>
             <button type="button" onClick={() => { sovereignSound.playEmergencyCodeRed(); onEmergency(); }} className="btn btn-danger text-sm font-bold px-4 py-2 rounded-xl shrink-0">

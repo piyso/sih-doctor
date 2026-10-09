@@ -8,6 +8,7 @@ import { RegisterNav, useStepNav } from './kioskNav';
 import { KioskConsent } from '../../services/api';
 import { useDemoMode } from '../../services/runtimeMode';
 import { ConsentCard } from './ConsentCard';
+import { intakeText } from '../../utils/kioskIntakeText';
 
 export interface KioskPatient {
   name: string;
@@ -16,11 +17,22 @@ export interface KioskPatient {
   phone?: string;
   aadhaar?: string;
   abhaId?: string;
-  isPregnant?: boolean;
-  isLactating?: boolean;
+  /** true / false, or null when not asked or the patient is not sure — never read "not answered" as "not pregnant". */
+  isPregnant?: boolean | null;
+  isLactating?: boolean | null;
+  /** What the patient chose on screen ('unsure' keeps isPregnant null but counts as answered). */
+  pregnancyAnswer?: 'yes' | 'no' | 'unsure';
+  lactationAnswer?: 'yes' | 'no' | 'unsure';
+  gestationalWeeks?: number;
+  /** Months for a child under 2 (`age` stays whole years). */
+  ageMonths?: number;
   weightKg?: number;
   careStream: CareStream;
 }
+
+/** Ages at which the kiosk asks about pregnancy and breastfeeding. */
+const MATERNAL_AGE: [number, number] = [10, 55];
+const PREGNANCY_ANSWER_REQUIRED: [number, number] = [12, 50];
 
 interface Step2AbhaAuthProps {
   patient: KioskPatient;
@@ -43,6 +55,7 @@ const FieldError: React.FC<{ message?: string | null }> = ({ message }) => (
 
 export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatient, language = 'hi', registerNav, consent, setConsent }) => {
   const tx = kioskText(language);
+  const it = intakeText(language);
   // Sample patients and the demo OTP exist only on demo servers; real ABHA/Aadhaar OTP needs ABDM.
   const demoMode = useDemoMode();
   const [authMethod, setAuthMethod] = useState<'abha' | 'aadhaar' | 'walkin'>(patient.aadhaar ? 'aadhaar' : patient.abhaId ? 'abha' : 'walkin');
@@ -60,15 +73,34 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
   const aadhaarDigits = digits(patient.aadhaar);
   const abhaDigits = digits(patient.abhaId);
   const phoneDigits = digits(patient.phone);
+  const ageNum = patient.age === undefined || Number.isNaN(Number(patient.age)) ? null : Number(patient.age);
+  const inRange = (r: [number, number]) => ageNum === null || (ageNum >= r[0] && ageNum <= r[1]);
+  const asksMaternal = patient.gender === 'FEMALE' && inRange(MATERNAL_AGE);
+  const weightNum = patient.weightKg === undefined || patient.weightKg === null ? null : Number(patient.weightKg);
   const errors = {
     name: patient.name.trim().length < 2 ? tx('errName') : null,
     age: patient.age === undefined || Number.isNaN(Number(patient.age)) || Number(patient.age) < 0 || Number(patient.age) > 120 ? tx('errAge') : null,
     abha: authMethod === 'abha' && abhaDigits.length > 0 && abhaDigits.length !== 14 ? tx('errAbha') : null,
     aadhaar: authMethod === 'aadhaar' && aadhaarDigits.length > 0 && (aadhaarDigits.length !== 12 || !VerhoeffD5.validate(aadhaarDigits)) ? tx('errAadhaar') : null,
-    phone: phoneDigits.length > 0 && phoneDigits.length !== 10 ? tx('errPhone') : null
+    phone: phoneDigits.length > 0 && phoneDigits.length !== 10 ? tx('errPhone') : null,
+    months: ageNum !== null && ageNum < 2 && patient.ageMonths !== undefined && (Number.isNaN(Number(patient.ageMonths)) || patient.ageMonths < 0 || patient.ageMonths > 23) ? it('errMonths') : null,
+    weight: weightNum !== null && (Number.isNaN(weightNum) || weightNum < 0.5 || weightNum > 250) ? it('errWeight') : null,
+    // one tap ("Not sure" is an answer) — medicines unsafe in pregnancy depend on it
+    pregnancy: asksMaternal && ageNum !== null && ageNum >= PREGNANCY_ANSWER_REQUIRED[0] && ageNum <= PREGNANCY_ANSWER_REQUIRED[1] && !patient.pregnancyAnswer ? it('pregRequired') : null
   };
   const isValid = Object.values(errors).every(e => !e) && consent.purposes.care;
   const visibleError = (field: keyof typeof errors) => (showErrors || touched[field] ? errors[field] : null);
+
+  // Pregnancy / breastfeeding are unknown (null) until the patient answers; not asked (false) for men, and for
+  // women outside the ages where it applies.
+  React.useEffect(() => {
+    const want = asksMaternal
+      ? { isPregnant: patient.pregnancyAnswer === 'yes' ? true : patient.pregnancyAnswer === 'no' ? false : null,
+          isLactating: patient.lactationAnswer === 'yes' ? true : patient.lactationAnswer === 'no' ? false : null }
+      : { isPregnant: false, isLactating: false };
+    if (patient.isPregnant !== want.isPregnant || patient.isLactating !== want.isLactating) update(want);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asksMaternal, patient.pregnancyAnswer, patient.lactationAnswer, patient.isPregnant, patient.isLactating]);
 
   // Without a phone number there is nowhere to send SMS, so drop that consent.
   React.useEffect(() => {
@@ -83,7 +115,8 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
 
   const handleQuickSelectPreset = (preset: Partial<KioskPatient>) => {
     sovereignSound.playCrystalChime();
-    setPatient(prev => ({ ...prev, isPregnant: false, isLactating: false, ...preset }));
+    setPatient(prev => ({ ...prev, isPregnant: false, isLactating: false, pregnancyAnswer: undefined, lactationAnswer: undefined, ...preset,
+      ...(preset.isPregnant ? { pregnancyAnswer: 'yes' as const } : {}) }));
     setAuthMethod('abha');
     setVerified(true);
   };
@@ -277,7 +310,10 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
                 min={0}
                 max={120}
                 value={patient.age ?? ''}
-                onChange={e => update({ age: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })}
+                onChange={e => {
+                  const age = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                  update({ age, ...(age === undefined || age >= 2 ? { ageMonths: undefined } : {}) });
+                }}
                 onBlur={() => setTouched(t => ({ ...t, age: true }))}
                 className={`${inputClass(!!visibleError('age'))} font-mono`}
               />
@@ -289,7 +325,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
                   <button
                     key={g}
                     type="button"
-                    onClick={() => update({ gender: g, ...(g !== 'FEMALE' ? { isPregnant: false, isLactating: false } : {}) })}
+                    onClick={() => update({ gender: g, ...(g !== 'FEMALE' ? { pregnancyAnswer: undefined, lactationAnswer: undefined, gestationalWeeks: undefined } : {}) })}
                     aria-pressed={patient.gender === g}
                     className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                       patient.gender === g ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'
@@ -302,6 +338,44 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
             </div>
           </div>
           <FieldError message={visibleError('age')} />
+          <div className="flex gap-3 flex-wrap">
+            {ageNum !== null && ageNum < 2 && (
+              <div className="w-44">
+                <label className="block text-sm font-semibold text-foreground/90 mb-1" htmlFor="kiosk-age-months">{it('ageMonthsLabel')}</label>
+                <input
+                  id="kiosk-age-months"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={23}
+                  value={patient.ageMonths ?? ''}
+                  onChange={e => {
+                    const m = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                    update({ ageMonths: m, ...(m !== undefined && m >= 0 && m <= 23 ? { age: Math.floor(m / 12) } : {}) });
+                  }}
+                  className={`${inputClass(!!errors.months)} font-mono`}
+                />
+                <p className="text-[11px] text-muted-foreground mt-0.5">{it('ageMonthsHint')}</p>
+                <FieldError message={errors.months} />
+              </div>
+            )}
+            <div className="w-44">
+              <label className="block text-sm font-semibold text-foreground/90 mb-1" htmlFor="kiosk-weight">{it('weightLabel')}</label>
+              <input
+                id="kiosk-weight"
+                type="number"
+                inputMode="decimal"
+                min={0.5}
+                max={250}
+                step="0.1"
+                value={patient.weightKg ?? ''}
+                onChange={e => update({ weightKg: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                className={`${inputClass(!!errors.weight)} font-mono`}
+              />
+              <p className="text-[11px] text-muted-foreground mt-0.5">{it('weightHint')}</p>
+              <FieldError message={errors.weight} />
+            </div>
+          </div>
           </div>
         </div>
 
@@ -334,7 +408,7 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
           </div>
         </div>
 
-        {patient.gender === 'FEMALE' && (
+        {asksMaternal && (
           <div className="mt-4 p-4 rounded-2xl bg-rose-500/5 border border-rose-500/30 flex flex-col gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm font-bold text-rose-700 dark:text-rose-300">
@@ -345,29 +419,59 @@ export const Step2AbhaAuth: React.FC<Step2AbhaAuthProps> = ({ patient, setPatien
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {([
-                { field: 'isPregnant', label: tx('pregnantQ') },
-                { field: 'isLactating', label: tx('lactatingQ') }
+                { field: 'pregnancyAnswer', label: tx('pregnantQ') },
+                { field: 'lactationAnswer', label: tx('lactatingQ') }
               ] as const).map(q => (
                 <div key={q.field} className="bg-background/80 p-3 rounded-xl border border-border/80">
                   <span className="block text-sm font-semibold text-foreground/90 mb-2">{q.label}</span>
-                  <div className="flex gap-2">
-                    {[true, false].map(val => (
-                      <button
-                        key={String(val)}
-                        type="button"
-                        onClick={() => { sovereignSound.playMechanicalSnap(); update({ [q.field]: val } as Partial<KioskPatient>); }}
-                        aria-pressed={!!patient[q.field] === val}
-                        className={`flex-1 py-1.5 text-sm font-bold rounded-lg border transition-colors ${
-                          !!patient[q.field] === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
-                        }`}
-                      >
-                        {val ? tx('yes') : tx('no')}
-                      </button>
-                    ))}
+                  <div className="flex gap-2" role="radiogroup" aria-label={q.label}>
+                    {(['yes', 'no', 'unsure'] as const).map(val => {
+                      const active = patient[q.field] === val;
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            sovereignSound.playMechanicalSnap();
+                            update({ [q.field]: val, ...(q.field === 'pregnancyAnswer' && val !== 'yes' ? { gestationalWeeks: undefined } : {}) } as Partial<KioskPatient>);
+                          }}
+                          className={`flex-1 py-1.5 text-sm font-bold rounded-lg border transition-colors ${
+                            active ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 text-foreground border-border/70 hover:bg-muted'
+                          }`}
+                        >
+                          {val === 'yes' ? tx('yes') : val === 'no' ? tx('no') : it('notSure')}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </div>
+            {patient.pregnancyAnswer === 'yes' && (
+              <div>
+                <span className="block text-sm font-semibold text-foreground/90 mb-2">{it('pregMonthsQ')}</span>
+                <div className="grid grid-cols-9 gap-1.5">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(m => {
+                    const weeks = Math.round(m * 4.35);
+                    const active = patient.gestationalWeeks === weeks;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => { sovereignSound.playDialNotch(); update({ gestationalWeeks: active ? undefined : weeks }); }}
+                        className={`py-1.5 text-sm font-bold rounded-lg border ${active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'}`}
+                      >
+                        {m}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <FieldError message={visibleError('pregnancy')} />
           </div>
         )}
 

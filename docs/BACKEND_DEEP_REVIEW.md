@@ -275,3 +275,59 @@ words patent, Groth16, Hopfield and PAC from the pitch unless they are real by t
 Frontend components, `edge-ai/app/engines.py` internals, the OCR services, the phonetic
 normaliser internals, and the content of the larger test batteries. Nothing in the repo was modified.
 Probe script: `scratchpad/probe.ts` (session scratchpad, not in the repo).
+
+---
+
+## 7. Implementation log (2026-10-09, same day)
+
+Everything in Tiers 0 to 2 above was implemented after this review, plus the ABDM HIP layer. Verified by
+`cd backend && npm test` (25 batteries, all passing on a throw-away database) and the Playwright suite.
+
+**Honesty pass**
+- `services/core/` is plain TypeScript; the minified kernel and the `lever/` layer are gone.
+- Bayes factor is a real Savage–Dickey ratio (flat reference prior, H0 θ = 0.5), significance at BF10 ≥ 3; the pair
+  evaluator uses the registry evidence as a Beta prior with 10 pseudo-observations and only *stored* observations
+  (`bayesian_observations`), never synthetic ones.
+- Suggestion gate is split conformal: `scripts/calibrate-conformal.ts` builds `src/data/conformal_calibration.json`
+  from `edge-ai/eval/syndrome_calibration.json` (42 usable labelled transcripts, α = 0.1, q̂ = 0.0865); the gate
+  abstains without a calibration set.
+- Counterfactual substitution is graph-grounded (shared indication, no recorded harm path); unknown substitutes
+  return `NO_DATA`. Polypharmacy screen carries no invented Bayes factors.
+- Offline seal verifies the Ed25519 signature; ZKP verifier requires a caller-supplied proof; proximity needs
+  measured values; gate secret derived from the field-encryption key; diagnostics endpoint reports live state.
+- Runner has no hardcoded passes; the test that asserted fabricated constants was deleted.
+
+**Patient safety and PS fidelity**
+- `patientContext.service.ts`: pregnancy, age, lactation, weight, known conditions and eGFR (CKD-EPI 2021 from the
+  latest creatinine on file) feed every interaction check; `/doctor/prescribe` blocks critical contraindications
+  (HTTP 422) until the prescriber acknowledges them, and the signed record lists which checks ran.
+- Matcher hygiene: brand → molecule canonicalisation, whole-word matching, negated mentions ignored,
+  constituent-level paediatric gate.
+- `triage.service.ts`: NEWS2 (RCP 2017) on kiosk and clinician vitals, raise-only, flagged unverified when
+  self-reported.
+- `clinicalHistory.service.ts`: structured history (PMH, PSH, drugs, allergies, family, personal, ROS, obstetric,
+  Ayush) with asked / answered / skipped completeness and a deterministic English + Hindi summary in the PS order.
+- `interview.service.ts` + `shared/interview_ontology.json`: 75-question adaptive interview with complaint-family
+  branches, red-flag probes, gating by patient attributes and care stream, encrypted server-side state,
+  `/api/kiosk/interview/*` endpoints.
+- `terminology.service.ts`: FTS5 ranked search seeded from the ontology; `npm run import:namaste` loads the official
+  NAMASTE / ICD-11 TM2 export; `GET /api/abdm/namaste/search`.
+
+**ABDM (NHA)**
+- `fhirGenerator.service.ts` rewritten to the NRCES OPConsultRecord profile with 11 coded sections and no invented
+  identifiers; `validateBundle` performs structural checks.
+- `abdmHip.service.ts` + `/api/abdm/hip/*`: care contexts per finalized visit, consent artefact intake, encrypted
+  health-information push (ECDH Curve25519 + HKDF-SHA256 + AES-256-GCM), HIU simulation for demos. See
+  `docs/ABDM_INTEGRATION.md`.
+
+**Engineering**
+- `src/app.ts` application factory, `tests/http_api.test.ts` drives the real server (39 checks), `db/migrations.ts`
+  versioned schema, OCR routes no longer create placeholder patients, erase bug fixed, interview states expire with
+  the draft retention window, `scripts/load/k6-opd.js` load profile.
+- Frontend: doctor panel shows the structured summary, NEWS2 and safety context; diagnostics modal shows live values.
+
+**Still open**
+- Kiosk UI for the interview endpoints (the backend state machine is live; the kiosk steps still use the fixed wizard).
+- ABDM sandbox credentials and the Fidelius interop check; HAPI validator run with the NDHM IG package.
+- On-premise TTS and OCR models in `edge-ai/` (service reports them as unavailable until models are installed).
+- Real NAMASTE export import (seed holds 20 entries).

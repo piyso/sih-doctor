@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { User, Heart, Flame, Wind, Activity, Pencil, Check, X, Loader2, Leaf, Pill, ClipboardList, AlertTriangle, Info } from 'lucide-react';
-import { SessionDetail, VitalsData } from '../../types/api';
+import { User, Heart, Flame, Wind, Activity, Pencil, Check, X, Loader2, Leaf, Pill, ClipboardList, Info } from 'lucide-react';
+import { SessionDetail, SocratesSymptom, VitalsData } from '../../types/api';
 import { PAIN_CHARACTERS, kioskText } from '../../utils/kioskLocalization';
 import {
   STATUS_TONE, VITAL_LIMITS, VitalStatus, bpStatus, normaliseTempF, parseBp, parseNumber, pulseStatus, spo2Status, tempStatus
@@ -23,7 +23,7 @@ const BP_DETAIL = (sys: number | null, dia: number | null) => {
   if (sys >= 140 || dia >= 90) return 'Stage 2 hypertension range';
   if (sys >= 130 || dia >= 80) return 'Stage 1 hypertension range';
   if (sys < 90) return 'Hypotension';
-  return 'Within normal range';
+  return '';
 };
 
 const PRIORITY_INFO: Record<string, { label: string; tone: string; help: string }> = {
@@ -31,6 +31,17 @@ const PRIORITY_INFO: Record<string, { label: string; tone: string; help: string 
   HIGH_PRIORITY: { label: 'Priority', tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', help: 'Abnormal vitals or severe symptoms — see before routine patients.' },
   ROUTINE: { label: 'Routine', tone: 'bg-muted text-foreground border-border/80', help: 'Stable — seen in OPD order.' }
 };
+
+/** One heading style for every block of the intake, so the column reads top-to-bottom without coloured boxes. */
+const Section: React.FC<{ title: React.ReactNode; right?: React.ReactNode; tone?: 'default' | 'ayurveda'; children: React.ReactNode }> = ({ title, right, tone = 'default', children }) => (
+  <section className="pt-3 border-t border-border/70 first:border-t-0 first:pt-0">
+    <div className="flex items-center justify-between gap-2 mb-1.5 min-h-[22px]">
+      <h4 className={`text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5 m-0 ${tone === 'ayurveda' ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>{title}</h4>
+      {right}
+    </div>
+    {children}
+  </section>
+);
 
 const characterEn = (value?: string) => {
   const match = PAIN_CHARACTERS.find(c => c.value === value);
@@ -41,7 +52,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [form, setForm] = useState({ sys: '', dia: '', pulse: '', spo2: '', temp: '' });
+  const [form, setForm] = useState({ sys: '', dia: '', pulse: '', spo2: '', temp: '', rr: '', avpu: '', o2: false, weight: '', sugar: '' });
 
   const loadForm = (v: VitalsData = {}) => {
     const { sys, dia } = parseBp(v.bp);
@@ -50,7 +61,12 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
       dia: dia?.toString() || '',
       pulse: parseNumber(v.pulse)?.toString() || '',
       spo2: parseNumber(v.spo2)?.toString() || '',
-      temp: parseNumber(v.temp)?.toString() || ''
+      temp: parseNumber(v.temp)?.toString() || '',
+      rr: parseNumber(v.respiratoryRate)?.toString() || '',
+      avpu: (v.consciousness || '').toString().charAt(0).toUpperCase(),
+      o2: v.onOxygen === true,
+      weight: parseNumber(v.weightKg)?.toString() || '',
+      sugar: parseNumber(v.bloodSugar)?.toString() || ''
     });
   };
 
@@ -104,6 +120,16 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
     };
     const payload: any = {};
     (['bp', 'pulse', 'spo2', 'temp'] as const).forEach(k => { payload[k] = vitals[k] ?? null; });
+    const rr = parseNumber(form.rr);
+    const w = parseNumber(form.weight);
+    const sugar = parseNumber(form.sugar);
+    if (rr !== null && (rr < 4 || rr > 80)) { setSaving(false); setSaveError('Respiratory rate should be 4–80 /min.'); return; }
+    if (w !== null && (w < 0.5 || w > 300)) { setSaving(false); setSaveError('Weight should be 0.5–300 kg.'); return; }
+    payload.respiratoryRate = rr !== null ? Math.round(rr) : null;
+    payload.consciousness = form.avpu || null;
+    payload.onOxygen = form.o2 ? true : null;
+    payload.weightKg = w;
+    payload.bloodSugar = sugar !== null ? Math.round(sugar) : null;
     const ok = await onSaveVitals(payload);
     setSaving(false);
     if (ok) setEditing(false);
@@ -113,8 +139,37 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
   const primary = session.symptoms?.[0];
   const priority = PRIORITY_INFO[session.triagePriority] || PRIORITY_INFO.ROUTINE;
   const isAyurveda = role === 'AYURVEDA';
-  const hasPariksha = !!(session.pariksha?.prakriti || session.pariksha?.agni || session.pariksha?.sara);
+  const hasPariksha = !!(session.pariksha?.prakriti || session.pariksha?.agni || session.pariksha?.sara || session.pariksha?.prakritiScreen?.provisional || session.pariksha?.energySelfReport);
+  // What the patient said about each complaint, in the doctor's words: site, character, since when, spread, worse /
+  // better with, when it comes, how it started.
+  const complaintDetail = (s: SocratesSymptom) => [
+    s.site && s.site !== 'General' && s.name && !s.name.includes(s.site) ? s.site : '',
+    characterEn(s.character),
+    s.onset,
+    s.onsetType === 'Sudden' ? 'sudden onset' : s.onsetType === 'Gradual' ? 'gradual onset' : '',
+    s.radiation ? `radiates to ${s.radiation}` : '',
+    s.exacerbatingFactors?.length ? `worse with ${s.exacerbatingFactors.join(', ').toLowerCase()}` : '',
+    s.relievingFactors?.length ? `better with ${s.relievingFactors.join(', ').toLowerCase()}` : '',
+    s.timing && s.timing !== s.onset ? s.timing.toLowerCase() : ''
+  ].filter(Boolean);
+  // A blank answer was never "none": say whether the patient denied it, was unsure, or was not asked.
+  const answered = (text: string | undefined, status: 'none' | 'unknown' | 'listed' | undefined, none: string) =>
+    status === 'none' ? none : status === 'unknown' && !text ? 'Patient not sure' : text || 'Not answered — ask the patient';
   const history = session.history;
+  const summary = session.historySummary;
+  const vitalsAssessment = session.vitalsAssessment;
+  const ctx = session.patientContext;
+  const SECTION_TONE: Record<string, string> = {
+    complete: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+    partial: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
+    not_asked: 'bg-muted text-muted-foreground border-border/70'
+  };
+  const NEWS_TONE: Record<string, string> = {
+    HIGH: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30',
+    MEDIUM: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+    LOW_MEDIUM: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25',
+    LOW: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+  };
 
   const vitalTile = (
     key: 'bp' | 'pulse' | 'spo2' | 'temp',
@@ -124,10 +179,12 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
     display: string,
     detail = ''
   ) => (
-    <div className="p-2.5 rounded-xl border border-border/80 bg-card flex flex-col gap-1">
+    <div className={`p-2.5 rounded-xl border bg-card flex flex-col gap-1 ${status[key] === 'normal' || status[key] === 'empty' ? 'border-border/80' : status[key] === 'veryHigh' || status[key] === 'veryLow' ? 'border-rose-500/50' : 'border-amber-500/50'}`}>
       <div className="flex items-center justify-between gap-1">
         <span className="text-[10px] font-mono uppercase text-muted-foreground flex items-center gap-1">{icon}{label}</span>
-        <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${STATUS_TONE[status[key]]}`}>{STATUS_LABEL[status[key]]}</span>
+        {status[key] !== 'empty' && (editing || status[key] !== 'normal') && (
+          <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${STATUS_TONE[status[key]]}`}>{STATUS_LABEL[status[key]]}</span>
+        )}
       </div>
       {editing ? (
         key === 'bp' ? (
@@ -149,48 +206,30 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
       ) : (
         <div className="font-mono text-sm font-extrabold text-foreground">{display || '—'} {display && <span className="text-[10px] font-normal text-muted-foreground">{unit}</span>}</div>
       )}
-      <div className="min-h-[14px] text-[9.5px] text-muted-foreground">{status[key] === 'invalid' ? `Expected ${VITAL_LIMITS[key === 'bp' ? 'sys' : key][0]}–${VITAL_LIMITS[key === 'bp' ? 'sys' : key][1]}` : detail}</div>
+      {(status[key] === 'invalid' || detail) && <div className="text-[9.5px] leading-tight text-muted-foreground">{status[key] === 'invalid' ? `Expected ${VITAL_LIMITS[key === 'bp' ? 'sys' : key][0]}–${VITAL_LIMITS[key === 'bp' ? 'sys' : key][1]}` : detail}</div>}
     </div>
   );
 
   return (
-    <div className="physical-card p-4 flex flex-col gap-3.5">
-      {/* Patient header */}
-      <div className="flex justify-between items-start gap-2 border-b border-border/80 pb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${session.triagePriority === 'EMERGENCY_RED_FLAG' ? 'bg-rose-500/15 text-rose-600 border-rose-500/30' : 'bg-muted text-foreground border-border/80'}`}>
-            {session.patientName.charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-heading font-bold text-foreground truncate">{session.patientName}</h3>
-              <span className="text-xs text-muted-foreground font-mono">{session.age ? `${session.age}y` : ''} · {session.gender}</span>
-            </div>
-            <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
-              {session.abhaId && <span className="font-mono">ABHA {session.abhaId}</span>}
-              <span className="flex items-center gap-1">
-                {session.careStream === 'AYURVEDA' ? <><Leaf size={11} className="text-emerald-600" /> Wants Ayurveda</> : session.careStream === 'ALLOPATHY' ? <><Pill size={11} className="text-sky-600" /> Wants modern medicine</> : 'No doctor preference'}
-              </span>
-            </div>
-          </div>
-        </div>
-        <span className={`px-2 py-0.5 rounded-lg border font-mono text-[10px] font-bold uppercase shrink-0 cursor-help ${priority.tone}`} title={priority.help}>
-          {priority.label}
+    <div className="physical-card p-4 flex flex-col gap-3">
+      {/* Who and what kind of visit. Name, age, allergies and pregnancy are in the safety banner above. */}
+      <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+        <span className={`px-2 py-0.5 rounded-md border font-mono text-[10px] font-bold uppercase cursor-help ${priority.tone}`} title={priority.help}>{priority.label}</span>
+        <span className="flex items-center gap-1">
+          {session.careStream === 'AYURVEDA' ? <><Leaf size={11} className="text-emerald-600" /> Wants Ayurveda</> : session.careStream === 'ALLOPATHY' ? <><Pill size={11} className="text-sky-600" /> Wants modern medicine</> : 'No doctor preference'}
         </span>
+        {session.abhaId && <span className="font-mono">· ABHA {session.abhaId}</span>}
       </div>
 
-      {(session.isPregnant || session.isLactating) && (
-        <div className="p-2.5 rounded-xl bg-pink-500/10 border border-pink-500/25 text-xs font-semibold text-pink-800 dark:text-pink-200 flex items-center gap-2">
-          <AlertTriangle size={14} className="shrink-0" />
-          <span>{session.isPregnant ? `Pregnant${session.gestationalWeeks ? ` (${session.gestationalWeeks} weeks)` : ''}` : 'Breastfeeding'} — medicines unsafe in pregnancy / lactation are blocked.</span>
-        </div>
-      )}
-
       {/* Vitals: view + edit with instant interpretation */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-primary">Vitals</span>
-          {editing ? (
+      <Section
+        title={<>Vitals
+            {vitalsAssessment?.applicable && (
+              <span className={`px-1.5 py-0.5 rounded border font-mono text-[9.5px] font-bold normal-case tracking-normal ${NEWS_TONE[vitalsAssessment.band]}`} title={`${vitalsAssessment.clinicalResponse} (${vitalsAssessment.reference})`}>
+                NEWS2 {vitalsAssessment.news2}{vitalsAssessment.selfReported ? ' · unverified' : ''}
+              </span>
+            )}</>}
+        right={editing ? (
             <div className="flex items-center gap-1.5">
               <button type="button" onClick={() => { setEditing(false); setSaveError(null); loadForm(session.vitals); }} className="px-2 py-1 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted flex items-center gap-1">
                 <X size={12} /> Cancel
@@ -204,34 +243,55 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
               <Pencil size={12} /> {Object.values(status).every(s => s === 'empty') ? 'Record vitals' : 'Edit vitals'}
             </button>
           )}
-        </div>
+      >
         <div className="vitals-4-grid">
           {vitalTile('bp', 'BP', <Activity size={10} />, 'mmHg', sys !== null && dia !== null ? `${sys}/${dia}` : '', BP_DETAIL(sys, dia))}
           {vitalTile('pulse', 'Pulse', <Heart size={10} />, 'bpm', pulse !== null ? String(pulse) : '')}
           {vitalTile('spo2', 'SpO2', <Wind size={10} />, '%', spo2 !== null ? String(spo2) : '')}
           {vitalTile('temp', 'Temp', <Flame size={10} />, '°F', tempF !== null ? String(tempF) : '', form.temp && tempF !== parseNumber(form.temp) ? `${form.temp}°C converted` : '')}
         </div>
-        <p className={`min-h-[16px] text-xs font-semibold ${saveError ? 'text-rose-600' : 'text-transparent'}`} role={saveError ? 'alert' : undefined}>{saveError || '·'}</p>
-      </div>
+        {/* NEWS2 needs respiratory rate, consciousness (AVPU) and oxygen; weight drives children's doses. */}
+        {editing ? (
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <label className="flex flex-col gap-0.5 w-20"><span className="text-[10px] font-mono uppercase text-muted-foreground">Resp. rate</span><input inputMode="numeric" aria-label="Respiratory rate" value={form.rr} onChange={e => setForm(f => ({ ...f, rr: e.target.value.replace(/\D/g, '').slice(0, 2) }))} placeholder="16" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
+            <label className="flex flex-col gap-0.5 w-28"><span className="text-[10px] font-mono uppercase text-muted-foreground">AVPU</span>
+              <select aria-label="Consciousness (AVPU)" value={form.avpu} onChange={e => setForm(f => ({ ...f, avpu: e.target.value }))} className="px-2 py-1 rounded-lg border border-border bg-background">
+                <option value="">—</option><option value="A">Alert</option><option value="C">New confusion</option><option value="V">Voice</option><option value="P">Pain</option><option value="U">Unresponsive</option>
+              </select></label>
+            <label className="flex items-center gap-1.5 mt-4"><input type="checkbox" checked={form.o2} onChange={e => setForm(f => ({ ...f, o2: e.target.checked }))} /> On oxygen</label>
+            <label className="flex flex-col gap-0.5 w-20"><span className="text-[10px] font-mono uppercase text-muted-foreground">Weight kg</span><input inputMode="decimal" aria-label="Weight" value={form.weight} onChange={e => setForm(f => ({ ...f, weight: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) }))} placeholder="60" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
+            <label className="flex flex-col gap-0.5 w-24"><span className="text-[10px] font-mono uppercase text-muted-foreground">Sugar mg/dL</span><input inputMode="numeric" aria-label="Blood sugar" value={form.sugar} onChange={e => setForm(f => ({ ...f, sugar: e.target.value.replace(/\D/g, '').slice(0, 3) }))} placeholder="110" className="px-2 py-1 rounded-lg border border-border bg-background font-mono font-bold" /></label>
+          </div>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-mono text-muted-foreground">
+            <span>RR {session.vitals?.respiratoryRate ?? '—'}</span>
+            <span>AVPU {session.vitals?.consciousness || '—'}{session.vitals?.onOxygen ? ' · on O₂' : ''}</span>
+            <span className={!session.vitals?.weightKg && !session.weightKg && session.age < 12 ? 'text-amber-700 font-bold' : ''}>Weight {session.vitals?.weightKg || session.weightKg || '—'} kg</span>
+            <span>Sugar {session.vitals?.bloodSugar ?? '—'}</span>
+            {session.vitals?.recordedBy && <span>· measured by {session.vitals.recordedBy}</span>}
+          </div>
+        )}
+        {saveError && <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">{saveError}</p>}
+      </Section>
 
       {/* Presenting complaint */}
-      <div className="p-3 rounded-xl bg-muted/40 border border-border/75">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-primary">Presenting complaints</span>
-          {primary && primary.severityScore > 0 && (
-            <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded ${primary.severityScore >= 8 ? 'bg-rose-500/15 text-rose-700' : 'bg-muted text-foreground border border-border/70'}`}>
-              Pain {primary.severityScore}/10
-            </span>
-          )}
-        </div>
+      <Section
+        title="Presenting complaints"
+        right={primary && primary.severityScore > 0 ? (
+          <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded ${primary.severityScore >= 8 ? 'bg-rose-500/15 text-rose-700' : 'bg-muted text-foreground border border-border/70'}`}>
+            Pain {primary.severityScore}/10
+          </span>
+        ) : undefined}
+      >
         {session.symptoms && session.symptoms.some(s => !(s as { isNegated?: boolean }).isNegated) ? (
-          <ul className="text-xs text-foreground space-y-1">
+          <ul className="text-xs text-foreground space-y-1.5 leading-relaxed">
             {session.symptoms.filter(s => !(s as { isNegated?: boolean }).isNegated).map((s, i) => (
               <li key={i}>
                 <strong>{s.name || s.site}</strong>
-                {[s.site && s.site !== 'General' && s.name && !s.name.includes(s.site) ? s.site : '', characterEn(s.character), s.onset, s.radiation ? `radiates to ${s.radiation}` : ''].filter(Boolean).length > 0 && (
-                  <span className="text-muted-foreground"> — {[s.site && s.site !== 'General' && s.name && !s.name.includes(s.site) ? s.site : '', characterEn(s.character), s.onset, s.radiation ? `radiates to ${s.radiation}` : ''].filter(Boolean).join(' · ')}</span>
+                {complaintDetail(s).length > 0 && (
+                  <span className="text-muted-foreground"> — {complaintDetail(s).join(' · ')}</span>
                 )}
+                {s.severityScore > 0 && s !== primary && <span className="text-muted-foreground"> · {s.severityScore}/10</span>}
               </li>
             ))}
           </ul>
@@ -244,59 +304,122 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
           </div>
         )}
         {session.rawTranscript && (
-          <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground">
-            <span className="font-semibold">Patient's own words:</span> “{session.rawTranscript}”
-          </div>
+          <blockquote className="mt-2 pl-2.5 border-l-2 border-border text-[11px] text-muted-foreground italic">
+            <span className="not-italic font-semibold">Patient's own words:</span> “{session.rawTranscript}”
+          </blockquote>
         )}
-      </div>
+      </Section>
 
       {(() => {
         const dx = formatDiagnosis(session.provisionalDiagnoses?.[0], role);
         return dx ? (
-          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/25">
-            <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block mb-1">Suggested provisional diagnosis</span>
-            <div className="text-sm font-bold text-foreground">{dx.title}</div>
-            {dx.subtitle && <div className="text-xs text-muted-foreground">{dx.subtitle}</div>}
-            {dx.codes.length > 0 && <div className="text-[10.5px] font-mono text-muted-foreground mt-0.5">{dx.codes.join(' · ')}</div>}
-            <div className="text-[10.5px] text-muted-foreground mt-1">Generated from the kiosk intake — confirm clinically.</div>
-          </div>
+          <Section title="Kiosk suggestion — confirm in the Diagnosis field">
+            <div className="px-3 py-2 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5">
+              <div className="text-sm font-bold text-foreground">{dx.title}</div>
+              {dx.subtitle && <div className="text-xs text-muted-foreground">{dx.subtitle}</div>}
+              {dx.codes.length > 0 && <div className="text-[10.5px] font-mono text-muted-foreground mt-0.5">{dx.codes.join(' · ')}</div>}
+              <div className="text-[10.5px] text-muted-foreground mt-1">Generated from the kiosk intake — confirm clinically.</div>
+            </div>
+          </Section>
         ) : null;
       })()}
 
-      {/* History */}
-      <div className="p-3 rounded-xl bg-muted/40 border border-border/75">
-        <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-1.5 mb-1.5"><ClipboardList size={12} /> History</span>
-        {history ? (
+      {ctx && (ctx.eGfr !== undefined || ctx.knownConditions.length > 0 || ctx.missing.length > 0) && (
+        <Section title="Safety context">
           <div className="text-xs text-foreground space-y-0.5">
-            <div><span className="text-muted-foreground">Conditions:</span> {history.conditions.filter(c => c !== 'None').join(', ') || 'None reported'}</div>
-            <div><span className="text-muted-foreground">Allergies:</span> {history.allergies || 'None reported'}</div>
-            <div><span className="text-muted-foreground">Current medicines:</span> {history.currentMedicines || 'None reported'}</div>
+            {ctx.eGfr !== undefined && <div>eGFR <strong>{ctx.eGfr}</strong> mL/min ({ctx.eGfrMethod === 'CKD-EPI-2021' ? 'CKD-EPI 2021 from last creatinine' : 'reported'})</div>}
+            {ctx.knownConditions.length > 0 && <div><span className="text-muted-foreground">Known:</span> {ctx.knownConditions.join(', ')}</div>}
+            {ctx.missing.length > 0 && <div className="text-muted-foreground">Not on file: {ctx.missing.join(', ')}</div>}
           </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">Not captured for this visit — ask the patient.</div>
-        )}
-      </div>
+        </Section>
+      )}
+
+      {/* What changed since the last visit, and previous visits */}
+      {session.sinceLastVisit && !session.sinceLastVisit.firstVisit && (
+        <Section title={`Since last visit (${session.sinceLastVisit.previousVisit ? new Date(session.sinceLastVisit.previousVisit).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''})`}>
+          {session.sinceLastVisit.changes.length ? (
+            <ul className="text-xs text-foreground list-disc pl-4 space-y-0.5">{session.sinceLastVisit.changes.map(c => <li key={c}>{c}</li>)}</ul>
+          ) : <div className="text-xs text-muted-foreground">No change in recorded vitals, complaints or results.</div>}
+        </Section>
+      )}
+      {(session.previousEncounters?.length || 0) > 0 && (
+        <Section title="Previous visits">
+          <div className="space-y-2">
+            {session.previousEncounters!.slice(0, 3).map(e => (
+              <div key={e.encounterId} className="text-xs">
+                <div className="flex items-center gap-2 flex-wrap"><strong className="text-foreground">{new Date(e.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</strong><span className="text-muted-foreground">{e.doctorName}</span>
+                  <span className={`px-1.5 rounded border text-[9.5px] font-bold ${e.dispensed === 'DISPENSED' ? 'border-emerald-500/40 text-emerald-700' : 'border-amber-500/40 text-amber-800'}`}>{e.dispensed.replace(/_/g, ' ').toLowerCase()}</span></div>
+                {e.diagnoses.length > 0 && <div className="text-muted-foreground">{e.diagnoses.join(', ')}</div>}
+                <div className="text-foreground">{e.medicines.map(m => `${m.name}${m.dosage ? ` ${m.dosage}` : ''}${m.frequency ? ` ${m.frequency}` : ''}`).join(' · ') || 'No medicines'}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* History: what was answered is listed; sections never asked are named in one line, not hidden. */}
+      {(() => {
+        const sections = summary ? summary.sections.filter(sec => !['chiefComplaint', 'hpi', 'vitals'].includes(sec.id)) : [];
+        const asked = sections.filter(sec => sec.status !== 'not_asked');
+        const notAsked = sections.filter(sec => sec.status === 'not_asked');
+        return (
+          <Section
+            title={<><ClipboardList size={12} /> History</>}
+            right={summary ? (
+              <span className="text-[10px] font-mono text-muted-foreground" title="Sections answered / asked at the kiosk">
+                {summary.completeness.answered}/{summary.completeness.asked} answered{summary.completeness.skipped ? ` · ${summary.completeness.skipped} skipped` : ''}
+              </span>
+            ) : undefined}
+          >
+            {summary ? (
+              <div className="space-y-1.5">
+                {asked.map(sec => (
+                  <div key={sec.id} className="text-xs text-foreground">
+                    <span className="text-muted-foreground">{sec.title}:</span> {sec.text}
+                    {sec.status === 'partial' && <span className={`ml-1.5 px-1 py-px rounded border font-mono text-[9px] uppercase ${SECTION_TONE.partial}`}>partial</span>}
+                  </div>
+                ))}
+                {notAsked.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    <span className={`mr-1.5 px-1 py-px rounded border font-mono text-[9px] uppercase ${SECTION_TONE.not_asked}`}>not asked</span>
+                    {notAsked.map(sec => sec.title).join(' · ')} — ask the patient.
+                  </div>
+                )}
+              </div>
+            ) : history ? (
+              <div className="text-xs text-foreground space-y-0.5">
+                <div><span className="text-muted-foreground">Conditions:</span> {history.conditions.filter(c => !/^none$/i.test(c)).join(', ') || (history.conditions.some(c => /^none$/i.test(c)) ? 'None of the listed conditions' : 'Not answered — ask the patient')}</div>
+                <div><span className="text-muted-foreground">Allergies:</span> {answered(history.allergies, history.allergyStatus, 'No known allergy (patient said no)')}</div>
+                <div><span className="text-muted-foreground">Current medicines:</span> {answered(history.currentMedicines, history.medicineStatus, 'None (patient said no)')}</div>
+                {history.mentionedInSpeech && (history.mentionedInSpeech.conditions.length + history.mentionedInSpeech.medicines.length > 0) && (
+                  <div className="text-muted-foreground">Mentioned while describing the complaint: {[...history.mentionedInSpeech.conditions, ...history.mentionedInSpeech.medicines].join(', ')}</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">Not captured for this visit — ask the patient.</div>
+            )}
+          </Section>
+        );
+      })()}
 
       {/* Ayurvedic assessment: only on the Vaidya desk */}
       {isAyurveda && (
-        <div className="p-3 rounded-xl bg-muted/40 border border-border/75">
-          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-2"><Leaf size={12} /> Dashavidha Pariksha (patient-reported)</span>
+        <Section tone="ayurveda" title={<><Leaf size={12} /> Ayurveda — patient-reported, not examined</>}>
           {hasPariksha ? (
             <div className="pariksha-4-grid text-xs">
-              <div><span className="text-[10px] text-muted-foreground block">Prakriti</span><strong className="text-foreground">{session.pariksha?.prakriti || '—'}</strong></div>
-              <div><span className="text-[10px] text-muted-foreground block">Agni</span><strong className="text-foreground">{session.pariksha?.agni || '—'}</strong></div>
-              <div><span className="text-[10px] text-muted-foreground block">Sara / Bala</span><strong className="text-foreground">{session.pariksha?.sara || '—'}</strong></div>
-              <div><span className="text-[10px] text-muted-foreground block">Vikriti</span><strong className="text-foreground">{session.pariksha?.vikriti || 'To assess'}</strong></div>
+              <div><span className="text-[10px] text-muted-foreground block">Body type (3-question screen)</span><strong className="text-foreground">{session.pariksha?.prakritiScreen?.provisional || '—'}</strong></div>
+              <div><span className="text-[10px] text-muted-foreground block">Digestion (Agni, own answer)</span><strong className="text-foreground">{session.pariksha?.agni ? session.pariksha.agni.charAt(0) + session.pariksha.agni.slice(1).toLowerCase() : '—'}</strong></div>
+              <div><span className="text-[10px] text-muted-foreground block">Energy (own answer)</span><strong className="text-foreground">{session.pariksha?.energySelfReport || '—'}</strong></div>
+              <div><span className="text-[10px] text-muted-foreground block">Prakriti · Sara · Vikriti</span><strong className="text-foreground">{[session.pariksha?.prakriti, session.pariksha?.sara, session.pariksha?.vikriti].filter(Boolean).join(' · ') || 'Vaidya to assess'}</strong></div>
             </div>
           ) : (
             <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Info size={12} /> The patient chose modern medicine, so the Ayurvedic questions were not asked at the kiosk.</div>
           )}
-        </div>
+        </Section>
       )}
 
       {session.normalizedLabMarkers && session.normalizedLabMarkers.length > 0 && (
-        <div className="p-3 rounded-xl bg-muted/40 border border-sky-400/30">
-          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-sky-600 block mb-1.5">Lab values from scanned reports</span>
+        <Section title="Lab values from scanned reports">
           <div className="space-y-1">
             {session.normalizedLabMarkers.map((m, idx) => (
               <div key={idx} className="flex justify-between items-center text-xs">
@@ -305,7 +428,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
               </div>
             ))}
           </div>
-        </div>
+        </Section>
       )}
     </div>
   );

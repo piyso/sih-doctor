@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { Lock, LogIn, LogOut, KeyRound, ShieldCheck, UserRound, Loader2, AlertCircle, Delete } from 'lucide-react';
 import { api } from '../../services/api';
 import { session, StaffRole, StaffUser, ROLE_LABEL } from '../../services/session';
@@ -87,29 +88,54 @@ export const StaffGate: React.FC<StaffGateProps> = ({ roles, terminalName, child
   return <>{children}</>;
 };
 
-/** Small user chip with sign-out, for terminal top bars. */
+/** Account menu for terminal top bars: who is signed in, change PIN, sign out. */
 export const StaffChip: React.FC = () => {
   const user = useStaffUser();
+  const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey, true);
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey, true); };
+  }, [open]);
+
   if (!user) return null;
+  const initials = user.displayName.replace(/^(Dr|Sr|Vaidya)\.?\s+/i, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   return (
-    <div className="flex items-center gap-2">
-      <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/60 border border-border/80 text-[11px] font-semibold text-foreground">
-        <UserRound size={13} className="text-muted-foreground" />
-        <span className="max-w-[180px] truncate">{user.displayName}</span>
-        <span className="text-muted-foreground font-medium">· {ROLE_LABEL[user.role]}</span>
-        {user.isDemo && <span className="px-1.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300">demo</span>}
-      </div>
-      <button type="button" onClick={() => setChanging(true)} className="h-8 px-2.5 rounded-lg border border-border/80 bg-background hover:bg-muted text-[11px] font-semibold inline-flex items-center gap-1.5" title="Change PIN">
-        <KeyRound size={13} /> <span className="hidden md:inline">PIN</span>
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`Account: ${user.displayName}, ${ROLE_LABEL[user.role]}`}
+        className="h-8 pl-1 pr-2.5 rounded-full border border-border/80 bg-background hover:bg-muted inline-flex items-center gap-2 text-[11px] font-semibold text-foreground">
+        <span className="h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold inline-flex items-center justify-center">{initials || <UserRound size={13} />}</span>
+        <span className="hidden md:inline max-w-[160px] truncate">{user.displayName}</span>
+        <span className="hidden lg:inline text-muted-foreground font-medium">· {ROLE_LABEL[user.role]}</span>
       </button>
-      <button type="button" onClick={() => api.logout()} className="h-8 px-2.5 rounded-lg border border-border/80 bg-background hover:bg-muted text-[11px] font-semibold inline-flex items-center gap-1.5">
-        <LogOut size={13} /> <span className="hidden md:inline">Sign out</span>
-      </button>
-      {changing && (
+      {open && (
+        <div role="menu" className="absolute right-0 mt-1.5 w-60 rounded-xl border border-border bg-card shadow-xl p-1.5 z-[60]">
+          <div className="px-2.5 py-2 border-b border-border/70 mb-1">
+            <div className="text-sm font-bold text-foreground truncate">{user.displayName}</div>
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              {ROLE_LABEL[user.role]} · {user.username}
+              {user.isDemo && <span className="px-1.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold">demo account</span>}
+            </div>
+          </div>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); setChanging(true); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2">
+            <KeyRound size={14} className="text-muted-foreground" /> Change PIN
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); api.logout(); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2">
+            <LogOut size={14} className="text-muted-foreground" /> Sign out
+          </button>
+        </div>
+      )}
+      {changing && createPortal(
         <div className="fixed inset-0 z-[1400] bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-sm"><ChangePinCard onClose={() => setChanging(false)} /></div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import tempfile
+import re
 import threading
 from typing import Any
 
@@ -119,6 +120,81 @@ def decode_audio(audio: bytes) -> tuple[Any, int]:
     return np.concatenate(chunks).astype("float32"), 16000
 
 
+def _change_speed(samples, speed: float):
+    """Speed perturbation (tempo and pitch together), as in Kaldi-style augmentation: resample by 1/speed."""
+    import numpy as np
+    from fractions import Fraction
+    try:
+        from scipy.signal import resample_poly
+        f = Fraction(1 / speed).limit_denominator(20)
+        return resample_poly(samples, f.numerator, f.denominator).astype(np.float32)
+    except ImportError:
+        idx = np.arange(0, len(samples) - 1, speed)
+        return np.interp(idx, np.arange(len(samples)), samples).astype(np.float32)
+
+
+# Akshara (syllable) count of a Devanagari word: a vowel or consonant, with any virama-joined conjunct consonants.
+_AKSHARA = re.compile(r"[\u0905-\u0939\u0958-\u0961](?:\u094d[\u0915-\u0939])*")
+
+
+def non_speech_reason(text: str, lang: str) -> str | None:
+    """Why a decode is not speech, or None. Tones, beeps, hum and fan noise come back from the Hindi CTC model as
+    one-syllable fragments ("ह ह ह", "म", "है", "एक प प प प"); real Hindi decodes made only of such fragments are
+    unusable noise garble too (eval/nonspeech.py and the extraction benchmark measure both sides)."""
+    words = text.split()
+    if not words or lang != "hi":
+        return None
+    syll = [len(_AKSHARA.findall(w)) for w in words]
+    if all(n <= 1 for n in syll):
+        return "only one-syllable fragments"
+    top = max(set(words), key=words.count)
+    if len(words) >= 4 and words.count(top) / len(words) >= 0.6 and len(_AKSHARA.findall(top)) <= 1:
+        return "one syllable repeated"
+    return None
+
+
+def _bpe_vocab(model_dir: str) -> str:
+    """sherpa-onnx encodes hotwords with a sentencepiece vocab; derive one from tokens.txt (ids in frequency order)."""
+    path = os.path.join(model_dir, "bpe.vocab")
+    if os.path.isfile(path):
+        return path
+    try:
+        lines = open(os.path.join(model_dir, "tokens.txt"), encoding="utf-8").read().splitlines()
+    except OSError:
+        return ""
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            for i, line in enumerate(lines):
+                tok = line.rsplit(" ", 1)[0]
+                if tok != "<blk>":
+                    f.write(f"{tok}\t{-float(i)}\n")
+    except OSError:  # read-only model folder: keep it next to the service instead
+        path = os.path.join(tempfile.gettempdir(), f"bpe-{abs(hash(model_dir))}.vocab")
+        with open(path, "w", encoding="utf-8") as f:
+            for i, line in enumerate(lines):
+                tok = line.rsplit(" ", 1)[0]
+                if tok != "<blk>":
+                    f.write(f"{tok}\t{-float(i)}\n")
+    return path
+
+
+def _profile_hotwords(lang: str, profile: str) -> str | None:
+    """Per-request hotwords: the default list (app/hotwords/{lang}.txt) plus a profile's own list, e.g. "dictation"
+    adds medicine names (app/hotwords/{lang}_dictation.txt) so the kiosk's symptom words are not diluted."""
+    if not profile or not re.fullmatch(r"[a-z]{1,20}", profile):
+        return None
+    base = os.path.join(os.path.dirname(__file__), "hotwords")
+    words: list[str] = []
+    for name in (f"{lang}.txt", f"{lang}_{profile}.txt"):
+        path = os.path.join(base, name)
+        if os.path.isfile(path):
+            own = name != f"{lang}.txt"
+            # the profile's own phrases get their own boost ("telmisartan :2.5"); the default list keeps the recogniser's
+            words += [f"{w.strip()} :{config.ASR_DICTATION_BOOST:g}" if own and config.ASR_DICTATION_BOOST != config.ASR_EN_HOTWORDS_SCORE else w.strip()
+                      for w in open(path, encoding="utf-8") if w.strip() and not w.startswith("#")]
+    return "/".join(dict.fromkeys(words)) if len(words) else None
+
+
 class AsrEngine(Engine):
     """sherpa-onnx per-language models (preferred) with an optional faster-whisper fallback."""
     name = "asr"
@@ -126,6 +202,7 @@ class AsrEngine(Engine):
     def __init__(self) -> None:
         super().__init__()
         self._sherpa: dict[str, Any] = {}
+        self._greedy: dict[str, Any] = {}  # greedy twins of beam-search recognisers (the speech check)
         self._sherpa_locks: dict[str, threading.Lock] = {}
 
     def configured(self) -> bool:
@@ -159,10 +236,20 @@ class AsrEngine(Engine):
                 import sherpa_onnx
                 tokens = os.path.join(d, "tokens.txt")
                 if os.path.isfile(os.path.join(d, "encoder.int8.onnx")):
-                    rec = sherpa_onnx.OfflineRecognizer.from_transducer(
-                        encoder=os.path.join(d, "encoder.int8.onnx"), decoder=os.path.join(d, "decoder.int8.onnx"),
-                        joiner=os.path.join(d, "joiner.int8.onnx"), tokens=tokens, model_type="nemo_transducer",
-                        num_threads=config.ASR_THREADS)
+                    kw = {}
+                    hot = os.path.join(os.path.dirname(__file__), "hotwords", f"{lang}.txt")
+                    if config.ASR_EN_HOTWORDS_SCORE > 0 and os.path.isfile(hot):
+                        kw = dict(decoding_method="modified_beam_search", max_active_paths=4, hotwords_file=hot,
+                                  hotwords_score=config.ASR_EN_HOTWORDS_SCORE, modeling_unit="bpe", bpe_vocab=_bpe_vocab(d))
+                    common = dict(encoder=os.path.join(d, "encoder.int8.onnx"), decoder=os.path.join(d, "decoder.int8.onnx"),
+                                  joiner=os.path.join(d, "joiner.int8.onnx"), tokens=tokens, model_type="nemo_transducer",
+                                  num_threads=config.ASR_THREADS)
+                    rec = sherpa_onnx.OfflineRecognizer.from_transducer(**common, **kw)
+                    if kw:
+                        # Beam search (needed for hotwords) invents phrases on non-speech ("I'm sorry." from a fan or a
+                        # beep: 18 of 20 clips in eval/nonspeech.py); greedy decoding says nothing for all of them, so a
+                        # greedy decode of the same audio is the speech check.
+                        self._greedy[lang] = sherpa_onnx.OfflineRecognizer.from_transducer(**common)
                 else:
                     rec = sherpa_onnx.OfflineRecognizer.from_nemo_ctc(
                         model=os.path.join(d, "model.int8.onnx"), tokens=tokens, num_threads=config.ASR_THREADS)
@@ -170,7 +257,7 @@ class AsrEngine(Engine):
                 log.info("asr loaded sherpa-onnx model for %s from %s", lang, d)
             return self._sherpa[lang]
 
-    def transcribe(self, audio: bytes, lang: str) -> dict:
+    def transcribe(self, audio: bytes, lang: str, profile: str = "") -> dict:
         dirs = _sherpa_dirs()
         if lang in dirs:
             samples, sr = decode_audio(audio)
@@ -178,10 +265,33 @@ class AsrEngine(Engine):
             if duration < 0.2:
                 raise ValueError("Recording is too short")
             rec = self._recognizer(lang, dirs[lang])
-            stream = rec.create_stream()
-            stream.accept_waveform(sr, samples)
-            rec.decode_stream(stream)  # thread-safe for separate streams
-            return {"text": stream.result.text.strip(), "language": lang, "engine": "sherpa-onnx", "durationSec": round(duration, 2)}
+            speeds = config.ASR_TTA_SPEEDS if lang in config.ASR_TTA_LANGS else []
+            hotwords = _profile_hotwords(lang, profile) if lang in self._greedy else None
+            streams = []
+            for speed in [1.0, *speeds]:
+                st = rec.create_stream(hotwords=hotwords) if hotwords else rec.create_stream()
+                st.accept_waveform(sr, samples if speed == 1.0 else _change_speed(samples, speed))
+                streams.append(st)
+            rec.decode_streams(streams)  # one batched call; thread-safe for separate streams
+            text = streams[0].result.text.strip()
+            alternatives = [st.result.text.strip() for st in streams[1:]]
+            reason = non_speech_reason(text, lang)
+            greedy = self._greedy.get(lang)
+            if greedy is not None and text and not reason:
+                gs = greedy.create_stream()
+                gs.accept_waveform(sr, samples)
+                greedy.decode_stream(gs)
+                if not gs.result.text.strip():
+                    reason = "no words in a greedy decode (beam search guessed)"
+            out = {"text": "" if reason else text, "language": lang, "engine": "sherpa-onnx", "durationSec": round(duration, 2),
+                   "speech": not reason and bool(text)}
+            if reason:
+                out["rejected"] = reason
+            if speeds:
+                # re-decodes of the same audio at 0.9x / 1.1x make different mistakes; the backend combines findings
+                # (one per speed, duplicates kept: two re-checks agreeing is evidence for the backend's vote)
+                out["alternatives"] = [] if reason else [a for a in alternatives if not non_speech_reason(a, lang)]
+            return out
         if not config.ASR_MODEL:
             raise RuntimeError(f"No speech model installed for '{lang}'")
         model = self.get()
@@ -212,15 +322,59 @@ class AsrEngine(Engine):
 
 # --------------------------------------------------------------------------- read-aloud voice
 class TtsEngine(Engine):
+    """Read-aloud for kiosk prompts.
+
+    Preferred: sherpa-onnx VITS/Piper voices under TTS_SHERPA_DIR (CPU, ~50-150 ms per sentence,
+    no torch). Fallback: ai4bharat/indic-parler-tts when TTS_MODEL is set (needs torch + parler_tts).
+    """
     name = "tts"
+    # Piper voice folder prefixes per language (first match on disk wins).
+    VOICE_PREFIX = {"hi": "vits-piper-hi_IN-", "en": "vits-piper-en_", "mr": "vits-piper-mr_", "bn": "vits-piper-bn_", "ta": "vits-piper-ta_",
+                    "te": "vits-piper-te_", "gu": "vits-piper-gu_", "kn": "vits-piper-kn_", "ml": "vits-piper-ml_", "pa": "vits-piper-pa_", "or": "vits-piper-or_"}
+
+    def _voices(self) -> dict[str, str]:
+        root = config.TTS_SHERPA_DIR
+        if not root or not os.path.isdir(root):
+            return {}
+        out: dict[str, str] = {}
+        dirs = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))
+        for lang, prefix in self.VOICE_PREFIX.items():
+            for d in dirs:
+                if d.startswith(prefix) and any(f.endswith(".onnx") for f in os.listdir(os.path.join(root, d))):
+                    out[lang] = os.path.join(root, d)
+                    break
+        return out
 
     def configured(self) -> bool:
-        return bool(config.TTS_MODEL)
+        return bool(self._voices()) or bool(config.TTS_MODEL)
 
     def model_name(self) -> str:
-        return config.TTS_MODEL
+        v = self._voices()
+        if v:
+            return "sherpa-onnx-vits:" + ",".join(sorted(v))
+        return config.TTS_MODEL or ""
+
+    def languages(self) -> list[str]:
+        v = self._voices()
+        return sorted(v) if v else (list(LANGS) if config.TTS_MODEL else [])
+
+    def _load_voice(self, folder: str):
+        import sherpa_onnx
+        onnx = next(f for f in sorted(os.listdir(folder)) if f.endswith(".onnx"))
+        espeak = os.path.join(folder, "espeak-ng-data")
+        cfg = sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(
+                vits=sherpa_onnx.OfflineTtsVitsModelConfig(
+                    model=os.path.join(folder, onnx), tokens=os.path.join(folder, "tokens.txt"),
+                    data_dir=espeak if os.path.isdir(espeak) else "", lexicon=""),
+                num_threads=2, provider="cpu"),
+            max_num_sentences=2)
+        return sherpa_onnx.OfflineTts(cfg)
 
     def _load(self):
+        voices = self._voices()
+        if voices:
+            return {"kind": "sherpa", "voices": voices, "loaded": {}}
         import torch
         from parler_tts import ParlerTTSForConditionalGeneration
         from transformers import AutoTokenizer
@@ -228,17 +382,27 @@ class TtsEngine(Engine):
         model = ParlerTTSForConditionalGeneration.from_pretrained(config.TTS_MODEL).to(dev)
         tok = AutoTokenizer.from_pretrained(config.TTS_MODEL)
         desc_tok = AutoTokenizer.from_pretrained(model.config.text_encoder._name_or_path)
-        return {"model": model, "tok": tok, "desc_tok": desc_tok, "device": dev, "torch": torch}
+        return {"kind": "parler", "model": model, "tok": tok, "desc_tok": desc_tok, "device": dev, "torch": torch}
 
     def synthesize(self, text: str, lang: str) -> bytes:
         m = self.get()
         import soundfile as sf
+        buf = io.BytesIO()
+        if m["kind"] == "sherpa":
+            folder = m["voices"].get(lang) or m["voices"].get("en")
+            if not folder:
+                raise RuntimeError(f"no voice installed for '{lang}'")
+            with self._lock:
+                if folder not in m["loaded"]:
+                    m["loaded"][folder] = self._load_voice(folder)
+            audio = m["loaded"][folder].generate(text, sid=0, speed=config.TTS_SPEED)
+            sf.write(buf, audio.samples, audio.sample_rate, format="WAV")
+            return buf.getvalue()
         description = "A calm female speaker speaks slowly and clearly with a warm tone. The recording is very clear with no background noise."
         d = m["desc_tok"](description, return_tensors="pt").to(m["device"])
         p = m["tok"](text, return_tensors="pt").to(m["device"])
         with m["torch"].no_grad():
             audio = m["model"].generate(input_ids=d.input_ids, attention_mask=d.attention_mask, prompt_input_ids=p.input_ids, prompt_attention_mask=p.attention_mask)
-        buf = io.BytesIO()
         sf.write(buf, audio.cpu().numpy().squeeze(), m["model"].config.sampling_rate, format="WAV")
         return buf.getvalue()
 

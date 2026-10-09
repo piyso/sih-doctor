@@ -1,9 +1,9 @@
 /**
  * Demo staff accounts for development and demonstrations.
  *
- * Created only when ALLOW_DEMO_DATA is on (the default outside production) and only if no staff
- * account exists yet. They are flagged `is_demo` and listed by username on the sign-in screen.
- * Never enable demo data on a real hospital deployment.
+ * Created when demonstration mode is on (ALLOW_DEMO_DATA, or the admin switch where DEMO_TOGGLE
+ * allows it). They are flagged `is_demo`, listed by username on the sign-in screen, and cannot sign
+ * in while demonstration mode is off. Never enable demo data on a real hospital deployment.
  *
  *   username        role         PIN
  *   admin           admin        802211
@@ -20,11 +20,26 @@ import { securityConfig, StaffRole } from '../security/config';
 const DEMO_STAFF: Array<{ username: string; displayName: string; role: StaffRole; pin: string; department?: string; qualification?: string; registrationNo?: string }> = [
   { username: 'admin', displayName: 'Hospital Administrator', role: 'admin', pin: '802211' },
   { username: 'dr.sharma', displayName: 'Dr. Ananya Sharma', role: 'doctor', pin: '482913', department: 'GENMED', qualification: 'MBBS, MD (General Medicine)', registrationNo: 'DMC Reg. 98421' },
-  { username: 'vaidya.sharma', displayName: 'Vaidya V. K. Sharma', role: 'vaidya', pin: '573920', department: 'KAYA', qualification: 'BAMS, MD (Ayu)', registrationNo: 'CCIM Reg. AYU/84920' },
+  { username: 'vaidya.sharma', displayName: 'Vaidya V. K. Sharma', role: 'vaidya', pin: '573920', department: 'KAYA', qualification: 'BAMS, MD (Ayu)', registrationNo: 'NCISM Reg. AYU/84920' },
   { username: 'nurse.priya', displayName: 'Sr. Nurse Priya Nair', role: 'nurse', pin: '619384', department: 'OPD' },
   { username: 'pharma.ravi', displayName: 'Ravi Kumar (Pharmacist)', role: 'pharmacist', pin: '735102', department: 'PHARMACY', registrationNo: 'Pharmacy Council Reg. 22841' },
   { username: 'asha.sunita', displayName: 'Sunita Devi (ASHA)', role: 'asha', pin: '846257', department: 'COMMUNITY' }
 ];
+
+/**
+ * Demonstration mode switched on at run time: create any demo account that is missing. A real
+ * account that already uses a demo username is never touched.
+ */
+export function ensureDemoStaff(): number {
+  const taken = new Set(AuthService.listUsers().map(u => u.username));
+  let created = 0;
+  for (const s of DEMO_STAFF) {
+    if (taken.has(s.username)) continue;
+    AuthService.createUser({ ...s, isDemo: true });
+    created++;
+  }
+  return created;
+}
 
 export function ensureStaffAccounts(): void {
   if (AuthService.countUsers() > 0) return;

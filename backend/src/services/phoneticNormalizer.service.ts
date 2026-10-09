@@ -1,3 +1,4 @@
+import { clauseAt, negationAt, verbBetween } from './clinicalText';
 /**
  * PhoneticNormalizer — Code-Switching & Clinical Dialect Normalizer
  * Embedded Far-Field Acoustic Scribe Subsystem
@@ -447,7 +448,16 @@ export class PhoneticNormalizerService {
    */
   private static applyCompositionalInference(input: string): string {
     let text = input;
-    const keep = (canonical: string) => (span: string) => (NEG_IN_SPAN.test(span) ? span : canonical);
+    // A body area and a sensation are joined only inside one clause: not across a predicate ("छाती ठीक है पेट में दर्द
+    // है" is not chest pain; "पेट में दर्द है जो पीठ तक जाता है" is not back pain) and not when denied ("सीने में
+    // भारीपन नहीं है"). Recogniser output has no punctuation, so the clause is read from the words.
+    const keep = (canonical: string) => (span: string, ...rest: unknown[]) => {
+      const whole = rest[rest.length - 1] as string;
+      const at = rest[rest.length - 2] as number;
+      const end = at + span.length;
+      if (NEG_IN_SPAN.test(span) || clauseAt(whole, at)[1] < end || verbBetween(whole, at, end) || negationAt(whole, at, end).negated) return span;
+      return canonical;
+    };
 
     // 1. Thorax + Crushing Pressure -> Substernal Crushing Pressure
     if (this.ANAT_THORAX.test(text) && this.SENS_CRUSHING.test(text)) {

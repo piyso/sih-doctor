@@ -1,6 +1,7 @@
 {
   "version": "2026.1",
   "authority": "All India Institute of Ayurveda (AIIA) & Ministry of Ayush, Govt. of India",
+  "codeReview": "SNOMED CT ids checked against tx.fhir.org (SNOMED CT International 2025-02-01) on 2026-10-09: all active and matching the condition. aCode values are placeholders, not official NAMASTE codes.",
   "namasteEntries": [
     {
       "aCode": "AYU-JWA-001",
@@ -19,7 +20,7 @@
       "englishEquivalent": "Productive Cough / Acute Bronchitis",
       "system": "Ayurveda",
       "icd10DualCode": "J20.9",
-      "snomedConceptId": "49727002",
+      "snomedConceptId": "10509002",
       "icmrStandardWorkflowId": "ICMR-STW-RES-004",
       "classicalFormulations": ["Sitopaladi Churna", "Vasavaleha", "Kanthakari Avaleha", "Talisadi Churna"],
       "recommendedAnupana": "Madhu (Honey)"
@@ -41,7 +42,7 @@
       "englishEquivalent": "Osteoarthritis / Degenerative Joint Disease",
       "system": "Ayurveda",
       "icd10DualCode": "M17.9",
-      "snomedConceptId": "399269003",
+      "snomedConceptId": "239873007",
       "icmrStandardWorkflowId": "ICMR-STW-MSK-001",
       "classicalFormulations": ["Yograj Guggulu", "Dashmoolarishta", "Mahanarayan Taila", "Shallaki Vati"],
       "recommendedAnupana": "Maharasnadi Kwath or Warm Water"
@@ -85,7 +86,7 @@
       "englishEquivalent": "Sciatica / Lumbar Radiculopathy",
       "system": "Ayurveda",
       "icd10DualCode": "M54.3",
-      "snomedConceptId": "279039007",
+      "snomedConceptId": "23056005",
       "icmrStandardWorkflowId": "ICMR-STW-NEU-002",
       "classicalFormulations": ["Trayodashang Guggulu", "Rasnasaptak Kwath", "Sameera Pannaga Ras", "Balarishta"],
       "recommendedAnupana": "Warm Water or Castor Oil mixed with Milk"
@@ -96,7 +97,7 @@
       "englishEquivalent": "Cardiovascular Disease / Ischemic Heart Disease",
       "system": "Ayurveda",
       "icd10DualCode": "I25.9",
-      "snomedConceptId": "53741008",
+      "snomedConceptId": "414545008",
       "icmrStandardWorkflowId": "ICMR-STW-CAR-001",
       "classicalFormulations": ["Arjunarishta", "Prabhakar Vati", "Hridyarnava Ras", "Arjuna Ksheerapaka"],
       "recommendedAnupana": "Cow's Milk or Warm Water"

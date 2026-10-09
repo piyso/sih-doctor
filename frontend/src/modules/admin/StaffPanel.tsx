@@ -114,7 +114,7 @@ export const StaffPanel: React.FC = () => {
                     <td className="py-2">
                       <div className="flex gap-1.5">
                         <Btn onClick={() => { setResetFor(u); setResetPin(''); }}><KeyRound size={12} /> Reset PIN</Btn>
-                        {u.id !== me?.id && <Btn tone={u.active ? 'danger' : 'default'} onClick={() => toggleActive(u)}><Power size={12} /> {u.active ? 'Deactivate' : 'Reactivate'}</Btn>}
+                        {u.id !== me?.id && <Btn tone={u.active ? 'quietDanger' : 'default'} onClick={() => toggleActive(u)}><Power size={12} /> {u.active ? 'Deactivate' : 'Reactivate'}</Btn>}
                       </div>
                     </td>
                   </tr>

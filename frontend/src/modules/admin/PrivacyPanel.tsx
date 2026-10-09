@@ -104,7 +104,7 @@ export const PrivacyPanel: React.FC = () => {
                     <Btn onClick={() => exportData(p)}><Download size={12} /> Export data</Btn>
                     {p.consent?.sms && <Btn onClick={() => withdraw(p, 'sms')}><BellOff size={12} /> Stop SMS</Btn>}
                     {p.consent?.research && <Btn onClick={() => withdraw(p, 'research')}>Withdraw research use</Btn>}
-                    {!p.erasedAt && <Btn tone="danger" onClick={() => setEraseFor(p)}><Eraser size={12} /> Erase identity</Btn>}
+                    {!p.erasedAt && <Btn tone="quietDanger" onClick={() => setEraseFor(p)}><Eraser size={12} /> Erase identity</Btn>}
                   </div>
                 </div>
               </div>

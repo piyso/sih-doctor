@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Volume2, VolumeX, Maximize, WifiOff } from 'lucide-react';
+import { Volume2, VolumeX, Maximize, WifiOff, LogOut } from 'lucide-react';
 import { api } from '../../services/api';
 import { session } from '../../services/session';
 import { speak } from '../../utils/speech';
@@ -36,7 +36,7 @@ const DEPT_SHORT: Record<string, string> = {
   KAYA: 'Ayurveda Medicine', PKRM: 'Panchakarma', SHLK: 'Ayurveda Eye & ENT', PRAS: 'Ayurveda Women', BALA: 'Ayurveda Children', SHAL: 'Ayurveda Surgery', ISO: 'Fever Clinic'
 };
 
-export const QueueDisplayView: React.FC = () => {
+export const QueueDisplayView: React.FC<{ onExit?: () => void }> = ({ onExit }) => {
   const [board, setBoard] = useState<any>(null);
   const [online, setOnline] = useState(true);
   const [sound, setSound] = useState(false);
@@ -98,7 +98,7 @@ export const QueueDisplayView: React.FC = () => {
   }, [load, drain]);
 
   return (
-    <div className="min-h-[calc(100vh-56px)] bg-slate-950 text-white px-4 sm:px-8 py-5">
+    <div className="min-h-screen bg-slate-950 text-white px-4 sm:px-8 py-5">
       <div className="flex items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">OPD Queue · ओपीडी कतार</h1>
@@ -113,6 +113,12 @@ export const QueueDisplayView: React.FC = () => {
             <button type="button" onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} className="h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold inline-flex items-center gap-1.5">
               <Maximize size={14} /> Full screen
             </button>
+            {/* The TV has no staff bar (public screen); staff leave with this or Esc. */}
+            {onExit && (
+              <button type="button" onClick={onExit} className="h-9 w-9 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-white inline-flex items-center justify-center" title="Leave the display (Esc)" aria-label="Leave the display">
+                <LogOut size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>

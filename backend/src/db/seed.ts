@@ -476,7 +476,7 @@ if (require.main === module) {
  * Which kind of doctor each demo patient is waiting for, so both the Ayurveda (Vaidya) desk and the
  * modern-medicine desk have patients in their queue.
  */
-const DEMO_CARE_STREAMS: Record<string, 'AYURVEDA' | 'ALLOPATHY' | 'UNDECIDED'> = {
+export const DEMO_CARE_STREAMS: Record<string, 'AYURVEDA' | 'ALLOPATHY' | 'UNDECIDED'> = {
   'sess-001': 'ALLOPATHY',
   'sess-002': 'AYURVEDA',
   'sess-003': 'ALLOPATHY',
@@ -512,7 +512,7 @@ export function restoreDemoQueue(): number {
     UPDATE sessions
     SET status = CASE WHEN triage_priority = 'EMERGENCY_RED_FLAG' THEN 'DIVERTED_EMERGENCY' ELSE 'PENDING_DOCTOR' END,
         created_at = ?, department = NULL, token_no = NULL, token_date = NULL, called_at = NULL, call_count = 0,
-        consult_started_at = NULL, completed_at = NULL
+        consult_started_at = NULL, completed_at = NULL, claimed_by = NULL, claimed_by_name = NULL, claimed_at = NULL
     WHERE id = ?
   `);
   existing.forEach((row, i) => reopen.run(new Date(now - (existing.length - i) * 60000).toISOString(), row.id));
