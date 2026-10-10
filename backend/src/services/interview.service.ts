@@ -52,12 +52,14 @@ export interface Question {
   redFlag2?: { anyOf?: string[]; allOf?: string[]; equals?: boolean; label: string; tier: 'sos' | 'urgent' };
 }
 
-export interface InterviewPatient { age?: number | null; gender?: string | null; isPregnant?: boolean }
+export interface InterviewPatient { age?: number | null; gender?: string | null; isPregnant?: boolean | null }
 export interface InterviewState {
   id: string;
   language: Lang;
   careStream: 'AYURVEDA' | 'ALLOPATHY' | 'UNDECIDED';
   patient: InterviewPatient;
+  /** 'kiosk': the short walk-in set (about 12-18 questions); 'full': every section (clinician-assisted). */
+  scope: 'kiosk' | 'full';
   answers: Record<string, any>;
   asked: string[];
   skipped: string[];
@@ -95,6 +97,7 @@ function visible(q: Question, state: InterviewState): boolean {
   if (!c) return true;
   if (c.patient) {
     const g = String(state.patient.gender || '').toUpperCase();
+    if (c.patient.pregnancyUnknown && state.patient.isPregnant !== null && state.patient.isPregnant !== undefined) return false;
     if (c.patient.gender && g !== c.patient.gender) return false;
     if (c.patient.ageBetween) {
       const a = Number(state.patient.age);
@@ -112,11 +115,18 @@ function visible(q: Question, state: InterviewState): boolean {
 }
 
 /** Ordered question ids given the answers so far. */
+const KIOSK_SECTIONS = new Set(['chiefComplaint', 'hpi', 'redFlags', 'pastMedical', 'drugHistory', 'allergies', 'obstetric', 'ros']);
+const KIOSK_SKIP = new Set(['hpi_treated', 'pmh_other', 'pmh_control', 'drug_adherence', 'allergy_severity', 'ob_lmp', 'ob_lactating']);
+
 export function planFor(state: InterviewState): string[] {
   const out: string[] = [];
+  const kiosk = (state.scope || 'full') === 'kiosk';
   for (const section of SECTION_ORDER) {
+    if (kiosk && !KIOSK_SECTIONS.has(section)) continue;
     for (const [id, q] of Object.entries(Q)) {
       if (q.section !== section) continue;
+      if (kiosk && KIOSK_SKIP.has(id)) continue;
+      if (kiosk ? id.startsWith('ros_') && id !== 'ros_any' : id === 'ros_any') continue;
       if (id !== 'cc_family' && !state.answers.cc_family) continue; // nothing before the chief complaint
       if (visible(q, state)) out.push(id);
     }
@@ -193,11 +203,12 @@ export function historyFrom(state: InterviewState): { history: ClinicalHistory; 
   const pastMedical = (Array.isArray(a.pmh_conditions) ? a.pmh_conditions : []).filter((c: string) => c !== 'none').map((c: string) => ({ name: c, status: a.pmh_control || undefined, source: 'patient' as const }));
   if (typeof a.pmh_other === 'string' && a.pmh_other) for (const c of a.pmh_other.split(/[,;।]+/)) if (c.trim()) pastMedical.push({ name: c.trim().slice(0, 80), status: undefined, source: 'patient' });
   const pastSurgical = a.psh_any === true && typeof a.psh_detail === 'string' && a.psh_detail ? [{ name: a.psh_detail.slice(0, 120), source: 'patient' as const }] : [];
+  const denial = (v: unknown) => typeof v === 'string' && /^(none|nil|no|nahi|nahin|na|kuch nahi|koi nahi|नहीं|ना|कोई नहीं|कुछ नहीं)[.!]?$/i.test(v.trim());
   const drugHistory = [
-    ...(typeof a.drug_current === 'string' ? a.drug_current.split(/[,;।\n]+/).map((s: string) => s.trim()).filter(Boolean).map((name: string) => ({ name: name.slice(0, 80), adherence: a.drug_adherence || undefined, source: 'patient' as const })) : []),
+    ...(typeof a.drug_current === 'string' && !denial(a.drug_current) ? a.drug_current.split(/[,;।\n]+/).map((s: string) => s.trim()).filter(Boolean).map((name: string) => ({ name: name.slice(0, 80), adherence: a.drug_adherence || undefined, source: 'patient' as const })) : []),
     ...(a.drug_ayush === true && typeof a.drug_ayush_detail === 'string' ? a.drug_ayush_detail.split(/[,;।\n]+/).map((s: string) => s.trim()).filter(Boolean).map((name: string) => ({ name: name.slice(0, 80), source: 'patient' as const })) : [])
   ];
-  const allergyList = a.allergy_any === true && typeof a.allergy_detail === 'string' && a.allergy_detail
+  const allergyList = a.allergy_any === true && typeof a.allergy_detail === 'string' && a.allergy_detail && !denial(a.allergy_detail)
     ? [{ agent: a.allergy_detail.slice(0, 120), severity: a.allergy_severity || 'unknown', source: 'patient' as const }] : [];
   const familyHistory = (Array.isArray(a.fam_conditions) ? a.fam_conditions : []).filter((c: string) => c !== 'none').map((c: string) => ({ condition: c, relation: 'first-degree relative' }));
   const personal: any = {
@@ -207,7 +218,8 @@ export function historyFrom(state: InterviewState): { history: ClinicalHistory; 
   const reviewOfSystems: Record<string, 'present' | 'denied' | 'not_asked'> = {};
   for (const sys of ['constitutional', 'cardiovascular', 'respiratory', 'gastrointestinal', 'genitourinary', 'musculoskeletal', 'neurological', 'dermatological', 'psychiatric', 'endocrine']) {
     const id = `ros_${sys}`;
-    reviewOfSystems[sys] = a[id] === true ? 'present' : a[id] === false ? 'denied' : 'not_asked';
+    if (Array.isArray(a.ros_any)) reviewOfSystems[sys] = a.ros_any.includes(sys) ? 'present' : 'denied';
+    else reviewOfSystems[sys] = a[id] === true ? 'present' : a[id] === false ? 'denied' : 'not_asked';
   }
   const obstetric = a.ob_pregnant !== undefined || a.ob_lactating !== undefined
     ? { isPregnant: a.ob_pregnant === true, gestationalWeeks: Number(a.ob_weeks) || undefined, isLactating: a.ob_lactating === true, lmp: a.ob_lmp || undefined } : undefined;
@@ -220,7 +232,9 @@ export function historyFrom(state: InterviewState): { history: ClinicalHistory; 
     conditions: pastMedical.map(p => p.name), allergies: allergyList.map(x => x.agent).join(', '), currentMedicines: drugHistory.map(d => d.name).join(', '),
     pastMedical, pastSurgical, drugHistory, allergyList, familyHistory, personal, reviewOfSystems, obstetric, ayush, interviewId: state.id,
     askedSections: { pastMedical: sectionsAsked('pastMedical'), pastSurgical: sectionsAsked('pastSurgical'), drugHistory: sectionsAsked('drugHistory'), allergies: sectionsAsked('allergies'), familyHistory: sectionsAsked('familyHistory') },
-    deniedSections: { allergies: a.allergy_any === false, familyHistory: Array.isArray(a.fam_conditions) && a.fam_conditions.length === 1 && a.fam_conditions[0] === 'none', pastSurgical: a.psh_any === false }
+    allergyStatus: a.allergy_any === false || denial(a.allergy_detail) ? 'none' : allergyList.length ? 'listed' : undefined,
+    medicineStatus: denial(a.drug_current) ? 'none' : drugHistory.length ? 'listed' : undefined,
+    deniedSections: { allergies: a.allergy_any === false || denial(a.allergy_detail), familyHistory: Array.isArray(a.fam_conditions) && a.fam_conditions.length === 1 && a.fam_conditions[0] === 'none', pastSurgical: a.psh_any === false }
   });
   // Completeness from the real interview log.
   const plan = planFor(state);
@@ -267,12 +281,13 @@ export function purgeInterviews(olderThanHours: number): number {
 }
 
 export const InterviewService = {
-  start(input: { language?: string; careStream?: string; patient?: InterviewPatient }): { state: InterviewState; question: PresentedQuestion } {
+  start(input: { language?: string; careStream?: string; patient?: InterviewPatient; scope?: 'kiosk' | 'full' }): { state: InterviewState; question: PresentedQuestion } {
     const state: InterviewState = {
       id: `iv-${crypto.randomBytes(8).toString('hex')}`,
       language: input.language === 'hi' ? 'hi' : 'en',
       careStream: input.careStream === 'AYURVEDA' || input.careStream === 'ALLOPATHY' ? input.careStream : 'UNDECIDED',
-      patient: { age: Number.isFinite(Number(input.patient?.age)) ? Number(input.patient!.age) : null, gender: input.patient?.gender ? String(input.patient.gender).toUpperCase() : null, isPregnant: input.patient?.isPregnant === true },
+      patient: { age: Number.isFinite(Number(input.patient?.age)) ? Number(input.patient!.age) : null, gender: input.patient?.gender ? String(input.patient.gender).toUpperCase() : null, isPregnant: input.patient?.isPregnant === true ? true : input.patient?.isPregnant === false ? false : null },
+      scope: input.scope === 'kiosk' ? 'kiosk' : 'full',
       answers: {}, asked: ['cc_family'], skipped: [], startedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
     save(state);

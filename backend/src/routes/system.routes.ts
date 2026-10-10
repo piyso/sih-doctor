@@ -54,8 +54,9 @@ systemRouter.post('/demo-mode', switchLimiter, (req: Request, res: Response): vo
       res.status(403).json({ error: 'Only an administrator can switch demonstration mode.', code: 'FORBIDDEN' });
       return;
     }
-    if (result.user.isDemo && !securityConfig.allowDemo) {
-      res.status(403).json({ error: 'Demo accounts cannot approve while demonstration mode is off. Use a real administrator account.', code: 'DEMO_ACCOUNT_OFF' });
+    // Same rule as sign-in: demo accounts count on a demonstration server (both modes) or in Mock mode.
+    if (result.user.isDemo && !securityConfig.demoAccountsOpen) {
+      res.status(403).json({ error: 'Demo accounts are switched off on this server. Use a real administrator account.', code: 'DEMO_ACCOUNT_OFF' });
       return;
     }
     actor = result.user;

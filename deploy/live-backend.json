@@ -1,0 +1,5 @@
+{
+  "url": "https://gamma-tones-positioning-adjust.trycloudflare.com",
+  "updatedAt": "2026-10-10T04:30:00.000Z",
+  "note": "Backend of the public demonstration site. Written by scripts/live-demo.sh; the site reads it at start-up (frontend/src/services/liveBackend.ts), so a new tunnel address needs no new build."
+}

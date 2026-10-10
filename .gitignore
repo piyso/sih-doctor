@@ -86,3 +86,6 @@ e2e/node_modules/
 
 # Local database (patient data never goes into git)
 backend/data/*.db
+
+# scripts/live-demo.sh run files (logs)
+.live-demo/

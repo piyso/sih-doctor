@@ -22,12 +22,14 @@ const ViewLoading: React.FC = () => (
 import { Button } from './components/ui/button';
 import { StaffGate, StaffChip } from './components/auth/StaffGate';
 import { KioskShell, isKioskLocked } from './components/kiosk/KioskShell';
-import { DemoModeBadge } from './components/common/DemoModeControl';
-import { useServerReachable, refreshRuntimeMode } from './services/runtimeMode';
+import { DemoModeBadge, ModeBanner } from './components/common/DemoModeControl';
+import { useAppMode, refreshRuntimeMode } from './services/runtimeMode';
 import { sovereignSound } from './utils/audio';
 import { api } from './services/api';
-import { session } from './services/session';
-import { ArrowLeft, Loader2, Smartphone, MonitorSmartphone, Stethoscope, HeartPulse, Pill, Tv, Footprints, LayoutDashboard, Network } from 'lucide-react';
+import { ArrowLeft, WifiOff, Smartphone, MonitorSmartphone, Stethoscope, HeartPulse, Pill, Tv, Footprints, LayoutDashboard, Network } from 'lucide-react';
+
+/** Screens that work only on the hospital server's data: the offline sandbox has no stand-in for them. */
+const SERVER_ONLY_VIEWS: ActiveViewMode[] = ['kiosk', 'nurse', 'pharmacy', 'display', 'asha', 'admin'];
 
 /** Each terminal's name in the top bar, so staff always know which screen they are on. */
 const TERMINAL_META: Partial<Record<ActiveViewMode, { name: string; icon: React.ComponentType<{ size?: number; className?: string }> }>> = {
@@ -69,7 +71,8 @@ export function App() {
   const lockedKiosk = activeView === 'kiosk' && kioskLocked;
   const [isLeverModalOpen, setIsLeverModalOpen] = useState(false);
   const [isByodModalOpen, setIsByodModalOpen] = useState(false);
-  const reachable = useServerReachable();
+  const appMode = useAppMode();
+  const inSandbox = appMode.source === 'sandbox';
 
   // Silent background wake-up ping for Render free tier backend container
   useEffect(() => {
@@ -147,6 +150,24 @@ export function App() {
       {/* Main Terminal View Container */}
       <main className={`flex-1 ${activeView === 'portal' || activeView === 'display' || activeView === 'doctor' ? '' : 'pb-10'}`}>
         <Suspense fallback={<ViewLoading />}>
+        {/* Keyed by data source: entering or leaving the offline sandbox reloads the open screen. */}
+        <React.Fragment key={inSandbox ? 'sandbox' : 'server'}>
+        {inSandbox && SERVER_ONLY_VIEWS.includes(activeView) && (
+          <div className="max-w-xl mx-auto mt-16 px-4">
+            <div className="rounded-3xl border border-border bg-card p-7 text-center shadow-sm">
+              <WifiOff className="mx-auto mb-3 text-amber-600" size={28} />
+              <h2 className="text-lg font-bold text-foreground">{TERMINAL_META[activeView]?.name || 'This screen'} needs the hospital server</h2>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                The server is not answering, so Mock mode is running from the offline sandbox. The sandbox covers the Doctor / Vaidya desk with sample patients; this screen works on the server's data and has no stand-in.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <button type="button" onClick={() => setActiveView('doctor')} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-bold">Open the doctor desk</button>
+                <button type="button" onClick={() => refreshRuntimeMode()} className="h-10 px-4 rounded-xl border border-border bg-background hover:bg-muted text-sm font-semibold">Retry the server</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {!(inSandbox && SERVER_ONLY_VIEWS.includes(activeView)) && <>
         {activeView === 'portal' && (
           <HospitalOsGateway
             onLaunchTerminal={(terminal) => {
@@ -229,32 +250,13 @@ export function App() {
             </div>
           </div>
         )}
+        </>}
+        </React.Fragment>
         </Suspense>
       </main>
 
-      {/* The server is not answering (often a free cloud server waking up). Every screen retries on its own. */}
-      {reachable === false && (
-        <div className="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-[1300] max-w-[calc(100vw-24px)] rounded-xl border border-amber-500/50 bg-card shadow-xl px-3.5 py-2.5 flex items-center gap-2.5 text-xs flex-wrap sm:flex-nowrap" role="status">
-          <Loader2 size={15} className="animate-spin text-amber-600 shrink-0" />
-          <span className="text-foreground">
-            <strong>Connecting to the hospital server…</strong>
-            <span className="text-muted-foreground"> Retrying automatically.</span>
-          </span>
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
-            <button type="button" onClick={() => refreshRuntimeMode()} className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted font-semibold text-xs">Retry</button>
-            <button
-              type="button"
-              onClick={() => {
-                session.setSandbox(true);
-                window.location.reload();
-              }}
-              className="h-7 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm"
-            >
-              ⚡ Offline Sandbox
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Offline sandbox on, Real mode waiting for the server, or still connecting: say so on every screen. */}
+      {!lockedKiosk && <ModeBanner />}
 
       <LeverModal
         isOpen={isLeverModalOpen}

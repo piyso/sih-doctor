@@ -1,16 +1,18 @@
 /**
- * Demonstration mode, switchable while the server runs.
+ * Mock / Real mode of a demonstration server, switchable while the server runs.
  *
- * ON  — demo staff accounts can sign in (their PINs are published in demoStaff.ts), the ten demo
- *       patients wait in the queue, demo seed / restore endpoints answer, the kiosk offers sample
- *       profiles and a demo OTP, and kiosks are open unless KIOSK_OPEN says otherwise.
- * OFF — the server behaves as a hospital deployment: demo accounts cannot sign in (their sessions
- *       stop working too), demo visits are parked out of every queue, demo endpoints return 404,
- *       kiosks need enrolment. Nothing is deleted, so switching back on restores the demo exactly.
+ * MOCK (demo mode on)  — the ten sample patients wait in the queue, demo seed / restore endpoints
+ *       answer, and the kiosk offers sample profiles and a demo OTP.
+ * REAL (demo mode off) — no mock data anywhere: the sample visits are parked out of every queue,
+ *       board and report, demo endpoints return 404, and only patients who actually check in
+ *       appear. Nothing is deleted, so switching back restores the sample patients exactly.
  *
- * ALLOW_DEMO_DATA gives the starting value. The administrator's choice is stored in the database
- * and wins after a restart, but only while DEMO_TOGGLE allows the switch: an operator who turns
- * the switch off in the environment always gets the environment's value.
+ * Staff sign in the same way in both modes: on a demonstration server the demo accounts stay
+ * usable (securityConfig.demoAccountsOpen), so switching never signs anyone out or locks them out.
+ *
+ * ALLOW_DEMO_DATA gives the starting mode. The last choice is stored in the database and wins
+ * after a restart, but only on a demonstration server (DEMO_TOGGLE): a hospital installation
+ * always gets the environment's value and has no switch.
  */
 
 import { db } from '../db/database';
@@ -37,7 +39,7 @@ export interface DemoModeState {
 }
 
 export class DemoModeError extends Error {
-  constructor(public code: 'TOGGLE_DISABLED' | 'NO_REAL_ADMIN', message: string) { super(message); }
+  constructor(public code: 'TOGGLE_DISABLED', message: string) { super(message); }
 }
 
 const stored = (): { value: string; updated_at: string; updated_by: string | null } | undefined =>
@@ -79,27 +81,24 @@ export function initDemoMode(): void {
       seedDatabase();
     }
     applyDemoCareStreams();
-    // A site that already had real accounts when demonstration mode came on still gets the demo ones.
-    if (AuthService.countUsers() > 0) ensureDemoStaff();
   } else {
     parkDemoVisits();
   }
+  // Wherever the demo accounts may sign in they must exist, also when real accounts were made first.
+  if (securityConfig.demoAccountsOpen && AuthService.countUsers() > 0) ensureDemoStaff();
 }
 
 /**
- * Switch demonstration mode. Refused where DEMO_TOGGLE is off, and refused (when switching off)
- * unless a real, active administrator exists — otherwise nobody could sign in afterwards.
+ * Switch between Mock mode (on) and Real mode (off). Only a demonstration server has the switch;
+ * there the demo accounts stay usable in both modes (securityConfig.demoAccountsOpen), so
+ * switching to Real can never lock the administrators out. Asking for the mode that is already
+ * active changes nothing and is not an error.
  */
 export function setDemoMode(on: boolean, actor: { id: string; name: string; role: string }, ip?: string): DemoModeState & { restored: number; parked: number } {
   if (!securityConfig.demoToggle) {
-    throw new DemoModeError('TOGGLE_DISABLED', 'Demonstration mode is fixed on this server (DEMO_TOGGLE is off). Change ALLOW_DEMO_DATA in the server settings instead.');
+    throw new DemoModeError('TOGGLE_DISABLED', 'This server has no Mock / Real switch (it is not a demonstration server). Its mode is set by ALLOW_DEMO_DATA in the server settings.');
   }
-  if (!on) {
-    const realAdmins = AuthService.listUsers().filter(u => u.role === 'admin' && u.active && !u.isDemo);
-    if (realAdmins.length === 0) {
-      throw new DemoModeError('NO_REAL_ADMIN', 'Create an administrator account that is not a demo account first (Administration → Staff). Demo accounts cannot sign in while demonstration mode is off, so without one nobody could switch it back on.');
-    }
-  }
+  if (on === securityConfig.allowDemo) return { ...getDemoModeState(), restored: 0, parked: 0 };
 
   let restored = 0;
   let parked = 0;

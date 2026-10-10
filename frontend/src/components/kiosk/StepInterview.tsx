@@ -53,6 +53,30 @@ const familyFromSymptom = (s?: SocratesSymptom, transcript = ''): string | null 
   return null;
 };
 
+/** SOCRATES values from Step 4 mapped onto the interview's HPI options (only exact, unambiguous mappings). */
+const prefillFromSymptom = (s?: SocratesSymptom): Array<[string, unknown]> => {
+  if (!s) return [];
+  const out: Array<[string, unknown]> = [];
+  const onset = String(s.onset || '').toLowerCase();
+  if (/today|hour|aaj|abhi|घंट/.test(onset)) out.push(['hpi_onset', 'hours']);
+  else if (/2|3|din|day/.test(onset) && !/week|month|hafte|mahin/.test(onset)) out.push(['hpi_onset', '1-3d']);
+  else if (/week|hafte|saptah/.test(onset)) out.push(['hpi_onset', '4-7d']);
+  else if (/month|mahin|year|saal|more/.test(onset)) out.push(['hpi_onset', 'months']);
+  const ch = String(s.character || '').toLowerCase();
+  const charMap: Array<[RegExp, string]> = [[/sharp|stab|chubh/, 'sharp'], [/dull|ache|halka/, 'dull'], [/burn|jalan/, 'burning'], [/press|heavy|bhari|dabav/, 'pressure'], [/cramp|colic|marod/, 'cramping'], [/throb|dhadak/, 'throbbing']];
+  for (const [re, v] of charMap) if (re.test(ch)) { out.push(['hpi_character', v]); break; }
+  const sev = Number(s.severityScore);
+  if (Number.isFinite(sev) && sev >= 1 && sev <= 10) out.push(['hpi_severity', sev]);
+  const timing = String(s.timing || '').toLowerCase();
+  if (/continu|always|hamesha|lagatar/.test(timing)) out.push(['hpi_timing', 'continuous']);
+  else if (/intermit|comes|aata jaata|kabhi/.test(timing)) out.push(['hpi_timing', 'intermittent']);
+  else if (/night|raat/.test(timing)) out.push(['hpi_timing', 'night']);
+  const worse = (s.exacerbatingFactors || []).map(x => String(x).toLowerCase());
+  const worseVals = worse.flatMap(x => (/walk|exert|effort|chal/.test(x) ? ['exertion'] : /eat|food|khan/.test(x) ? ['food'] : /lying|let/.test(x) ? ['lying'] : /cold|thand/.test(x) ? ['cold'] : /move|hil/.test(x) ? ['movement'] : []));
+  if (worseVals.length) out.push(['hpi_worse', Array.from(new Set(worseVals))]);
+  return out;
+};
+
 export const StepInterview: React.FC<StepInterviewProps> = ({
   patient, language = 'hi', symptoms, transcript, interviewId, setInterviewId, setHistory, setSymptoms, setRedFlags, onInterviewResult, onRequestSos, onNext, onBack, registerNav
 }) => {
@@ -105,8 +129,8 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
           if (r.done) setDone(true); else showQuestion(r.question);
         } else {
           const r = await api.startInterview({
-            language: lang, careStream: patient.careStream,
-            patient: { age: Number(patient.age) || null, gender: patient.gender, isPregnant: patient.isPregnant === true }
+            language: lang, careStream: patient.careStream, scope: 'kiosk',
+            patient: { age: Number(patient.age) || null, gender: patient.gender, isPregnant: patient.isPregnant === true ? true : patient.isPregnant === false ? false : null }
           });
           setInterviewId(r.interviewId);
           // What the body map / voice step already told us answers the first question.
@@ -114,6 +138,11 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
           if (fam) {
             let step = await api.answerInterview(r.interviewId, { questionId: 'cc_family', value: fam });
             if (step.question?.id === 'cc_text' && transcript.trim()) step = await api.answerInterview(r.interviewId, { questionId: 'cc_text', value: transcript.trim().slice(0, 500) });
+            // What the pain-and-vitals step already captured answers the matching HPI questions.
+            for (const [qid, v] of prefillFromSymptom(symptoms[0])) {
+              if (step.question?.id !== qid) continue;
+              try { step = await api.answerInterview(r.interviewId, { questionId: qid, value: v }); } catch { break; }
+            }
             setLocalRedFlags(step.redFlags);
             showQuestion(step.question);
           } else {
@@ -233,11 +262,11 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
   const sos = redFlags.some(f => f.tier === 'sos');
 
   useStepNav(registerNav, {
-    canNext: offline || done || !!question?.optional || hasValue,
-    nextLabel: done || offline ? undefined : question?.optional && !hasValue ? tx('ivSkip') : undefined,
+    canNext: offline || done || hasValue || (!!question && question.id !== 'cc_family'),
+    nextLabel: done || offline ? undefined : question && !hasValue && question.id !== 'cc_family' ? tx('ivSkip') : undefined,
     blockedHint: tx('ivAnswerFirst'),
     busy,
-    onNext: () => { if (done || offline) onNext(); else if (hasValue) submit(false); else if (question?.optional) submit(true); },
+    onNext: () => { if (done || offline) onNext(); else if (hasValue) submit(false); else if (question && question.id !== 'cc_family') submit(true); },
     onBack: goBack,
     onBlockedNext: () => setShowAnswerHint(true)
   });
@@ -355,6 +384,9 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
           )}
 
           {showAnswerHint && !hasValue && !question.optional && <p className="text-xs font-semibold text-amber-700" role="alert">{tx('ivAnswerFirst')}</p>}
+          {!question.id.startsWith('cc_family') && (
+            <button type="button" onClick={() => submit(true)} disabled={busy} className="self-end tactile-btn px-4 py-2 rounded-full text-xs font-semibold text-muted-foreground">{tx('ivSkip')} →</button>
+          )}
         </div>
       )}
     </div>

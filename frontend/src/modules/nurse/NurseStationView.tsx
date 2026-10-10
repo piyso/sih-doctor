@@ -11,9 +11,17 @@ const STATUS_WORD: Record<VitalStatus, string> = {
 
 const PRIORITY_RANK: Record<string, number> = { EMERGENCY_RED_FLAG: 0, HIGH_PRIORITY: 1, ROUTINE: 2 };
 
-const waitedFor = (iso: string) => {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
+/**
+ * How long a patient has waited. Past 12 hours a running count ("36 h 27 min") stops meaning anything:
+ * show when they checked in, and flag it, because they have very likely left.
+ */
+const waitedFor = (iso: string): { text: string; stale: boolean } => {
+  const at = new Date(iso);
+  const mins = Math.max(0, Math.round((Date.now() - at.getTime()) / 60000));
+  if (mins >= 720) {
+    return { text: `here since ${at.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} ${at.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}`, stale: true };
+  }
+  return { text: `waiting ${mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`}`, stale: false };
 };
 
 /** One reading, coloured only when it is out of range. */
@@ -53,9 +61,9 @@ const VitalsRow: React.FC<{ item: PatientQueueItem; onSaved: () => void }> = ({ 
 
   const box = (label: string, value: string, set: (s: string) => void, status: VitalStatus, placeholder: string, width = 'w-24') => (
     <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+      <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
       <input value={value} onChange={e => set(e.target.value)} inputMode="decimal" placeholder={placeholder} className={`${width} h-9 rounded-lg border border-border bg-background px-2 text-sm font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-primary`} />
-      <span className={`h-4 text-[10px] font-bold px-1 rounded border w-fit ${status === 'empty' ? 'border-transparent' : STATUS_TONE[status]}`}>{STATUS_WORD[status]}</span>
+      <span className={`h-4 text-[11px] font-bold px-1 rounded border w-fit ${status === 'empty' ? 'border-transparent' : STATUS_TONE[status]}`}>{STATUS_WORD[status]}</span>
     </label>
   );
 
@@ -179,6 +187,10 @@ export const NurseStationView: React.FC = () => {
     );
   };
 
+  const noAlerts = openAlerts.length === 0 && resolvedAlerts.length === 0;
+  // One primary action on the page: the next patient who still needs measured vitals.
+  const nextToMeasure = list.findIndex(q => (q.vitals as any)?.source !== 'clinician');
+
   return (
     <div className="max-w-[1400px] mx-auto px-3 sm:px-5 py-4 space-y-3">
       {/* Summary strip: what needs a nurse now. The screen name is in the top bar. */}
@@ -196,10 +208,13 @@ export const NurseStationView: React.FC = () => {
 
       <div className="nurse-grid">
         {/* SOS alerts: always beside the worklist, never scrolled away. */}
-        <section aria-label="SOS alerts" className="nurse-sos rounded-2xl border border-border/80 bg-card p-3.5 flex flex-col gap-2.5">
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5"><Siren size={13} /> SOS alerts</h2>
+        {/* With nothing to show, a stacked (tablet / phone) layout gets one line, not a card that fills the screen. */}
+        <section aria-label="SOS alerts" className={`nurse-sos rounded-2xl border border-border/80 bg-card flex flex-col gap-2.5 ${noAlerts ? 'px-3.5 py-2.5 lg:p-3.5' : 'p-3.5'}`}>
+          <h2 className={`text-[11px] font-bold uppercase tracking-wide text-muted-foreground items-center gap-1.5 ${noAlerts ? 'hidden lg:flex' : 'flex'}`}><Siren size={13} /> SOS alerts</h2>
           {openAlerts.length === 0 ? (
-            <div className="p-3 rounded-xl border border-dashed border-border text-sm text-muted-foreground flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-600" /> No SOS alerts.</div>
+            <div className={`text-sm text-muted-foreground flex items-center gap-2 ${noAlerts ? 'lg:p-3 lg:rounded-xl lg:border lg:border-dashed lg:border-border' : 'p-3 rounded-xl border border-dashed border-border'}`}>
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" /> <span>No SOS alerts.{noAlerts && <span className="lg:hidden"> Keep the sound on.</span>}</span>
+            </div>
           ) : openAlerts.map(alertCard)}
           {resolvedAlerts.length > 0 && (
             <details className="text-xs">
@@ -207,7 +222,7 @@ export const NurseStationView: React.FC = () => {
               <div className="mt-2 space-y-2 opacity-80">{resolvedAlerts.map(alertCard)}</div>
             </details>
           )}
-          <p className="mt-auto pt-2 border-t border-border/60 text-[11px] text-muted-foreground flex gap-1.5"><Megaphone size={12} className="shrink-0 mt-px" /> Keep this screen open with sound on. Allow browser notifications so alerts also appear when another window is in front.</p>
+          <p className={`mt-auto pt-2 border-t border-border/60 text-[11px] text-muted-foreground gap-1.5 ${noAlerts ? 'hidden lg:flex' : 'flex'}`}><Megaphone size={12} className="shrink-0 mt-px" /> Keep this screen open with sound on. Allow browser notifications so alerts also appear when another window is in front.</p>
         </section>
 
         {/* Vitals worklist, most urgent first. */}
@@ -217,7 +232,7 @@ export const NurseStationView: React.FC = () => {
             <div className="flex gap-0.5 p-0.5 rounded-xl bg-muted/60 border border-border/70" role="tablist">
               {([{ id: 'need', label: 'Need measuring', n: needVitals.length }, { id: 'all', label: 'All waiting', n: waiting.length }] as const).map(t => (
                 <button key={t.id} type="button" role="tab" aria-selected={listTab === t.id} onClick={() => setListTab(t.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold ${listTab === t.id ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                  className={`h-9 px-3 rounded-lg text-xs font-bold ${listTab === t.id ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                   {t.label} <span className="font-mono">{t.n}</span>
                 </button>
               ))}
@@ -228,8 +243,9 @@ export const NurseStationView: React.FC = () => {
             <p className="py-8 text-center text-sm text-muted-foreground">{listTab === 'need' ? 'Every waiting patient has measured vitals.' : 'No patients waiting.'}</p>
           ) : (
             <div className="space-y-1.5">
-              {list.map(q => {
+              {list.map((q, rowIndex) => {
                 const v: any = q.vitals || {};
+                const wait = waitedFor(q.registeredAt);
                 const sum = summariseVitals(q.vitals);
                 const measured = v.source === 'clinician';
                 const isEmergency = q.triagePriority === 'EMERGENCY_RED_FLAG';
@@ -242,8 +258,9 @@ export const NurseStationView: React.FC = () => {
                         <div className="text-sm font-bold text-foreground flex items-baseline gap-2 flex-wrap">
                           <span className="font-mono text-[11px] text-muted-foreground">{q.tokenNo || '—'}</span>
                           <span>{q.patientName}</span>
-                          <span className="text-xs font-medium text-muted-foreground">{q.age} y · {q.gender === 'FEMALE' ? 'F' : q.gender === 'MALE' ? 'M' : 'O'}{q.room ? ` · Room ${q.room}` : ''} · waiting {waitedFor(q.registeredAt)}</span>
-                          {isEmergency && <span className="px-1.5 py-px rounded bg-rose-600 text-white text-[9.5px] font-bold uppercase">Emergency</span>}
+                          <span className="text-xs font-medium text-muted-foreground">{q.age} y · {q.gender === 'FEMALE' ? 'F' : q.gender === 'MALE' ? 'M' : 'O'}{q.room ? ` · Room ${q.room}` : ''} · {wait.text}</span>
+                          {wait.stale && <span className="px-1.5 py-px rounded border border-amber-500/50 bg-amber-500/10 text-amber-800 text-[11px] font-semibold">check if still here</span>}
+                          {isEmergency && <span className="px-1.5 py-px rounded bg-rose-600 text-white text-[11px] font-bold uppercase">Emergency</span>}
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{q.primaryComplaint || 'Complaint not recorded'}</div>
                         <div className="mt-1 flex items-center gap-3 flex-wrap text-[11px]">
@@ -251,13 +268,13 @@ export const NurseStationView: React.FC = () => {
                           <Reading label="P" value={v.pulse} status={sum.statuses.pulse} />
                           <Reading label="SpO₂" value={v.spo2} status={sum.statuses.spo2} />
                           <Reading label="T" value={v.temp} status={sum.statuses.temp} />
-                          <span className={`text-[10.5px] ${measured ? 'text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-muted-foreground'}`}>
+                          <span className={`text-[11px] ${measured ? 'text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-muted-foreground'}`}>
                             {sum.anyRecorded ? (measured ? `measured${v.recordedBy ? ` by ${v.recordedBy}` : ''}` : 'patient-reported') : 'no vitals yet'}
                           </span>
                           {sum.anyCritical && <span className="text-rose-600 font-bold inline-flex items-center gap-1"><AlertOctagon size={11} /> critical value</span>}
                         </div>
                       </div>
-                      <button type="button" onClick={() => setOpenVitals(isOpen ? null : q.sessionId)} className={`h-9 px-3 rounded-lg text-xs font-bold shrink-0 ${isOpen ? 'border border-border bg-background hover:bg-muted' : measured ? 'border border-border bg-background hover:bg-muted' : 'bg-primary text-primary-foreground'}`}>
+                      <button type="button" onClick={() => setOpenVitals(isOpen ? null : q.sessionId)} className={`h-9 px-3 rounded-lg text-xs font-bold shrink-0 ${isOpen || measured ? 'border border-border bg-background hover:bg-muted' : rowIndex === nextToMeasure ? 'bg-primary text-primary-foreground' : 'border border-primary/40 text-primary bg-background hover:bg-primary/5'}`}>
                         {isOpen ? 'Close' : measured ? 'Update vitals' : 'Enter vitals'}
                       </button>
                     </div>

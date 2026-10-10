@@ -29,6 +29,18 @@ const LOINC = 'http://loinc.org';
 const HOSPITAL = (process.env.HOSPITAL_FHIR_BASE || 'https://hospital.example/fhir').replace(/\/$/, '');
 const HOSPITAL_NAME = process.env.HOSPITAL_SHORT_NAME || 'Hospital';
 const HFR_ID = process.env.HFR_FACILITY_ID || '';
+const FACILITY_CODE = process.env.HOSPITAL_FACILITY_CODE || '';
+/**
+ * NRCES ndhm.in 4.0.0 closes Condition.code.coding to ICD-10 and SNOMED CT slices. In strict mode
+ * (default; validator-clean) the NAMASTE / ICD-11 TM2 codings travel in a linked Observation
+ * (SNOMED 439401001 |Diagnosis|, focus = the Condition). Set FHIR_NRCES_STRICT=false to inline
+ * them in Condition.code.coding as the ABDM Ayush dual-coding proposal describes.
+ */
+const NRCES_STRICT = process.env.FHIR_NRCES_STRICT !== 'false';
+const NDHM_ID_TYPE = 'https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code';
+const V2_ID_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+const TRADITIONAL_SYSTEMS = new Set(['https://namstp.ayush.gov.in', 'http://id.who.int/icd/release/11/mms']);
+const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as any)[c]);
 
 export const SECTION_CODES = {
   chiefComplaints: { code: '422843007', display: 'Chief complaint section' },
@@ -48,7 +60,7 @@ export interface FhirBuildInput {
   encounterId?: string;
   sessionId?: string;
   patientId?: string;
-  patient?: { id?: string; name?: string; age?: number; gender?: string; abhaId?: string | null; abhaAddress?: string | null; isPregnant?: boolean; gestationalWeeks?: number; weightKg?: number };
+  patient?: { id?: string; name?: string; age?: number; dateOfBirth?: string | null; gender?: string; abhaId?: string | null; abhaAddress?: string | null; isPregnant?: boolean; gestationalWeeks?: number; weightKg?: number };
   practitioner?: { id?: string; name?: string; registrationNo?: string | null; qualification?: string | null; role?: string; hprId?: string | null };
   doctorId?: string;
   doctorName?: string;
@@ -85,6 +97,37 @@ const genderOf = (g: unknown): 'male' | 'female' | 'other' | 'unknown' => {
 const num = (v: unknown): number | null => { const n = parseFloat(String(v ?? '').replace(/[^\d.\-]/g, '')); return Number.isFinite(n) ? n : null; };
 const isoDate = (s?: string) => (s && !Number.isNaN(Date.parse(s)) ? new Date(s).toISOString() : new Date().toISOString());
 
+/** Human-readable narrative (FHIR dom-6): a short generated summary per resource, never a copy of PHI beyond what the resource holds. */
+function narrativeText(r: Record<string, any>): string {
+  const cc = (c: any) => c?.text || c?.coding?.[0]?.display || c?.coding?.[0]?.code || '';
+  switch (r.resourceType) {
+    case 'Composition': return `${r.title || 'Document'}: ${(r.section || []).map((s: any) => `${s.title} (${s.entry?.length || 0})`).join(', ')}`;
+    case 'Patient': return `${r.name?.[0]?.text || 'Patient'}, ${r.gender || 'gender unknown'}${r.birthDate ? `, born ${r.birthDate}` : ''}`;
+    case 'Practitioner': return `${r.name?.[0]?.text || 'Practitioner'}${r.qualification?.[0]?.code?.text ? `, ${r.qualification[0].code.text}` : ''}`;
+    case 'Organization': return `${r.name || 'Organization'}${r.identifier?.[0]?.value ? ` (${r.identifier[0].type?.text || 'id'}: ${r.identifier[0].value})` : ''}`;
+    case 'Encounter': return `${cc(r.class) || 'Encounter'} ${r.status || ''}${r.period?.start ? ` on ${r.period.start.slice(0, 10)}` : ''}`;
+    case 'Condition': return `${cc(r.code)} (${cc(r.verificationStatus) || 'status unknown'})`;
+    case 'Observation': return `${cc(r.code)}: ${r.valueQuantity ? `${r.valueQuantity.value} ${r.valueQuantity.unit}` : r.valueString || cc(r.valueCodeableConcept) || (r.component || []).map((c: any) => `${cc(c.code)} ${c.valueQuantity?.value} ${c.valueQuantity?.unit}`).join(', ') || 'recorded'}`;
+    case 'AllergyIntolerance': return `Allergy: ${cc(r.code)}${r.reaction?.[0]?.manifestation?.[0] ? ` (${cc(r.reaction[0].manifestation[0])})` : ''}`;
+    case 'Procedure': return `Procedure: ${cc(r.code)}${r.performedString ? ` (${r.performedString})` : ''}`;
+    case 'FamilyMemberHistory': return `Family history: ${cc(r.relationship)} with ${(r.condition || []).map((c: any) => cc(c.code)).join(', ') || 'condition'}`;
+    case 'MedicationRequest': return `${cc(r.medicationCodeableConcept)}: ${r.dosageInstruction?.[0]?.text || 'as directed'}`;
+    case 'MedicationStatement': return `Taking ${cc(r.medicationCodeableConcept)}${r.dosage?.[0]?.text ? ` (${r.dosage[0].text})` : ''}`;
+    case 'ServiceRequest': return `Requested: ${cc(r.code)}`;
+    case 'Appointment': return r.description || 'Follow-up appointment';
+    case 'DocumentReference': return `${cc(r.type) || 'Document'}${r.description ? `: ${r.description}` : ''}`;
+    default: return r.resourceType;
+  }
+}
+function addNarrative(r: Record<string, any>): void {
+  if (r.text) return;
+  const body = narrativeText(r).slice(0, 500);
+  // Rebuild the object so `text` sits after `meta` (readability of the JSON only; FHIR ignores order).
+  const { resourceType, id, meta, ...rest } = r;
+  for (const k of Object.keys(r)) delete r[k];
+  Object.assign(r, { resourceType, id, ...(meta ? { meta } : {}), text: { status: 'generated', div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${esc(body)}</p></div>` }, ...rest });
+}
+
 export class FhirGeneratorService {
   static generateEncounterBundle(record: any): AbdmFhirBundle {
     return this.buildBundle(record);
@@ -105,24 +148,29 @@ export class FhirGeneratorService {
     const p = record.patient || {};
     const patientLocalId = p.id || record.patientId || record.sessionId || 'unknown';
     const patientIdentifiers: any[] = [];
-    if (p.abhaId) patientIdentifiers.push({ type: { coding: [coding('http://terminology.hl7.org/CodeSystem/v2-0203', 'MR', 'Medical record number')], text: 'ABHA number' }, system: 'https://healthid.ndhm.gov.in', value: String(p.abhaId) });
-    if (p.abhaAddress) patientIdentifiers.push({ type: text('ABHA address'), system: 'https://healthid.ndhm.gov.in', value: String(p.abhaAddress) });
-    patientIdentifiers.push({ type: { coding: [coding('http://terminology.hl7.org/CodeSystem/v2-0203', 'MR', 'Medical record number')], text: 'Hospital MRN' }, system: `${HOSPITAL}/mrn`, value: String(patientLocalId) });
+    if (p.abhaId) patientIdentifiers.push({ type: { coding: [coding(NDHM_ID_TYPE, 'ABHA', 'Ayushman Bharat Health Account (ABHA) ID')], text: 'ABHA number' }, system: 'https://healthid.ndhm.gov.in', value: String(p.abhaId) });
+    if (p.abhaAddress) patientIdentifiers.push({ type: { coding: [coding(NDHM_ID_TYPE, 'ABHA', 'Ayushman Bharat Health Account (ABHA) ID')], text: 'ABHA address' }, system: 'https://healthid.abdm.gov.in', value: String(p.abhaAddress) });
+    patientIdentifiers.push({ type: { coding: [coding(V2_ID_TYPE, 'MR', 'Medical record number')], text: 'Hospital MRN' }, system: `${HOSPITAL}/mrn`, value: String(patientLocalId) });
     const patientResource: Record<string, any> = {
       resourceType: 'Patient', id: ids.patient, meta: { profile: [`${NDHM}/Patient`] },
       identifier: patientIdentifiers,
       name: [{ text: p.name || 'Patient' }],
       gender: genderOf(p.gender)
     };
-    if (Number.isFinite(Number(p.age)) && Number(p.age) > 0) {
-      patientResource.extension = [{ url: `${HOSPITAL}/StructureDefinition/age-years`, valueInteger: Number(p.age) }];
-    }
+    // Age is captured at the kiosk, not a date of birth: FHIR allows a year-precision birthDate, which is
+    // the honest representation of "about N years old" (ABDM accepts it; no fake day/month invented).
+    if (p.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(String(p.dateOfBirth))) patientResource.birthDate = String(p.dateOfBirth);
+    else if (Number.isFinite(Number(p.age)) && Number(p.age) > 0 && Number(p.age) < 130) patientResource.birthDate = String(new Date(timestamp).getUTCFullYear() - Math.floor(Number(p.age)));
     add(patientResource);
 
     // ---- Organization
     add({
       resourceType: 'Organization', id: ids.organization, meta: { profile: [`${NDHM}/Organization`] },
-      ...(HFR_ID ? { identifier: [{ type: { coding: [coding('http://terminology.hl7.org/CodeSystem/v2-0203', 'PRN', 'Provider number')] }, system: 'https://facility.ndhm.gov.in', value: HFR_ID }] } : {}),
+      // NRCES Organization requires an identifier. The HFR id is used when the facility is registered;
+      // otherwise the hospital's own facility code, clearly marked as a local (non-HFR) identifier.
+      identifier: [HFR_ID
+        ? { type: { coding: [coding(V2_ID_TYPE, 'PRN', 'Provider number')], text: 'Health Facility Registry ID' }, system: 'https://facility.ndhm.gov.in', value: HFR_ID }
+        : { type: { coding: [coding(V2_ID_TYPE, 'PRN', 'Provider number')], text: 'Local facility code (not yet registered in the Health Facility Registry)' }, system: `${HOSPITAL}/facility`, value: FACILITY_CODE || 'LOCAL' }],
       name: HOSPITAL_NAME
     });
 
@@ -159,6 +207,7 @@ export class FhirGeneratorService {
     };
 
     // ---- Chief complaints / diagnoses as Condition (tri-coded when resolvable)
+    const pendingTraditional: Array<{ conditionId: string; codings: any[]; text: string }> = [];
     const diagnoses: any[] = (record.diagnoses && record.diagnoses.length > 0) ? record.diagnoses : [];
     const symptomsPresent = (record.symptoms || []).filter((s: any) => s && !s.isNegated);
     const conditionFromDiag = (d: any) => {
@@ -177,13 +226,17 @@ export class FhirGeneratorService {
         ...(d.snomedConceptId ? [coding(SCT, String(d.snomedConceptId), d.englishEquivalent)] : [])
       ];
       const final = doctor && d.status === 'final';
+      const inline = NRCES_STRICT ? codings.filter(c => !TRADITIONAL_SYSTEMS.has(c.system)) : codings;
+      const traditional = NRCES_STRICT ? codings.filter(c => TRADITIONAL_SYSTEMS.has(c.system)) : [];
+      const conditionId = uuidv4();
+      if (traditional.length) pendingTraditional.push({ conditionId, codings: traditional, text: doctor ? String(d.display) : `${d.sanskritTerm || ''}`.trim() || String(d.englishEquivalent || 'Diagnosis') });
       return {
-        resourceType: 'Condition', id: uuidv4(), meta: { profile: [`${NDHM}/Condition`] },
+        resourceType: 'Condition', id: conditionId, meta: { profile: [`${NDHM}/Condition`] },
         clinicalStatus: { coding: [coding('http://terminology.hl7.org/CodeSystem/condition-clinical', 'active', 'Active')] },
         verificationStatus: { coding: [coding('http://terminology.hl7.org/CodeSystem/condition-ver-status', final ? 'confirmed' : 'provisional', final ? 'Confirmed' : 'Provisional')] },
         category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/condition-category', 'encounter-diagnosis', 'Encounter Diagnosis')] }],
         code: {
-          ...(codings.length ? { coding: codings } : {}),
+          ...(inline.length ? { coding: inline } : {}),
           text: doctor ? String(d.display) : d.sanskritTerm ? `${d.sanskritTerm} (${d.englishEquivalent})` : String(d.englishEquivalent || d.name || 'Diagnosis')
         },
         subject: ref(ids.patient), encounter: ref(ids.encounter), recordedDate: timestamp,
@@ -208,12 +261,25 @@ export class FhirGeneratorService {
       }
     }
 
+    // ---- Traditional medicine (NAMASTE / ICD-11 TM2) diagnosis coding, linked to its Condition (strict NRCES mode)
+    for (const t of pendingTraditional) {
+      sectionEntries.otherObservations.push(add({
+        resourceType: 'Observation', id: uuidv4(), meta: { profile: [`${NDHM}/Observation`] }, status: 'final',
+        category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/observation-category', 'exam', 'Exam')] }],
+        code: { coding: [coding(SCT, '439401001', 'Diagnosis')], text: 'Traditional medicine diagnosis coding (NAMASTE / ICD-11 TM2)' },
+        subject: ref(ids.patient), encounter: ref(ids.encounter), focus: [ref(t.conditionId)], effectiveDateTime: timestamp, performer: [ref(ids.practitioner)],
+        valueCodeableConcept: { coding: t.codings, text: t.text },
+        note: [{ text: 'Dual coding of the same diagnosis in the AYUSH NAMASTE terminology (and ICD-11 TM2 where mapped); NRCES Condition.code is limited to ICD-10 / SNOMED CT.' }]
+      }));
+    }
+
     // ---- Vitals as LOINC Observations
     const v = record.vitals || {};
     const vitalObs = (code: string, display: string, value: number, unit: string, ucum: string) => add({
       resourceType: 'Observation', id: uuidv4(), meta: { profile: [`${NDHM}/Observation`] }, status: 'final',
       category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/observation-category', 'vital-signs', 'Vital Signs')] }],
       code: { coding: [coding(LOINC, code, display)], text: display }, subject: ref(ids.patient), encounter: ref(ids.encounter), effectiveDateTime: timestamp,
+      performer: [ref(v.source && v.source !== 'clinician' ? ids.patient : ids.practitioner)],
       valueQuantity: { value, unit, system: 'http://unitsofmeasure.org', code: ucum },
       ...(v.source && v.source !== 'clinician' ? { note: [{ text: 'Patient-reported at kiosk; not verified by staff.' }] } : {})
     });
@@ -222,7 +288,7 @@ export class FhirGeneratorService {
       resourceType: 'Observation', id: uuidv4(), meta: { profile: [`${NDHM}/Observation`] }, status: 'final',
       category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/observation-category', 'vital-signs', 'Vital Signs')] }],
       code: { coding: [coding(LOINC, '85354-9', 'Blood pressure panel with all children optional')], text: 'Blood pressure' },
-      subject: ref(ids.patient), encounter: ref(ids.encounter), effectiveDateTime: timestamp,
+      subject: ref(ids.patient), encounter: ref(ids.encounter), effectiveDateTime: timestamp, performer: [ref(v.source && v.source !== 'clinician' ? ids.patient : ids.practitioner)],
       component: [
         { code: { coding: [coding(LOINC, '8480-6', 'Systolic blood pressure')] }, valueQuantity: { value: parseInt(bp[1], 10), unit: 'mmHg', system: 'http://unitsofmeasure.org', code: 'mm[Hg]' } },
         { code: { coding: [coding(LOINC, '8462-4', 'Diastolic blood pressure')] }, valueQuantity: { value: parseInt(bp[2], 10), unit: 'mmHg', system: 'http://unitsofmeasure.org', code: 'mm[Hg]' } }
@@ -336,7 +402,7 @@ export class FhirGeneratorService {
     const social = (code: { system: string; code: string; display: string } | null, label: string, value: string) => add({
       resourceType: 'Observation', id: uuidv4(), meta: { profile: [`${NDHM}/Observation`] }, status: 'final',
       category: [{ coding: [coding('http://terminology.hl7.org/CodeSystem/observation-category', 'social-history', 'Social History')] }],
-      code: { ...(code ? { coding: [coding(code.system, code.code, code.display)] } : {}), text: label }, subject: ref(ids.patient), effectiveDateTime: timestamp, valueString: value
+      code: { ...(code ? { coding: [coding(code.system, code.code, code.display)] } : {}), text: label }, subject: ref(ids.patient), encounter: ref(ids.encounter), effectiveDateTime: timestamp, performer: [ref(ids.patient)], valueString: value
     });
     if (soc.tobacco) sectionEntries.otherObservations.push(social({ system: LOINC, code: '72166-2', display: 'Tobacco smoking status' }, 'Tobacco use', `${soc.tobacco}${soc.tobaccoDetail ? ` (${soc.tobaccoDetail})` : ''}`));
     if (soc.alcohol) sectionEntries.otherObservations.push(social({ system: LOINC, code: '74013-4', display: 'Alcoholic drinks per day' }, 'Alcohol use', soc.alcohol));
@@ -376,6 +442,7 @@ export class FhirGeneratorService {
       title: 'OP Consultation Record', custodian: ref(ids.organization), section: sections
     };
     entries.unshift({ fullUrl: `urn:uuid:${ids.composition}`, resource: composition });
+    for (const e of entries) addNarrative(e.resource);
 
     return {
       resourceType: 'Bundle', id: ids.bundle,

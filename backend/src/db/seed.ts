@@ -4,6 +4,7 @@
  */
 
 import { db } from './database';
+import { signRecord } from '../security/recordSigning';
 
 export function seedDatabase() {
   console.log('[Seed] Seeding sample patients and sessions...');
@@ -428,7 +429,7 @@ export function seedDatabase() {
       createdAt: now
     }),
     JSON.stringify({ resourceType: 'Bundle', id: 'bundle-enc-001' }),
-    JSON.stringify({ protocol: 'groth16', curve: 'bn128', verified: true }),
+    null,
     now
   );
 
@@ -453,15 +454,23 @@ export function seedDatabase() {
         { classicalName: 'Rasnasaptaka Kwatha (AIIA Safe Renal Formulation)', namasteCode: 'AYU-KW-042', dosageForm: 'Kwatha', dose: '15 ml with equal warm water', anupana: 'Koshna Jala', frequency: 'BD after food', durationDays: 30 }
       ],
       conflictAlerts: [
-        { severity: 'CRITICAL_LASA', drugName: 'Amlodipine', warningMessage: 'Monitor blood pressure weekly.' }
+        { alertId: 'demo-bp-monitoring', severity: 'WARNING', tier: 'WARN', family: 'monitoring', itemA: 'Amlodipine', itemB: 'Age 74 y', mechanism: 'Older adults are more prone to postural hypotension on calcium-channel blockers.', clinicalAction: 'Check blood pressure weekly; advise rising slowly from sitting.' }
       ],
       doctorNotes: 'Elderly sarcopenic patient with eGFR 31.8 mL/min. NSAIDs contraindicated. Warfarin INR stable at 2.4.',
       createdAt: now
     }),
     JSON.stringify({ resourceType: 'Bundle', id: 'bundle-enc-002' }),
-    JSON.stringify({ protocol: 'groth16', curve: 'bn128', verified: true }),
+    null,
     now
   );
+
+  // Seal the two sample prescriptions with the hospital key, as every signed prescription is: the
+  // pharmacy counter refuses to hand over anything from a record whose seal it cannot verify.
+  try { db.exec('ALTER TABLE encounters ADD COLUMN signature_json TEXT;'); } catch {}
+  for (const id of ['enc-001', 'enc-002']) {
+    const row: any = db.prepare('SELECT case_sheet_json, doctor_id FROM encounters WHERE id = ?').get(id);
+    if (row) db.prepare('UPDATE encounters SET signature_json = ? WHERE id = ?').run(JSON.stringify(signRecord(JSON.parse(row.case_sheet_json), row.doctor_id)), id);
+  }
 
   console.log('[Seed] Database successfully seeded with 10 diverse Pan-Indian clinical patients and physical SQLite encounters.');
 }

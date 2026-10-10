@@ -26,8 +26,31 @@ export async function apiLogin(request: APIRequestContext, username: string): Pr
   return token;
 }
 
+/** Open the username + PIN form of the sign-in card (it sits behind a button where one-tap accounts are offered). */
+export async function openPinForm(page: Page) {
+  await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toBeVisible();
+  const username = page.getByLabel('Username');
+  if (!(await username.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Sign in with a username and PIN' }).click();
+  }
+  await expect(username).toBeVisible();
+}
+
+/**
+ * Sign in on a screen: with the one-tap account when the screen offers it for this user (a
+ * demonstration server does, for the screen's own roles), otherwise with username + PIN.
+ */
 export async function uiLogin(page: Page, mode: string, username: string) {
   await page.goto(`/?mode=${mode}`);
+  await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toBeVisible();
+  const tile = page.getByTestId(`quick-signin-${username}`);
+  // The tiles arrive with the server's answer; give them a moment before falling back to the form.
+  const offered = await tile.waitFor({ state: 'visible', timeout: 4000 }).then(() => true).catch(() => false);
+  if (offered) {
+    await tile.click();
+    return;
+  }
+  await openPinForm(page);
   await page.getByLabel('Username').fill(username);
   await page.locator('input[type=password]').first().fill(demoPin(username));
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();

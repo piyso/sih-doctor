@@ -474,6 +474,8 @@ export const KioskContainer: React.FC<KioskContainerProps> = () => {
           <Step6DocumentScanner
             scannedDocs={scannedDocs}
             setScannedDocs={setScannedDocs}
+            history={history}
+            setHistory={setHistory}
             language={language}
             patient={patient}
             symptoms={symptoms}

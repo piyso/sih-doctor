@@ -5,6 +5,14 @@
 import { FhirGeneratorService } from '../src/services/fhirGenerator.service';
 import { ConsultationRecord } from '../src/shared/types';
 
+/** NAMASTE/ICD-11 codings for a Condition: inline (FHIR_NRCES_STRICT=false) or in the linked Observation (default). */
+const traditionalCodingsFor = (bundle: any, cond: any): any[] => {
+  const inline = (cond?.code?.coding || []).filter((c: any) => c.system === 'https://namstp.ayush.gov.in' || c.system === 'http://id.who.int/icd/release/11/mms');
+  if (inline.length) return inline;
+  const obs = bundle.entry.find((e: any) => e.resource.resourceType === 'Observation' && (e.resource.focus || []).some((f: any) => f.reference === `urn:uuid:${cond?.id}`));
+  return obs?.resource?.valueCodeableConcept?.coding || [];
+};
+
 export function runFhirBenchmark(bundleCount: number = 1000) {
   console.log(`\n========================================================================`);
   console.log(`  RUNNING ABDM FHIR R4 INTEROPERABILITY & TRI-CODING BENCHMARK`);
@@ -135,10 +143,10 @@ export function runFhirBenchmark(bundleCount: number = 1000) {
       compositionInvariantsMet++;
     }
 
-    // Invariant 3: Condition has all 3 code systems (NAMASTE, ICD-10, SNOMED)
+    // Invariant 3: the diagnosis is tri-coded: ICD-10 + SNOMED on the NRCES Condition, NAMASTE on the linked Observation
     const condEntry = bundle.entry.find(e => e.resource.resourceType === 'Condition');
-    if (condEntry && condEntry.resource.code && condEntry.resource.code.coding.length >= 3) {
-      const systems = condEntry.resource.code.coding.map((c: any) => c.system);
+    if (condEntry && condEntry.resource.code && condEntry.resource.code.coding) {
+      const systems = [...condEntry.resource.code.coding, ...traditionalCodingsFor(bundle, condEntry.resource)].map((c: any) => c.system);
       if (
         systems.includes('https://namstp.ayush.gov.in') &&
         systems.includes('http://hl7.org/fhir/sid/icd-10') &&

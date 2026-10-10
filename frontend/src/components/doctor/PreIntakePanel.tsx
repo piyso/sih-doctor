@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { dispenseText } from '../../utils/dispenseText';
 import { User, Heart, Flame, Wind, Activity, Pencil, Check, X, Loader2, Leaf, Pill, ClipboardList, Info } from 'lucide-react';
 import { SessionDetail, SocratesSymptom, VitalsData } from '../../types/api';
 import { PAIN_CHARACTERS, kioskText } from '../../utils/kioskLocalization';
 import {
   STATUS_TONE, VITAL_LIMITS, VitalStatus, bpStatus, normaliseTempF, parseBp, parseNumber, pulseStatus, spo2Status, tempStatus
 } from '../../utils/vitals';
-import { DoctorRole, formatDiagnosis } from './doctorRole';
+import { DoctorRole } from './doctorRole';
 
 interface PreIntakePanelProps {
   session: SessionDetail | null;
@@ -213,21 +214,21 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
   return (
     <div className="physical-card p-4 flex flex-col gap-3">
       {/* Who and what kind of visit. Name, age, allergies and pregnancy are in the safety banner above. */}
-      <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[11px] text-muted-foreground">
         {/* Emergency is on the patient bar; here only the other priorities. */}
         {session.triagePriority !== 'EMERGENCY_RED_FLAG' && <span className={`px-2 py-0.5 rounded-md border font-mono text-[11px] font-bold uppercase cursor-help ${priority.tone}`} title={priority.help}>{priority.label}</span>}
         <span className="flex items-center gap-1">
-          {session.careStream === 'AYURVEDA' ? <><Leaf size={11} className="text-emerald-600" /> Wants Ayurveda</> : session.careStream === 'ALLOPATHY' ? <><Pill size={11} className="text-sky-600" /> Wants modern medicine</> : 'No doctor preference'}
+          {session.careStream === 'AYURVEDA' ? <><Leaf size={11} className="text-emerald-600" /> Asked for Ayurveda</> : session.careStream === 'ALLOPATHY' ? <><Pill size={11} className="text-sky-600" /> Asked for modern medicine</> : 'No preference for the kind of doctor'}
         </span>
-        {session.abhaId && <span className="font-mono">· ABHA {session.abhaId}</span>}
+        {session.abhaId && <span>ABHA <span className="font-mono">{session.abhaId}</span></span>}
       </div>
 
       {/* Vitals: view + edit with instant interpretation */}
       <Section
         title={<>Vitals
             {vitalsAssessment?.applicable && (
-              <span className={`px-1.5 py-0.5 rounded border font-mono text-[11px] font-bold normal-case tracking-normal ${NEWS_TONE[vitalsAssessment.band]}`} title={`${vitalsAssessment.clinicalResponse} (${vitalsAssessment.reference})`}>
-                NEWS2 {vitalsAssessment.news2}{vitalsAssessment.selfReported ? ' · unverified' : ''}
+              <span className={`px-1.5 py-0.5 rounded border font-mono text-[11px] font-bold normal-case tracking-normal whitespace-nowrap ${NEWS_TONE[vitalsAssessment.band]}`} title={`${vitalsAssessment.clinicalResponse} (${vitalsAssessment.reference})`}>
+                NEWS2 {vitalsAssessment.news2}
               </span>
             )}</>}
         right={editing ? (
@@ -240,7 +241,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
               </button>
             </div>
           ) : (
-            <button type="button" onClick={() => setEditing(true)} className="px-2 py-1 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 flex items-center gap-1">
+            <button type="button" onClick={() => setEditing(true)} className="px-2 py-1 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 flex items-center gap-1 whitespace-nowrap">
               <Pencil size={12} /> {Object.values(status).every(s => s === 'empty') ? 'Record vitals' : 'Edit vitals'}
             </button>
           )}
@@ -269,7 +270,9 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
             <span>AVPU {session.vitals?.consciousness || '—'}{session.vitals?.onOxygen ? ' · on O₂' : ''}</span>
             <span className={!session.vitals?.weightKg && !session.weightKg && session.age < 12 ? 'text-amber-700 font-bold' : ''}>Weight {session.vitals?.weightKg || session.weightKg || '—'} kg</span>
             <span>Sugar {session.vitals?.bloodSugar ?? '—'}</span>
-            {session.vitals?.recordedBy && <span>· measured by {session.vitals.recordedBy}</span>}
+            {session.vitals?.recordedBy
+              ? <span>· measured by {session.vitals.recordedBy}</span>
+              : vitalsAssessment?.selfReported && <span className="basis-full font-sans font-semibold text-amber-700">Entered by the patient at the kiosk — not yet measured by staff.</span>}
           </div>
         )}
         {saveError && <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">{saveError}</p>}
@@ -311,27 +314,11 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
         )}
       </Section>
 
-      {(() => {
-        const dx = formatDiagnosis(session.provisionalDiagnoses?.[0], role);
-        return dx ? (
-          <Section title="Kiosk suggestion — confirm in the Diagnosis field">
-            <div className="px-3 py-2 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5">
-              <div className="text-sm font-bold text-foreground">{dx.title}</div>
-              {dx.subtitle && <div className="text-xs text-muted-foreground">{dx.subtitle}</div>}
-              {dx.codes.length > 0 && <div className="text-[11px] font-mono text-muted-foreground mt-0.5">{dx.codes.join(' · ')}</div>}
-              <div className="text-[11px] text-muted-foreground mt-1">Generated from the kiosk intake — confirm clinically.</div>
-            </div>
-          </Section>
-        ) : null;
-      })()}
-
-      {ctx && (ctx.eGfr !== undefined || ctx.knownConditions.length > 0 || ctx.missing.length > 0) && (
-        <Section title="Safety context">
-          <div className="text-xs text-foreground space-y-0.5">
-            {ctx.eGfr !== undefined && <div>eGFR <strong>{ctx.eGfr}</strong> mL/min ({ctx.eGfrMethod === 'CKD-EPI-2021' ? 'CKD-EPI 2021 from last creatinine' : 'reported'})</div>}
-            {ctx.knownConditions.length > 0 && <div><span className="text-muted-foreground">Known:</span> {ctx.knownConditions.join(', ')}</div>}
-            {ctx.missing.length > 0 && <div className="text-muted-foreground">Not on file: {ctx.missing.join(', ')}</div>}
-          </div>
+      {/* The kiosk's suggested diagnosis is offered where it is confirmed (Diagnosis, in the visit). Allergies,
+          pregnancy, kidney function and the first conditions are on the patient bar; only a longer list is repeated here. */}
+      {ctx && ctx.knownConditions.length > 4 && (
+        <Section title={`Known conditions (${ctx.knownConditions.length})`}>
+          <div className="text-xs text-foreground">{ctx.knownConditions.join(', ')}</div>
         </Section>
       )}
 
@@ -349,7 +336,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
             {session.previousEncounters!.slice(0, 3).map(e => (
               <div key={e.encounterId} className="text-xs">
                 <div className="flex items-center gap-2 flex-wrap"><strong className="text-foreground">{new Date(e.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</strong><span className="text-muted-foreground">{e.doctorName}</span>
-                  <span className={`px-1.5 rounded border text-[11px] font-bold ${e.dispensed === 'DISPENSED' ? 'border-emerald-500/40 text-emerald-700' : 'border-amber-500/40 text-amber-800'}`}>{e.dispensed.replace(/_/g, ' ').toLowerCase()}</span></div>
+                  <span className={`px-1.5 rounded border text-[11px] font-bold ${e.dispensed === 'DISPENSED' ? 'border-emerald-500/40 text-emerald-700' : 'border-amber-500/40 text-amber-800'}`}>{dispenseText(e.dispensed)}</span></div>
                 {e.diagnoses.length > 0 && <div className="text-muted-foreground">{e.diagnoses.join(', ')}</div>}
                 <div className="text-foreground">{e.medicines.map(m => `${m.name}${m.dosage ? ` ${m.dosage}` : ''}${m.frequency ? ` ${m.frequency}` : ''}`).join(' · ') || 'No medicines'}</div>
               </div>
@@ -360,7 +347,8 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
 
       {/* History: what was answered is listed; sections never asked are named in one line, not hidden. */}
       {(() => {
-        const sections = summary ? summary.sections.filter(sec => !['chiefComplaint', 'hpi', 'vitals'].includes(sec.id)) : [];
+        // The self-assessed Ayurvedic profile belongs to the Vaidya desk, not to a modern-medicine summary.
+        const sections = summary ? summary.sections.filter(sec => !['chiefComplaint', 'hpi', 'vitals'].includes(sec.id) && (isAyurveda || sec.id !== 'ayush')) : [];
         const asked = sections.filter(sec => sec.status !== 'not_asked');
         const notAsked = sections.filter(sec => sec.status === 'not_asked');
         return (

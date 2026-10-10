@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, apiLogin, uiLogin, demoPin } from '../helpers';
+import { API, apiLogin, uiLogin, openPinForm, demoPin } from '../helpers';
 
 test.describe('Access control', () => {
   test('patient data needs a signed-in clinician', async ({ request }) => {
@@ -31,9 +31,20 @@ test.describe('Access control', () => {
     expect((await r.json()).data.valid).toBe(true);
   });
 
+  test('one tap signs a demo doctor in on a demonstration server', async ({ page }) => {
+    await page.goto('/?mode=doctor');
+    await page.getByTestId('quick-signin-dr.sharma').click();
+    await expect(page.getByRole('button', { name: /Account: Dr\. Ananya Sharma/ })).toBeVisible();
+    // The pharmacy screen is for other roles: it offers the right account in one tap, too.
+    await page.goto('/?mode=pharmacy');
+    await expect(page.getByText('is not available for your role')).toBeVisible();
+    await page.getByTestId('quick-signin-pharma.ravi').click();
+    await expect(page.getByRole('button', { name: /Account: Ravi Kumar/ })).toBeVisible();
+  });
+
   test('staff sign-in screen guards the doctor desk', async ({ page }) => {
     await page.goto('/?mode=doctor');
-    await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toBeVisible();
+    await openPinForm(page);
     await page.getByLabel('Username').fill('dr.sharma');
     await page.locator('input[type=password]').first().fill('111222');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();

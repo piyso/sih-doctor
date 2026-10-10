@@ -1,31 +1,57 @@
 import { test, expect } from '@playwright/test';
-import { API } from '../helpers';
+import { API, apiLogin } from '../helpers';
 
 /**
- * Demonstration-mode badge and dialog. Read-only on purpose: the shared dev server is never
- * switched off here (the backend battery tests/demo_mode.test.ts covers switching on a temp DB),
- * and no wrong PINs are tried (they would count towards the demo admin's lockout).
+ * The Mock / Real switch of a demonstration server. The round trip below really switches the dev
+ * server for about a second and always switches it back to Mock; nothing is deleted by it and
+ * nobody is signed out. (The backend battery tests/demo_mode.test.ts covers the rules on a temp DB.)
  */
-test.describe('Demonstration mode', () => {
+test.describe('Mock / Real switch', () => {
   test('the server reports its mode publicly', async ({ request }) => {
     const r = await request.get(`${API}/system/mode`);
     expect(r.status()).toBe(200);
     const { data } = await r.json();
     expect(typeof data.demoMode).toBe('boolean');
-    expect(typeof data.demoToggle).toBe('boolean');
+    expect(data.demoToggle).toBe(true);
   });
 
-  test('the gateway badge opens the switch, which needs an administrator', async ({ page }) => {
+  test('one click on the gateway switches to Real and back, without signing in', async ({ page, request }) => {
+    const mode = async () => (await (await request.get(`${API}/system/mode`)).json()).data.demoMode as boolean;
+    const doctor = await apiLogin(request, 'dr.sharma');
+    const sampleInQueue = async () => {
+      const q = await (await request.get(`${API}/doctor/queue`, { headers: { Authorization: `Bearer ${doctor}` } })).json();
+      return (q.data as Array<{ sessionId: string }>).some(x => /^sess-0\d\d$/.test(x.sessionId));
+    };
     await page.goto('/');
-    const badge = page.getByRole('button', { name: 'Demo mode', exact: true });
-    await expect(badge).toBeVisible();
-    await badge.click();
-    const dialog = page.getByRole('dialog', { name: 'Demonstration mode' });
+    const group = page.getByRole('radiogroup', { name: 'Mock or Real mode' });
+    const mock = group.getByRole('radio', { name: 'Mock' });
+    const real = group.getByRole('radio', { name: 'Real' });
+    await expect(mock).toHaveAttribute('aria-checked', 'true');
+    try {
+      await real.click();
+      await expect(real).toHaveAttribute('aria-checked', 'true');
+      await expect(page.getByText(/Real mode is on/)).toBeVisible();
+      expect(await mode()).toBe(false);
+      expect(await sampleInQueue()).toBe(false);
+      // The doctor signed in before the switch is still signed in.
+      expect((await request.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${doctor}` } })).status()).toBe(200);
+    } finally {
+      await mock.click();
+      await expect(mock).toHaveAttribute('aria-checked', 'true');
+    }
+    await expect(page.getByText(/Mock mode is on/)).toBeVisible();
+    expect(await mode()).toBe(true);
+    expect(await sampleInQueue()).toBe(true);
+  });
+
+  test('the explanation says what each mode means', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'What Mock and Real mode mean' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Mock or Real' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('Live mode', { exact: true })).toBeVisible();
-    // Not signed in: an administrator's username and PIN are asked for before anything changes.
-    await expect(dialog.getByLabel('Administrator username')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Switch to live mode' })).toBeDisabled();
+    await expect(dialog.getByText('Mock mode', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Real mode', { exact: true })).toBeVisible();
+    await expect(dialog.getByText(/Mock mode · sample patients from the hospital server/)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('heading', { name: "Choose this computer's role" })).toBeVisible();

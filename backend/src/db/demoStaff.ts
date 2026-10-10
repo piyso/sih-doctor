@@ -41,10 +41,39 @@ export function ensureDemoStaff(): number {
   return created;
 }
 
+/**
+ * Put the demo accounts back exactly as seeded: present, active, unlocked, with their published
+ * PINs. For a demonstration server whose demo accounts were changed, locked or deactivated by a
+ * visitor (scripts/reset-demo.ts). A real account that uses a demo username is never touched.
+ */
+export function resetDemoStaff(): { created: number; restored: number } {
+  const byName = new Map(AuthService.listUsers().map(u => [u.username, u]));
+  let created = 0;
+  let restored = 0;
+  for (const s of DEMO_STAFF) {
+    const existing = byName.get(s.username);
+    if (!existing) {
+      AuthService.createUser({ ...s, isDemo: true });
+      created++;
+    } else if (existing.isDemo) {
+      AuthService.updateUser(existing.id, { displayName: s.displayName, role: s.role, active: true });
+      AuthService.setPin(existing.id, s.pin, false); // also clears failed attempts and any lock
+      restored++;
+    }
+  }
+  return { created, restored };
+}
+
+/** The seeded demo administrator's sign-in, for the local reset script only. */
+export function demoAdminCredentials(): { username: string; pin: string } {
+  const a = DEMO_STAFF.find(s => s.role === 'admin')!;
+  return { username: a.username, pin: a.pin };
+}
+
 export function ensureStaffAccounts(): void {
   if (AuthService.countUsers() > 0) return;
 
-  if (securityConfig.allowDemo) {
+  if (securityConfig.demoAccountsOpen) {
     for (const s of DEMO_STAFF) AuthService.createUser({ ...s, isDemo: true });
     console.log(`[Auth] Created ${DEMO_STAFF.length} demo staff accounts (see src/db/demoStaff.ts). Disable with ALLOW_DEMO_DATA=false.`);
     return;

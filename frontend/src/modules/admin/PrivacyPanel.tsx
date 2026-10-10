@@ -94,7 +94,7 @@ export const PrivacyPanel: React.FC = () => {
                     {p.erasedAt && <div className="text-[11px] font-semibold text-rose-600">Identifiers erased {fmtTime(p.erasedAt)}</div>}
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {Object.entries(p.consent || {}).map(([k, v]) => (
-                        <span key={k} className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${v ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground'}`}>
+                        <span key={k} className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${v ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground'}`}>
                           {PURPOSE_LABEL[k] || k}: {v ? 'yes' : 'no'}
                         </span>
                       ))}

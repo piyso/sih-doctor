@@ -364,6 +364,20 @@ function scheduleE1Of(name: string): string[] {
   return line.ayush.formulation ? constituentsWithFlag(line.ayush.formulation, 'schedule_e1') : ['(ingredient named in the product)'];
 }
 
+/** The part of the signed patient context a pharmacist needs at the counter (no conditions, no lab values). */
+function pharmacyContext(used: any): { allergies?: Array<{ agent: string; reaction?: string }>; pregnancy: 'yes' | 'no' | 'unknown' | null; gestationalWeeks?: number; lactating: boolean; weightKg?: number } | null {
+  if (!used || typeof used !== 'object') return null;
+  const missing: string[] = Array.isArray(used.missing) ? used.missing.map(String) : [];
+  const female = String(used.gender || '').toLowerCase() === 'female';
+  return {
+    allergies: Array.isArray(used.allergies) ? used.allergies.map((a: any) => ({ agent: String(a?.agent || a || '').slice(0, 80), reaction: a?.reaction ? String(a.reaction).slice(0, 80) : undefined })).filter((a: any) => a.agent) : undefined,
+    pregnancy: !female ? null : used.isPregnant === true ? 'yes' : missing.some(m => /pregnan/i.test(m)) ? 'unknown' : 'no',
+    gestationalWeeks: used.isPregnant === true && Number(used.gestationalWeeks) > 0 ? Number(used.gestationalWeeks) : undefined,
+    lactating: used.isLactating === true,
+    weightKg: Number(used.weightKg) > 0 ? Number(used.weightKg) : undefined
+  };
+}
+
 /** GET /api/doctor/encounters & /api/doctor/pharmacy-queue */
 doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', ...CLINICIAN_ROLES), (_req: Request, res: Response): void => {
   try {
@@ -389,7 +403,7 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
       const h1 = allo.flatMap((m: any) => resolveAllopathicLine(m, 0, 'prescribed').conceptIds.map(drugById).filter(c => c && (c.schedule === 'H1' || c.ndps)).map(c => ({ medicine: m.name || m.drugName, generic: c!.inn, schedule: c!.schedule || 'NDPS', ndps: !!c!.ndps })));
       return {
         id: r.id,
-        prescriptionToken: r.token_no || `RX-${r.id.slice(0, 6).toUpperCase()}`,
+        prescriptionToken: r.token_no || `RX-${String(r.id).replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase()}`,
         patientName: r.patient_name,
         age: r.age,
         gender: r.gender,
@@ -406,10 +420,15 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
         diagnoses: (sheet.diagnoses || []).map((d: any) => typeof d === 'string' ? d : d.display || d.englishEquivalent || d.sanskritTerm).filter(Boolean),
         advice: sheet.advice || '',
         followUpDays: sheet.followUpDays || null,
-        lasaAlerts: (sheet.conflictAlerts || []).filter((a: any) => a.severity === 'CRITICAL_LASA' || a.severity === 'CRITICAL_CONTRAINDICATION'),
+        // Only true look-alike records (a name and what it is confused with); interaction alerts are in conflictAlerts.
+        lasaAlerts: (sheet.conflictAlerts || []).filter((a: any) => a.severity === 'CRITICAL_LASA' && a.drugName && a.confusedWith),
         conflictAlerts: sheet.conflictAlerts || [],
         acknowledgedAlerts: sheet.criticalAlertsAcknowledged?.items || [],
         safetyChecks: sheet.safetyChecks || [],
+        // What the safety checks knew about the patient when the doctor signed — the pharmacist's last check
+        // (allergies: [] = asked and none, absent = never asked). Only what is needed to dispense.
+        patientContext: pharmacyContext(sheet.patientContextUsed),
+        notChecked: (sheet.safetyCoverage?.unresolved || []).map((u: any) => String(u?.name || '')).filter(Boolean).slice(0, 12),
         scheduleH1: h1,
         scheduleE1PoisonVerification: {
           containsScheduleE1: e1.length > 0,

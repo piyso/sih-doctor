@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { dispenseText } from '../../utils/dispenseText';
 import { createPortal } from 'react-dom';
 import { PatientQueueList } from './PatientQueueList';
 import { PreIntakePanel } from './PreIntakePanel';
@@ -12,7 +13,7 @@ import { AdrReportModal } from './AdrReportModal';
 import { QualityPanel } from './QualityPanel';
 import { PatientQueueItem, SessionDetail, VitalsData, SafetyEvaluation, SeenTodayItem } from '../../types/api';
 import { api } from '../../services/api';
-import { Users, Stethoscope, CheckCircle2, Activity, Leaf, Pill, X, Megaphone, UserX, Siren, PenLine, BarChart3, Volume2, VolumeX, TriangleAlert, Mic, FileCode, MoreHorizontal, ClipboardList, Loader2 } from 'lucide-react';
+import { Users, Stethoscope, CheckCircle2, Activity, Leaf, Pill, X, Megaphone, UserX, Siren, PenLine, BarChart3, Volume2, VolumeX, TriangleAlert, Mic, FileCode, MoreHorizontal, ClipboardList, Loader2, Undo2 } from 'lucide-react';
 import { DOCTOR_PROFILES, departmentName, roomLabel, DepartmentCode, DEPARTMENTS } from '../../utils/hospitalDirectory';
 import { DoctorRole, RxDraft, emptyRxDraft, loadDoctorRole, saveDoctorRole, normaliseDraft } from './doctorRole';
 import { useStaffUser } from '../auth/StaffGate';
@@ -545,6 +546,41 @@ export const DoctorDeskContainer: React.FC = () => {
               </button>
             </div>
           )}
+          {/* A prescription was already signed for this visit: say what the pharmacy did with it. A send-back
+              shows the pharmacist's reason in full here, not only clipped in the queue row. */}
+          {currentSession?.existingEncounter && (() => {
+            const enc = currentSession.existingEncounter;
+            const d = currentSession.dispense;
+            const when = (iso?: string) => {
+              if (!iso) return '';
+              const t = new Date(iso);
+              const time = t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+              return t.toDateString() === new Date().toDateString() ? time : `${t.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} ${time}`;
+            };
+            if (d?.status === 'REFERRED_BACK') {
+              return (
+                <div role="alert" className="rounded-xl border border-rose-500/50 bg-rose-500/[0.07] px-3 py-2.5">
+                  <div className="text-sm font-bold text-rose-800 flex items-center gap-1.5 flex-wrap">
+                    <Undo2 size={14} className="shrink-0" /> Sent back by the pharmacy
+                    <span className="text-xs font-semibold text-rose-800/80">{[d.pharmacist, when(d.at)].filter(Boolean).join(' · ')}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-foreground">“{d.note || 'No reason was written.'}”</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Change the prescription below and sign again. The pharmacy then gets the new one, and this one is marked as replaced.</p>
+                </div>
+              );
+            }
+            const given = d?.status === 'DISPENSED' || d?.status === 'PARTIAL';
+            const label = d && d.status !== 'PENDING_VERIFICATION' ? dispenseText(d.status) : '';
+            return (
+              <div role="status" className={`rounded-xl border px-3 py-2 text-xs ${given ? 'border-amber-500/40 bg-amber-500/[0.06]' : 'border-border/80 bg-muted/40'}`}>
+                <strong className="text-foreground">Already signed{enc.createdAt ? ` at ${when(enc.createdAt)}` : ''}{enc.doctorId && enc.doctorId !== user?.id && enc.doctorName ? ` by ${enc.doctorName}` : ''}.</strong>{' '}
+                {d && label
+                  ? <span className="text-foreground">Pharmacy: {label}{[d.pharmacist, when(d.at)].filter(Boolean).length ? ` (${[d.pharmacist, when(d.at)].filter(Boolean).join(' · ')})` : ''}{d.note ? ` — ${d.note}` : ''}.</span>
+                  : <span className="text-foreground">Not yet collected at the pharmacy.</span>}{' '}
+                <span className="text-muted-foreground">{given ? 'The patient already has medicines from it; signing again sends the pharmacy an amended prescription.' : 'Signing again replaces it at the pharmacy.'}</span>
+              </div>
+            );
+          })()}
           {/* Kept mounted while hidden: the transcript and any recording live in its state (one per patient). */}
           {currentSession && (
             <div id="desk-scribe" ref={scribeRef} hidden={!scribeVisible}>

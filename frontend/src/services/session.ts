@@ -23,6 +23,9 @@ export interface StaffUser {
 }
 
 const STAFF_KEY = 'hos_staff_session';
+const SANDBOX_KEY = 'hos_sandbox_mode';
+// Earlier builds kept the sandbox flag for the whole browser; drop that so it cannot leak between tabs.
+try { localStorage.removeItem(SANDBOX_KEY); } catch {}
 const DEVICE_KEY = 'hos_kiosk_device_token';
 
 type Listener = () => void;
@@ -88,14 +91,18 @@ export const session = {
     emit();
   },
 
+  /**
+   * Offline sandbox (Mock mode without a reachable server; see runtimeMode.ts). Kept per tab, like
+   * the staff session: one tab losing its connection must never put other tabs on stand-in data.
+   */
   get isSandbox(): boolean {
-    try { return localStorage.getItem('hos_sandbox_mode') === 'true'; } catch { return false; }
+    try { return sessionStorage.getItem(SANDBOX_KEY) === 'true'; } catch { return false; }
   },
 
   setSandbox(val: boolean) {
     try {
-      if (val) localStorage.setItem('hos_sandbox_mode', 'true');
-      else localStorage.removeItem('hos_sandbox_mode');
+      if (val) sessionStorage.setItem(SANDBOX_KEY, 'true');
+      else sessionStorage.removeItem(SANDBOX_KEY);
     } catch {}
     emit();
   }

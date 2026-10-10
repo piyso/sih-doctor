@@ -105,7 +105,7 @@ export const StaffPanel: React.FC = () => {
               <tbody>
                 {users.map(u => (
                   <tr key={u.id} className={`border-b border-border/40 ${u.active ? '' : 'opacity-50'}`}>
-                    <td className="py-2 pr-3 font-semibold">{u.displayName}{u.isDemo && <span className="ml-1.5 px-1.5 rounded bg-amber-500/15 text-amber-700 text-[10px]">demo</span>}{u.mustChangePin && <span className="ml-1.5 px-1.5 rounded bg-sky-500/15 text-sky-700 text-[10px]">new PIN pending</span>}</td>
+                    <td className="py-2 pr-3 font-semibold">{u.displayName}{u.isDemo && <span className="ml-1.5 px-1.5 rounded bg-amber-500/15 text-amber-700 text-[11px]">demo</span>}{u.mustChangePin && <span className="ml-1.5 px-1.5 rounded bg-sky-500/15 text-sky-700 text-[11px]">new PIN pending</span>}</td>
                     <td className="py-2 pr-3 font-mono">{u.username}</td>
                     <td className="py-2 pr-3">{ROLE_LABEL[u.role as StaffRole]}</td>
                     <td className="py-2 pr-3">{u.department || '—'}</td>

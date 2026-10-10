@@ -535,10 +535,31 @@ export interface PharmacyDispenseItem {
   scheduleE1PoisonVerification: {
     containsScheduleE1: boolean;
     poisonName?: string;
+    /** Formulations with a Schedule E(1) ingredient, and which ingredients. */
+    items?: Array<{ name: string; ingredients: string[] }>;
     doctorSigned: boolean;
     digitalSignatureDigest?: string;
     statutoryRule: string;
   };
+  /** Schedule H1 / NDPS medicines on the prescription (register entry needed). */
+  scheduleH1?: Array<{ medicine: string; generic: string; schedule: string; ndps: boolean }>;
+  diagnoses?: string[];
+  /** The doctor's typed reason for each serious alert signed through. */
+  acknowledgedAlerts?: Array<{ groupKey: string; summary: string; reason: string }>;
+  /** Which safety checks ran when the doctor signed, and why any did not. */
+  safetyChecks?: Array<{ check: string; ran: boolean; detail?: string }>;
+  /** What the checks knew about the patient at signing. `allergies` absent = never asked; [] = asked, none. */
+  patientContext?: {
+    allergies?: Array<{ agent: string; reaction?: string }>;
+    pregnancy: 'yes' | 'no' | 'unknown' | null;
+    gestationalWeeks?: number;
+    lactating: boolean;
+    weightKg?: number;
+  } | null;
+  /** Medicines that are not in the safety database, so nothing was checked for them. */
+  notChecked?: string[];
+  /** Set when this prescription replaces an earlier one for the same visit. */
+  amendsEncounterId?: string | null;
   dispenseStatus: 'PENDING_VERIFICATION' | 'DISPENSED' | 'PARTIAL' | 'NOT_DISPENSED' | 'REFERRED_BACK' | 'FLAGGED_ALERT';
   language?: string;
   department?: string;

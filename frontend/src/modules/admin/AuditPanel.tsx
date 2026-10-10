@@ -97,9 +97,9 @@ export const AuditPanel: React.FC = () => {
                     <td className="py-1.5 pr-3 whitespace-nowrap">{fmtTime(r.createdAt)}</td>
                     <td className="py-1.5 pr-3">{r.actorName || r.actor}{r.actorRole && <span className="text-muted-foreground"> · {r.actorRole}</span>}</td>
                     <td className="py-1.5 pr-3 font-medium">{ACTION_LABEL[r.action] || r.action}</td>
-                    <td className="py-1.5 pr-3 font-mono text-[10px] max-w-[160px] truncate" title={r.entityId || ''}>{r.entityId || '—'}</td>
+                    <td className="py-1.5 pr-3 font-mono text-[11px] max-w-[160px] truncate" title={r.entityId || ''}>{r.entityId || '—'}</td>
                     <td className={`py-1.5 pr-3 font-semibold ${r.outcome === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>{r.outcome}</td>
-                    <td className="py-1.5 font-mono text-[10px] text-muted-foreground max-w-[280px] truncate" title={r.metadata ? JSON.stringify(r.metadata) : ''}>{r.metadata ? JSON.stringify(r.metadata) : ''}</td>
+                    <td className="py-1.5 font-mono text-[11px] text-muted-foreground max-w-[280px] truncate" title={r.metadata ? JSON.stringify(r.metadata) : ''}>{r.metadata ? JSON.stringify(r.metadata) : ''}</td>
                   </tr>
                 ))}
               </tbody>

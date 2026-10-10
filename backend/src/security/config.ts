@@ -13,26 +13,35 @@ const bool = (v: string | undefined, fallback: boolean) =>
 export const IS_PRODUCTION = env.NODE_ENV === 'production';
 
 /**
- * Demonstration mode can be switched while the server runs (services/demoMode.service.ts). The
- * environment gives the starting value; the switch only exists where DEMO_TOGGLE allows it.
+ * A demonstration server (DEMO_TOGGLE; the default in development, never on a hospital
+ * installation) can be switched between Mock mode (sample patients) and Real mode (no mock data)
+ * while it runs (services/demoMode.service.ts). ALLOW_DEMO_DATA gives the starting mode.
  */
+const DEMO_SERVER = bool(env.DEMO_TOGGLE, !IS_PRODUCTION);
 const runtime = { demo: bool(env.ALLOW_DEMO_DATA, !IS_PRODUCTION) };
 export function setRuntimeDemoMode(on: boolean): void { runtime.demo = on; }
 
 export const securityConfig = {
   isProduction: IS_PRODUCTION,
   /**
-   * Demo patients, demo staff accounts, demo seed / restore endpoints and the kiosk's demo OTP.
-   * Never on with real patients. While off, demo accounts cannot sign in.
+   * Mock mode: sample patients in the queues, demo seed / restore endpoints, the kiosk's sample
+   * profiles and demo OTP. Never on with real patients.
    */
   get allowDemo(): boolean { return runtime.demo; },
-  /** Whether an administrator may switch demonstration mode on and off at run time. */
-  demoToggle: bool(env.DEMO_TOGGLE, !IS_PRODUCTION),
+  /** Whether this is a demonstration server, where Mock / Real mode can be switched at run time. */
+  demoToggle: DEMO_SERVER,
+  /**
+   * Whether the demo staff accounts may sign in (with their PINs): in Mock mode, and in both modes
+   * on a demonstration server so that switching to Real mode never locks the presenter out. On a
+   * hospital installation with demo data off they cannot sign in at all.
+   */
+  get demoAccountsOpen(): boolean { return runtime.demo || this.demoToggle; },
   /**
    * When false, kiosk endpoints need an enrolled device token (X-Kiosk-Token). Set KIOSK_OPEN to
-   * fix it; left unset, kiosks are open exactly while demonstration mode is on.
+   * fix it; left unset, kiosks are open in Mock mode and on a demonstration server (so a real
+   * check-in can be shown in Real mode), and need enrolment on a hospital installation.
    */
-  get kioskOpen(): boolean { return env.KIOSK_OPEN === undefined || env.KIOSK_OPEN === '' ? runtime.demo : bool(env.KIOSK_OPEN, false); },
+  get kioskOpen(): boolean { return env.KIOSK_OPEN === undefined || env.KIOSK_OPEN === '' ? runtime.demo || this.demoToggle : bool(env.KIOSK_OPEN, false); },
   /** Comma separated list of allowed browser origins. Empty in production means same-origin only. */
   corsOrigins: (env.CORS_ORIGIN || '')
     .split(',')

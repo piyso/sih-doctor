@@ -1,13 +1,16 @@
 /**
  * Case embeddings without a neural model: hashed TF-IDF over the structured fields of a case.
  *
- * Words go through the clinical lexicon's phonetic key, so "bukhar", "बुखार" and "fever"-class
- * spellings land on the same feature. Each token and each adjacent pair is hashed (FNV-1a) into a
- * fixed 256-dimensional vector with a sign bit (the hashing trick), weighted by tf·idf and
- * L2-normalised, so a dot product is a cosine similarity. The coarse stage uses an int8 copy
- * (compression level 1 in the application's terms); the re-ranking stage uses full precision.
+ * Words go through the clinical lexicon's phonetic key, so "bukhar" and "बुखार" land on the same
+ * feature, and through its concept extraction, so "बुखार", "bukhar" and "Fever" all add the concept
+ * F_FEVER (the lexicon is the same one the kiosk uses, so Hindi, Hinglish and English intakes share
+ * one space). Each token and each adjacent pair is hashed (FNV-1a) into a fixed 256-dimensional
+ * vector with a sign bit (the hashing trick), weighted by tf·idf and a per-field weight (findings and
+ * diagnoses count fully, demographics only a little), then L2-normalised, so a dot product is a
+ * cosine similarity. The coarse stage uses an int8 copy (compression level 1 in the application's
+ * terms); the re-ranking stage uses full precision.
  */
-import { wordKey } from '../clinicalLexicon';
+import { extractConcepts, wordKey } from '../clinicalLexicon';
 import { CaseQuery, CaseRecord } from './types';
 
 export const CASE_DIM = 256;
@@ -30,6 +33,23 @@ export function termTokens(prefix: string, text: string | null | undefined): str
   return out;
 }
 
+/** Lexicon concepts (F_FEVER, S_KNEE, ...) for a phrase, as `concept:` tokens; empty when the lexicon knows no word of it. */
+export function conceptTokens(text: string | null | undefined): string[] {
+  if (!text) return [];
+  try { return [...extractConcepts(String(text), { ignoreNegation: true })].map(c => `concept:${c}`); } catch { return []; }
+}
+
+/** Relative weight of each field in the vector: findings and diagnoses dominate, demographics only shade the result. */
+export const FIELD_WEIGHT: Record<string, number> = { concept: 2.5, sx: 0.7, site: 0.6, dx: 1.0, rx: 0.8, inv: 0.6, rf: 0.8, cx: 0.7, dept: 0.5, cs: 0.3, age: 0.3, sex: 0.25 };
+
+/** Cap on the idf weight, so that a rare spelling or bigram cannot outweigh the shared concept of a finding. */
+export const IDF_CAP = 3.5;
+
+function fieldWeight(token: string): number {
+  const i = token.search(/[:=]/);
+  return FIELD_WEIGHT[i > 0 ? token.slice(0, i) : token] ?? 1;
+}
+
 function whole(prefix: string, value: string | null | undefined): string[] {
   if (!value) return [];
   const v = String(value).normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -39,9 +59,9 @@ function whole(prefix: string, value: string | null | undefined): string[] {
 /** All tokens of a case or query. The same function serves both sides so the spaces coincide. */
 export function caseTokens(c: CaseQuery | CaseRecord): string[] {
   const t: string[] = [];
-  for (const s of c.symptoms || []) t.push(...termTokens('sx', s));
-  for (const s of c.sites || []) t.push(...termTokens('site', s));
-  for (const d of c.diagnoses || []) t.push(...termTokens('dx', d));
+  for (const s of c.symptoms || []) t.push(...termTokens('sx', s), ...conceptTokens(s));
+  for (const s of c.sites || []) t.push(...termTokens('site', s)); // sites stay lexical: a body region is context, not a finding
+  for (const d of c.diagnoses || []) t.push(...termTokens('dx', d), ...conceptTokens(d));
   for (const m of c.medicines || []) t.push(...termTokens('rx', m));
   for (const i of c.investigations || []) t.push(...termTokens('inv', i));
   for (const r of c.redFlags || []) t.push(...whole('rf', r));
@@ -49,7 +69,7 @@ export function caseTokens(c: CaseQuery | CaseRecord): string[] {
   t.push(...whole('cs', c.careStream));
   t.push(...whole('age', c.ageBand));
   t.push(...whole('sex', c.sex));
-  if ('complaintText' in c) t.push(...termTokens('cx', (c as CaseQuery).complaintText));
+  if ('complaintText' in c) t.push(...termTokens('cx', (c as CaseQuery).complaintText), ...conceptTokens((c as CaseQuery).complaintText));
   return t;
 }
 
@@ -72,7 +92,7 @@ export class Idf {
   }
   weight(token: string): number {
     const d = this.df.get(token) || 0;
-    return Math.log((this.docs + 1) / (d + 1)) + 1;
+    return Math.min(IDF_CAP, Math.log((this.docs + 1) / (d + 1)) + 1);
   }
 }
 
@@ -84,7 +104,7 @@ export function embed(tokens: string[], idf: Idf | null): Float32Array {
     const h = fnv1a(t);
     const idx = h % CASE_DIM;
     const sign = (h & 0x80000000) ? -1 : 1;
-    v[idx] += sign * (1 + Math.log(n)) * (idf ? idf.weight(t) : 1);
+    v[idx] += sign * fieldWeight(t) * (1 + Math.log(n)) * (idf ? idf.weight(t) : 1);
   }
   let norm = 0;
   for (let i = 0; i < CASE_DIM; i++) norm += v[i] * v[i];

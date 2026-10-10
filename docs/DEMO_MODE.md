@@ -1,39 +1,50 @@
-# Demonstration mode (demo ↔ live switch)
+# Mock / Real mode (the demonstration switch)
 
-The same server can show the system **with sample data** (demo mode) or **exactly as a hospital runs it** (live mode). An administrator switches it while the server runs; every screen follows within ~30 seconds (at once in the browser that switched).
+A demonstration server can show the system **with sample data** (Mock) or **exactly as it runs with real patients** (Real). The switch is the two-position control `Mock | Real` at the top right of every screen and on the gateway page; it is also under Administration → System & backups. One click, no PIN, nobody is signed out, nothing is deleted. Every screen on every device follows within seconds.
 
-## What changes
+## What each mode means
 
-| | Demo mode | Live mode |
+| | Mock | Real |
 |---|---|---|
-| Sample patients | 10 demo visits in the doctor queue, nurse worklist, display board, pharmacy, reports | Parked out of every queue and report (status `DEMO_PARKED`; nothing is deleted) |
-| Demo staff accounts (`backend/src/db/demoStaff.ts`) | Listed on the sign-in screen, can sign in | Cannot sign in; open sessions stop working |
-| Kiosk | Sample profiles + demo OTP; no enrolment needed (unless `KIOSK_OPEN` is set) | ABHA needs real verification; kiosks must be enrolled (Administration → Kiosks & screens) |
+| Sample patients | 10 sample visits in the doctor queue, nurse worklist, display board, pharmacy and reports | Hidden everywhere (parked as `DEMO_PARKED`); only patients who really check in appear |
+| Kiosk | Sample profiles and a demo OTP | Neither; ABHA shows "not verified" until a real verification |
 | Demo endpoints (`/api/doctor/seed`, `/demo-queue`) | Answer | 404 |
+| Server not reachable | Built-in **offline sandbox** takes over in that browser tab (doctor desk with stand-in patients; other screens say they need the server) | The screen says the server is not answering. **No stand-in data, ever** |
+| Staff sign-in | One tap per demo account | The same — one tap per demo account |
 
-Switching back on re-opens the 10 sample visits and re-enables the demo accounts. Real records are never wiped.
+Real mode is honest by construction: mock data is only ever returned inside the offline sandbox (`session.isSandbox`), and the sandbox can only start in Mock mode on a demonstration deployment. A failed request in Real mode fails; it is never replaced by invented data.
 
-## How to switch
+## Who can switch
 
-- Click the **Demo mode / Live mode** badge in the top bar (every staff screen) or on the gateway page, or use **Administration → System & backups → Demonstration mode**.
-- A signed-in administrator switches directly. Anyone else (e.g. a presenter signed in at the doctor desk) types an administrator's username and PIN as approval; this goes through the normal sign-in checks (rate limit, lockout, audit) and keeps no session.
-- **Before the first switch to live mode**, create a real administrator account (Administration → Staff, role Administrator). Switching off is refused while only demo administrators exist, because nobody could sign in afterwards to switch back.
-- Every switch is written to the audit trail (`system.demo_mode`) with who approved it.
+- The switch exists only on a **demonstration server** (`DEMO_TOGGLE`; the default in development). A hospital installation has no switch and shows no badge.
+- The server still requires an administrator for `POST /api/system/demo-mode`. On a demonstration server the app sends the demo administrator's approval automatically (those demo credentials ship with the frontend for one-tap sign-in), which is what makes it one click. If that account's PIN was changed on a server, the app asks for an administrator's username and PIN instead.
+- Every switch is audited (`system.demo_mode`).
+- Demo accounts stay usable in both modes on a demonstration server, so switching to Real never locks anyone out. On a hospital installation with demo data off, demo accounts cannot sign in and their sessions are rejected.
+
+## The public demonstration site
+
+`https://sih-doctor.vercel.app` has no backend of its own. Its backend is this project's backend running on the demonstration machine, published through a Cloudflare quick tunnel whose address changes whenever the tunnel restarts. The site therefore reads the current address at start-up from `deploy/live-backend.json` in the repository (see `frontend/src/services/liveBackend.ts`), so a new address needs **no new build** of the site.
+
+```bash
+scripts/live-demo.sh            # start backend + tunnel if needed, publish the address
+scripts/live-demo.sh --status   # report only
+scripts/live-demo.sh --no-push  # write deploy/live-backend.json, do not push it
+```
+
+Keep the demonstration machine awake and online. If the tunnel is down, visitors get Mock mode from the offline sandbox; Real mode tells them the server is not answering.
 
 ## Server settings
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `ALLOW_DEMO_DATA` | Starting mode | on in development, off in production |
-| `DEMO_TOGGLE` | Whether the switch exists at all | on in development, off in production |
-| `KIOSK_OPEN` | Fix kiosk enrolment either way; unset = open exactly while demo mode is on | unset |
+| `ALLOW_DEMO_DATA` | Starting mode (true = Mock) | on in development, off in production |
+| `DEMO_TOGGLE` | Demonstration server: the switch exists, demo accounts work in both modes, kiosks need no enrolment | on in development, off in production |
+| `KIOSK_OPEN` | Fix kiosk enrolment either way | unset |
 
-The administrator's choice is stored in the database (`system_settings.demo_mode`) and survives restarts **only while `DEMO_TOGGLE` is on**; with the switch disabled, the environment always wins.
-
-- Public demonstration servers (`render.yaml`, `fly.toml`, `docker-compose.coolify.yml`): `ALLOW_DEMO_DATA=true`, `DEMO_TOGGLE=true`.
-- Hospital deployment (`docker-compose.yml` + `.env`): `ALLOW_DEMO_DATA=false`, `DEMO_TOGGLE=false`; the badge is hidden.
+The last choice is stored in the database (`system_settings.demo_mode`) and survives restarts only while `DEMO_TOGGLE` is on. Hospital deployment (`docker-compose.yml`): `ALLOW_DEMO_DATA=false`, `DEMO_TOGGLE=false`.
 
 ## Tests
 
-- `backend/tests/demo_mode.test.ts` (battery 29 in `npm test`): who may switch, lock-out guard, everything closed while off, everything restored when on.
-- `e2e/tests/demo-mode.spec.ts`: badge and dialog (read-only; never switches the shared dev server).
+- `backend/tests/demo_mode.test.ts` (battery 29 of `npm test`): who may switch, Real mode leaves no sample data while staff can still sign in and a real check-in appears alone, switching back restores the ten sample patients, and a hospital installation keeps demo accounts and unenrolled kiosks out.
+- `e2e/tests/demo-mode.spec.ts`: one click on the signed-out gateway switches to Real and back.
+- `e2e/tests/security.spec.ts`: one-tap sign-in, and username + PIN still enforced.

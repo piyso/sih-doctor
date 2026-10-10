@@ -248,12 +248,13 @@ export async function runExtremeAdversarialBattery() {
   // Condition tri-coding verification
   const condEntry = fhirBundle.entry.find((e: any) => e.resource.resourceType === 'Condition');
   assert(condEntry !== undefined, '5.4 Invariant: Condition entry present in bundle');
-  const systems = condEntry?.resource.code.coding.map((c: any) => c.system) || [];
+  const traditionalObs = fhirBundle.entry.find((e: any) => e.resource.resourceType === 'Observation' && (e.resource.focus || []).some((f: any) => f.reference === condEntry?.fullUrl));
+  const systems = [...(condEntry?.resource.code.coding || []), ...(traditionalObs?.resource.valueCodeableConcept?.coding || [])].map((c: any) => c.system);
   assert(
     systems.includes('https://namstp.ayush.gov.in') &&
     systems.includes('http://hl7.org/fhir/sid/icd-10') &&
     systems.includes('http://snomed.info/sct'),
-    '5.4 Invariant: Condition carries NAMASTE + ICD-10 + SNOMED-CT Tri-Coding'
+    '5.4 Invariant: diagnosis tri-coded (ICD-10 + SNOMED on the NRCES Condition, NAMASTE on the linked Observation)'
   );
 
   // =========================================================================

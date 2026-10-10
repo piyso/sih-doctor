@@ -1,6 +1,14 @@
 import { PatientQueueItem, SessionDetail, ConflictAlert, HypergraphPolypharmacyResult } from '../types/api';
 import { StaffUser } from './session';
 
+/**
+ * Offline sandbox: stand-in data kept in this browser, used ONLY in Mock mode while the hospital
+ * server cannot be reached (services/runtimeMode.ts decides; api.ts checks session.isSandbox).
+ * It lets the doctor desk be shown with sample patients. It is not the product's clinical engine:
+ * the interaction rules below are four illustrative pairs, and nothing here is ever saved or sent.
+ * Real mode never uses this file.
+ */
+
 export const MOCK_STAFF_USERS: StaffUser[] = [
   {
     id: 'user-dr-sharma',
@@ -38,6 +46,28 @@ export const MOCK_STAFF_USERS: StaffUser[] = [
     isDemo: true
   },
   {
+    id: 'user-pharma',
+    username: 'pharma.ravi',
+    displayName: 'Ravi Kumar (Pharmacist)',
+    role: 'pharmacist',
+    department: 'PHARMACY',
+    qualification: null,
+    registrationNo: 'Pharmacy Council Reg. 22841',
+    mustChangePin: false,
+    isDemo: true
+  },
+  {
+    id: 'user-asha',
+    username: 'asha.sunita',
+    displayName: 'Sunita Devi (ASHA)',
+    role: 'asha',
+    department: 'COMMUNITY',
+    qualification: null,
+    registrationNo: null,
+    mustChangePin: false,
+    isDemo: true
+  },
+  {
     id: 'user-nurse',
     username: 'nurse.priya',
     displayName: 'Sr. Nurse Priya Nair',
@@ -54,7 +84,7 @@ export const MOCK_QUEUE_ITEMS: PatientQueueItem[] = [
   {
     sessionId: 'sess-002',
     patientId: 'pat-002',
-    patientName: 'Shanti Devi (Warfarin Anticoagulation)',
+    patientName: 'Shanti Devi',
     age: 64,
     gender: 'FEMALE',
     language: 'hi',
@@ -66,17 +96,12 @@ export const MOCK_QUEUE_ITEMS: PatientQueueItem[] = [
     tokenNo: 'KAYA-002',
     department: 'KAYA',
     registeredAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    vitals: {
-      bloodPressure: '130/84',
-      pulseRate: 74,
-      spo2: 98,
-      temperature: 98.4
-    } as any
+    vitals: { bp: '130/84', pulse: 74, spo2: '98%', temp: '98.4°F', source: 'kiosk' }
   },
   {
     sessionId: 'sess-001',
     patientId: 'pat-001',
-    patientName: 'Ramesh Kumar (Emergency Chest Pain)',
+    patientName: 'Ramesh Kumar',
     age: 58,
     gender: 'MALE',
     language: 'hi',
@@ -88,17 +113,12 @@ export const MOCK_QUEUE_ITEMS: PatientQueueItem[] = [
     tokenNo: 'EMERG-001',
     department: 'GENMED',
     registeredAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    vitals: {
-      bloodPressure: '160/100',
-      pulseRate: 112,
-      spo2: 93,
-      temperature: 98.6
-    } as any
+    vitals: { bp: '160/100', pulse: 112, spo2: '93%', temp: '98.6°F', source: 'kiosk' }
   },
   {
     sessionId: 'sess-003',
     patientId: 'pat-003',
-    patientName: 'Baby Aarav Patel (Pediatric High Fever)',
+    patientName: 'Aarav Patel',
     age: 4,
     gender: 'MALE',
     language: 'hi',
@@ -110,17 +130,12 @@ export const MOCK_QUEUE_ITEMS: PatientQueueItem[] = [
     tokenNo: 'PED-003',
     department: 'PEDIATRICS',
     registeredAt: new Date(Date.now() - 25 * 60000).toISOString(),
-    vitals: {
-      bloodPressure: '95/60',
-      pulseRate: 138,
-      spo2: 96,
-      temperature: 103.2
-    } as any
+    vitals: { bp: '95/60', pulse: 138, spo2: '96%', temp: '103.2°F', source: 'kiosk' }
   },
   {
     sessionId: 'sess-004',
     patientId: 'pat-004',
-    patientName: 'Anita Sharma (Type 2 Diabetes / Prameha)',
+    patientName: 'Anita Sharma',
     age: 52,
     gender: 'FEMALE',
     language: 'hi',
@@ -132,12 +147,7 @@ export const MOCK_QUEUE_ITEMS: PatientQueueItem[] = [
     tokenNo: 'INT-004',
     department: 'ENDOCRINE',
     registeredAt: new Date(Date.now() - 35 * 60000).toISOString(),
-    vitals: {
-      bloodPressure: '138/88',
-      pulseRate: 80,
-      spo2: 98,
-      temperature: 98.2
-    } as any
+    vitals: { bp: '138/88', pulse: 80, spo2: '98%', temp: '98.2°F', source: 'kiosk' }
   }
 ];
 
@@ -170,12 +180,7 @@ export const MOCK_SESSIONS: Record<string, SessionDetail> = {
         isNegated: false
       }
     ],
-    vitals: {
-      bloodPressure: '130/84',
-      pulseRate: 74,
-      spo2: 98,
-      temperature: 98.4
-    } as any,
+    vitals: { bp: '130/84', pulse: 74, spo2: '98%', temp: '98.4°F', source: 'kiosk' },
     pariksha: {
       prakriti: 'Vataja',
       vikriti: 'Vata Prakopa',
@@ -223,12 +228,7 @@ export const MOCK_SESSIONS: Record<string, SessionDetail> = {
         isNegated: false
       }
     ],
-    vitals: {
-      bloodPressure: '160/100',
-      pulseRate: 112,
-      spo2: 93,
-      temperature: 98.6
-    } as any,
+    vitals: { bp: '160/100', pulse: 112, spo2: '93%', temp: '98.6°F', source: 'kiosk' },
     pariksha: {
       prakriti: 'Pitta-Vata',
       vikriti: 'Pitta Vriddhi',
@@ -249,6 +249,38 @@ export const MOCK_SESSIONS: Record<string, SessionDetail> = {
     }
   }
 };
+
+/** The record the doctor desk opens for a sandbox patient (built from the queue row when no fuller one exists). */
+export function mockSessionDetail(id: string): SessionDetail | null {
+  const full = MOCK_SESSIONS[id];
+  const row = MOCK_QUEUE_ITEMS.find(q => q.sessionId === id);
+  if (!full && !row) return null;
+  const base = full || ({
+    sessionId: row!.sessionId,
+    patientId: row!.patientId,
+    patientName: row!.patientName,
+    age: row!.age,
+    gender: row!.gender,
+    language: row!.language,
+    triagePriority: row!.triagePriority,
+    redFlags: row!.redFlags || [],
+    status: row!.status,
+    createdAt: row!.registeredAt,
+    primaryComplaint: row!.primaryComplaint,
+    rawTranscript: '',
+    symptoms: row!.primaryComplaint ? [{ name: row!.primaryComplaint, site: 'General', onset: '', character: '', radiation: '', associations: [], timing: '', exacerbatingFactors: [], relievingFactors: [], severityScore: 0, isNegated: false }] : [],
+    vitals: row!.vitals || {},
+    pariksha: {}
+  } as unknown as SessionDetail);
+  return {
+    scannedDocs: [], provisionalDiagnoses: [], existingEncounter: null, deniedSymptoms: [], claimedBy: null,
+    previousEncounters: [], savedDraft: null, recordingConsent: null, dispense: null,
+    ...base,
+    patientName: row?.patientName || base.patientName,
+    careStream: row?.careStream || (base as any).careStream || 'UNDECIDED',
+    vitals: row?.vitals || base.vitals || {}
+  } as SessionDetail;
+}
 
 export function evaluateMockContraindications(allopathic: any[], ayush: any[]): {
   alerts: ConflictAlert[];

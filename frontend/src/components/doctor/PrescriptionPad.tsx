@@ -124,8 +124,8 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
         <Pill size={15} /> {secondary ? 'Modern medicines the patient already takes' : 'Medicines'}
         <span className="text-[11px] font-bold px-1.5 rounded-full bg-sky-500/10">{draft.allopathic.length}</span>
       </span>}
-      {secondary && <p className="text-[11px] text-muted-foreground -mt-1">Recorded so your prescription is checked against them; not prescribed here.</p>}
-      <MedicineSearch ref={secondary ? undefined : searchRef} stream="ALLOPATHY" compact={secondary} placeholder={secondary ? 'Add a medicine the patient takes…' : undefined} onPickAllopathic={h => addAllo(alloFromHit(h, secondary ? 'reported' : 'doctor'))} onPickAyush={() => {}} />
+      {secondary && draft.allopathic.length > 0 && <p className="text-[11px] text-muted-foreground -mt-1">Recorded so your prescription is checked against them; not prescribed here.</p>}
+      <MedicineSearch ref={secondary ? undefined : searchRef} stream="ALLOPATHY" compact={secondary} placeholder={secondary ? 'Add a medicine the patient takes — checked against your prescription, not prescribed' : undefined} onPickAllopathic={h => addAllo(alloFromHit(h, secondary ? 'reported' : 'doctor'))} onPickAyush={() => {}} />
       {draft.allopathic.map((m, i) => (
         <MedicineLine key={`${m.name}-${i}`} kind="allo" resolved={resolved(alloOffset + i)} alerts={lineAlerts(alloOffset + i)}
           sourceLabel={m.source ? SOURCE_LABEL[m.source] : undefined}
@@ -133,7 +133,7 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
           onChange={p => updateDraft(d => ({ allopathic: d.allopathic.map((x, j) => (j === i ? { ...x, ...(p.dose !== undefined ? { dosage: p.dose } : {}), ...(p.frequency !== undefined ? { frequency: p.frequency } : {}), ...(p.durationDays !== undefined ? { durationDays: p.durationDays } : {}), ...(p.indication !== undefined ? { indication: p.indication } : {}), source: x.source === 'dictation' ? 'doctor' : x.source } : x)) }))}
           onRemove={() => updateDraft(d => ({ allopathic: d.allopathic.filter((_, j) => j !== i) }))} />
       ))}
-      {draft.allopathic.length === 0 && <div className={secondary ? 'text-[11px] text-muted-foreground' : 'text-center py-3 text-xs text-muted-foreground border border-dashed border-border rounded-xl'}>{secondary ? 'None recorded.' : 'No medicines yet — search above, pick an order set, or repeat the last prescription.'}</div>}
+      {draft.allopathic.length === 0 && !secondary && <div className='text-center py-3 text-xs text-muted-foreground border border-dashed border-border rounded-xl'>No medicines yet — search above, pick an order set, or repeat the last prescription.</div>}
     </section>
   );
 
@@ -143,8 +143,8 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
         <Leaf size={15} /> {secondary ? 'Ayurvedic / herbal medicines the patient already takes' : 'Classical formulations'}
         <span className="text-[11px] font-bold px-1.5 rounded-full bg-emerald-500/10">{draft.ayush.length}</span>
       </span>}
-      {secondary && <p className="text-[11px] text-muted-foreground -mt-1">Recorded so your prescription is checked against them; not prescribed here.</p>}
-      <MedicineSearch ref={secondary ? undefined : searchRef} stream="AYURVEDA" compact={secondary} placeholder={secondary ? 'Add an Ayurvedic medicine the patient takes…' : undefined} onPickAyush={h => addAyush(ayushFromHit(h, secondary ? 'reported' : 'doctor'))} onPickAllopathic={() => {}} />
+      {secondary && draft.ayush.length > 0 && <p className="text-[11px] text-muted-foreground -mt-1">Recorded so your prescription is checked against them; not prescribed here.</p>}
+      <MedicineSearch ref={secondary ? undefined : searchRef} stream="AYURVEDA" compact={secondary} placeholder={secondary ? 'Add an Ayurvedic medicine the patient takes — checked against your prescription, not prescribed' : undefined} onPickAyush={h => addAyush(ayushFromHit(h, secondary ? 'reported' : 'doctor'))} onPickAllopathic={() => {}} />
       {draft.ayush.map((a, i) => (
         <MedicineLine key={`${a.classicalName}-${i}`} kind="ayush" resolved={resolved(ayushOffset + i)} alerts={lineAlerts(ayushOffset + i)}
           sourceLabel={a.source ? SOURCE_LABEL[a.source] : undefined}
@@ -153,7 +153,7 @@ export const PrescriptionPad: React.FC<PrescriptionPadProps> = ({ role, draft, u
           onChange={p => updateDraft(d => ({ ayush: d.ayush.map((x, j) => (j === i ? { ...x, ...(p.dose !== undefined ? { dose: p.dose } : {}), ...(p.frequency !== undefined ? { frequency: p.frequency } : {}), ...(p.durationDays !== undefined ? { durationDays: p.durationDays } : {}), ...(p.anupana !== undefined ? { anupana: p.anupana } : {}) } : x)) }))}
           onRemove={() => updateDraft(d => ({ ayush: d.ayush.filter((_, j) => j !== i) }))} />
       ))}
-      {draft.ayush.length === 0 && <div className={secondary ? 'text-[11px] text-muted-foreground' : 'text-center py-3 text-xs text-muted-foreground border border-dashed border-border rounded-xl'}>{secondary ? 'None recorded.' : 'No formulations yet — search above, pick an order set, or repeat the last prescription.'}</div>}
+      {draft.ayush.length === 0 && !secondary && <div className='text-center py-3 text-xs text-muted-foreground border border-dashed border-border rounded-xl'>No formulations yet — search above, pick an order set, or repeat the last prescription.</div>}
     </section>
   );
 

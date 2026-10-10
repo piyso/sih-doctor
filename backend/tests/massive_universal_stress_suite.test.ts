@@ -164,7 +164,8 @@ export async function runMassiveUniversalStressSuite() {
 
     const cond = bundle.entry.find((e: any) => e.resource.resourceType === 'Condition')?.resource;
     assert(!!cond, `2.1 Condition generated for NAMASTE ${item.aCode}`);
-    const codings = cond!.code.coding;
+    const tmObs = bundle.entry.find((e: any) => e.resource.resourceType === 'Observation' && (e.resource.focus || []).some((f: any) => f.reference === `urn:uuid:${cond!.id}`))?.resource;
+    const codings = [...cond!.code.coding, ...(tmObs?.valueCodeableConcept?.coding || [])];
     const hasNamaste = codings.some((c: any) => c.system === 'https://namstp.ayush.gov.in' && c.code === item.aCode);
     const hasIcd10 = codings.some((c: any) => c.system === 'http://hl7.org/fhir/sid/icd-10' && c.code === item.icd10);
     const hasSnomed = codings.some((c: any) => c.system === 'http://snomed.info/sct' && c.code === item.snomed);

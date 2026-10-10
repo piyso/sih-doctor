@@ -30,6 +30,8 @@ const TIER_STYLE = {
 } as const;
 
 const FOODS: FoodTiming[] = ['', 'before food', 'after food', 'empty stomach', 'with food'];
+/** Whole words on the 1-0-1 buttons: a clipped "Noo" or "Nig" reads as a mistake on a prescription screen. */
+const SLOT_SHORT = ['Morn', 'Noon', 'Night'];
 
 /** One prescription line: dose, 1-0-1 timing, food, days, quantity, indication, and its own alerts. */
 export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChange, onRemove, alerts, resolved, readOnlyNote, sourceLabel }) => {
@@ -71,25 +73,26 @@ export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChan
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-0.5 w-28">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase">Dose</span>
-          <input value={fields.dose} onChange={e => onChange({ dose: e.target.value })} placeholder={kind === 'allo' ? '500 mg' : '3 g'} className="px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
+          <input value={fields.dose} onChange={e => onChange({ dose: e.target.value })} placeholder={kind === 'allo' ? '500 mg' : '3 g'} className="h-9 px-2 text-[13px] font-semibold rounded-lg border border-border bg-background" />
         </label>
         <div className="flex flex-col gap-0.5">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase">When (1-0-1)</span>
           <div className="flex items-center gap-1">
             {[0, 1, 2].map(i => (
               <button key={i} type="button" onClick={() => setPattern(i)} title={`${PATTERN_LABELS[i]}: tap to change (0 → 1 → 2)`}
-                className={`w-9 h-8 rounded-lg border text-xs font-bold ${sig.pattern && sig.pattern[i] > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground'}`}>
-                <span className="block text-[11px] font-semibold leading-none opacity-80">{PATTERN_LABELS[i].slice(0, 3)}</span>
+                aria-label={`${PATTERN_LABELS[i]}: ${sig.pattern ? sig.pattern[i] ?? 0 : 0}`}
+                className={`w-11 h-9 rounded-lg border text-xs font-bold ${sig.pattern && sig.pattern[i] > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground'}`}>
+                <span className="block text-[11px] font-semibold leading-none opacity-80">{SLOT_SHORT[i]}</span>
                 {sig.pattern ? (sig.pattern[i] === 0.5 ? '½' : sig.pattern[i] ?? 0) : 0}
               </button>
             ))}
           </div>
         </div>
-        <label className="flex flex-col gap-0.5 min-w-[110px] flex-1">
+        <label className="flex flex-col gap-0.5 min-w-[190px] flex-1">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase">Or other / food</span>
           <div className="flex gap-1">
-            <input value={sig.pattern ? '' : sig.other} onChange={e => onChange({ frequency: formatSig({ pattern: null, other: e.target.value, food: sig.food }) })} placeholder={sig.pattern ? formatSig(sig) : 'SOS, weekly…'} className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
-            <select value={sig.food} onChange={e => onChange({ frequency: formatSig({ ...sig, food: e.target.value as FoodTiming }) })} className="px-1.5 py-1.5 text-xs rounded-lg border border-border bg-background" aria-label="Food timing">
+            <input value={sig.pattern ? '' : sig.other} onChange={e => onChange({ frequency: formatSig({ pattern: null, other: e.target.value, food: sig.food }) })} placeholder={sig.pattern ? formatSig(sig) : 'SOS, weekly…'} aria-label="Other frequency" className="flex-1 min-w-0 h-9 px-2 text-[13px] rounded-lg border border-border bg-background" />
+            <select value={sig.food} onChange={e => onChange({ frequency: formatSig({ ...sig, food: e.target.value as FoodTiming }) })} className="h-9 px-1.5 text-xs rounded-lg border border-border bg-background" aria-label="Food timing">
               {FOODS.map(f => <option key={f} value={f}>{f || 'food: any'}</option>)}
             </select>
           </div>
@@ -97,20 +100,20 @@ export const MedicineLine: React.FC<MedicineLineProps> = ({ kind, fields, onChan
         {kind === 'ayush' && (
           <label className="flex flex-col gap-0.5 flex-1 min-w-[120px]">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase">Anupana</span>
-            <input value={fields.anupana || ''} onChange={e => onChange({ anupana: e.target.value })} placeholder="Lukewarm water" className="px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
+            <input value={fields.anupana || ''} onChange={e => onChange({ anupana: e.target.value })} placeholder="Lukewarm water" className="h-9 px-2 text-[13px] rounded-lg border border-border bg-background" />
           </label>
         )}
         <label className="flex flex-col gap-0.5 w-16">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase">Days</span>
-          <input type="number" min={0} value={fields.durationDays || ''} onChange={e => onChange({ durationDays: Math.max(0, parseInt(e.target.value, 10) || 0) })} className="px-2 py-1.5 text-xs rounded-lg border border-border bg-background" />
+          <input type="number" min={0} value={fields.durationDays || ''} onChange={e => onChange({ durationDays: Math.max(0, parseInt(e.target.value, 10) || 0) })} className="h-9 px-2 text-[13px] font-semibold rounded-lg border border-border bg-background" />
         </label>
-        {kind === 'allo' && <div className="text-[11px] text-muted-foreground pb-1.5" title="Quantity to dispense">{qty ? `Qty ${qty}` : ''}</div>}
+        {kind === 'allo' && qty ? <div className="text-xs font-semibold text-muted-foreground pb-2 tabular-nums whitespace-nowrap" title="Quantity to dispense (dose × frequency × days)">Qty {qty}</div> : null}
       </div>
 
       {kind === 'allo' && isAntibiotic && (
         <label className="flex items-center gap-2 text-xs">
           <span className={`text-[11px] font-semibold uppercase shrink-0 ${fields.indication ? 'text-muted-foreground' : 'text-amber-800'}`}>Indication</span>
-          <input value={fields.indication || ''} onChange={e => onChange({ indication: e.target.value })} placeholder="Why this antibiotic? (required — MoHFW 2024)" className="flex-1 px-2 py-1 text-xs rounded-lg border border-border bg-background" />
+          <input value={fields.indication || ''} onChange={e => onChange({ indication: e.target.value })} placeholder="Why this antibiotic? (required — MoHFW 2024)" className="flex-1 h-9 px-2 text-[13px] rounded-lg border border-border bg-background" />
         </label>
       )}
 

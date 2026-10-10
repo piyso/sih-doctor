@@ -85,6 +85,11 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
       return;
     }
     const gender = GENDERS.includes(patient?.gender) ? patient.gender : 'OTHER';
+    // true | false | null (null = not asked / not sure). Unknown in a woman of reproductive age counts as possibly pregnant for safety rules.
+    const pregnant: boolean | null = patient?.isPregnant === true ? true : patient?.isPregnant === false ? false : null;
+    const lactating: boolean | null = patient?.isLactating === true ? true : patient?.isLactating === false ? false : null;
+    const maybePregnant = pregnant === true || (pregnant === null && gender === 'FEMALE' && Number.isFinite(age) && age >= 12 && age <= 50);
+    const ageMonths = Number.isFinite(Number(patient?.ageMonths)) && patient?.ageMonths !== '' && patient?.ageMonths !== null ? Number(patient.ageMonths) : null;
     const cleanAbha = typeof patient?.abhaId === 'string' && patient.abhaId.trim() ? patient.abhaId.trim().slice(0, 40) : null;
     const cleanSymptoms = (Array.isArray(symptoms) && symptoms.length ? symptoms : (interviewResult?.symptoms || [])).slice(0, 30);
     const transcript = typeof rawTranscript === 'string' ? rawTranscript.slice(0, 5000) : '';
@@ -154,14 +159,27 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     }
     // Age- and pregnancy-aware rules that keyword triage alone misses.
     const complaintAll = [transcript, ...cleanSymptoms.map((s: any) => `${s?.name || ''} ${s?.labelLocal || ''}`), typeof patient?.chiefComplaint === 'string' ? patient.chiefComplaint : ''].join(' . ').toLowerCase();
-    if (Number.isFinite(age) && age < 2 && patient?.age !== undefined && patient?.age !== '' && /fever|bukhar|बुखार|breath|saans|सांस|साँस|vomit|ulti|उल्टी|dast|दस्त|diarrh|not feeding|doodh nahi|दूध नहीं|lethargic|sust|सुस्त/.test(complaintAll)) {
-      priority = raisePriority(priority, 'HIGH_PRIORITY');
-      redFlags.push('Infant under 2 years with fever, breathing, feeding or fluid-loss complaint: same-day paediatric review (IMNCI)');
+    const infant = ageMonths !== null ? ageMonths < 24 : (Number.isFinite(age) && age < 2 && patient?.age !== undefined && patient?.age !== '');
+    if (infant && /fever|bukhar|बुखार|breath|saans|सांस|साँस|vomit|ulti|उल्टी|dast|दस्त|diarrh|not feeding|doodh nahi|दूध नहीं|lethargic|sust|सुस्त|fits|jhatke|झटके/.test(complaintAll)) {
+      const under3m = ageMonths !== null && ageMonths < 3 && /fever|bukhar|बुखार/.test(complaintAll);
+      priority = under3m ? 'EMERGENCY_RED_FLAG' : raisePriority(priority, 'HIGH_PRIORITY');
+      redFlags.push(under3m ? 'Fever in an infant under 3 months: emergency paediatric assessment (IMNCI)' : 'Infant under 2 years with fever, breathing, feeding or fluid-loss complaint: same-day paediatric review (IMNCI)');
     }
-    if (patient?.isPregnant) {
+    // Lexicon flags that change meaning with the patient's context.
+    const lexIds = new Set(lexicon.redFlags.map(f => f.id));
+    if (lexIds.has('gyn-bleeding') && maybePregnant) {
+      priority = 'EMERGENCY_RED_FLAG';
+      redFlags.push(`Bleeding per vaginam in a ${pregnant === true ? 'pregnant' : 'possibly pregnant'} woman: rule out ectopic pregnancy or miscarriage now`);
+    }
+    const diabetic = Array.isArray(history?.conditions) && history.conditions.some((c: unknown) => /diabet|sugar|madhumeha|prameha/i.test(String(c)));
+    if (lexIds.has('wound') && diabetic) {
+      priority = raisePriority(priority, 'HIGH_PRIORITY');
+      redFlags.push('Non-healing wound in a diabetic patient: possible diabetic foot, same-day review');
+    }
+    if (maybePregnant) {
       if (/bleed|khoon|खून|रक्त|rakt|fits|convuls|jhatke|झटके|daura|दौरा|blurred|dhundhla|धुंधला|severe headache|tez sir dard|तेज़ सिर दर्द|तेज सिर दर्द/.test(complaintAll)) {
         priority = 'EMERGENCY_RED_FLAG';
-        redFlags.push('Pregnancy danger sign reported (bleeding, fits, or severe headache / visual disturbance): obstetric emergency pathway');
+        redFlags.push(`${pregnant === true ? 'Pregnancy' : 'Possible pregnancy (not confirmed at kiosk)'}: danger sign reported (bleeding, fits, or severe headache / visual disturbance): obstetric emergency pathway`);
       } else if (/movement less|halchal kam|हलचल कम|hil nahi|leaking|pani nikal|पानी निकल|swelling|sujan|सूजन|labour|dard uth|प्रसव/.test(complaintAll)) {
         priority = raisePriority(priority, 'HIGH_PRIORITY');
         redFlags.push('Pregnancy warning sign reported (reduced fetal movement, leaking fluid, swelling or labour pains): priority obstetric review');
@@ -172,13 +190,20 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     if (interviewResult) {
       // Interview answers are the richer source; keep anything the kiosk forms added on top.
       const kiosk = structuredHistory;
+      // The health page comes after the interview and is the patient's confirmed version: it wins; the interview only fills gaps.
+      const raw = history && typeof history === 'object' ? history : {};
       structuredHistory = normaliseHistory({
         ...interviewResult.history,
-        conditions: Array.from(new Set([...(interviewResult.history.conditions || []), ...(kiosk?.conditions || [])])),
-        allergies: interviewResult.history.allergies || kiosk?.allergies || '',
-        currentMedicines: interviewResult.history.currentMedicines || kiosk?.currentMedicines || '',
+        ...raw,
+        conditions: Array.from(new Set([...(kiosk?.conditions || []), ...(kiosk?.conditions?.length ? [] : interviewResult.history.conditions || [])])),
+        allergies: kiosk?.allergies || (raw.allergyStatus === 'none' ? '' : interviewResult.history.allergies) || '',
+        currentMedicines: kiosk?.currentMedicines || (raw.medicineStatus === 'none' ? '' : interviewResult.history.currentMedicines) || '',
+        allergyList: kiosk?.allergyList?.length ? kiosk.allergyList : raw.allergyStatus === 'none' ? [] : interviewResult.history.allergyList,
+        drugHistory: kiosk?.drugHistory?.length ? kiosk.drugHistory : raw.medicineStatus === 'none' ? [] : interviewResult.history.drugHistory,
+        pastMedical: kiosk?.pastMedical?.length ? kiosk.pastMedical : interviewResult.history.pastMedical,
         completeness: interviewResult.history.completeness,
-        ayush: interviewResult.history.ayush || kiosk?.ayush
+        ayush: kiosk?.ayush || interviewResult.history.ayush,
+        interviewId: interviewResult.history.interviewId
       });
     }
 
@@ -188,7 +213,7 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
       careStream: cleanCareStream,
       age: Number.isFinite(age) ? age : undefined,
       gender,
-      isPregnant: !!patient?.isPregnant,
+      isPregnant: pregnant === true,
       isEmergency: priority === 'EMERGENCY_RED_FLAG',
       isAirborne: !!routingHints?.isAirborne,
       isMlc: !!routingHints?.isMlc,
@@ -205,7 +230,7 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
         `).run(
           patientId, cleanAbha, patient?.abhaAddress || null, cleanName, Number.isFinite(age) ? age : 0, gender,
           maskedPhone, phoneHash, phoneEnc, maskedAadhaar, lang, pariksha?.prakriti || null,
-          patient?.isPregnant ? 1 : 0, patient?.gestationalWeeks || null, patient?.isLactating ? 1 : 0, patient?.weightKg || null, now
+          pregnant === null ? null : pregnant ? 1 : 0, patient?.gestationalWeeks || null, lactating === null ? null : lactating ? 1 : 0, patient?.weightKg || null, now
         );
       } else {
         db.prepare(`
@@ -221,7 +246,7 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
         `).run(
           rawName, rawName, Number.isFinite(age) ? age : 0, Number.isFinite(age) ? age : 0, gender, lang,
           maskedPhone, phoneHash, phoneEnc, phoneEnc, maskedAadhaar,
-          pariksha?.prakriti || null, patient?.isPregnant ? 1 : 0, patient?.gestationalWeeks || null, patient?.isLactating ? 1 : 0, patient?.weightKg || null,
+          pariksha?.prakriti || null, pregnant === null ? null : pregnant ? 1 : 0, patient?.gestationalWeeks || null, lactating === null ? null : lactating ? 1 : 0, patient?.weightKg || null,
           patientId
         );
       }
@@ -489,7 +514,11 @@ kioskRouter.get('/lookup-draft', (req: Request, res: Response): void => {
       return;
     }
     audit(req, 'kiosk.draft_resumed', row.id);
-    res.json({ success: true, data: { draftId: row.id, draftData: JSON.parse(plain), updatedAt: row.updated_at } });
+    // A phone number alone must never reveal identity documents: strip them before returning the draft.
+    const draftData = JSON.parse(plain);
+    const payload = draftData?.draftPayload || draftData;
+    if (payload?.patient && typeof payload.patient === 'object') { delete payload.patient.aadhaar; delete payload.patient.abhaId; delete payload.patient.phone; }
+    res.json({ success: true, data: { draftId: row.id, draftData, updatedAt: row.updated_at } });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { dispenseText } from '../../utils/dispenseText';
 import { Search, AlertOctagon, Leaf, Pill, WifiOff, Users, UserCheck, Undo2, History, Repeat, ChevronRight } from 'lucide-react';
 import { PatientQueueItem, SeenTodayItem } from '../../types/api';
 import { api } from '../../services/api';
@@ -106,7 +107,7 @@ export const PatientQueueList: React.FC<PatientQueueListProps> = ({
                 <span className="text-[11px] font-mono text-muted-foreground">{new Date(s.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="text-[11px] text-muted-foreground truncate">{s.diagnosis || 'No diagnosis recorded'} · {s.items} item{s.items === 1 ? '' : 's'}{s.amended ? ' · amended' : ''}</div>
-              <div className={`text-[11px] font-semibold ${s.dispenseStatus === 'DISPENSED' ? 'text-emerald-700' : s.dispenseStatus === 'REFERRED_BACK' ? 'text-rose-700' : 'text-amber-700'}`}>Pharmacy: {s.dispenseStatus.replace(/_/g, ' ').toLowerCase()}{s.dispenseNote ? ` — ${s.dispenseNote}` : ''}</div>
+              <div className={`text-[11px] font-semibold ${s.dispenseStatus === 'DISPENSED' ? 'text-emerald-700' : s.dispenseStatus === 'REFERRED_BACK' ? 'text-rose-700' : 'text-amber-700'}`}>Pharmacy: {dispenseText(s.dispenseStatus)}{s.dispenseNote ? ` — ${s.dispenseNote}` : ''}</div>
             </button>
           ))}
         </div>

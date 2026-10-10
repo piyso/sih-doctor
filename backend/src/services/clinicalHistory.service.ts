@@ -15,7 +15,10 @@ import {
 
 const str = (v: unknown, max = 120): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim() && x.trim() !== 'None').map(x => x.trim().slice(0, 80)) : []);
-const splitText = (v: unknown): string[] => str(v, 500).split(/[,;।\n]+/).map(s => s.trim()).filter(s => s && !/^(none|nil|no|nahi|नहीं|कोई नहीं)$/i.test(s));
+const DENIAL = /^(none|nil|no|nahi|nahin|na|kuch nahi|koi nahi|नहीं|ना|कोई नहीं|कुछ नहीं)[.!]?$/i;
+const splitText = (v: unknown): string[] => str(v, 500).split(/[,;।\n]+/).map(s => s.trim()).filter(s => s && !DENIAL.test(s));
+/** A typed "none" / "nahi" is a denial, not an item. */
+export const isDenialText = (v: unknown): boolean => DENIAL.test(str(v, 100));
 const oneOf = <T extends string>(v: unknown, allowed: readonly T[]): T | undefined => (typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : undefined);
 
 function cleanItems(v: unknown): HistoryItem[] {
@@ -92,7 +95,7 @@ export function computeCompleteness(h: Omit<ClinicalHistory, 'completeness'>): H
   mark('chiefComplaint', true, !!h.chiefComplaint);
   mark('pastMedical', h.pastMedical.length > 0 || h.conditions.length > 0 || (h as any)._askedPastMedical === true, h.pastMedical.length > 0 || h.conditions.length > 0);
   mark('pastSurgical', (h as any)._askedPastSurgical === true || h.pastSurgical.length > 0, h.pastSurgical.length > 0 || (h as any)._deniedPastSurgical === true);
-  mark('drugHistory', h.drugHistory.length > 0 || !!h.currentMedicines || (h as any)._askedDrugs === true, h.drugHistory.length > 0 || !!h.currentMedicines);
+  mark('drugHistory', h.drugHistory.length > 0 || !!h.currentMedicines || (h as any)._askedDrugs === true, h.drugHistory.length > 0 || !!h.currentMedicines || (h as any)._deniedMedicines === true);
   mark('allergies', h.allergyList.length > 0 || !!h.allergies || (h as any)._askedAllergies === true, h.allergyList.length > 0 || !!h.allergies || (h as any)._deniedAllergies === true);
   mark('familyHistory', h.familyHistory.length > 0 || (h as any)._askedFamily === true, h.familyHistory.length > 0 || (h as any)._deniedFamily === true);
   mark('personal', Object.keys(h.personal).length > 0, Object.keys(h.personal).length >= 3);
@@ -119,12 +122,18 @@ export function normaliseHistory(raw: any): ClinicalHistory {
   const drugHistory = cleanDrugs(r.drugHistory);
   for (const m of splitText(medsText)) if (!drugHistory.some(x => x.name.toLowerCase() === m.toLowerCase())) drugHistory.push({ name: m, source: 'patient' });
 
+  const allergyStatus = (['none', 'unknown', 'listed'] as const).find(x => x === r.allergyStatus) || (isDenialText(allergiesText) ? 'none' : undefined);
+  const medicineStatus = (['none', 'unknown', 'listed'] as const).find(x => x === r.medicineStatus) || (isDenialText(medsText) ? 'none' : undefined);
+  const mentioned = r.mentionedInSpeech && typeof r.mentionedInSpeech === 'object' ? { conditions: list(r.mentionedInSpeech.conditions), medicines: list(r.mentionedInSpeech.medicines) } : undefined;
   const base = {
     version: 2 as const,
+    allergyStatus,
+    medicineStatus,
+    mentionedInSpeech: mentioned && (mentioned.conditions.length || mentioned.medicines.length) ? mentioned : undefined,
     chiefComplaint: str(r.chiefComplaint, 200) || undefined,
     conditions: Array.from(new Set([...conditions, ...pastMedical.map(p => p.name)])),
-    allergies: allergiesText || allergyList.map(a => a.agent).join(', '),
-    currentMedicines: medsText || drugHistory.map(d => d.name).join(', '),
+    allergies: isDenialText(allergiesText) ? '' : allergiesText || allergyList.map(a => a.agent).join(', '),
+    currentMedicines: isDenialText(medsText) ? '' : medsText || drugHistory.map(d => d.name).join(', '),
     pastMedical,
     pastSurgical: cleanItems(r.pastSurgical),
     drugHistory,
@@ -144,7 +153,7 @@ export function normaliseHistory(raw: any): ClinicalHistory {
     _askedDrugs: typeof r.currentMedicines === 'string' || r.askedSections?.drugHistory === true, _askedAllergies: typeof r.allergies === 'string' || r.askedSections?.allergies === true,
     _askedFamily: r.askedSections?.familyHistory === true,
     // Explicit denials come from the interview (answered 'none' / 'no'); a blank kiosk text box is not a denial.
-    _deniedAllergies: r.deniedSections?.allergies === true, _deniedFamily: r.deniedSections?.familyHistory === true, _deniedPastSurgical: r.deniedSections?.pastSurgical === true };
+    _deniedAllergies: r.deniedSections?.allergies === true || allergyStatus === 'none', _deniedMedicines: medicineStatus === 'none', _deniedFamily: r.deniedSections?.familyHistory === true, _deniedPastSurgical: r.deniedSections?.pastSurgical === true };
   const completeness = r.completeness && typeof r.completeness === 'object' && Number.isFinite(r.completeness.asked)
     ? r.completeness as HistoryCompleteness
     : computeCompleteness({ ...base, ...flags });

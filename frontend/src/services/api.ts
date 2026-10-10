@@ -28,7 +28,8 @@ import { RecordingConsentInput, RecordingConsentState, ScribeTranscript, Patient
   NotifiableEvent,
 } from '../types/api';
 import { session, StaffUser } from './session';
-import { MOCK_STAFF_USERS, MOCK_QUEUE_ITEMS, MOCK_SESSIONS, evaluateMockContraindications } from './mockSandbox';
+import { isCloudFrontendHost, knownLiveBackend } from './liveBackend';
+import { MOCK_STAFF_USERS, MOCK_QUEUE_ITEMS, mockSessionDetail, evaluateMockContraindications } from './mockSandbox';
 
 export interface KioskConsent {
   purposes: { care: boolean; abha_link: boolean; sms: boolean; research: boolean };
@@ -142,17 +143,9 @@ const getAutoApiUrl = (): string => {
   }
   if (!isBrowser) return 'http://localhost:8001';
 
-  // Auto-route cloud edge frontends (Vercel, Render static frontend, GitHub Pages, Netlify) to live backend
-  if (
-    hostname.endsWith('.vercel.app') ||
-    hostname.includes('onrender.com') ||
-    hostname.includes('github.io') ||
-    hostname.includes('netlify.app')
-  ) {
-    if (!hostname.includes('backend')) {
-      return 'https://gamma-tones-positioning-adjust.trycloudflare.com';
-    }
-  }
+  // Cloud-hosted frontends (Vercel, Render static site, GitHub Pages, Netlify) have no backend of
+  // their own: they use the demonstration backend named by deploy/live-backend.json (liveBackend.ts).
+  if (isCloudFrontendHost(hostname)) return knownLiveBackend();
 
   // Local development / LAN / Reverse Proxy
   return `${protocol}//${window.location.host}`;
@@ -177,16 +170,7 @@ const getAutoWsUrl = (): string => {
   }
   if (!isBrowser) return 'ws://localhost:8001/ws/ambient';
 
-  if (
-    hostname.endsWith('.vercel.app') ||
-    hostname.includes('onrender.com') ||
-    hostname.includes('github.io') ||
-    hostname.includes('netlify.app')
-  ) {
-    if (!hostname.includes('backend')) {
-      return 'wss://gamma-tones-positioning-adjust.trycloudflare.com/ws/ambient';
-    }
-  }
+  if (isCloudFrontendHost(hostname)) return `${knownLiveBackend().replace(/^http/, 'ws')}/ws/ambient`;
 
   return `${wsProtocol}//${window.location.host}/ws/ambient`;
 };
@@ -202,20 +186,27 @@ export class ApiAuthError extends Error {
   }
 }
 
+/** Thrown for any server call made inside the offline sandbox that has no built-in stand-in. */
+export class OfflineSandboxError extends Error {
+  constructor() {
+    super('Offline sandbox: this needs the hospital server. Switch to the server when it is reachable.');
+    this.name = 'OfflineSandboxError';
+  }
+}
+
 /**
  * fetch() with the staff session / kiosk device credentials attached. When the server says the
  * session is missing or expired, a window event lets the UI show the sign-in screen.
  */
 export const apiFetch = async (url: string, init: RequestInit = {}): Promise<Response> => {
+  // The offline sandbox is a closed box: it never reads from or writes to the hospital server,
+  // even when the server happens to answer again. Calls without a built-in stand-in fail at once.
+  if (session.isSandbox) throw new OfflineSandboxError();
   const headers = new Headers(init.headers || {});
   if (session.staffToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${session.staffToken}`);
   if (session.deviceToken && !headers.has('X-Kiosk-Token')) headers.set('X-Kiosk-Token', session.deviceToken);
   const res = await fetch(url, { ...init, headers });
   if (res.status === 401 || res.status === 403) {
-    if (session.isSandbox) {
-      // In sandbox mode, mock sessions must NEVER be destroyed by remote server 401s
-      return res;
-    }
     const body = await res.clone().json().catch(() => ({} as any));
     if (body.code === 'AUTH_REQUIRED' && session.staffToken) {
       session.clearStaff();
@@ -284,11 +275,11 @@ class ApiService {
     }
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/queue`, {}, 8000);
-      if (!res.ok) return { items: session.isSandbox ? MOCK_QUEUE_ITEMS : [], online: false };
+      if (!res.ok) return { items: [], online: false };
       const data = await res.json();
       return { items: data.success && Array.isArray(data.data) ? data.data : [], online: true };
     } catch {
-      return { items: MOCK_QUEUE_ITEMS, online: true };
+      return { items: [], online: false };
     }
   }
 
@@ -299,15 +290,16 @@ class ApiService {
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/queue`, {}, 8000);
       if (!res.ok) {
-        return MOCK_QUEUE_ITEMS;
+        throw new Error(`Queue fetch failed with status ${res.status}`);
       }
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         return data.data;
       }
-      return MOCK_QUEUE_ITEMS;
-    } catch {
-      return MOCK_QUEUE_ITEMS;
+      return [];
+    } catch (e) {
+      console.error('[ApiService] Failed to fetch live queue from backend:', e);
+      return [];
     }
   }
 
@@ -329,6 +321,7 @@ class ApiService {
    * Live Mode: Direct SQLite WAL query
    */
   public async getSessionDetail(id: string): Promise<SessionDetail | null> {
+    if (session.isSandbox) return mockSessionDetail(id);
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/encounter/${id}`, {}, 8000);
       if (!res.ok) {
@@ -571,8 +564,9 @@ class ApiService {
         }
       };
     } catch (e) {
-      console.warn('[ApiService] checkContraindicationsFull using resilient clinical evaluator:', e);
-      return evaluateMockContraindications(allopathic, ayush);
+      // Never answer a failed safety check with invented results outside the sandbox.
+      console.warn('[ApiService] checkContraindicationsFull failed:', e);
+      throw e;
     }
   }
 
@@ -919,25 +913,16 @@ class ApiService {
       if (path.includes('/seen-today') || path.includes('/favourites') || path.includes('/order-sets') || path.includes('/investigations') || path.includes('/diagnosis-search') || path.includes('/notifiable')) {
         return { data: [] } as unknown as T;
       }
+      throw new OfflineSandboxError();
     }
-    try {
-      const res = await fetchWithTimeout(`${BASE_URL}/api/doctor${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers || {}) } }, timeout);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.success === false) {
-        if (session.isSandbox) {
-          return { data: [] } as unknown as T;
-        }
-        const err: Error & { code?: string; status?: number; details?: any } = new Error(data.error || `Request failed (${res.status})`);
-        err.code = data.code; err.status = res.status; err.details = data;
-        throw err;
-      }
-      return data as T;
-    } catch (e) {
-      if (session.isSandbox) {
-        return { data: [] } as unknown as T;
-      }
-      throw e;
+    const res = await fetchWithTimeout(`${BASE_URL}/api/doctor${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers || {}) } }, timeout);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      const err: Error & { code?: string; status?: number; details?: any } = new Error(data.error || `Request failed (${res.status})`);
+      err.code = data.code; err.status = res.status; err.details = data;
+      throw err;
     }
+    return data as T;
   }
   /** The ABDM record as it would be built from the current draft (not stored); a signed visit returns its signed bundle. */
   public previewFhirDraft(sessionId: string, body: Record<string, unknown>) { return this.deskJson<{ bundle: any; finalized: boolean }>(`/encounter/${encodeURIComponent(sessionId)}/fhir-preview`, { method: 'POST', body: JSON.stringify(body) }, 10000); }
@@ -1004,75 +989,38 @@ class ApiService {
 
   // ======================= Staff sign-in =======================
 
-  public async getAuthStatus(): Promise<{ needsSetup: boolean; setupNeedsCode: boolean; demoMode: boolean; demoAccounts: Array<{ username: string; displayName: string; role: string }>; kioskOpen: boolean }> {
+  public async getAuthStatus(): Promise<{ needsSetup: boolean; setupNeedsCode: boolean; demoMode: boolean; demoToggle?: boolean; demoAccounts: Array<{ username: string; displayName: string; role: string }>; kioskOpen: boolean }> {
     if (session.isSandbox) {
       return {
         needsSetup: false,
         setupNeedsCode: false,
         demoMode: true,
+        demoToggle: true,
         demoAccounts: MOCK_STAFF_USERS.map(u => ({ username: u.username, displayName: u.displayName, role: u.role })),
         kioskOpen: true
       };
     }
-    try {
-      const res = await fetchWithTimeout(`${BASE_URL}/api/auth/status`, {}, 6000);
-      return jsonOrThrow(res);
-    } catch {
-      return {
-        needsSetup: false,
-        setupNeedsCode: false,
-        demoMode: true,
-        demoAccounts: MOCK_STAFF_USERS.map(u => ({ username: u.username, displayName: u.displayName, role: u.role })),
-        kioskOpen: true
-      };
-    }
+    const res = await fetchWithTimeout(`${BASE_URL}/api/auth/status`, {}, 6000);
+    return jsonOrThrow(res);
   }
 
   public async login(username: string, pin: string): Promise<{ token: string; user: StaffUser; expiresAt: string }> {
     if (session.isSandbox) {
-      const matched = MOCK_STAFF_USERS.find(u => u.username.toLowerCase() === username.toLowerCase()) || {
-        id: `user-${Date.now()}`,
-        username: username,
-        displayName: username.includes('@') ? username.split('@')[0] : username,
-        role: (username.includes('admin') ? 'admin' : (username.includes('vaidya') ? 'vaidya' : 'doctor')) as any,
-        department: 'GENMED',
-        qualification: 'Medical Officer',
-        registrationNo: 'REG-MOCK-1',
-        mustChangePin: false,
-        isDemo: true
-      };
+      // Offline sandbox: a stand-in account in this browser only. Nothing reaches the server.
+      const name = username.trim().toLowerCase();
+      const user = MOCK_STAFF_USERS.find(u => u.username === name) || MOCK_STAFF_USERS[0];
       const expiresAt = new Date(Date.now() + 8 * 3600000).toISOString();
-      session.setStaff('mock-token-sandbox', matched, expiresAt);
-      return { token: 'mock-token-sandbox', user: matched, expiresAt };
+      session.setStaff('mock-token-sandbox', user, expiresAt);
+      return { token: 'mock-token-sandbox', user, expiresAt };
     }
-
-    try {
-      const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, pin })
-      }, 8000);
-      const data = await jsonOrThrow(res);
-      session.setStaff(data.token, data.user, data.expiresAt);
-      return data;
-    } catch (e) {
-      console.warn('[ApiService] Server login unreachable, falling back to Sandbox session:', e);
-      const matched = MOCK_STAFF_USERS.find(u => u.username.toLowerCase() === username.toLowerCase()) || {
-        id: `user-${Date.now()}`,
-        username: username,
-        displayName: username.includes('@') ? username.split('@')[0] : username,
-        role: (username.includes('admin') ? 'admin' : (username.includes('vaidya') ? 'vaidya' : 'doctor')) as any,
-        department: 'GENMED',
-        qualification: 'Medical Officer',
-        registrationNo: 'REG-MOCK-1',
-        mustChangePin: false,
-        isDemo: true
-      };
-      const expiresAt = new Date(Date.now() + 8 * 3600000).toISOString();
-      session.setSandbox(true);
-      session.setStaff('mock-token-sandbox', matched, expiresAt);
-      return { token: 'mock-token-sandbox', user: matched, expiresAt };
-    }
+    const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, pin })
+    }, 10000);
+    const data = await jsonOrThrow(res);
+    session.setStaff(data.token, data.user, data.expiresAt);
+    return data;
   }
 
   public async logout(): Promise<void> {
@@ -1080,17 +1028,17 @@ class ApiService {
     session.clearStaff();
   }
 
+  /**
+   * The signed-in user as the server sees them: null when the server says the session is not
+   * valid. Throws when the server cannot be reached — that proves nothing about the session.
+   */
   public async me(): Promise<StaffUser | null> {
     if (session.isSandbox) return session.user;
-    try {
-      const res = await fetchWithTimeout(`${BASE_URL}/api/auth/me`, {}, 6000);
-      if (!res.ok) return session.isSandbox ? session.user : null;
-      const data = await res.json();
-      if (data.user) session.updateUser(data.user);
-      return data.user || null;
-    } catch {
-      return session.isSandbox ? session.user : null;
-    }
+    const res = await fetchWithTimeout(`${BASE_URL}/api/auth/me`, {}, 6000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.user) session.updateUser(data.user);
+    return data.user || null;
   }
 
   public async changePin(currentPin: string, newPin: string): Promise<StaffUser> {
@@ -1206,12 +1154,8 @@ class ApiService {
 
   public async getAlerts(): Promise<any[]> {
     if (session.isSandbox) return [];
-    try {
-      const res = await fetchWithTimeout(`${BASE_URL}/api/alerts`, {}, 8000);
-      return (await jsonOrThrow(res)).data || [];
-    } catch {
-      return [];
-    }
+    const res = await fetchWithTimeout(`${BASE_URL}/api/alerts`, {}, 8000);
+    return (await jsonOrThrow(res)).data || [];
   }
 
   public async acknowledgeAlert(id: string): Promise<any> {
@@ -1230,11 +1174,17 @@ class ApiService {
 
   // ======================= Pharmacy =======================
 
-  public async recordDispense(encounterId: string, status: 'DISPENSED' | 'PARTIAL' | 'NOT_DISPENSED' | 'REFERRED_BACK', note?: string): Promise<{ dispensedAt: string; dispensedBy: string }> {
+  public async recordDispense(
+    encounterId: string,
+    status: 'DISPENSED' | 'PARTIAL' | 'NOT_DISPENSED' | 'REFERRED_BACK',
+    note?: string,
+    /** What was actually handed over, line by line (stored with the dispense record). */
+    items?: Array<{ name: string; given: boolean; quantity?: number; batch?: string }>
+  ): Promise<{ dispensedAt: string; dispensedBy: string }> {
     const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/encounters/${encodeURIComponent(encounterId)}/dispense`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, note })
+      body: JSON.stringify({ status, note, items })
     }, 8000);
     return jsonOrThrow(res);
   }
@@ -1306,7 +1256,7 @@ class ApiService {
   }
 
   // ---------------------------------------------------------------- Adaptive history interview (server-side state machine)
-  public async startInterview(input: { language?: string; careStream?: string; patient?: { age?: number | null; gender?: string | null; isPregnant?: boolean } }): Promise<{ interviewId: string; question: InterviewQuestion }> {
+  public async startInterview(input: { language?: string; careStream?: string; scope?: 'kiosk' | 'full'; patient?: { age?: number | null; gender?: string | null; isPregnant?: boolean | null } }): Promise<{ interviewId: string; question: InterviewQuestion }> {
     const res = await fetchWithTimeout(`${BASE_URL}/api/kiosk/interview/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, 8000);
     return jsonOrThrow(res);
   }

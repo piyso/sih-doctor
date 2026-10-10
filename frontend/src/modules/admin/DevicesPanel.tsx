@@ -112,7 +112,7 @@ export const DevicesPanel: React.FC = () => {
               <tbody>
                 {devices.map(d => (
                   <tr key={d.id} className={`border-b border-border/40 ${d.revokedAt ? 'opacity-50' : ''}`}>
-                    <td className="py-2 pr-3 font-semibold">{d.name}<div className="font-mono text-[10px] text-muted-foreground">{d.id}</div></td>
+                    <td className="py-2 pr-3 font-semibold">{d.name}<div className="font-mono text-[11px] text-muted-foreground">{d.id}</div></td>
                     <td className="py-2 pr-3">{d.location || '—'}</td>
                     <td className="py-2 pr-3 font-mono">{d.printerHost || '—'}</td>
                     <td className="py-2 pr-3">{fmtTime(d.createdAt)}</td>

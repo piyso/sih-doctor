@@ -54,6 +54,11 @@ export const AnalyticsPanel: React.FC = () => {
   if (!data) return error ? <ErrorNote message={error} /> : <Loading />;
   const { snapshot, trend, syndromicSignals, prescribingSafety, followUp } = data;
   const maxDay = Math.max(1, ...trend.map((d: any) => d.visits));
+  // Patients still open from earlier days explain "0 checked in today" beside "10 waiting now".
+  const carried: number = snapshot.totals.carriedOver || 0;
+  const emergencyCarried: number = snapshot.totals.emergencyCarriedOver || 0;
+  const openNow: number = snapshot.totals.waitingNow + snapshot.totals.inConsultationNow;
+  const fromEarlier = (n: number, of: number) => (n <= 0 ? undefined : n >= of ? 'all from earlier days' : `${n} from earlier days`);
 
   return (
     <div className="space-y-4">
@@ -65,14 +70,14 @@ export const AnalyticsPanel: React.FC = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Stat label="Checked in today" value={snapshot.totals.checkedInToday} />
-        <Stat label="Waiting now" value={snapshot.totals.waitingNow} tone={snapshot.totals.waitingNow > 25 ? 'warn' : 'default'} />
+        <Stat label="Waiting now" value={snapshot.totals.waitingNow} hint={fromEarlier(carried, openNow)} tone={snapshot.totals.waitingNow > 25 ? 'warn' : 'default'} />
         <Stat label="With a doctor now" value={snapshot.totals.inConsultationNow} />
-        <Stat label="Emergency now" value={snapshot.totals.emergencyNow} tone={snapshot.totals.emergencyNow ? 'danger' : 'ok'} />
+        <Stat label="Emergency now" value={snapshot.totals.emergencyNow} hint={fromEarlier(emergencyCarried, snapshot.totals.emergencyNow)} tone={snapshot.totals.emergencyNow ? 'danger' : 'ok'} />
         <Stat label="Median wait" value={fmtMins(snapshot.timings.medianWaitMinutes)} hint="check-in → called" />
         <Stat label="SOS response" value={snapshot.timings.medianSosAckSeconds === null ? '—' : `${snapshot.timings.medianSosAckSeconds}s`} hint={`${snapshot.timings.sosAlerts24h} alerts in 24 h`} tone={snapshot.timings.medianSosAckSeconds > 120 ? 'danger' : 'default'} />
       </div>
 
-      <Panel title="Rooms right now" subtitle="'Busy' means the last waiting patient is expected to wait more than 45 minutes.">
+      <Panel title="Rooms right now" subtitle="A status is shown only when a room needs attention. ‘Busy’ means the last waiting patient is expected to wait more than 45 minutes.">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-muted-foreground">
@@ -95,10 +100,12 @@ export const AnalyticsPanel: React.FC = () => {
                   <td className="py-2 pr-3 text-right tabular-nums">{r.inConsultation}</td>
                   <td className={`py-2 pr-3 text-right tabular-nums ${r.emergencyCount ? 'text-rose-600 font-bold' : ''}`}>{r.emergencyCount}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{fmtMins(r.medianConsultMinutes)}</td>
-                  <td className="py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.pacingStatus === 'BUSY' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
-                      {r.pacingStatus === 'BUSY' ? 'Busy' : 'OK'}
-                    </span>
+                  <td className="py-2 whitespace-nowrap">
+                    {r.emergencyCount > 0
+                      ? <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300">Emergency waiting</span>
+                      : r.pacingStatus === 'BUSY'
+                        ? <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">Busy</span>
+                        : <span className="text-muted-foreground" aria-label="No issue">—</span>}
                   </td>
                 </tr>
               ))}
@@ -127,11 +134,11 @@ export const AnalyticsPanel: React.FC = () => {
           <div className="flex items-end gap-1.5 h-36">
             {trend.map((d: any) => (
               <div key={d.day} className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0" title={`${d.day}: ${d.visits} visits, ${d.emergencies} emergencies, ${d.completed} completed`}>
-                <span className="text-[10px] tabular-nums text-muted-foreground">{d.visits}</span>
+                <span className="text-[11px] tabular-nums text-muted-foreground">{d.visits}</span>
                 <div className="w-full rounded-t-md bg-primary/60 relative" style={{ height: `${(d.visits / maxDay) * 100}px` }}>
                   <div className="absolute bottom-0 left-0 right-0 bg-rose-500/80 rounded-t-sm" style={{ height: `${d.visits ? (d.emergencies / d.visits) * 100 : 0}%` }} />
                 </div>
-                <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.day.slice(5)}</span>
+                <span className="text-[11px] text-muted-foreground truncate w-full text-center">{d.day.slice(5)}</span>
               </div>
             ))}
           </div>
@@ -160,7 +167,7 @@ export const AnalyticsPanel: React.FC = () => {
                   <td className="py-1.5 text-right tabular-nums">&gt; {s.threshold}</td>
                   <td className="py-1.5 pl-3">
                     {s.signal
-                      ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300">Review — report to IDSP if confirmed</span>
+                      ? <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300">Review — report to IDSP if confirmed</span>
                       : <span className="text-muted-foreground">Normal</span>}
                   </td>
                 </tr>

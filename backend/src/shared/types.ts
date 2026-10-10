@@ -332,6 +332,11 @@ export interface HistoryCompleteness {
 
 export interface ClinicalHistory {
   version: 2;
+  /** Kiosk status fields: 'none' is an explicit denial, 'unknown' means asked but not answered. */
+  allergyStatus?: 'none' | 'unknown' | 'listed';
+  medicineStatus?: 'none' | 'unknown' | 'listed';
+  /** Conditions and medicines the patient mentioned while describing the complaint (speech). */
+  mentionedInSpeech?: { conditions: string[]; medicines: string[] };
   chiefComplaint?: string;
   // Legacy keys kept so older screens keep working.
   conditions: string[];

@@ -59,6 +59,8 @@ export async function runRetrievalBattery() {
   check(recall >= 0.9, `coarse stage (int8, k=48) keeps ${(recall * 100).toFixed(1)}% of the exact top-10`);
   const qTop = index.coarse(index.embedQuery({ symptoms: ['Knee pain', 'Morning stiffness', 'Joint crepitus'], ageBand: '61+' }), 5);
   check(qTop.length === 5 && /Sandhivata/.test(index.records[qTop[0].idx].diagnoses[0]), 'knee stiffness query ranks Sandhivata first');
+  const hiTop = index.coarse(index.embedQuery({ symptoms: ['बुखार', 'खांसी'] }), 3).map(c => index.records[c.idx]);
+  check(hiTop.every(r => r.symptoms.some(x => /fever|cough/i.test(x))), `a Hindi fever+cough query retrieves English fever/cough cases (${hiTop.map(r => r.diagnoses[0].split(' ')[0]).join(', ')})`);
 
   console.log('\n--- Mode arbiter: guards hold under an adversarial controller ---');
   const arb = new ModeArbiter({ windowW: 10, maxEnclaveRatio: 0.8, secureMemoryCeiling: 0.85, thresholdMs: 100, defaultMode: 'HE' });

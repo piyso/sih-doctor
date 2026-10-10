@@ -18,12 +18,12 @@ authRouter.get('/status', (_req: Request, res: Response): void => {
   const users = AuthService.listUsers();
   res.json({
     // Demo accounts cannot sign in while demonstration mode is off, so they do not count as set up.
-    needsSetup: !users.some(u => !u.isDemo) && !securityConfig.allowDemo,
+    needsSetup: !users.some(u => !u.isDemo) && !securityConfig.demoAccountsOpen,
     setupNeedsCode: securityConfig.isProduction,
     demoMode: securityConfig.allowDemo,
     demoToggle: securityConfig.demoToggle,
     // Usernames only (never PINs), so testers know which demo accounts exist.
-    demoAccounts: securityConfig.allowDemo
+    demoAccounts: securityConfig.demoAccountsOpen
       ? users.filter(u => u.isDemo && u.active).map(u => ({ username: u.username, displayName: u.displayName, role: u.role }))
       : [],
     kioskOpen: securityConfig.kioskOpen
@@ -34,7 +34,7 @@ authRouter.get('/status', (_req: Request, res: Response): void => {
 authRouter.post('/setup', loginLimiter, (req: Request, res: Response): void => {
   // Open only while no real account exists and demo accounts cannot sign in (demonstration mode
   // off); with demonstration mode on, the demo administrator adds accounts under Staff instead.
-  if (AuthService.listUsers().some(u => !u.isDemo) || securityConfig.allowDemo) {
+  if (AuthService.listUsers().some(u => !u.isDemo) || securityConfig.demoAccountsOpen) {
     res.status(409).json({ error: 'Setup has already been completed.' });
     return;
   }
@@ -69,7 +69,7 @@ authRouter.post('/login', loginLimiter, (req: Request, res: Response): void => {
     res.status(result.reason === 'locked' ? 423 : 401).json({ error: message, code: result.reason.toUpperCase() });
     return;
   }
-  if (result.user.isDemo && !securityConfig.allowDemo) {
+  if (result.user.isDemo && !securityConfig.demoAccountsOpen) {
     AuthService.logout(result.token);
     res.status(403).json({ error: 'Demo accounts are switched off on this server (demonstration mode is off). Sign in with your own account.', code: 'DEMO_ACCOUNT_OFF' });
     return;
