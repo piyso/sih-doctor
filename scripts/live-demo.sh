@@ -210,9 +210,12 @@ case "$MODE" in
       tail -n 12 "$RUN_DIR/smoke.log" 2>/dev/null | sed 's/^/         /' >&2
       exit 1
     fi
+    # Tell a running --watch to stand back while the backend is swapped.
+    date +%s >"$RUN_DIR/restarting"
     stop_backend
     if start_backend; then ok "backend restarted on :$PORT — frozen (no file-watching), log: .live-demo/backend.log"
-    else bad "backend did not come back — see .live-demo/backend.log"; exit 1; fi
+    else rm -f "$RUN_DIR/restarting"; bad "backend did not come back — see .live-demo/backend.log"; exit 1; fi
+    rm -f "$RUN_DIR/restarting"
     report
     ;;
 
@@ -241,6 +244,8 @@ case "$MODE" in
     last=""
     while true; do
       state="ok"
+      # A deliberate --restart-backend is in progress (marker younger than two minutes): do not interfere.
+      if [ -f "$RUN_DIR/restarting" ] && [ $(( $(date +%s) - $(cat "$RUN_DIR/restarting" 2>/dev/null || echo 0) )) -lt 120 ]; then sleep 5; continue; fi
       if ! backend_up; then
         sleep 3
         if ! backend_up; then
