@@ -26,12 +26,26 @@ Real mode is honest by construction: mock data is only ever returned inside the 
 `https://sih-doctor.vercel.app` has no backend of its own. Its backend is this project's backend running on the demonstration machine, published through a Cloudflare quick tunnel whose address changes whenever the tunnel restarts. The site therefore reads the current address at start-up from `deploy/live-backend.json` in the repository (see `frontend/src/services/liveBackend.ts`), so a new address needs **no new build** of the site.
 
 ```bash
-scripts/live-demo.sh            # start backend + tunnel if needed, publish the address
-scripts/live-demo.sh --status   # report only
-scripts/live-demo.sh --no-push  # write deploy/live-backend.json, do not push it
+scripts/live-demo.sh                    # start what is missing (backend, tunnel, keep-awake), publish the address
+scripts/live-demo.sh --status           # report only
+scripts/live-demo.sh --watch            # stay running: restart a dead backend or tunnel, republish the address
+scripts/live-demo.sh --restart-backend  # prove the code on disk starts (spare port, throw-away DB), then swap it in
+scripts/live-demo.sh --reset            # demo accounts, Mock mode, ten sample patients, leftover visits, SOS alerts
 ```
 
-Keep the demonstration machine awake and online. If the tunnel is down, visitors get Mock mode from the offline sandbox; Real mode tells them the server is not answering.
+- The demonstration backend runs **without file-watching** and in its own session: saving a source file, or closing the terminal that started it, does not touch it. New backend code goes live only through `--restart-backend`.
+- `--reset` works even if a visitor changed a demo PIN or deactivated a demo account, because it restores the accounts in the database directly; the rest goes through the running server so every screen updates. `--keep-visits` keeps patients who checked in for real.
+- Demo accounts are never locked out by wrong PINs on a demonstration server (their PINs are public). Hospital installations lock after five wrong PINs as before.
+- If the tunnel is down, visitors get Mock mode from the offline sandbox; Real mode tells them the server is not answering.
+
+### On the day
+
+1. `scripts/live-demo.sh --status` — four `[ok]` lines.
+2. `scripts/live-demo.sh --reset` — clean start: Mock mode, ten sample patients, all accounts working.
+3. Leave `scripts/live-demo.sh --watch` running in a terminal. Keep the machine plugged in, lid open, online.
+4. Present from this machine at `http://localhost:5173` (no internet needed); the public link is for the audience.
+5. Nobody edits backend files, restarts servers or runs the end-to-end tests during the demonstration (the e2e switch test flips the shared server for a second).
+6. The public link is open: anyone can sign in with one tap and flip Mock / Real. If something looks wrong, run `--reset`.
 
 ## Server settings
 
@@ -45,6 +59,6 @@ The last choice is stored in the database (`system_settings.demo_mode`) and surv
 
 ## Tests
 
-- `backend/tests/demo_mode.test.ts` (battery 29 of `npm test`): who may switch, Real mode leaves no sample data while staff can still sign in and a real check-in appears alone, switching back restores the ten sample patients, and a hospital installation keeps demo accounts and unenrolled kiosks out.
+- `backend/tests/demo_mode.test.ts` (battery 29 of `npm test`, 34 checks): who may switch, Real mode leaves no sample data while staff can still sign in and a real check-in appears alone, switching back restores the ten sample patients, demo accounts never lock on a demonstration server, a hospital installation locks them and keeps unenrolled kiosks out, and a reset undoes tampering.
 - `e2e/tests/demo-mode.spec.ts`: one click on the signed-out gateway switches to Real and back.
 - `e2e/tests/security.spec.ts`: one-tap sign-in, and username + PIN still enforced.
