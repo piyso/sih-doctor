@@ -32,15 +32,26 @@ export const StaffGate: React.FC<StaffGateProps> = ({ roles, terminalName, child
   useEffect(() => {
     let alive = true;
     if (session.staffToken) {
-      api.me().then(u => {
-        if (!alive) return;
-        if (!u) session.clearStaff();
+      if (session.isSandbox) {
         setChecked(true);
-      });
+      } else {
+        api.me().then(u => {
+          if (!alive) return;
+          if (!u && !session.isSandbox) session.clearStaff();
+          setChecked(true);
+        }).catch(() => {
+          if (!alive) return;
+          setChecked(true);
+        });
+      }
     } else {
       setChecked(true);
     }
-    const onExpired = () => setNotice('Your session ended. Please sign in again.');
+    const onExpired = () => {
+      if (!session.isSandbox) {
+        setNotice('Your session ended. Please sign in again.');
+      }
+    };
     window.addEventListener('hos:auth-required', onExpired);
     return () => { alive = false; window.removeEventListener('hos:auth-required', onExpired); };
   }, []);

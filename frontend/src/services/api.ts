@@ -212,6 +212,10 @@ export const apiFetch = async (url: string, init: RequestInit = {}): Promise<Res
   if (session.deviceToken && !headers.has('X-Kiosk-Token')) headers.set('X-Kiosk-Token', session.deviceToken);
   const res = await fetch(url, { ...init, headers });
   if (res.status === 401 || res.status === 403) {
+    if (session.isSandbox) {
+      // In sandbox mode, mock sessions must NEVER be destroyed by remote server 401s
+      return res;
+    }
     const body = await res.clone().json().catch(() => ({} as any));
     if (body.code === 'AUTH_REQUIRED' && session.staffToken) {
       session.clearStaff();
@@ -905,14 +909,35 @@ class ApiService {
 
   // ── Doctor desk ──────────────────────────────────────────────────────────
   private async deskJson<T>(path: string, init: RequestInit = {}, timeout = 8000): Promise<T> {
-    const res = await fetchWithTimeout(`${BASE_URL}/api/doctor${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers || {}) } }, timeout);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === false) {
-      const err: Error & { code?: string; status?: number; details?: any } = new Error(data.error || `Request failed (${res.status})`);
-      err.code = data.code; err.status = res.status; err.details = data;
-      throw err;
+    if (session.isSandbox) {
+      if (path.includes('/claim')) {
+        return { claimedBy: { id: session.user?.id || 'user-dr-sharma', name: session.user?.displayName || 'Dr. Ananya Sharma', at: new Date().toISOString() } } as unknown as T;
+      }
+      if (path.includes('/drafts')) {
+        return { updatedAt: new Date().toISOString() } as unknown as T;
+      }
+      if (path.includes('/seen-today') || path.includes('/favourites') || path.includes('/order-sets') || path.includes('/investigations') || path.includes('/diagnosis-search') || path.includes('/notifiable')) {
+        return { data: [] } as unknown as T;
+      }
     }
-    return data as T;
+    try {
+      const res = await fetchWithTimeout(`${BASE_URL}/api/doctor${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers || {}) } }, timeout);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        if (session.isSandbox) {
+          return { data: [] } as unknown as T;
+        }
+        const err: Error & { code?: string; status?: number; details?: any } = new Error(data.error || `Request failed (${res.status})`);
+        err.code = data.code; err.status = res.status; err.details = data;
+        throw err;
+      }
+      return data as T;
+    } catch (e) {
+      if (session.isSandbox) {
+        return { data: [] } as unknown as T;
+      }
+      throw e;
+    }
   }
   /** The ABDM record as it would be built from the current draft (not stored); a signed visit returns its signed bundle. */
   public previewFhirDraft(sessionId: string, body: Record<string, unknown>) { return this.deskJson<{ bundle: any; finalized: boolean }>(`/encounter/${encodeURIComponent(sessionId)}/fhir-preview`, { method: 'POST', body: JSON.stringify(body) }, 10000); }
@@ -1056,14 +1081,15 @@ class ApiService {
   }
 
   public async me(): Promise<StaffUser | null> {
+    if (session.isSandbox) return session.user;
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/auth/me`, {}, 6000);
-      if (!res.ok) return null;
+      if (!res.ok) return session.isSandbox ? session.user : null;
       const data = await res.json();
       if (data.user) session.updateUser(data.user);
       return data.user || null;
     } catch {
-      return null;
+      return session.isSandbox ? session.user : null;
     }
   }
 
@@ -1099,6 +1125,7 @@ class ApiService {
 
   /** Staff event stream (SOS alerts, queue changes). Reconnects with a fresh ticket. */
   public subscribeStaffEvents(onEvent: (e: any) => void): () => void {
+    if (session.isSandbox) return () => {};
     let es: EventSource | null = null;
     let stopped = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -1178,8 +1205,13 @@ class ApiService {
   }
 
   public async getAlerts(): Promise<any[]> {
-    const res = await fetchWithTimeout(`${BASE_URL}/api/alerts`, {}, 8000);
-    return (await jsonOrThrow(res)).data;
+    if (session.isSandbox) return [];
+    try {
+      const res = await fetchWithTimeout(`${BASE_URL}/api/alerts`, {}, 8000);
+      return (await jsonOrThrow(res)).data || [];
+    } catch {
+      return [];
+    }
   }
 
   public async acknowledgeAlert(id: string): Promise<any> {
