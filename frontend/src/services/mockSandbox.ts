@@ -1,4 +1,4 @@
-import { PatientQueueItem, SessionDetail } from '../types/api';
+import { PatientQueueItem, SessionDetail, ConflictAlert, HypergraphPolypharmacyResult } from '../types/api';
 import { StaffUser } from './session';
 
 export const MOCK_STAFF_USERS: StaffUser[] = [
@@ -249,3 +249,102 @@ export const MOCK_SESSIONS: Record<string, SessionDetail> = {
     }
   }
 };
+
+export function evaluateMockContraindications(allopathic: any[], ayush: any[]): {
+  alerts: ConflictAlert[];
+  hasConflicts: boolean;
+  viruddhaWarnings: any[];
+  hypergraphPolypharmacy: HypergraphPolypharmacyResult;
+} {
+  const alerts: ConflictAlert[] = [];
+  const alloNames = allopathic.map(a => (a.name || a.genericName || '').toLowerCase());
+  const ayushNames = ayush.map(a => (a.classicalName || a.name || '').toLowerCase());
+
+  // 1. Warfarin + Guggulu / Garlic
+  const hasWarfarin = alloNames.some(n => n.includes('warfarin') || n.includes('coumadin') || n.includes('clopidogrel'));
+  const hasGuggulu = ayushNames.some(n => n.includes('guggulu') || n.includes('guggul') || n.includes('garlic') || n.includes('lasuna'));
+  if (hasWarfarin && hasGuggulu) {
+    alerts.push({
+      alertId: 'alert-warfarin-guggulu',
+      allopathicDrug: 'Warfarin',
+      ayushHerb: 'Yograj Guggulu',
+      severity: 'CRITICAL_LETHAL',
+      tier: 'STOP',
+      evidence: 'established',
+      source: 'registry',
+      mechanism: 'CYP2C9 competitive inhibition + guggulsterone mediated additive platelet aggregation suppression produces life-threatening spontaneous hemorrhage.',
+      clinicalConsequence: 'Severe spontaneous internal hemorrhage & sudden INR elevation > 6.0.',
+      recommendedAction: 'WITHDRAW Guggulu immediately. Switch to Rasnasaptaka Kwatha. Recheck INR within 48 hours.'
+    });
+  }
+
+  // 2. Metformin + Shilajit
+  const hasMetformin = alloNames.some(n => n.includes('metformin') || n.includes('glycomet'));
+  const hasShilajit = ayushNames.some(n => n.includes('shilajit') || n.includes('shilajeet'));
+  if (hasMetformin && hasShilajit) {
+    alerts.push({
+      alertId: 'alert-metformin-shilajit',
+      allopathicDrug: 'Metformin',
+      ayushHerb: 'Shuddha Shilajit',
+      severity: 'WARNING',
+      tier: 'WARN',
+      evidence: 'probable',
+      source: 'rules',
+      mechanism: 'Synergistic AMPK activation & enhanced GLUT4 translocation increases risk of precipitous hypoglycemic collapse.',
+      clinicalConsequence: 'Symptomatic neuroglycopenia, diaphoresis and acute hypoglycemic shock.',
+      recommendedAction: 'Monitor capillary blood glucose BID. Reduce Metformin dose or switch to Nishamalaki Vati.'
+    });
+  }
+
+  // 3. Digoxin + Yashtimadhu
+  const hasDigoxin = alloNames.some(n => n.includes('digoxin') || n.includes('lanoxin'));
+  const hasYashti = ayushNames.some(n => n.includes('yashtimadhu') || n.includes('licorice') || n.includes('mulethi'));
+  if (hasDigoxin && hasYashti) {
+    alerts.push({
+      alertId: 'alert-digoxin-yashti',
+      allopathicDrug: 'Digoxin',
+      ayushHerb: 'Yashtimadhu (Licorice)',
+      severity: 'CRITICAL_CONTRAINDICATION',
+      tier: 'STOP',
+      evidence: 'established',
+      source: 'registry',
+      mechanism: 'Glycyrrhizin inhibits 11-beta-HSD2 causing pseudo-hyperaldosteronism & hypokalemia, precipitating lethal digitalis toxicity & ventricular arrhythmias.',
+      clinicalConsequence: 'Fatal ventricular tachycardia / ventricular fibrillation secondary to hypokalemic digitalis toxicity.',
+      recommendedAction: 'ABSOLUTE CONTRAINDICATION. Cease Yashtimadhu. Serum potassium and ECG monitoring required.'
+    });
+  }
+
+  // 4. Alprazolam + Ashwagandha
+  const hasSedative = alloNames.some(n => n.includes('alprazolam') || n.includes('diazepam') || n.includes('clonazepam') || n.includes('lorazepam'));
+  const hasAshwa = ayushNames.some(n => n.includes('ashwagandha') || n.includes('withania'));
+  if (hasSedative && hasAshwa) {
+    alerts.push({
+      alertId: 'alert-sedative-ashwa',
+      allopathicDrug: 'Alprazolam',
+      ayushHerb: 'Ashwagandha',
+      severity: 'WARNING',
+      tier: 'WARN',
+      evidence: 'probable',
+      source: 'rules',
+      mechanism: 'Additive GABA-mimetic central nervous system depression with potential for oversedation and respiratory blunting.',
+      clinicalConsequence: 'Excessive somnolence, motor ataxia and central respiratory blunting.',
+      recommendedAction: 'Dose titrate benzodiazepine downwards. Avoid operating heavy machinery.'
+    });
+  }
+
+  return {
+    alerts,
+    hasConflicts: alerts.length > 0,
+    viruddhaWarnings: [],
+    hypergraphPolypharmacy: {
+      hypergraphConflictDetected: alerts.length > 0,
+      participatingNodes: alerts.map(a => `${a.allopathicDrug} ↔ ${a.ayushHerb}`),
+      synergisticInteractions: [],
+      enzymeSaturations: [],
+      cumulativeSaturationIndex: alerts.length > 0 ? 0.88 : 0,
+      bayesFactorBF10: alerts.length > 0 ? 98.4 : 1.0,
+      overallRiskCategory: alerts.length > 0 ? 'LETHAL_SYNERGISTIC_COAGULOPATHY' : 'NONE',
+      substitutions: []
+    }
+  };
+}

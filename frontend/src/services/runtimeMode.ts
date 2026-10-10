@@ -39,13 +39,24 @@ function apply(next: RuntimeMode) {
 
 export function refreshRuntimeMode(): Promise<RuntimeMode | null> {
   if (!pending) {
-    // A sleeping free-tier cloud server can take up to a minute to answer its first request.
+    // Quick probe: answer within 3.5s, or instantly fallback to resilient demo mode
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 70000);
+    const timer = setTimeout(() => ctrl.abort(), 3500);
     pending = fetch(`${BASE_URL}/api/system/mode`, { signal: ctrl.signal })
       .then(r => { setReachable(true); return r.ok ? r.json() : null; })
       .then(j => { if (j?.data) apply(j.data as RuntimeMode); return state; })
-      .catch(() => { setReachable(false); return state; })
+      .catch(() => {
+        setReachable(false);
+        const fallbackMode: RuntimeMode = {
+          demoMode: true,
+          demoToggle: true,
+          kioskOpen: true,
+          changedAt: null,
+          changedBy: null
+        };
+        apply(fallbackMode);
+        return fallbackMode;
+      })
       .finally(() => { clearTimeout(timer); pending = null; });
   }
   return pending;

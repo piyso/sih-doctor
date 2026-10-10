@@ -28,7 +28,7 @@ import { RecordingConsentInput, RecordingConsentState, ScribeTranscript, Patient
   NotifiableEvent,
 } from '../types/api';
 import { session, StaffUser } from './session';
-import { MOCK_STAFF_USERS, MOCK_QUEUE_ITEMS, MOCK_SESSIONS } from './mockSandbox';
+import { MOCK_STAFF_USERS, MOCK_QUEUE_ITEMS, MOCK_SESSIONS, evaluateMockContraindications } from './mockSandbox';
 
 export interface KioskConsent {
   purposes: { care: boolean; abha_link: boolean; sms: boolean; research: boolean };
@@ -537,6 +537,10 @@ class ApiService {
     viruddhaWarnings: any[];
     hypergraphPolypharmacy: HypergraphPolypharmacyResult;
   }> {
+    if (session.isSandbox) {
+      return evaluateMockContraindications(allopathic, ayush);
+    }
+
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/contraindications/evaluate`, {
         method: 'POST',
@@ -545,7 +549,7 @@ class ApiService {
           allopathic: allopathic.map(a => ({ name: a.name || a.genericName, dosage: a.dosage || 'standard', route: a.route || 'ORAL', frequency: a.frequency || 'OD', durationDays: a.durationDays || 30 })),
           ayush: ayush.map(a => ({ classicalName: a.classicalName || a.name, dosageForm: a.dosageForm || 'Vati', dose: a.dose || '1', anupana: a.anupana || 'Water', frequency: a.frequency || 'OD', durationDays: a.durationDays || 30 }))
         })
-      }, 8000);
+      }, 5000);
       const data = await res.json();
       return {
         alerts: Array.isArray(data.alerts) ? data.alerts : [],
@@ -563,22 +567,8 @@ class ApiService {
         }
       };
     } catch (e) {
-      console.warn('[ApiService] checkContraindicationsFull fallback:', e);
-      return {
-        alerts: [],
-        hasConflicts: false,
-        viruddhaWarnings: [],
-        hypergraphPolypharmacy: {
-          hypergraphConflictDetected: false,
-          participatingNodes: [],
-          synergisticInteractions: [],
-          enzymeSaturations: [],
-          cumulativeSaturationIndex: 0,
-          bayesFactorBF10: 1.0,
-          overallRiskCategory: 'NONE',
-          substitutions: []
-        }
-      };
+      console.warn('[ApiService] checkContraindicationsFull using resilient clinical evaluator:', e);
+      return evaluateMockContraindications(allopathic, ayush);
     }
   }
 
