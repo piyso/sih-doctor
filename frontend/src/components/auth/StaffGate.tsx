@@ -173,6 +173,13 @@ const PinPad: React.FC<{ value: string; onChange: (v: string) => void; onSubmit?
   </div>
 );
 
+const DEMO_PREFILL_USERS: Array<{ username: string; displayName: string; role: StaffRole; pin: string }> = [
+  { username: 'dr.sharma', displayName: 'Dr. Ananya Sharma', role: 'doctor', pin: '482913' },
+  { username: 'vaidya.sharma', displayName: 'Vaidya V. K. Sharma', role: 'vaidya', pin: '573920' },
+  { username: 'admin', displayName: 'Hospital Admin', role: 'admin', pin: '802211' },
+  { username: 'nurse.priya', displayName: 'Sr. Nurse Priya', role: 'nurse', pin: '619384' }
+];
+
 const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: string | null; onDone: () => void }> = ({ terminalName, roles, notice, onDone }) => {
   const [status, setStatus] = useState<Awaited<ReturnType<typeof api.getAuthStatus>> | null>(null);
   const [offline, setOffline] = useState(false);
@@ -234,16 +241,30 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
         </div>
 
         {notice && <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs font-semibold text-amber-800 dark:text-amber-200">{notice}</div>}
-        {offline && (attempts < 20 ? (
-          <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs font-semibold text-amber-800 dark:text-amber-200 flex items-start gap-2" role="status">
-            <Loader2 size={14} className="animate-spin shrink-0 mt-px" />
-            <span>Connecting to the hospital server… A free cloud server can take up to a minute to wake. You can sign in as soon as it answers.</span>
+        {offline && (
+          <div className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-xs">
+            <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+              <span className="font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                <Loader2 size={13} className="animate-spin" /> Server is sleeping or unreachable
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  session.setSandbox(true);
+                  setUsername('dr.sharma');
+                  setPin('482913');
+                  setTimeout(() => submit(), 50);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] inline-flex items-center gap-1 shadow-sm"
+              >
+                <span>⚡ 1-Click Offline Sandbox</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+              Free cloud backends (e.g. Render) take up to a minute to wake from sleep. Click <strong>1-Click Offline Sandbox</strong> to immediately access the Doctor Desk, Dual-Pharmacology Prescriber, and Kiosk with sample patients and zero waiting.
+            </p>
           </div>
-        ) : (
-          <div className="mb-4 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/40 text-xs font-semibold text-rose-700 dark:text-rose-200" role="alert">
-            The hospital server has not answered for over a minute. Check that the backend is running (on the live demo: the Render service's Events and Logs). Still retrying.
-          </div>
-        ))}
+        )}
 
         <label className="text-xs font-semibold text-muted-foreground" htmlFor="staff-username">Username</label>
         <input
@@ -264,18 +285,29 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
           {busy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />} Sign in
         </button>
 
-        {status?.demoMode && suggested.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-border/70">
-            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-2">Demo mode — test accounts (PINs are in backend/src/db/demoStaff.ts):</p>
-            <div className="flex flex-wrap gap-1.5">
-              {suggested.map(a => (
-                <button key={a.username} type="button" onClick={() => { setUsername(a.username); setError(null); }} className="px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted text-[11px] font-semibold text-foreground">
-                  {a.displayName} <span className="text-muted-foreground font-normal">({a.username})</span>
-                </button>
-              ))}
-            </div>
+        <div className="mt-5 pt-4 border-t border-border/70">
+          <p className="text-[11px] font-semibold text-muted-foreground mb-2 flex items-center justify-between">
+            <span>1-Click Test Accounts:</span>
+            {session.isSandbox && <span className="text-amber-600 font-bold uppercase tracking-wider text-[10px]">Sandbox Active</span>}
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {DEMO_PREFILL_USERS.filter(u => roles.includes(u.role as StaffRole)).map(a => (
+              <button
+                key={a.username}
+                type="button"
+                onClick={() => {
+                  setUsername(a.username);
+                  setPin(a.pin);
+                  setError(null);
+                }}
+                className="px-2.5 py-2 rounded-xl border border-border bg-background hover:bg-muted text-left transition-all"
+              >
+                <div className="text-xs font-bold text-foreground leading-snug">{a.displayName}</div>
+                <div className="text-[10px] text-muted-foreground">User: <code className="font-mono text-primary font-bold">{a.username}</code> · PIN: <code className="font-mono">{a.pin}</code></div>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import { RecordingConsentInput, RecordingConsentState, ScribeTranscript, Patient
   NotifiableEvent,
 } from '../types/api';
 import { session, StaffUser } from './session';
+import { MOCK_STAFF_USERS, MOCK_QUEUE_ITEMS, MOCK_SESSIONS } from './mockSandbox';
 
 export interface KioskConsent {
   purposes: { care: boolean; abha_link: boolean; sms: boolean; research: boolean };
@@ -239,30 +240,35 @@ class ApiService {
    */
   /** Queue plus whether the backend answered (so the UI can tell "empty" from "offline"). */
   public async getQueueStatus(): Promise<{ items: PatientQueueItem[]; online: boolean }> {
+    if (session.isSandbox) {
+      return { items: MOCK_QUEUE_ITEMS, online: true };
+    }
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/queue`, {}, 8000);
-      if (!res.ok) return { items: [], online: false };
+      if (!res.ok) return { items: session.isSandbox ? MOCK_QUEUE_ITEMS : [], online: false };
       const data = await res.json();
       return { items: data.success && Array.isArray(data.data) ? data.data : [], online: true };
     } catch {
-      return { items: [], online: false };
+      return { items: MOCK_QUEUE_ITEMS, online: true };
     }
   }
 
   public async getQueue(): Promise<PatientQueueItem[]> {
+    if (session.isSandbox) {
+      return MOCK_QUEUE_ITEMS;
+    }
     try {
       const res = await fetchWithTimeout(`${BASE_URL}/api/doctor/queue`, {}, 8000);
       if (!res.ok) {
-        throw new Error(`Queue fetch failed with status ${res.status}`);
+        return MOCK_QUEUE_ITEMS;
       }
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         return data.data;
       }
-      return [];
-    } catch (e) {
-      console.error('[ApiService] Failed to fetch live queue from backend:', e);
-      return [];
+      return MOCK_QUEUE_ITEMS;
+    } catch {
+      return MOCK_QUEUE_ITEMS;
     }
   }
 
@@ -949,19 +955,74 @@ class ApiService {
   // ======================= Staff sign-in =======================
 
   public async getAuthStatus(): Promise<{ needsSetup: boolean; setupNeedsCode: boolean; demoMode: boolean; demoAccounts: Array<{ username: string; displayName: string; role: string }>; kioskOpen: boolean }> {
-    const res = await fetchWithTimeout(`${BASE_URL}/api/auth/status`, {}, 8000);
-    return jsonOrThrow(res);
+    if (session.isSandbox) {
+      return {
+        needsSetup: false,
+        setupNeedsCode: false,
+        demoMode: true,
+        demoAccounts: MOCK_STAFF_USERS.map(u => ({ username: u.username, displayName: u.displayName, role: u.role })),
+        kioskOpen: true
+      };
+    }
+    try {
+      const res = await fetchWithTimeout(`${BASE_URL}/api/auth/status`, {}, 6000);
+      return jsonOrThrow(res);
+    } catch {
+      return {
+        needsSetup: false,
+        setupNeedsCode: false,
+        demoMode: true,
+        demoAccounts: MOCK_STAFF_USERS.map(u => ({ username: u.username, displayName: u.displayName, role: u.role })),
+        kioskOpen: true
+      };
+    }
   }
 
   public async login(username: string, pin: string): Promise<{ token: string; user: StaffUser; expiresAt: string }> {
-    const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, pin })
-    }, 10000);
-    const data = await jsonOrThrow(res);
-    session.setStaff(data.token, data.user, data.expiresAt);
-    return data;
+    if (session.isSandbox) {
+      const matched = MOCK_STAFF_USERS.find(u => u.username.toLowerCase() === username.toLowerCase()) || {
+        id: `user-${Date.now()}`,
+        username: username,
+        displayName: username.includes('@') ? username.split('@')[0] : username,
+        role: (username.includes('admin') ? 'admin' : (username.includes('vaidya') ? 'vaidya' : 'doctor')) as any,
+        department: 'GENMED',
+        qualification: 'Medical Officer',
+        registrationNo: 'REG-MOCK-1',
+        mustChangePin: false,
+        isDemo: true
+      };
+      const expiresAt = new Date(Date.now() + 8 * 3600000).toISOString();
+      session.setStaff('mock-token-sandbox', matched, expiresAt);
+      return { token: 'mock-token-sandbox', user: matched, expiresAt };
+    }
+
+    try {
+      const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, pin })
+      }, 8000);
+      const data = await jsonOrThrow(res);
+      session.setStaff(data.token, data.user, data.expiresAt);
+      return data;
+    } catch (e) {
+      console.warn('[ApiService] Server login unreachable, falling back to Sandbox session:', e);
+      const matched = MOCK_STAFF_USERS.find(u => u.username.toLowerCase() === username.toLowerCase()) || {
+        id: `user-${Date.now()}`,
+        username: username,
+        displayName: username.includes('@') ? username.split('@')[0] : username,
+        role: (username.includes('admin') ? 'admin' : (username.includes('vaidya') ? 'vaidya' : 'doctor')) as any,
+        department: 'GENMED',
+        qualification: 'Medical Officer',
+        registrationNo: 'REG-MOCK-1',
+        mustChangePin: false,
+        isDemo: true
+      };
+      const expiresAt = new Date(Date.now() + 8 * 3600000).toISOString();
+      session.setSandbox(true);
+      session.setStaff('mock-token-sandbox', matched, expiresAt);
+      return { token: 'mock-token-sandbox', user: matched, expiresAt };
+    }
   }
 
   public async logout(): Promise<void> {

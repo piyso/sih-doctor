@@ -86,6 +86,18 @@ export const session = {
   clearDeviceToken() {
     try { localStorage.removeItem(DEVICE_KEY); } catch {}
     emit();
+  },
+
+  get isSandbox(): boolean {
+    try { return localStorage.getItem('hos_sandbox_mode') === 'true'; } catch { return false; }
+  },
+
+  setSandbox(val: boolean) {
+    try {
+      if (val) localStorage.setItem('hos_sandbox_mode', 'true');
+      else localStorage.removeItem('hos_sandbox_mode');
+    } catch {}
+    emit();
   }
 };
 
