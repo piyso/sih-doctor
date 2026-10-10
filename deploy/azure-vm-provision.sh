@@ -16,14 +16,15 @@ if ! command -v az >/dev/null 2>&1; then
   exit 1
 fi
 
-RG="hospitalos-rg"
+# Clean up any stale/broken centralindia resource group from earlier attempts
+if az group show --name "hospitalos-rg" >/dev/null 2>&1; then
+  echo "==> Cleaning stale 'hospitalos-rg' to avoid cross-region VNet conflicts..."
+  az group delete --name "hospitalos-rg" --yes --no-wait 2>/dev/null || true
+fi
+
 VM_NAME="hospitalos-server"
 
-# Ensure resource group exists
-echo "==> Ensuring resource group '$RG' exists..."
-az group create --name "$RG" --location "southeastasia" -o none 2>/dev/null || true
-
-# Priority candidate regions: Singapore (closest to India), East US 2, North Europe, etc.
+# Priority regions where Free Trial has active 10-core quota
 CANDIDATE_REGIONS=("southeastasia" "eastus2" "northeurope" "centralus" "westeurope" "westus2" "eastus")
 
 # Candidate sizes compatible with Azure Free Trial ($200 credit)
@@ -32,24 +33,27 @@ CANDIDATE_SIZES=("Standard_B1s" "Standard_B2ats_v2" "Standard_D2as_v5" "Standard
 SUCCESS=0
 DEPLOYED_REGION=""
 DEPLOYED_SIZE=""
+DEPLOYED_RG=""
 
 for REGION in "${CANDIDATE_REGIONS[@]}"; do
   echo "--> Checking compute quota in region: $REGION..."
   QUOTA=$(az vm list-usage --location "$REGION" --query "[?name.value=='cores'].limit" -o tsv 2>/dev/null || echo 0)
   
   if [ -z "$QUOTA" ] || [ "$QUOTA" -eq 0 ]; then
-    echo "    Quota in $REGION is 0 cores (restricted for this subscription). Skipping."
+    echo "    Quota in $REGION is 0 cores. Skipping."
     continue
   fi
   
-  echo "    Quota in $REGION is $QUOTA cores. Searching for available VM size..."
+  echo "    Quota in $REGION is $QUOTA cores. Preparing fresh regional resource group..."
+  RG="hospitalos-${REGION}-rg"
+  az group create --name "$RG" --location "$REGION" -o none
   
   for SIZE in "${CANDIDATE_SIZES[@]}"; do
     DNS_PREFIX="medikiosk-$RANDOM"
     echo "    Attempting creation in $REGION with size $SIZE..."
     
-    # Attempt VM creation
-    if az vm create \
+    # Attempt VM creation (capturing error if any)
+    ERR_MSG=$(az vm create \
         --resource-group "$RG" \
         --name "$VM_NAME" \
         --location "$REGION" \
@@ -59,24 +63,33 @@ for REGION in "${CANDIDATE_REGIONS[@]}"; do
         --generate-ssh-keys \
         --public-ip-sku "Standard" \
         --public-ip-address-dns-name "$DNS_PREFIX" \
-        -o none 2>/dev/null; then
+        -o none 2>&1 || true)
         
+    if az vm show --resource-group "$RG" --name "$VM_NAME" >/dev/null 2>&1; then
         SUCCESS=1
         DEPLOYED_REGION="$REGION"
         DEPLOYED_SIZE="$SIZE"
+        DEPLOYED_RG="$RG"
         echo "    SUCCESS: Virtual Machine provisioned in $REGION using $SIZE!"
         break 2
     else
-        echo "    Size $SIZE in $REGION unavailable or restricted. Trying next size..."
+        # Print concise reason
+        REASON=$(echo "$ERR_MSG" | grep -o "Following SKUs have failed for Capacity Restrictions: [^']*" || echo "$ERR_MSG" | head -2)
+        echo "    Notice: $REASON. Trying next option..."
     fi
   done
+  
+  # Clean empty failed regional RG
+  if [ "$SUCCESS" -ne 1 ]; then
+    az group delete --name "$RG" --yes --no-wait 2>/dev/null || true
+  fi
 done
 
 if [ "$SUCCESS" -ne 1 ]; then
   echo ""
   echo "================================================================================"
   echo "❌ AUTO-PROVISIONING NOTICE"
-  echo "All standard regions currently report 0 quota for Free Trial trial vCPUs."
+  echo "All standard regions currently report hardware capacity constraints for trial SKUs."
   echo ""
   echo "To instantly unlock regional compute for your $200 credit:"
   echo "1. Go to Azure Portal: https://portal.azure.com"
@@ -89,20 +102,21 @@ fi
 
 echo ""
 echo "==> Configuring Network Security Group (Opening ports 80 & 443)..."
-az vm open-port --resource-group "$RG" --name "$VM_NAME" --port 80 --priority 300 -o none 2>/dev/null || true
-az vm open-port --resource-group "$RG" --name "$VM_NAME" --port 443 --priority 310 -o none 2>/dev/null || true
+az vm open-port --resource-group "$DEPLOYED_RG" --name "$VM_NAME" --port 80 --priority 300 -o none 2>/dev/null || true
+az vm open-port --resource-group "$DEPLOYED_RG" --name "$VM_NAME" --port 443 --priority 310 -o none 2>/dev/null || true
 
-PUBLIC_IP=$(az vm show -g "$RG" -n "$VM_NAME" -d --query publicIps -o tsv)
-FQDN=$(az vm show -g "$RG" -n "$VM_NAME" -d --query fqdns -o tsv)
+PUBLIC_IP=$(az vm show -g "$DEPLOYED_RG" -n "$VM_NAME" -d --query publicIps -o tsv)
+FQDN=$(az vm show -g "$DEPLOYED_RG" -n "$VM_NAME" -d --query fqdns -o tsv)
 
 echo ""
 echo "================================================================================"
 echo "🎉 AZURE VIRTUAL MACHINE CREATED SUCCESSFULLY!"
 echo "================================================================================"
-echo " Region:    $DEPLOYED_REGION"
-echo " Size:      $DEPLOYED_SIZE"
-echo " Public IP: $PUBLIC_IP"
-echo " Domain:    $FQDN"
+echo " Resource Group: $DEPLOYED_RG"
+echo " Region:         $DEPLOYED_REGION"
+echo " Size:           $DEPLOYED_SIZE"
+echo " Public IP:      $PUBLIC_IP"
+echo " Domain:         $FQDN"
 echo "================================================================================"
 echo ""
 echo "To connect to your VM and deploy Hospital OS, run:"
