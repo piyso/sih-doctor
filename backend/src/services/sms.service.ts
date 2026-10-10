@@ -15,6 +15,7 @@ import crypto from 'crypto';
 import { db } from '../db/database';
 import { decryptField } from '../security/fieldCrypto';
 import { effectiveConsent } from '../security/privacy.service';
+import { realOnly } from './sampleData';
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS sms_log (
@@ -114,6 +115,6 @@ export const SmsService = {
   },
 
   recent(limit = 50) {
-    return db.prepare('SELECT * FROM sms_log ORDER BY created_at DESC LIMIT ?').all(limit);
+    return db.prepare(`SELECT * FROM sms_log WHERE ${realOnly('patient_id')} ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
 };

@@ -124,8 +124,13 @@ deskRouter.get('/formulary/search', clinicians, wrap((req, res) => {
   };
   if (stream === 'ALLOPATHY') {
     // Single-ingredient generics rank above combinations that start the same way.
-    const hits = DRUG_CONCEPTS.map(c => ({ c, s: score([c.inn, c.id.replace(/_/g, ' '), ...(c.synonyms || [])]) + (c.nlem ? 3 : 0) - (c.ingredients || / \+ /.test(c.inn) ? 8 : 0) }))
-      .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 12)
+    // A medicine is a hit only when its own name, id or a brand matches; essential-list status and being a
+    // combination only reorder the hits. (Adding the bonus first made every essential medicine a "hit" for any
+    // text at all, so an unknown name followed by Enter picked Paracetamol.)
+    const hits = DRUG_CONCEPTS.map(c => ({ c, name: score([c.inn, c.id.replace(/_/g, ' '), ...(c.synonyms || [])]) }))
+      .filter(x => x.name > 0)
+      .map(({ c, name }) => ({ c, s: name + (c.nlem ? 3 : 0) - (c.ingredients || / \+ /.test(c.inn) ? 8 : 0) }))
+      .sort((a, b) => b.s - a.s).slice(0, 12)
       .map(({ c }) => {
         const brandHit = (c.synonyms || []).find(sy => cleanName(sy).startsWith(q) && !cleanName(c.inn).startsWith(q));
         return {

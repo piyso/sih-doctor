@@ -199,6 +199,10 @@ export class OfflineSandboxError extends Error {
  * fetch() with the staff session / kiosk device credentials attached. When the server says the
  * session is missing or expired, a window event lets the UI show the sign-in screen.
  */
+/** Fired when the server says, or shows, that its Mock / Real mode changed; runtimeMode.ts re-reads it at once. */
+export const SERVER_MODE_CHANGED = 'hos:server-mode-changed';
+const followModeEvent = (e: any) => { if (e?.type === 'system.mode') window.dispatchEvent(new CustomEvent(SERVER_MODE_CHANGED)); };
+
 export const apiFetch = async (url: string, init: RequestInit = {}): Promise<Response> => {
   // The offline sandbox is a closed box: it never reads from or writes to the hospital server,
   // even when the server happens to answer again. Calls without a built-in stand-in fail at once.
@@ -207,6 +211,12 @@ export const apiFetch = async (url: string, init: RequestInit = {}): Promise<Res
   if (session.staffToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${session.staffToken}`);
   if (session.deviceToken && !headers.has('X-Kiosk-Token')) headers.set('X-Kiosk-Token', session.deviceToken);
   const res = await fetch(url, { ...init, headers });
+  if (res.status === 404) {
+    // The server is in Real mode and this screen asked for a sample record: it is showing something
+    // from Mock mode. Re-read the mode now, which reloads the screen (App.tsx).
+    const body = await res.clone().json().catch(() => ({} as any));
+    if (body.code === 'SAMPLE_HIDDEN') window.dispatchEvent(new CustomEvent(SERVER_MODE_CHANGED));
+  }
   if (res.status === 401 || res.status === 403) {
     const body = await res.clone().json().catch(() => ({} as any));
     if (body.code === 'AUTH_REQUIRED' && session.staffToken) {
@@ -1085,7 +1095,7 @@ class ApiService {
         if (stopped) return;
         es = new EventSource(`${BASE_URL}/api/queue/events?ticket=${encodeURIComponent(ticket)}`);
         es.onopen = () => onEvent({ type: 'stream.open' });
-        es.onmessage = ev => { try { onEvent(JSON.parse(ev.data)); } catch {} };
+        es.onmessage = ev => { try { const e = JSON.parse(ev.data); followModeEvent(e); onEvent(e); } catch {} };
         es.onerror = () => {
           es?.close();
           onEvent({ type: 'stream.closed' });
@@ -1103,7 +1113,7 @@ class ApiService {
   public subscribeBoard(onEvent: (e: any) => void, deviceToken?: string): () => void {
     const q = deviceToken ? `?device=${encodeURIComponent(deviceToken)}` : '';
     const es = new EventSource(`${BASE_URL}/api/queue/board/stream${q}`);
-    es.onmessage = ev => { try { onEvent(JSON.parse(ev.data)); } catch {} };
+    es.onmessage = ev => { try { const e = JSON.parse(ev.data); followModeEvent(e); onEvent(e); } catch {} };
     return () => es.close();
   }
 

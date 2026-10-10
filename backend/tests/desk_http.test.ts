@@ -140,6 +140,14 @@ export async function runDeskHttpBattery() {
     check(sets.json.data.some((s: any) => s.id === 'os-ihci-htn' && s.steps?.length === 6), 'IHCI hypertension protocol order set with 6 steps');
     const mine = await api('POST', '/api/doctor/order-sets', { name: `${tag} my fever`, careStream: 'ALLOPATHY', medicines: [{ name: 'Paracetamol', dosage: '650 mg', frequency: '1-1-1', durationDays: 3 }] }, doctor);
     check(mine.status === 200 && (await api('DELETE', `/api/doctor/order-sets/${mine.json.id}`, undefined, doctor)).json.success === true, 'doctor saves and deletes an own order set');
+    // Medicine search: only medicines whose own name or brand matches are offered. An unknown name must come back
+    // empty, because Enter on the desk picks the first hit; padding the list would prescribe a different medicine.
+    const find = async (q: string) => ((await api('GET', `/api/doctor/formulary/search?q=${encodeURIComponent(q)}&stream=ALLOPATHY`, undefined, doctor)).json.data || []) as any[];
+    const unknown = [await find('zzzz'), await find('bilastine'), await find('rifaximin'), await find('pain')];
+    check(unknown.every(h => h.length === 0), `medicine search returns nothing for text that matches no medicine (${unknown.map(h => h.length).join(', ')} hits)`);
+    const dolo = await find('dolo'), amox = await find('amox'), tene = await find('teneligliptin');
+    check(dolo[0]?.generic === 'Paracetamol' && dolo[0]?.matchedBrand && amox[0]?.generic === 'Amoxicillin' && amox.every(h => /amox/i.test(h.generic + ' ' + (h.brands || []).join(' ') + (h.matchedBrand || ''))) && tene.length === 1 && tene[0].defaults === undefined,
+      `a brand finds its generic first ("dolo" → ${dolo[0]?.generic}), a prefix finds only matching medicines ("amox" → ${amox.length}), an exact name finds one`);
     const dx = await api('GET', '/api/doctor/diagnosis-search?q=fever', undefined, doctor);
     check(dx.status === 200 && dx.json.data.length > 0 && dx.json.data.every((d: any) => typeof d.codeVerified === 'boolean'), 'diagnosis search marks placeholder codes as unverified');
     const qual = await api('GET', '/api/doctor/prescribing-quality?scope=me&days=30', undefined, doctor);

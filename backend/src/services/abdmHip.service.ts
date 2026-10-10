@@ -28,6 +28,7 @@ import { FhirGeneratorService } from './fhirGenerator.service';
 import { effectiveConsent } from '../security/privacy.service';
 import { appendAudit } from '../security/audit';
 import { localDate } from './hospitalRouting.service';
+import { realOnly } from './sampleData';
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS abdm_care_contexts (
@@ -157,13 +158,13 @@ const toCc = (r: any): CareContextRow => ({
 
 export const AbdmHipService = {
   status() {
-    const counts = Object.fromEntries((db.prepare('SELECT link_status, COUNT(*) AS n FROM abdm_care_contexts GROUP BY link_status').all() as any[]).map(r => [r.link_status, r.n]));
+    const counts = Object.fromEntries((db.prepare(`SELECT link_status, COUNT(*) AS n FROM abdm_care_contexts WHERE ${realOnly('patient_id')} GROUP BY link_status`).all() as any[]).map(r => [r.link_status, r.n]));
     return {
       gateway: AbdmClient.mode,
       configured: AbdmClient.isConfigured,
       hipId: process.env.ABDM_HIP_ID || null,
       careContexts: counts,
-      consents: (db.prepare("SELECT COUNT(*) AS n FROM abdm_consents WHERE status = 'GRANTED' AND revoked_at IS NULL").get() as any).n,
+      consents: (db.prepare(`SELECT COUNT(*) AS n FROM abdm_consents WHERE status = 'GRANTED' AND revoked_at IS NULL AND ${realOnly('patient_id')}`).get() as any).n,
       hiRequests: (db.prepare('SELECT status, COUNT(*) AS n FROM abdm_hi_requests GROUP BY status').all() as any[]).reduce((a, r) => ({ ...a, [r.status]: r.n }), {}),
       encryption: 'ECDH Curve25519 + HKDF-SHA256 + AES-256-GCM (Fidelius profile)'
     };
@@ -245,7 +246,8 @@ export const AbdmHipService = {
     const from = d.permission?.dateRange?.from || '';
     const to = d.permission?.dateRange?.to || '';
     if (!abhaAddress || !hiTypes.length || !from || !to) throw new Error('consentDetail must carry patient.id, hiTypes and permission.dateRange');
-    const patient: any = db.prepare('SELECT id FROM patients WHERE abha_address = ? OR abha_id = ?').get(abhaAddress, abhaAddress);
+    // A consent from the gateway is about a real person: it never attaches to a sample record in Real mode.
+    const patient: any = db.prepare(`SELECT id FROM patients WHERE (abha_address = ? OR abha_id = ?) AND ${realOnly('id')}`).get(abhaAddress, abhaAddress);
     const localConsent = patient ? effectiveConsent(patient.id) : null;
     const accepted = !!patient && !!localConsent?.abha_link;
     db.prepare(`INSERT INTO abdm_consents (consent_id, patient_id, abha_address, hi_types_json, date_from, date_to, data_erase_at, care_context_refs_json, status, artefact_json, received_at)
@@ -257,7 +259,7 @@ export const AbdmHipService = {
   },
 
   consents(limit = 50) {
-    return (db.prepare('SELECT * FROM abdm_consents ORDER BY received_at DESC LIMIT ?').all(limit) as any[]).map(r => ({
+    return (db.prepare(`SELECT * FROM abdm_consents WHERE ${realOnly('patient_id')} ORDER BY received_at DESC LIMIT ?`).all(limit) as any[]).map(r => ({
       consentId: r.consent_id, patientId: r.patient_id, abhaAddress: r.abha_address, hiTypes: JSON.parse(r.hi_types_json), dateFrom: r.date_from, dateTo: r.date_to,
       dataEraseAt: r.data_erase_at, careContextRefs: JSON.parse(r.care_context_refs_json), status: r.status, receivedAt: r.received_at, revokedAt: r.revoked_at
     }));

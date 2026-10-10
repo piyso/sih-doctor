@@ -153,7 +153,7 @@ doctorRouter.get('/queue', requireStaff(...CLINICIAN_ROLES, 'reception'), (_req:
       SELECT e.id AS encounter_id, e.session_id, e.doctor_id, e.doctor_name, e.created_at, d.note, d.pharmacist_name, d.created_at AS referred_at,
              s.triage_priority, s.care_stream, s.department, s.token_no, p.id AS patient_id, p.name AS patient_name, p.age, p.gender, p.language
       FROM encounters e JOIN dispenses d ON d.encounter_id = e.id JOIN sessions s ON s.id = e.session_id JOIN patients p ON p.id = e.patient_id
-      WHERE d.status = 'REFERRED_BACK' AND d.created_at > datetime('now', '-3 days')
+      WHERE d.status = 'REFERRED_BACK' AND d.created_at > datetime('now', '-3 days') AND s.status != 'DEMO_PARKED'
         AND e.created_at = (SELECT MAX(e2.created_at) FROM encounters e2 WHERE e2.session_id = e.session_id)
       ORDER BY d.created_at DESC
     `).all() as any[]).map(r => ({

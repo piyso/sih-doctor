@@ -6,13 +6,28 @@ A demonstration server can show the system **with sample data** (Mock) or **exac
 
 | | Mock | Real |
 |---|---|---|
-| Sample patients | 10 sample visits in the doctor queue, nurse worklist, display board, pharmacy and reports | Hidden everywhere (parked as `DEMO_PARKED`); only patients who really check in appear |
-| Kiosk | Sample profiles and a demo OTP | Neither; ABHA shows "not verified" until a real verification |
+| Sample patients | 10 sample visits in the doctor queue, nurse worklist, display board, pharmacy and reports | Hidden everywhere; only patients who check in while the server is in Real mode appear |
+| What is created | A check-in, prescription, SOS alert or ASHA visit made now is **sample data** too | A check-in made now is a real record; it is kept and shown in both modes |
+| Kiosk | Sample profiles, a demo OTP, sample documents and the phone-upload walk-through | None of these; ABHA shows "not verified" until a real verification |
+| Similar past cases | This hospital's cases plus the synthetic reference cases (labelled) | This hospital's real cases only; an honest empty list until doctors have signed some |
 | Demo endpoints (`/api/doctor/seed`, `/demo-queue`) | Answer | 404 |
 | Server not reachable | Built-in **offline sandbox** takes over in that browser tab (doctor desk with stand-in patients; other screens say they need the server) | The screen says the server is not answering. **No stand-in data, ever** |
 | Staff sign-in | One tap per demo account | The same — one tap per demo account |
 
 Real mode is honest by construction: mock data is only ever returned inside the offline sandbox (`session.isSandbox`), and the sandbox can only start in Mock mode on a demonstration deployment. A failed request in Real mode fails; it is never replaced by invented data.
+
+## What counts as sample data, and how Real mode keeps it out
+
+A patient is a **sample record** when the demo seed loaded it or when it was created while the server was in Mock mode (`patients.is_demo = 1`). Visits (`sessions.is_demo`, set by a database trigger from the patient), prescriptions, documents, SOS alerts (`alerts.is_demo`) and ASHA visits (`field_visits.is_demo`) belong to the world of their patient. The rule lives in `backend/src/services/sampleData.ts`:
+
+1. **Lists and reports leave sample rows out.** On the switch to Real every sample visit — waiting, in consultation, signed, dispensed, closed — gets the status `DEMO_PARKED` (its own status waits in `sessions.parked_status` and comes back with Mock mode). Queries that do not go through a visit status use `realOnly(<patient id column>)`: the doctor's favourite medicines, prescribing quality, alert outcomes, the weekly IHIP return, medicine-safety and follow-up figures, ADR and notifiable lists, patient search, SMS log, ABDM consents and counts, follow-up reminders, the similar-case index.
+2. **A request that names a sample record gets 404** (`hideSampleRecords`, code `SAMPLE_HIDDEN`), before it reaches any route: by path, query or body id. A doctor desk left open from Mock mode can neither keep showing a sample patient nor save vitals, call, send to emergency, draft or sign for one.
+3. **The two worlds never share a patient.** A check-in only matches patients of the current mode. An ABHA number is unique: a real person takes it over from a sample record; a sample check-in never takes a real patient's number. An unfinished kiosk check-in can only be resumed in the mode it was started in.
+4. **Screens start afresh on a switch.** The open screen is reloaded when the mode changes (`App.tsx`), and every device follows at once through the event stream (`system.mode`), so nothing loaded in Mock mode stays on screen. The ASHA app keeps Real-mode visits in a store of their own on the device.
+
+Existing databases are sorted once (schema step 10): on a demonstration server the audit trail holds every switch, so a patient who was created or checked in during a Real-mode period stays real and everything else becomes sample data.
+
+Not hidden, on purpose: the **audit trail** (it is the record of what was done on this server, in either mode, and shows ids only) and the **demo staff accounts** (they are how a demonstration server is used in both modes).
 
 ## Who can switch
 
@@ -60,5 +75,6 @@ The last choice is stored in the database (`system_settings.demo_mode`) and surv
 ## Tests
 
 - `backend/tests/demo_mode.test.ts` (battery 29 of `npm test`, 34 checks): who may switch, Real mode leaves no sample data while staff can still sign in and a real check-in appears alone, switching back restores the ten sample patients, demo accounts never lock on a demonstration server, a hospital installation locks them and keeps unenrolled kiosks out, and a reset undoes tampering.
-- `e2e/tests/demo-mode.spec.ts`: one click on the signed-out gateway switches to Real and back.
+- `backend/tests/real_mode_sample_data.test.ts` (battery 31, 82 checks): after an ordinary Mock-mode demonstration (a sample visit signed and dispensed, one called, an SOS, a kiosk and a family check-in, an ASHA visit) every list, board and report in Real mode is searched for sample names, ids, ABHA numbers and tokens; every by-id read and every write to a sample record is refused; the two worlds do not share a patient; switching back restores everything.
+- `e2e/tests/demo-mode.spec.ts`: one click on the signed-out gateway switches to Real and back; a doctor desk left open on a sample patient shows no sample data once the server is switched to Real from elsewhere.
 - `e2e/tests/security.spec.ts`: one-tap sign-in, and username + PIN still enforced.

@@ -40,6 +40,7 @@ import { api } from '../../services/api';
 import { sovereignSound } from '../../utils/audio';
 import { ConflictAlert, PatientHistory } from '../../types/api';
 import { RealQrCode } from '../common/RealQrCode';
+import { useDemoMode } from '../../services/runtimeMode';
 
 interface Step6DocumentScannerProps {
   scannedDocs: any[];
@@ -158,6 +159,8 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
 }) => {
   const lang = normalizeLang(language);
   const tx = kioskText(lang);
+  // Sample documents and the phone-upload walk-through put invented reports into the visit: Mock mode only.
+  const demoMode = useDemoMode();
   const it = intakeText(lang);
   const typedMedsRef = useRef<string[]>([]);
   typedMedsRef.current = typedMedicineNames(history?.currentMedicines);
@@ -1520,7 +1523,8 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                   <span>{tx('s6Upload')}</span>
                 </button>
 
-                <button
+                {/* Upload from the patient's own phone is a walk-through that loads a sample report; it is not offered with real patients. */}
+                {demoMode && <button
                   type="button"
                   onClick={() => {
                     sovereignSound.playMechanicalSnap();
@@ -1531,11 +1535,11 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                 >
                   <Smartphone size={15} color="#9333ea" />
                   <span>{tx('s6Phone')}</span>
-                </button>
+                </button>}
               </div>
 
-              {/* Verified Clinical Benchmarks */}
-              <details style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
+              {/* Sample documents for trying the scanner (Mock mode only) */}
+              {demoMode && <details style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
                 <summary style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8, cursor: 'pointer' }}>
                   {tx('s6Demo')}
                 </summary>
@@ -1580,7 +1584,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
                     <span>Warfarin + Guggulu interaction</span>
                   </button>
                 </div>
-              </details>
+              </details>}
             </>
           )}
 
@@ -2403,7 +2407,7 @@ export const Step6DocumentScanner: React.FC<Step6DocumentScannerProps> = ({
       )}
 
       {/* BYOD Smartphone QR Modal */}
-      {showByodModal && (
+      {showByodModal && demoMode && (
         <div
           style={{
             position: 'fixed',

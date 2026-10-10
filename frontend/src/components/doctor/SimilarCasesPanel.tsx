@@ -40,6 +40,8 @@ export const SimilarCasesPanel: React.FC<{ sessionId: string | null }> = ({ sess
     try {
       const res = await apiFetch(`${BASE_URL}/api/retrieval/similar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, topN: 6 }) });
       const json = await res.json();
+      // Nothing indexed yet (a new hospital in Real mode has no signed cases): an empty list, not an error.
+      if (res.status === 503) { setData({ results: [] } as unknown as Payload); return; }
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
       setData(json.data as Payload);
     } catch (e: any) {
@@ -75,7 +77,10 @@ export const SimilarCasesPanel: React.FC<{ sessionId: string | null }> = ({ sess
       </header>
 
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {!error && data && data.results.length === 0 && <p className="text-xs text-muted-foreground">No comparable cases indexed yet.</p>}
+      {!error && data && data.results.length === 0 && <p className="text-xs text-muted-foreground">No comparable past case at this hospital yet. Cases appear here as doctors sign visits.</p>}
+      {data && data.results.length > 0 && data.results.every(c => c.source === 'reference') && (
+        <p className="mb-2 text-[11px] text-amber-700 dark:text-amber-400">Sample data: these are synthetic reference cases, not patients of this hospital.</p>
+      )}
 
       {data && data.results.length > 0 && (
         <ol className="space-y-2">

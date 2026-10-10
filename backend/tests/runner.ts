@@ -33,13 +33,15 @@ import { runSafetyBenchmark } from './safety_benchmark.test';
 import { runRetrievalBattery } from './retrieval_layer.test';
 import { runDeskHttpBattery } from './desk_http.test';
 import { runDemoModeBattery } from './demo_mode.test';
+import { runNoLlmGuaranteeBattery } from './no_llm_guarantee.test';
+import { runRealModeSampleDataBattery } from './real_mode_sample_data.test';
 
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════════════╗
 ║             ALL INDIA INSTITUTE OF AYURVEDA (AIIA) & MINISTRY OF AYUSH               ║
 ║             SOVEREIGN MEDIKIOSK & AMBIENT SCRIBE SYSTEM                              ║
-║             28-BATTERY CLINICAL VALIDATION HARNESS                                   ║
+║             30-BATTERY CLINICAL VALIDATION HARNESS                                   ║
 ╚══════════════════════════════════════════════════════════════════════════════════════╝
   `);
 
@@ -106,6 +108,10 @@ async function main() {
   const r29 = await runDeskHttpBattery();
   settle();
   const r30 = await runDemoModeBattery();
+  settle();
+  const r31 = await runNoLlmGuaranteeBattery();
+  settle();
+  const r32 = await runRealModeSampleDataBattery();
 
   const tEndAll = performance.now();
   const totalDuration = (tEndAll - tStartAll) / 1000;
@@ -139,7 +145,9 @@ async function main() {
     r27: !!r27?.isPassed,
     r28: !!r28?.isPassed,
     r29: !!r29?.isPassed,
-    r30: !!r30?.isPassed
+    r30: !!r30?.isPassed,
+    r31: !!r31?.isPassed,
+    r32: !!r32?.isPassed
   };
 
   const allPassed = Object.values(results).every(Boolean);
@@ -150,7 +158,7 @@ async function main() {
   console.log(`
 
 +----------------------------------------------------------------------------------------+
-|                   MASTER 29-BATTERY CLINICAL VALIDATION SCORECARD                      |
+|                   MASTER 30-BATTERY CLINICAL VALIDATION SCORECARD                      |
 +--------------------------------------------+--------------------+----------------------+
 | Test Battery                               | Result / Metric    | Status               |
 +--------------------------------------------+--------------------+----------------------+
@@ -183,9 +191,11 @@ async function main() {
 | 27. Encrypted similar-case retrieval       | ${r28.passed}/${r28.total} Checks      | ${r28.isPassed ? '[PASS]' : '[FAIL]'} (CKKS/guards)  |
 | 28. Doctor desk HTTP journey               | ${r29.passed}/${r29.total} Checks      | ${r29.isPassed ? '[PASS]' : '[FAIL]'} (Ack/Rx/Pharmacy)|
 | 29. Demonstration-mode switch              | ${r30.passed}/${r30.total} Checks      | ${r30.isPassed ? '[PASS]' : '[FAIL]'} (Off=closed/On=restored)|
+| 30. No-language-model guarantee            | ${r31.passed}/${r31.total} Checks      | ${r31.isPassed ? '[PASS]' : '[FAIL]'} (Policy/Grounding/Hindi)|
+| 31. Real mode shows no sample data         | ${r32.passed}/${r32.total} Checks      | ${r32.isPassed ? '[PASS]' : '[FAIL]'} (Lists/By-id/Writes)|
 +--------------------------------------------+--------------------+----------------------+
-| TOTAL 29-BATTERY HARNESS DURATION: ${totalDuration.toFixed(2)} seconds                                        |
-| OVERALL VERDICT:                  ${allPassed ? '[PASS] ALL 29 TEST BATTERIES PASSED' : '[FAIL] SUITE FAILED'}           |
+| TOTAL 31-BATTERY HARNESS DURATION: ${totalDuration.toFixed(2)} seconds                                        |
+| OVERALL VERDICT:                  ${allPassed ? '[PASS] ALL 31 TEST BATTERIES PASSED' : '[FAIL] SUITE FAILED'}           |
 +----------------------------------------------------------------------------------------+
   `);
   process.exit(allPassed ? 0 : 1);

@@ -178,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </nav>
 
-        {/* Right: Sound, BYOD, Air-Gap Diagnostics */}
+        {/* Right: Sound, BYOD, system diagnostics */}
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -209,7 +209,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted border border-border/70 text-xs font-mono font-medium text-foreground transition-colors"
           >
             <ShieldCheck size={12} className="text-foreground/70" />
-            <span>Air-Gapped</span>
+            <span>Diagnostics</span>
           </button>
         </div>
       </div>

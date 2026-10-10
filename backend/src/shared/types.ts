@@ -357,6 +357,16 @@ export interface ClinicalHistory {
   interviewId?: string;
 }
 
+/** Where one fact in the summary came from (services/summaryRealiser.ts). */
+export interface SummarySource {
+  /** The fact as the summary states it, e.g. "Abdominal Pain" or "Denies: Fever". */
+  item: string;
+  /** speech = heard in the patient's own words; kiosk = tapped or typed by the patient; record = stored without a marker. */
+  from: 'speech' | 'kiosk' | 'staff' | 'document' | 'asha' | 'record';
+  /** The patient's own words, when the fact was heard in speech and the words are still on record. */
+  quote?: string;
+}
+
 export interface HistorySummarySection {
   id: string;
   title: string;
@@ -364,6 +374,8 @@ export interface HistorySummarySection {
   text: string;
   textHi: string;
   status: SectionStatus;
+  /** Present when the section states recorded facts: one entry per fact, so every line can be traced. */
+  sources?: SummarySource[];
 }
 
 export interface HistorySummary {
@@ -374,4 +386,6 @@ export interface HistorySummary {
   text: string;
   textHi: string;
   completeness: HistoryCompleteness;
+  /** Terms that have no Hindi entry and were therefore left exactly as recorded in `textHi` (never guessed). */
+  untranslatedHi?: string[];
 }

@@ -10,6 +10,7 @@ import { db } from '../db/database';
 import { drugById } from './safety/drugDictionary';
 import { resolveAllopathicLine } from './safety/resolver';
 import { DEFAULT_ORDER_SETS } from './orderSets.seed';
+import { realOnly } from './sampleData';
 
 // Columns/tables are also ensured here so the module works whichever loads first.
 for (const col of ['claimed_by TEXT', 'claimed_by_name TEXT', 'claimed_at TEXT']) { try { db.exec(`ALTER TABLE sessions ADD COLUMN ${col};`); } catch { /* exists */ } }
@@ -145,7 +146,7 @@ export function seenToday(staffId: string) {
   return (db.prepare(`
     SELECT e.id, e.session_id, e.created_at, e.case_sheet_json, p.name AS patient_name, p.age, p.gender, s.token_no, d.status AS dispense_status, d.note AS dispense_note
     FROM encounters e JOIN patients p ON p.id = e.patient_id JOIN sessions s ON s.id = e.session_id LEFT JOIN dispenses d ON d.encounter_id = e.id
-    WHERE e.doctor_id = ? AND e.created_at >= ? ORDER BY e.created_at DESC`).all(staffId, start.toISOString()) as any[])
+    WHERE e.doctor_id = ? AND e.created_at >= ? AND s.status != 'DEMO_PARKED' ORDER BY e.created_at DESC`).all(staffId, start.toISOString()) as any[])
     .map(r => {
       const sheet: any = safe(r.case_sheet_json, {});
       return {
@@ -160,7 +161,7 @@ export function seenToday(staffId: string) {
 /** The doctor's most-prescribed items over the last 180 days (their real favourites). */
 export function favourites(staffId: string, careStream: 'ALLOPATHY' | 'AYURVEDA', limit = 12) {
   const since = new Date(Date.now() - 180 * 86400_000).toISOString();
-  const rows = db.prepare('SELECT case_sheet_json FROM encounters WHERE doctor_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 500').all(staffId, since) as any[];
+  const rows = db.prepare(`SELECT case_sheet_json FROM encounters WHERE doctor_id = ? AND created_at >= ? AND ${realOnly('patient_id')} ORDER BY created_at DESC LIMIT 500`).all(staffId, since) as any[];
   const counts = new Map<string, { item: any; n: number }>();
   for (const r of rows) {
     const sheet: any = safe(r.case_sheet_json, {});
@@ -212,8 +213,8 @@ export function prescribingQuality(opts: { staffId?: string; days?: number }) {
   const days = Math.max(1, Math.min(365, opts.days || 30));
   const since = new Date(Date.now() - days * 86400_000).toISOString();
   const rows = (opts.staffId
-    ? db.prepare(`SELECT case_sheet_json, care_stream FROM encounters WHERE doctor_id = ? AND created_at >= ?`).all(opts.staffId, since)
-    : db.prepare(`SELECT case_sheet_json, care_stream FROM encounters WHERE created_at >= ?`).all(since)) as any[];
+    ? db.prepare(`SELECT case_sheet_json, care_stream FROM encounters WHERE doctor_id = ? AND created_at >= ? AND ${realOnly('patient_id')}`).all(opts.staffId, since)
+    : db.prepare(`SELECT case_sheet_json, care_stream FROM encounters WHERE created_at >= ? AND ${realOnly('patient_id')}`).all(since)) as any[];
   let encounters = 0, medicines = 0, generic = 0, nlem = 0, resolved = 0, withAntibiotic = 0, withInjection = 0, access = 0, watch = 0, reserve = 0, abxItems = 0, abxWithIndication = 0;
   for (const r of rows) {
     const sheet: any = safe(r.case_sheet_json, {});
@@ -264,7 +265,7 @@ export function prescribingQuality(opts: { staffId?: string; days?: number }) {
 /** Per-rule alert outcomes in signed prescriptions: how often each STOP was overridden, with reasons. */
 export function alertOutcomes(days = 90) {
   const since = new Date(Date.now() - days * 86400_000).toISOString();
-  const rows = db.prepare('SELECT case_sheet_json FROM encounters WHERE created_at >= ?').all(since) as any[];
+  const rows = db.prepare(`SELECT case_sheet_json FROM encounters WHERE created_at >= ? AND ${realOnly('patient_id')}`).all(since) as any[];
   const stats = new Map<string, { alertId: string; tier: string; shown: number; signedAnyway: number; reasons: string[]; summary: string }>();
   for (const r of rows) {
     const sheet: any = safe(r.case_sheet_json, {});
@@ -307,7 +308,7 @@ export function createAdrReport(input: any, staff: Staff) {
   return { id, channel, status: 'READY_TO_SUBMIT', report };
 }
 export function listAdrReports(patientId?: string) {
-  const rows = (patientId ? db.prepare('SELECT * FROM adr_reports WHERE patient_id = ? ORDER BY created_at DESC').all(patientId) : db.prepare('SELECT * FROM adr_reports ORDER BY created_at DESC LIMIT 200').all()) as any[];
+  const rows = (patientId ? db.prepare('SELECT * FROM adr_reports WHERE patient_id = ? ORDER BY created_at DESC').all(patientId) : db.prepare(`SELECT * FROM adr_reports WHERE ${realOnly('patient_id')} ORDER BY created_at DESC LIMIT 200`).all()) as any[];
   return rows.map(r => ({ id: r.id, patientId: r.patient_id, sessionId: r.session_id, encounterId: r.encounter_id, channel: r.channel, status: r.status, reporter: r.reporter_name, createdAt: r.created_at, submittedAt: r.submitted_at, referenceNo: r.reference_no, report: safe(r.report_json, {}) }));
 }
 export function markAdrSubmitted(id: string, referenceNo: string) {
@@ -337,8 +338,8 @@ export function createNotifiable(type: string, patientId: string, sessionId: str
   return id;
 }
 export function listNotifiable(status?: string) {
-  const rows = (status ? db.prepare(`SELECT n.*, p.name AS patient_name, p.age, p.gender, p.abha_id FROM notifiable_events n JOIN patients p ON p.id = n.patient_id WHERE n.status = ? ORDER BY n.created_at DESC`).all(status)
-    : db.prepare(`SELECT n.*, p.name AS patient_name, p.age, p.gender, p.abha_id FROM notifiable_events n JOIN patients p ON p.id = n.patient_id ORDER BY n.created_at DESC LIMIT 200`).all()) as any[];
+  const rows = (status ? db.prepare(`SELECT n.*, p.name AS patient_name, p.age, p.gender, p.abha_id FROM notifiable_events n JOIN patients p ON p.id = n.patient_id WHERE n.status = ? AND ${realOnly('n.patient_id')} ORDER BY n.created_at DESC`).all(status)
+    : db.prepare(`SELECT n.*, p.name AS patient_name, p.age, p.gender, p.abha_id FROM notifiable_events n JOIN patients p ON p.id = n.patient_id WHERE ${realOnly('n.patient_id')} ORDER BY n.created_at DESC LIMIT 200`).all()) as any[];
   return rows.map(r => ({ id: r.id, type: r.type, status: r.status, patientId: r.patient_id, patientName: r.patient_name, age: r.age, gender: r.gender, abhaId: r.abha_id, sessionId: r.session_id, encounterId: r.encounter_id, details: safe(r.details_json, {}), referenceNo: r.reference_no, createdAt: r.created_at, updatedAt: r.updated_at }));
 }
 export function markNotifiableSubmitted(id: string, referenceNo: string, staff: Staff) {
@@ -361,7 +362,7 @@ export function ihipWeekly(weekStartIso: string) {
   const start = new Date(weekStartIso);
   if (Number.isNaN(start.getTime())) throw new Error('weekStart must be a date');
   const end = new Date(start.getTime() + 7 * 86400_000);
-  const rows = db.prepare('SELECT s.symptoms_json, s.raw_transcript, p.age FROM sessions s JOIN patients p ON p.id = s.patient_id WHERE s.created_at >= ? AND s.created_at < ?').all(start.toISOString(), end.toISOString()) as any[];
+  const rows = db.prepare(`SELECT s.symptoms_json, s.raw_transcript, p.age FROM sessions s JOIN patients p ON p.id = s.patient_id WHERE s.created_at >= ? AND s.created_at < ? AND s.status != 'DEMO_PARKED'`).all(start.toISOString(), end.toISOString()) as any[];
   const counts: Record<string, { label: string; under5: number; over5: number }> = Object.fromEntries(SYNDROMES.map(s => [s.id, { label: s.label, under5: 0, over5: 0 }]));
   for (const r of rows) {
     const symptoms = safe<any[]>(r.symptoms_json, []).filter(x => !x?.isNegated).map(x => ({ name: String(x?.name || x?.symptom_name || ''), duration: String(x?.onset || x?.duration || '') }));

@@ -2,10 +2,13 @@
  * Mock / Real mode of a demonstration server, switchable while the server runs.
  *
  * MOCK (demo mode on)  — the ten sample patients wait in the queue, demo seed / restore endpoints
- *       answer, and the kiosk offers sample profiles and a demo OTP.
- * REAL (demo mode off) — no mock data anywhere: the sample visits are parked out of every queue,
- *       board and report, demo endpoints return 404, and only patients who actually check in
- *       appear. Nothing is deleted, so switching back restores the sample patients exactly.
+ *       answer, and the kiosk offers sample profiles and a demo OTP. Whatever is created now —
+ *       a kiosk check-in, a prescription, an SOS alert — is a sample record too.
+ * REAL (demo mode off) — no mock data anywhere: every sample visit (the seeded ten and anything
+ *       made in Mock mode) is parked out of every queue, board and report, requests that name a
+ *       sample record get 404 (services/sampleData.ts), demo endpoints return 404, and only
+ *       patients who check in now appear. Nothing is deleted: switching back gives every visit
+ *       its status again and re-opens the ten seeded patients.
  *
  * Staff sign in the same way in both modes: on a demonstration server the demo accounts stay
  * usable (securityConfig.demoAccountsOpen), so switching never signs anyone out or locks them out.
@@ -19,14 +22,17 @@ import { db } from '../db/database';
 import { securityConfig, setRuntimeDemoMode } from '../security/config';
 import { AuthService } from '../security/auth.service';
 import { appendAudit } from '../security/audit';
-import { DEMO_CARE_STREAMS, restoreDemoQueue, applyDemoCareStreams, seedDatabase } from '../db/seed';
+import { restoreDemoQueue, applyDemoCareStreams, seedDatabase } from '../db/seed';
 import { ensureDemoStaff } from '../db/demoStaff';
 import { publish } from './eventBus.service';
 
 db.exec(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT);`);
 
 const KEY = 'demo_mode';
-/** Demo visits taken out of the queue while demonstration mode is off. No query lists this status. */
+/**
+ * The status of every sample visit while Real mode is on (its own status waits in parked_status).
+ * No queue, board or report lists it.
+ */
 export const DEMO_PARKED = 'DEMO_PARKED';
 
 export interface DemoModeState {
@@ -56,15 +62,23 @@ export function getDemoModeState(): DemoModeState {
   };
 }
 
-const demoIds = () => Object.keys(DEMO_CARE_STREAMS);
+/**
+ * Take every sample visit out of sight, whatever state it is in — waiting, in consultation, signed
+ * or closed — and remember that state. Claims are released; the records themselves are untouched.
+ * Returns how many visits were waiting or being seen (the ones a screen was showing in a queue).
+ */
+function parkSampleVisits(): number {
+  const open = (db.prepare(`SELECT COUNT(*) AS n FROM sessions WHERE is_demo = 1 AND status IN ('PENDING_DOCTOR', 'IN_CONSULTATION', 'DIVERTED_EMERGENCY')`).get() as any).n as number;
+  db.prepare(`
+    UPDATE sessions SET parked_status = status, status = '${DEMO_PARKED}', claimed_by = NULL, claimed_by_name = NULL, claimed_at = NULL
+    WHERE is_demo = 1 AND status != '${DEMO_PARKED}'
+  `).run();
+  return open;
+}
 
-/** Take open demo visits out of the queue (and out of claims), without touching their records. */
-function parkDemoVisits(): number {
-  const ids = demoIds();
-  return db.prepare(`
-    UPDATE sessions SET status = '${DEMO_PARKED}', claimed_by = NULL, claimed_by_name = NULL, claimed_at = NULL
-    WHERE id IN (${ids.map(() => '?').join(',')}) AND status IN ('PENDING_DOCTOR', 'IN_CONSULTATION', 'DIVERTED_EMERGENCY')
-  `).run(...ids).changes;
+/** Give parked sample visits their own status back (Mock mode). */
+function unparkSampleVisits(): number {
+  return db.prepare(`UPDATE sessions SET status = parked_status, parked_status = NULL WHERE status = '${DEMO_PARKED}' AND parked_status IS NOT NULL`).run().changes;
 }
 
 /**
@@ -80,9 +94,10 @@ export function initDemoMode(): void {
       console.log('[Database] Fresh database: loading demo patients (demonstration mode is on).');
       seedDatabase();
     }
+    unparkSampleVisits();
     applyDemoCareStreams();
   } else {
-    parkDemoVisits();
+    parkSampleVisits();
   }
   // Wherever the demo accounts may sign in they must exist, also when real accounts were made first.
   if (securityConfig.demoAccountsOpen && AuthService.countUsers() > 0) ensureDemoStaff();
@@ -110,9 +125,10 @@ export function setDemoMode(on: boolean, actor: { id: string; name: string; role
     setRuntimeDemoMode(on);
     if (on) {
       ensureDemoStaff();
+      unparkSampleVisits();
       restored = restoreDemoQueue(); // never wipes real records
     } else {
-      parked = parkDemoVisits();
+      parked = parkSampleVisits();
     }
   })();
 

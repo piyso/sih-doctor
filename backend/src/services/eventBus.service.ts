@@ -23,11 +23,13 @@ export function publish(event: HospitalEvent): void {
   bus.emit('event', event);
 }
 
-const PUBLIC_TYPES = new Set(['queue.changed', 'token.called']);
+// 'system.mode' is public too (as GET /api/system/mode is), so a waiting-room display follows a switch at once.
+const PUBLIC_TYPES = new Set(['queue.changed', 'token.called', 'system.mode']);
 
 function publicView(e: HospitalEvent): Record<string, unknown> | null {
   if (!PUBLIC_TYPES.has(e.type)) return null;
   if (e.type === 'token.called') return { type: e.type, tokenNo: e.tokenNo, room: e.room, department: e.department, callCount: e.callCount };
+  if (e.type === 'system.mode') return { type: e.type, demoMode: e.demoMode };
   return { type: e.type };
 }
 

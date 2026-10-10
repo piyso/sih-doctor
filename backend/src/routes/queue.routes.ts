@@ -44,7 +44,7 @@ function boardData() {
     .filter(d => d.nowServing || d.waitingCount > 0);
   const recentCalls = db.prepare(`
     SELECT token_no, department, called_at, call_count FROM sessions
-    WHERE called_at IS NOT NULL AND called_at > datetime('now', '-30 minutes') ORDER BY called_at DESC LIMIT 6
+    WHERE called_at IS NOT NULL AND called_at > datetime('now', '-30 minutes') AND status != 'DEMO_PARKED' ORDER BY called_at DESC LIMIT 6
   `).all() as any[];
   return {
     generatedAt: new Date().toISOString(),

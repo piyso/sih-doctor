@@ -16,6 +16,7 @@ import { getOperationalSnapshot, getDailyTrend, getSyndromicSignals, getPrescrib
 import { SmsService } from '../services/sms.service';
 import { EdgeAiClient } from '../services/edgeAi.client';
 import { SCHEMA_VERSION, appliedMigrations } from '../db/migrations';
+import { samplesHidden } from '../services/sampleData';
 
 export const adminRouter = Router();
 
@@ -186,7 +187,7 @@ adminRouter.get('/patients', (req: Request, res: Response): void => {
   const rows = db.prepare(`
     SELECT id, name, age, gender, phone_masked AS phoneMasked, abha_id AS abhaId, created_at AS createdAt, erased_at AS erasedAt,
       (SELECT COUNT(*) FROM sessions s WHERE s.patient_id = patients.id) AS visits
-    FROM patients WHERE name LIKE ? OR abha_id = ? OR phone_masked LIKE ? ORDER BY created_at DESC LIMIT 25
+    FROM patients WHERE (name LIKE ? OR abha_id = ? OR phone_masked LIKE ?)${samplesHidden() ? ' AND is_demo = 0' : ''} ORDER BY created_at DESC LIMIT 25
   `).all(`%${q}%`, q, `%${q.replace(/\D/g, '').slice(-4) || '#'}`) as any[];
   audit(req, 'privacy.patient_search', null, { q: q.slice(0, 3) + '…' });
   res.json({ success: true, data: rows.map(r => ({ ...r, consent: effectiveConsent(r.id) })) });

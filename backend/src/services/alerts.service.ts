@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { db } from '../db/database';
 import { publish } from './eventBus.service';
 import { appendAudit } from '../security/audit';
+import { sampleFlag, samplesHidden } from './sampleData';
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS alerts (
@@ -25,6 +26,8 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_alerts_open ON alerts(resolved_at, created_at);
 `);
+// An alert raised in Mock mode is sample data: hidden in Real mode (services/sampleData.ts).
+try { db.exec('ALTER TABLE alerts ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0;'); } catch { /* exists */ }
 
 export interface AlertRow {
   id: string;
@@ -66,8 +69,8 @@ export const AlertsService = {
     const id = `sos-${crypto.randomBytes(5).toString('hex')}`;
     const createdAt = new Date().toISOString();
     const message = (input.message || 'Patient pressed the emergency (SOS) button at the kiosk.').slice(0, 300);
-    db.prepare(`INSERT INTO alerts (id, kind, session_id, token_no, location, message, raised_by, created_at) VALUES (?, 'SOS', ?, ?, ?, ?, ?, ?)`)
-      .run(id, input.sessionId || null, input.tokenNo || null, input.location || null, message, input.raisedBy, createdAt);
+    db.prepare(`INSERT INTO alerts (id, kind, session_id, token_no, location, message, raised_by, created_at, is_demo) VALUES (?, 'SOS', ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, input.sessionId || null, input.tokenNo || null, input.location || null, message, input.raisedBy, createdAt, sampleFlag());
     appendAudit({ action: 'sos.raised', entityId: id, actor: input.raisedBy, metadata: { sessionId: input.sessionId, location: input.location } });
     publish({ type: 'sos.raised', alertId: id, tokenNo: input.tokenNo, location: input.location, message, createdAt });
     return this.get(id)!;
@@ -85,7 +88,7 @@ export const AlertsService = {
     return (db.prepare(`
       SELECT a.*, p.name AS patient_name FROM alerts a
       LEFT JOIN sessions s ON s.id = a.session_id LEFT JOIN patients p ON p.id = s.patient_id
-      WHERE a.resolved_at IS NULL OR a.resolved_at > datetime('now', '-30 minutes')
+      WHERE (a.resolved_at IS NULL OR a.resolved_at > datetime('now', '-30 minutes'))${samplesHidden() ? ' AND a.is_demo = 0' : ''}
       ORDER BY a.resolved_at IS NOT NULL, a.created_at DESC LIMIT 50
     `).all() as any[]).map(toRow);
   },

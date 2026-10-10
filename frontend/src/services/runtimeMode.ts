@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { BASE_URL, apiFetch } from './api';
+import { BASE_URL, apiFetch, SERVER_MODE_CHANGED } from './api';
 import { session } from './session';
 import { DEMO_ADMIN } from './demoAccounts';
 
@@ -170,6 +170,8 @@ function start() {
   snapshot = compute();
   refreshRuntimeMode();
   window.addEventListener('focus', () => { refreshRuntimeMode(); });
+  // The server announced a switch on the event stream, or refused a sample record: follow at once.
+  window.addEventListener(SERVER_MODE_CHANGED, () => { refreshRuntimeMode(); });
   session.subscribe(publish);
   // Every 30 s while visible; every 5 s while the server is not answering, so screens recover by themselves.
   let last = 0;

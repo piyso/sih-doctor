@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Printer, RefreshCw, Volume2, VolumeX, MapPin, Users, X, CheckCircle2, AlertOctagon, WifiOff, Clock, Loader2 } from 'lucide-react';
 import { api, IntakeResult, KioskConsent } from '../../services/api';
+import { useDemoMode } from '../../services/runtimeMode';
 import { SocratesSymptom, DashavidhaPariksha, VitalsData, PatientHistory } from '../../types/api';
 import { printThermalSlip } from '../../utils/thermalPrint';
 import { speak, stopSpeaking } from '../../utils/speech';
@@ -55,6 +56,8 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
 }) => {
   const lang = normalizeLang(language);
   const tx = kioskText(lang);
+  // The directory's named doctors are sample names; a real patient's slip shows the room, not an invented doctor.
+  const demoMode = useDemoMode();
   const slipRef = useRef<HTMLDivElement>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showDirections, setShowDirections] = useState(false);
@@ -242,10 +245,10 @@ export const Step7TokenSummary: React.FC<Step7TokenSummaryProps> = ({
             <div className="text-lg font-extrabold">{roomLabel(deptCode, lang)} · {floorName(dept.floor, lang)}</div>
             <div className="text-slate-700">{departmentName(deptCode, lang)}</div>
           </div>
-          <div>
+          {(demoMode || !/^(Dr\.|Vaidya)\s/.test(dept.doctor)) && <div>
             <div className="text-xs font-semibold text-slate-600">{tx('s7Doctor')}</div>
             <div className="font-semibold">{dept.doctor}</div>
-          </div>
+          </div>}
           <div>
             <div className="text-xs font-semibold text-slate-600 flex items-center gap-1"><Clock size={12} /> {tx('s7Wait')}</div>
             <div className="font-semibold">{isEmergency ? tx('s7Immediate') : waitMins !== null ? tx('s7WaitMins', { n: waitMins }) : '—'}</div>

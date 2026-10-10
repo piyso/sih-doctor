@@ -21,7 +21,7 @@ const CAP_LABEL: Record<string, string> = {
   asr: 'Speech recognition (Indian languages)',
   tts: 'Read-aloud voice',
   translate: 'Translation of instructions',
-  llm: 'Small language model (extraction, note drafts)',
+  llm: 'Language model (clinician note draft only)',
   ocr: 'Document reading (vision OCR)'
 };
 
@@ -91,9 +91,20 @@ export const SystemPanel: React.FC = () => {
         </Panel>
 
         <Panel title="On-premise AI service" subtitle={sys.edgeAi.online ? `Running at ${sys.edgeAi.url}${sys.edgeAi.device ? ` on ${sys.edgeAi.device}` : ''}` : `Not running (${sys.edgeAi.url}). Everything still works with the built-in rules; see edge-ai/README.md to install.`}>
-          {Object.entries(sys.edgeAi.capabilities).map(([k, v]: [string, any]) => (
-            <Row key={k} label={CAP_LABEL[k] || k} value={v.available ? v.model || 'available' : 'not installed'} ok={v.available} />
-          ))}
+          {Object.entries(sys.edgeAi.capabilities).map(([k, v]: [string, any]) => {
+            // The language model is governed by the hospital's policy, not by what is installed (backend aiPolicy.ts).
+            if (k === 'llm' && sys.edgeAi.policy?.llmAssist === 'off') {
+              return (
+                <Row
+                  key={k}
+                  label={CAP_LABEL[k]}
+                  value={sys.edgeAi.policy.installed?.llm ? 'Switched off here; never called (one is installed on the AI machine)' : 'Switched off here; never called (none installed)'}
+                  hint="No language model reads a patient's words, decides triage or writes a summary, in any setting. LLM_ASSIST=clinician would allow a model draft of the clinician's visit note only."
+                />
+              );
+            }
+            return <Row key={k} label={CAP_LABEL[k] || k} value={v.available ? v.model || 'available' : 'not installed'} ok={v.available} />;
+          })}
         </Panel>
       </div>
 

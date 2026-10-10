@@ -117,7 +117,7 @@ export function averageConsultMinutes(): number {
   const r: any = db.prepare(`
     SELECT AVG((julianday(completed_at) - julianday(consult_started_at)) * 1440) AS m
     FROM sessions WHERE completed_at IS NOT NULL AND consult_started_at IS NOT NULL
-      AND completed_at > datetime('now', '-7 days')
+      AND completed_at > datetime('now', '-7 days') AND status != 'DEMO_PARKED'
   `).get();
   const m = Number(r?.m);
   return Number.isFinite(m) && m > 1 && m < 60 ? Math.round(m) : 8;

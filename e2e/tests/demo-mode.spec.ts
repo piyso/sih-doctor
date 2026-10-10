@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, apiLogin } from '../helpers';
+import { API, apiLogin, uiLogin } from '../helpers';
 
 /**
  * The Mock / Real switch of a demonstration server. The round trip below really switches the dev
@@ -42,6 +42,34 @@ test.describe('Mock / Real switch', () => {
     await expect(page.getByText(/Mock mode is on/)).toBeVisible();
     expect(await mode()).toBe(true);
     expect(await sampleInQueue()).toBe(true);
+  });
+
+  test('a doctor desk left open on a sample patient shows no sample data once the server is in Real mode', async ({ page, request }) => {
+    const admin = await apiLogin(request, 'admin');
+    const switchServer = (on: boolean) => request.post(`${API}/system/demo-mode`, { data: { on }, headers: { Authorization: `Bearer ${admin}` } });
+    await uiLogin(page, 'doctor', 'dr.sharma');
+    // Mock mode: the first sample patient is open on the desk, with the medicines read from his scanned prescription.
+    const main = page.locator('main');
+    await expect(main.getByText('Ramesh Kumar').first()).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Mock or Real mode' }).getByRole('radio', { name: 'Mock' })).toHaveAttribute('aria-checked', 'true');
+    try {
+      // The switch is made somewhere else (another device, another tab): this desk must follow by itself.
+      expect((await switchServer(false)).ok()).toBeTruthy();
+      await expect(page.getByRole('radiogroup', { name: 'Mock or Real mode' }).getByRole('radio', { name: 'Real' })).toHaveAttribute('aria-checked', 'true', { timeout: 10000 });
+      await expect(main.getByText('Ramesh Kumar')).toHaveCount(0);
+      for (const sample of ['Shanti Devi', 'Lakshmi Ammal', 'Devi Lal Meena', 'from a scanned prescription', 'reference case (synthetic)', '91-4567-8901-2345']) {
+        await expect(main.getByText(sample)).toHaveCount(0);
+      }
+      // Asking the server for the sample visit by id gives nothing either.
+      const doctor = await apiLogin(request, 'dr.sharma');
+      const byId = await request.get(`${API}/doctor/session/sess-001`, { headers: { Authorization: `Bearer ${doctor}` } });
+      expect(byId.status()).toBe(404);
+      expect((await byId.json()).code).toBe('SAMPLE_HIDDEN');
+    } finally {
+      await switchServer(true);
+    }
+    await expect(page.getByRole('radiogroup', { name: 'Mock or Real mode' }).getByRole('radio', { name: 'Mock' })).toHaveAttribute('aria-checked', 'true', { timeout: 10000 });
+    await expect(main.getByText('Ramesh Kumar').first()).toBeVisible();
   });
 
   test('the explanation says what each mode means', async ({ page }) => {

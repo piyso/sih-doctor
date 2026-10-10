@@ -6,6 +6,7 @@ import { db } from '../../db/database';
 import { ageBandOf } from './embedding';
 import { buildReferenceShard } from './referenceCases';
 import { CaseQuery, CaseRecord, ConfidentialityTier } from './types';
+import { realOnly, samplesHidden } from '../sampleData';
 
 const TIER1_KEYWORDS = (process.env.RETRIEVAL_TIER1_KEYWORDS || 'psychiat,manas,mental,hiv,art centre,addiction,prasuti,obstet,gynae,reproductive,sexual')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -82,6 +83,7 @@ export function loadFacilityCases(): CaseRecord[] {
   const encounters: any[] = db.prepare(`
     SELECT e.id, e.session_id, e.department, e.case_sheet_json, e.created_at, p.age, p.gender, p.is_pregnant, s.red_flag_triggers
     FROM encounters e JOIN patients p ON p.id = e.patient_id LEFT JOIN sessions s ON s.id = e.session_id
+    WHERE ${realOnly('e.patient_id')}
   `).all();
   for (const e of encounters) {
     const cs = parse<any>(e.case_sheet_json, {});
@@ -98,7 +100,7 @@ export function loadFacilityCases(): CaseRecord[] {
   const sessions: any[] = db.prepare(`
     SELECT s.id, s.symptoms_json, s.red_flag_triggers, s.care_stream, s.history_json, s.created_at, p.age, p.gender, p.is_pregnant
     FROM sessions s JOIN patients p ON p.id = s.patient_id
-    WHERE s.id NOT IN (SELECT session_id FROM encounters)
+    WHERE s.id NOT IN (SELECT session_id FROM encounters) AND ${realOnly('s.patient_id')}
   `).all();
   for (const s of sessions) {
     const { names, sites } = symptomNames(parse<any[]>(s.symptoms_json, []));
@@ -114,8 +116,14 @@ export function loadFacilityCases(): CaseRecord[] {
   return out;
 }
 
+/**
+ * The synthetic reference shard is invented data. RETRIEVAL_REFERENCE_SHARD=on|off fixes it; left
+ * unset it follows the mode: on in Mock mode, off in Real mode, where "similar past cases" are
+ * only cases of this facility (an empty list until doctors have signed some).
+ */
 export function referenceShardEnabled(): boolean {
-  return (process.env.RETRIEVAL_REFERENCE_SHARD || 'on').toLowerCase() !== 'off';
+  const setting = (process.env.RETRIEVAL_REFERENCE_SHARD || '').toLowerCase();
+  return setting === 'on' || setting === 'off' ? setting === 'on' : !samplesHidden();
 }
 
 export function loadAllCases(): { cases: CaseRecord[]; facility: number; reference: number } {
@@ -128,7 +136,7 @@ export function loadAllCases(): { cases: CaseRecord[]; facility: number; referen
 export function corpusSignature(): string {
   const e: any = db.prepare('SELECT COUNT(*) n, MAX(created_at) t FROM encounters').get();
   const s: any = db.prepare('SELECT COUNT(*) n, MAX(created_at) t FROM sessions').get();
-  return `${e.n}:${e.t || ''}:${s.n}:${s.t || ''}:${referenceShardEnabled() ? 'ref' : 'noref'}`;
+  return `${e.n}:${e.t || ''}:${s.n}:${s.t || ''}:${referenceShardEnabled() ? 'ref' : 'noref'}:${samplesHidden() ? 'real' : 'mock'}`;
 }
 
 /** The query for a session: its intake, history and demographics. Never the transcript or identifiers. */

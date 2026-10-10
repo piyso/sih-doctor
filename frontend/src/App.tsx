@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { ActiveViewMode } from './components/common/Header';
 import { HospitalOsGateway } from './modules/portal/HospitalOsGateway';
 import { LeverModal } from './components/common/LeverModal';
@@ -73,6 +73,13 @@ export function App() {
   const [isByodModalOpen, setIsByodModalOpen] = useState(false);
   const appMode = useAppMode();
   const inSandbox = appMode.source === 'sandbox';
+  // A check-in half-filled in one mode is not offered for resuming in the other (the kiosk keeps its
+  // draft in this tab): it is dropped before the kiosk is reloaded for the new mode.
+  const shownMode = useRef(appMode.mode);
+  if (shownMode.current !== appMode.mode) {
+    shownMode.current = appMode.mode;
+    try { sessionStorage.removeItem('kiosk_draft_active'); } catch { /* private mode */ }
+  }
 
   // Silent background wake-up ping for Render free tier backend container
   useEffect(() => {
@@ -153,8 +160,12 @@ export function App() {
       {/* Main Terminal View Container */}
       <main className={`flex-1 ${activeView === 'portal' || activeView === 'display' || activeView === 'doctor' ? '' : 'pb-10'}`}>
         <Suspense fallback={<ViewLoading />}>
-        {/* Keyed by data source: entering or leaving the offline sandbox reloads the open screen. */}
-        <React.Fragment key={inSandbox ? 'sandbox' : 'server'}>
+        {/* Keyed by data source and by mode: entering or leaving the offline sandbox, or a switch between
+            Mock and Real (made here or on any other device), reloads the open screen from scratch, so
+            nothing loaded in one mode — a selected sample patient, a list, a half-filled form — stays
+            on screen in the other. Unsaved prescription drafts are kept per visit and come back. The
+            gateway holds no patient data and keeps its switch (and its confirmation) in place. */}
+        <React.Fragment key={activeView === 'portal' ? `gateway:${inSandbox ? 'sandbox' : 'server'}` : `${inSandbox ? 'sandbox' : 'server'}:${appMode.mode}`}>
         {inSandbox && SERVER_ONLY_VIEWS.includes(activeView) && (
           <div className="max-w-xl mx-auto mt-16 px-4">
             <div className="rounded-3xl border border-border bg-card p-7 text-center shadow-sm">

@@ -19,6 +19,7 @@ import { routeCheckIn, issueToken, queuePosition } from '../services/hospitalRou
 import { analyseComplaint } from '../services/clinicalLexicon';
 import { AlertsService } from '../services/alerts.service';
 import { publish } from '../services/eventBus.service';
+import { sampleFlag, abhaForNewPatient } from '../services/sampleData';
 import { SmsService } from '../services/sms.service';
 import { normaliseHistory } from '../services/clinicalHistory.service';
 import { assessVitals, raisePriority } from '../services/triage.service';
@@ -108,12 +109,15 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     // ---- Find the patient: ABHA is exact; a phone number alone is NOT enough because families
     // share phones, so the name and age must match too.
     let patientId: string | null = null;
+    // A check-in made in Mock mode is a sample record and one made in Real mode is a real one; the
+    // two never share a patient (services/sampleData.ts), so only patients of this mode are matched.
+    const world = sampleFlag();
     if (cleanAbha) {
-      const byAbha: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ?`).get(cleanAbha);
+      const byAbha: any = db.prepare(`SELECT id FROM patients WHERE abha_id = ? AND is_demo = ?`).get(cleanAbha, world);
       if (byAbha) patientId = byAbha.id;
     }
     if (!patientId && phoneHash && rawName) {
-      const candidates = db.prepare(`SELECT id, name, age FROM patients WHERE phone_hash = ? AND erased_at IS NULL`).all(phoneHash) as any[];
+      const candidates = db.prepare(`SELECT id, name, age FROM patients WHERE phone_hash = ? AND erased_at IS NULL AND is_demo = ?`).all(phoneHash, world) as any[];
       const match = candidates.find(c => normName(c.name) === normName(rawName) && (!Number.isFinite(age) || Math.abs((c.age || 0) - age) <= 2));
       if (match) patientId = match.id;
     }
@@ -225,12 +229,12 @@ kioskRouter.post('/intake', (req: Request, res: Response): void => {
     db.transaction(() => {
       if (isNewPatient) {
         db.prepare(`
-          INSERT INTO patients (id, abha_id, abha_address, name, age, gender, phone_masked, phone_hash, phone_enc, aadhaar_masked, language, prakriti, is_pregnant, gestational_weeks, is_lactating, weight_kg, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO patients (id, abha_id, abha_address, name, age, gender, phone_masked, phone_hash, phone_enc, aadhaar_masked, language, prakriti, is_pregnant, gestational_weeks, is_lactating, weight_kg, created_at, is_demo)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          patientId, cleanAbha, patient?.abhaAddress || null, cleanName, Number.isFinite(age) ? age : 0, gender,
+          patientId, abhaForNewPatient(cleanAbha), patient?.abhaAddress || null, cleanName, Number.isFinite(age) ? age : 0, gender,
           maskedPhone, phoneHash, phoneEnc, maskedAadhaar, lang, pariksha?.prakriti || null,
-          pregnant === null ? null : pregnant ? 1 : 0, patient?.gestationalWeeks || null, lactating === null ? null : lactating ? 1 : 0, patient?.weightKg || null, now
+          pregnant === null ? null : pregnant ? 1 : 0, patient?.gestationalWeeks || null, lactating === null ? null : lactating ? 1 : 0, patient?.weightKg || null, now, world
         );
       } else {
         db.prepare(`
@@ -470,13 +474,14 @@ kioskRouter.post('/draft', (req: Request, res: Response): void => {
     const now = new Date().toISOString();
 
     db.prepare(`
-      INSERT INTO ephemeral_drafts (id, phone, name, draft_json, updated_at, phone_hash)
-      VALUES (?, NULL, NULL, ?, ?, ?)
+      INSERT INTO ephemeral_drafts (id, phone, name, draft_json, updated_at, phone_hash, is_demo)
+      VALUES (?, NULL, NULL, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         draft_json = excluded.draft_json,
         updated_at = excluded.updated_at,
         phone_hash = COALESCE(excluded.phone_hash, ephemeral_drafts.phone_hash)
-    `).run(id, encryptField(serialized), now, phone ? blindIndex(phone) : null);
+      WHERE ephemeral_drafts.is_demo = excluded.is_demo
+    `).run(id, encryptField(serialized), now, phone ? blindIndex(phone) : null, sampleFlag());
 
     res.json({ success: true, draftId: id });
   } catch (err: any) {
@@ -507,7 +512,8 @@ kioskRouter.get('/lookup-draft', (req: Request, res: Response): void => {
       res.status(400).json({ success: false, message: 'Enter the full 10-digit mobile number.' });
       return;
     }
-    const row: any = db.prepare(`SELECT * FROM ephemeral_drafts WHERE phone_hash = ? ORDER BY updated_at DESC LIMIT 1`).get(blindIndex(phone));
+    // An unfinished check-in started in Mock mode is sample data: it is not offered in Real mode (and the other way round).
+    const row: any = db.prepare(`SELECT * FROM ephemeral_drafts WHERE phone_hash = ? AND is_demo = ? ORDER BY updated_at DESC LIMIT 1`).get(blindIndex(phone), sampleFlag());
     const plain = row ? decryptField(row.draft_json) : null;
     if (!row || !plain) {
       res.status(404).json({ success: false, message: 'No unfinished check-in found for this number.' });
@@ -565,9 +571,9 @@ kioskRouter.post('/family-intake', (req: Request, res: Response): void => {
       const sessionId = uuidv4();
 
       db.prepare(`
-        INSERT INTO patients (id, name, age, gender, phone_masked, phone_hash, language, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(patientId, name, age, gender, phone ? SovereignNERService.maskPhone(phone) : null, phone ? blindIndex(phone) : null, member.language || req.body.language || 'hi', now);
+        INSERT INTO patients (id, name, age, gender, phone_masked, phone_hash, language, created_at, is_demo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(patientId, name, age, gender, phone ? SovereignNERService.maskPhone(phone) : null, phone ? blindIndex(phone) : null, member.language || req.body.language || 'hi', now, sampleFlag());
 
       db.prepare(`
         INSERT INTO sessions (id, patient_id, symptoms_json, pariksha_json, vitals_json, triage_priority, red_flag_triggers, status, created_at, care_stream, language, department, token_no, token_date, kiosk_device_id, raw_transcript)

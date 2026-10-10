@@ -21,7 +21,8 @@ const SECTIONS = [
 
 /**
  * Drafts a SOAP visit note from the kiosk intake, measured vitals, the consultation transcript and
- * the prescription. Uses the on-premise language model when installed, otherwise a fixed template.
+ * the prescription with a fixed template. A language-model draft is used only when the hospital has switched it
+ * on for clinicians (LLM_ASSIST=clinician on the server) and a model is installed.
  * The doctor edits it; nothing is saved until they insert it into the notes and sign the Rx.
  */
 export const SoapNoteModal: React.FC<SoapNoteModalProps> = ({ session, transcript, draft, onClose, onInsert }) => {
@@ -60,7 +61,7 @@ export const SoapNoteModal: React.FC<SoapNoteModalProps> = ({ session, transcrip
               {meta.generatedBy === 'llm' ? <Sparkles size={14} /> : <AlertTriangle size={14} />}
               {meta.generatedBy === 'llm'
                 ? `Drafted by the on-premise language model${meta.model ? ` (${meta.model})` : ''}. It can be wrong — check every line against what happened.`
-                : 'Built from the recorded intake, vitals and your prescription (no language model installed). Complete the assessment yourself.'}
+                : 'Built from the recorded intake, vitals and your prescription with a fixed template (no language model is used). Complete the assessment yourself.'}
             </div>
           )}
           {error && <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/40 text-xs font-semibold text-rose-700">{error}</div>}

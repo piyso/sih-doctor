@@ -9,6 +9,7 @@
  */
 
 import type Database from 'better-sqlite3';
+import { securityConfig } from '../security/config';
 
 export interface Migration { version: number; name: string; up: (db: Database.Database) => void }
 
@@ -53,6 +54,65 @@ export const MIGRATIONS: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_notifiable_status ON notifiable_events(status, created_at);
         CREATE INDEX IF NOT EXISTS idx_encounters_doctor_created ON encounters(doctor_id, created_at);
       `);
+    }
+  },
+  {
+    version: 9, name: 'sample (mock) records are flagged: patients.is_demo, sessions.is_demo + parked_status',
+    up: (db) => {
+      for (const sql of [
+        'ALTER TABLE patients ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE sessions ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE sessions ADD COLUMN parked_status TEXT'
+      ]) { try { db.exec(sql); } catch { /* exists */ } }
+      // A visit always belongs to the world of its patient, whichever code path creates it.
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_patients_demo ON patients(is_demo);
+        CREATE TRIGGER IF NOT EXISTS sessions_inherit_is_demo AFTER INSERT ON sessions
+        BEGIN
+          UPDATE sessions SET is_demo = COALESCE((SELECT is_demo FROM patients WHERE id = NEW.patient_id), 0) WHERE id = NEW.id;
+        END;
+      `);
+    }
+  },
+  {
+    version: 10, name: 'sample flags on kiosk drafts and alerts; existing records sorted into sample / real from the audit trail',
+    up: (db) => {
+      const hasTable = (name: string) => !!db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(name);
+      const addColumn = (table: string, column: string) => { if (hasTable(table)) { try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${column}`); } catch { /* exists */ } } };
+      addColumn('ephemeral_drafts', 'is_demo INTEGER NOT NULL DEFAULT 0');
+      addColumn('alerts', 'is_demo INTEGER NOT NULL DEFAULT 0'); // on a new database alerts.service.ts creates the table with it
+      // The ten seeded sample patients, on any installation that ever loaded them.
+      const SEEDED = `('pat-001','pat-002','pat-003','pat-004','pat-005','pat-006','pat-007','pat-008','pat-009','pat-010')`;
+      db.exec(`UPDATE patients SET is_demo = 1 WHERE id IN ${SEEDED}`);
+      // A demonstration server: whatever was created while it was in Mock mode is sample data. The
+      // audit trail holds every switch, so the periods it spent in Real mode are known exactly.
+      if (securityConfig.demoToggle) {
+        const switches = (db.prepare(`SELECT created_at AS at, metadata_json AS meta FROM audit_logs WHERE action = 'system.demo_mode' ORDER BY created_at, id`).all() as any[])
+          .map(r => ({ at: String(r.at), on: (() => { try { return JSON.parse(r.meta).on === true; } catch { return true; } })() }));
+        const real: Array<[string, string]> = []; // [from, to) spent in Real mode
+        // Before the first switch the server was in the other mode (a switch to the same mode is not recorded).
+        let realFrom: string | null = switches.length ? (switches[0].on ? '' : null) : (securityConfig.allowDemo ? null : '');
+        for (const sw of switches) {
+          if (sw.on && realFrom !== null) { real.push([realFrom, sw.at]); realFrom = null; }
+          else if (!sw.on && realFrom === null) realFrom = sw.at;
+        }
+        if (realFrom !== null) real.push([realFrom, '9999']);
+        const inReal = (col: string) => (real.length ? `(${real.map(() => `(${col} >= ? AND ${col} < ?)`).join(' OR ')})` : '0');
+        const periods = real.flat();
+        // A patient is real when created, or checked in, during a Real-mode period; the seeded ten never are
+        // (restoring the sample queue rewrites their visit times).
+        db.prepare(`
+          UPDATE patients SET is_demo = CASE
+            WHEN id IN ${SEEDED} THEN 1
+            WHEN ${inReal('created_at')} THEN 0
+            WHEN id IN (SELECT patient_id FROM sessions WHERE ${inReal('created_at')}) THEN 0
+            ELSE 1 END
+        `).run(...periods, ...periods);
+        for (const [table, col] of [['ephemeral_drafts', 'updated_at'], ['alerts', 'created_at'], ['field_visits', 'received_at']] as const) {
+          if (hasTable(table)) db.prepare(`UPDATE ${table} SET is_demo = CASE WHEN ${inReal(col)} THEN 0 ELSE 1 END${table === 'field_visits' ? ` WHERE asha_user_id != 'demo'` : ''}`).run(...periods);
+        }
+      }
+      db.exec('UPDATE sessions SET is_demo = COALESCE((SELECT is_demo FROM patients WHERE id = sessions.patient_id), 0)');
     }
   }
 ];

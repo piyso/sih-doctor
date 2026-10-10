@@ -241,7 +241,7 @@ In current practice, paper slips and unencrypted patient records are routinely p
 23. **[23] Dickey, J. M., & Lientz, B. P. (1970).** *"The Unusual Sugar-Loaf: A Statistical Look at the Savage-Dickey Density Ratio"*. *The Annals of Mathematical Statistics*, 41(1), 214–226; Jeffreys, Harold (1961). *Theory of Probability* (3rd Edition). Oxford: Oxford University Press.
 24. **[24] Tietz, Norbert W. (2018).** *Tietz Textbook of Clinical Chemistry and Molecular Diagnostics* (6th Edition). St. Louis: Elsevier; De Ritis, F., Coltorti, M., & Giusti, G. (1956). *"An Enzymic Test for the Diagnosis of Viral Hepatitis: The Transaminase Serum Activity"*. *Minerva Medica*, 47(39), 167–181 (PMID: 13369248).
 25. **[25] Almazán, J., Gordo, A., Fornés, A., & Valveny, E. (2014).** *"Word Spotting and Recognition with Embedded Attributes"*. *IEEE Transactions on Pattern Analysis and Machine Intelligence*, 36(12), 2552–2566; Centre for Visual Information Technology (CVIT), IIIT Hyderabad Indic Handwritten Word Database (Devanagari / IndicHW).
-26. **[26] Ministry of Ayush, Government of India.** *National Ayush Morbidity and Standardized Terminologies Electronic (NAMASTE) Portal* (1,941 Standardized Morbidity Codes); World Health Organization, *ICD-11: International Classification of Diseases 11th Revision*, Chapter 26: Traditional Medicine Conditions (Module 2).
+26. **[26] Ministry of Ayush, Government of India.** *National Ayush Morbidity and Standardized Terminologies Electronic (NAMASTE) Portal*; World Health Organization, *ICD-11: International Classification of Diseases 11th Revision*, Chapter 26: Traditional Medicine Conditions (Module 2).
 27. **[27] Pharmacopoeia Commission for Indian Medicine & Homoeopathy (PCIM&H).** *Ayurvedic Pharmacopoeia of India (API)*, Part I (Vols I–IX) & Part II (Formulations, Vols I–IV); Drugs and Cosmetics Rules, 1945, Schedule E(1): *List of Poisonous Substances under the Ayurvedic, Siddha and Unani Systems*. New Delhi: Ministry of Ayush & CDSCO.
 28. **[28] Sharma, P. V. (Trans.) (2014).** *Charaka Samhita of Agnivesha (Sutrasthana, Chapter 26: Atreya Bhadrakapyiya Adhyaya, Verses 81–103 on Viruddha Ahara & Swasthavritta)*. Varanasi: Chaukhambha Orientalia; Central Council for Research in Ayurvedic Sciences (CCRAS).
 29. **[29] National Resource Center for EHR Standards (NRCeS).** *Ayushman Bharat Digital Mission (ABDM) FHIR Release 4 Implementation Guide (NRCeS Profile M3)*. New Delhi: Ministry of Health and Family Welfare, Government of India.
@@ -274,7 +274,7 @@ In current practice, paper slips and unencrypted patient records are routinely p
 | **Audio Pipeline** | Far-Field 16 kHz 16-bit PCM Linear Stream with Circular Pre-Roll (500 ms) | Dynamic noise-floor tracking to -57 dBFS, 50Hz hum rejection |
 | **Optical Character Recognition** | Tesseract 5.5.2 NEON SIMD accelerated with Sauvola/Otsu binarization | Hindi (`hin`) + English (`eng`) + OSD scripts [25] |
 | **Healthcare Interoperability** | ABDM FHIR Release 4 (NRCeS Profile M3) | Bundles: Composition, Patient, Condition, MedicationRequest [29] |
-| **Clinical Terminology Sets** | Ayush NAMASTE (1,941 Morbidity Codes), WHO ICD-11 Chapter 26 (TM2), SNOMED-CT | Bijective crosswalk table in local JSON format [26] |
+| **Clinical Terminology Sets** | Ayush NAMASTE, WHO ICD-11 Chapter 26 (TM2), SNOMED-CT | 20 sample NAMASTE entries with placeholder codes are bundled (`backend/src/shared/ayush_ontology.json`); the official export loads with `npm run import:namaste` [26] |
 | **Medicolegal Audit Trail** | SHA-256 Tamper-Evident Hash Chain (BSA 2023 §63) | Electronically admissible court evidence ledger [21] |
 
 ---
@@ -441,6 +441,9 @@ The clinical validation engine enforces biological conservation laws across labo
 | **23** | Patient-context safety: pregnancy, renal (CKD-EPI 2021), paediatric gates; matcher hygiene; NEWS2; structured history | 41/41 | [PASS] |
 | **24** | Adaptive interview engine: branching, red-flag probes, skips, gating, completeness | 34/34 | [PASS] |
 | **25** | HTTP journey on the real server: kiosk → interview → intake → doctor → blocked warfarin → signed Rx → FHIR → seal → ABDM HIP exchange → erasure | 39/39 | [PASS] |
+| **30** | No-language-model guarantee (`npm run test:no-llm`): no language-model dependency or service address; server run against a machine that has a language model and Whisper never calls either under the default policy; summaries identical across runs and produced with the network cut off; every word of 446 English + Hindi summaries comes from the record or the templates; Hindi wording coverage; every quoted source is verbatim | 37/37 (2026-10-10) | [PASS] |
+
+How a summary is produced without a language model, with the measured numbers and their limits: [docs/NO_LLM_SUMMARY_ENGINE.md](docs/NO_LLM_SUMMARY_ENGINE.md). See one sentence go through every step with `cd backend && npm run explain -- "<sentence>"`.
 
 Also measured outside the harness: on-premise Hindi ASR (IndicConformer, sherpa-onnx) character error rate 2.5% clean / 8% at 10 dB SNR, English (Parakeet) word error rate 3.6% clean; real-audio extraction 98% on 62 sentences (`edge-ai/eval`).
 
@@ -469,8 +472,8 @@ The software is evaluated directly against authoritative, real-world public heal
 
 ### 7.3 Ayush National Morbidity Codes (NAMASTE Portal) & WHO ICD-11 Chapter 26 (TM2) [26]
 * **Official Portals:** [National Ayush Morbidity and Standardized Terminologies Electronic Portal (NAMASTE)](https://namstp.ayush.gov.in/) | [World Health Organization ICD-11 Platform](https://icd.who.int/browse11/l-m/en) [26]
-* **Corpus Scope:** 1,941 Morbidity Codes across Ayurveda, Siddha, and Unani systems curated by the Ministry of Ayush, Government of India.
-* **Bijective Crosswalk:** Every Ayush A-Code maps directly to WHO ICD-11 Chapter 26 (Traditional Medicine Module 2 - TM2) conditions (e.g., `AYU-HRI-001` -> `BA80.Z Angina pectoris` -> `SNOMED-CT 53741008`).
+* **What is bundled:** 20 sample entries with placeholder codes (`AYU-…`), each carrying an ICD and SNOMED CT cross-reference for the demonstration. The official NAMASTE export (Ayurveda, Siddha and Unani terminologies, Ministry of Ayush) is not in the repository; `npm run import:namaste -- <file.csv>` loads it when the hospital supplies it.
+* **Crosswalk:** each bundled entry maps to an ICD code and a SNOMED CT concept (e.g., `AYU-HRI-001` -> `BA80.Z Angina pectoris` -> `SNOMED-CT 53741008`). A complete NAMASTE to ICD-11 TM2 mapping depends on the official export.
 
 ### 7.4 Ayurvedic Pharmacopoeia of India (API) & CDSCO Schedule E(1) Poison Master [27]
 * **Official Portals:** [Pharmacopoeia Commission for Indian Medicine & Homoeopathy (PCIM&H)](https://pcimh.gov.in/) | [Central Drugs Standard Control Organization (CDSCO)](https://cdsco.gov.in/) [27]
@@ -575,13 +578,13 @@ Extracted entities are processed locally by the clinical parser to extract sympt
 
 | Architectural Capability | Standard Cloud LLM Wrappers | Commercial Cloud EHR (Epic / Cerner) | Sovereign Hospital OS | Citation Key |
 | :--- | :---: | :---: | :---: | :---: |
-| **Offline Air-Gap Capability** | No (Requires OpenAI / AWS API) | No (Requires Central Datacenter) | **Yes (100% Local Bare-Metal)** | [17, 19] |
+| **Works without internet** | No (Requires OpenAI / AWS API) | No (Requires Central Datacenter) | **Yes for understanding, safety checks, records and Hindi / English speech** (tested with the network cut; other kiosk languages use the browser's speech service unless the build disables it) | [17, 19] |
 | **DPDP Act 2023 Compliance** | Non-compliant (Transmits PHI Abroad) | Requires Business Associate Agreements | **Fully Compliant (Zero Egress)** | [19] |
 | **Dual-Pharmacology Safety** | Blind to Classical Formulations | Allopathic Prescriptions Only | **Bayesian Truth Engine ($BF_{10}$)** | [10, 12, 13, 23, 27, 34–37] |
-| **NAMASTE Tri-Coding** | Absent | Absent | **Native (1,941 Morbidity Codes)** | [26] |
+| **NAMASTE Tri-Coding** | Absent | Absent | **Built in; 20 sample entries bundled, official export loads by import** | [26] |
 | **Cryptographic Evidence Audit** | Plain text system logs | Centralized Database Logs | **BSA §63 Hash Chain + Ed25519 Signatures** | [21, 22] |
-| **Peak Transaction Throughput** | 2-5 requests / second | 100-300 requests / second | **16,837 clinical cases / second** | [1, 17] |
-| **Hardware BOM Cost** | Workstation + Cloud OPEX | Enterprise Server Infrastructure | **Rs 13,400 (Raspberry Pi 5)** | [15, 17, 40] |
+| **Transcript to structured record** | 2-5 requests / second | 100-300 requests / second | **about 3,900 to 4,400 transcripts / second** (batteries 01 and 06, 2026-10-10, Apple M4) | [1, 17] |
+| **Hardware BOM Cost** | Workstation + Cloud OPEX | Enterprise Server Infrastructure | **Rs 13,400 proposed (Raspberry Pi 5); not yet run on that board** | [15, 17, 40] |
 | **Monthly Cloud Infrastructure** | Variable (USD 500 - 3,000 / mo) | Enterprise Subscription | **Rs 0 / month** | [15] |
 
 ---

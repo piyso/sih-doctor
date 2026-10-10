@@ -60,13 +60,13 @@ export async function runDemoModeBattery() {
 
     console.log('\n--- Switching to Real mode (no mock data) ---');
     const off = await api('POST', '/api/system/demo-mode', { on: false, approver: approve }, doctor);
-    check(off.status === 200 && off.json.data.demoMode === false && off.json.data.parked === demoIds.length && off.json.data.changedBy === 'Hospital Administrator', 'the doctor switches with the administrator’s approval; ten sample visits are parked');
+    check(off.status === 200 && off.json.data.demoMode === false && off.json.data.parked >= demoIds.length && off.json.data.changedBy === 'Hospital Administrator', 'the doctor switches with the administrator’s approval; the sample visits are parked');
     check(off.json.data.kioskOpen === true, 'kiosks stay open on a demonstration server, so a real check-in can be shown');
     check((await api('GET', '/api/auth/me', undefined, doctor)).status === 200 && (await api('GET', '/api/auth/me', undefined, demoAdmin)).status === 200, 'nobody is signed out by the switch');
     check((await login('pharma.ravi')).status === 200, 'staff sign in the same way in Real mode (no lock-out)');
     check((await queueIds(doctor)).every(id => !demoIds.includes(id)), 'no sample patient is left in the doctor queue');
     const pharmacy = await api('GET', '/api/doctor/encounters', undefined, demoAdmin);
-    check(pharmacy.status === 200 && (pharmacy.json.data || []).every((e: any) => !demoIds.includes(e.sessionId || e.session_id)), 'no sample prescription is left at the pharmacy');
+    check(pharmacy.status === 200 && (pharmacy.json.data || []).length === 0, 'no sample prescription is left at the pharmacy');
     check((await api('POST', '/api/doctor/demo-queue', undefined, doctor)).status === 404, 'demo endpoints are gone (no mock data can be added)');
     check((await api('GET', '/api/admin/analytics', undefined, demoAdmin)).status === 200, 'the administration dashboard works with the sample visits parked');
     const status = await api('GET', '/api/auth/status');

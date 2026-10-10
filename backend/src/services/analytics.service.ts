@@ -9,6 +9,7 @@
 import { db } from '../db/database';
 import { DEPARTMENT_ROOMS, DepartmentCode, localDate } from './hospitalRouting.service';
 import './alerts.service'; // creates the alerts table used below
+import { realOnly, samplesHidden } from './sampleData';
 
 const safeParse = <T>(raw: any, fallback: T): T => {
   if (!raw) return fallback;
@@ -50,7 +51,7 @@ export function getOperationalSnapshot() {
 
   const recent = db.prepare(`
     SELECT department, created_at, consult_started_at, completed_at FROM sessions
-    WHERE completed_at IS NOT NULL AND consult_started_at IS NOT NULL AND completed_at > datetime('now', '-7 days')
+    WHERE completed_at IS NOT NULL AND consult_started_at IS NOT NULL AND completed_at > datetime('now', '-7 days') AND status != 'DEMO_PARKED'
   `).all() as any[];
 
   const rooms = (Object.keys(DEPARTMENT_ROOMS) as DepartmentCode[]).map(code => {
@@ -82,7 +83,7 @@ export function getOperationalSnapshot() {
     return acc;
   }, {});
 
-  const sos = db.prepare(`SELECT created_at, acknowledged_at FROM alerts WHERE kind = 'SOS' AND created_at > datetime('now', '-1 day')`).all() as any[];
+  const sos = db.prepare(`SELECT created_at, acknowledged_at FROM alerts WHERE kind = 'SOS' AND created_at > datetime('now', '-1 day')${samplesHidden() ? ' AND is_demo = 0' : ''}`).all() as any[];
 
   // Visits still open from an earlier day: they explain "0 checked in today" beside "10 waiting now".
   const fromEarlierDay = (a: any) => (a.token_date || localDate(new Date(a.created_at))) !== today;
@@ -167,7 +168,7 @@ export function getSyndromicSignals() {
 
 /** Medicine-safety outcomes: interaction warnings raised while prescribing. */
 export function getPrescribingSafety(days = 30) {
-  const enc = db.prepare(`SELECT case_sheet_json FROM encounters WHERE created_at > datetime('now', ?)`).all(`-${days} days`) as any[];
+  const enc = db.prepare(`SELECT case_sheet_json FROM encounters WHERE created_at > datetime('now', ?) AND ${realOnly('patient_id')}`).all(`-${days} days`) as any[];
   const bySeverity: Record<string, number> = {};
   const pairs: Record<string, number> = {};
   let prescriptions = 0;
@@ -195,7 +196,7 @@ export function getPrescribingSafety(days = 30) {
 /** Did patients who were asked to come back actually return (within ±3 days of the due date)? */
 export function getFollowUpAdherence() {
   const enc = db.prepare(`
-    SELECT e.patient_id, e.created_at, e.case_sheet_json FROM encounters e WHERE e.created_at > datetime('now', '-90 days')
+    SELECT e.patient_id, e.created_at, e.case_sheet_json FROM encounters e WHERE e.created_at > datetime('now', '-90 days') AND ${realOnly('e.patient_id')}
   `).all() as any[];
   let due = 0;
   let returned = 0;

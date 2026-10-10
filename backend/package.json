@@ -27,7 +27,10 @@
     "import:namaste": "tsx scripts/import-namaste.ts",
     "test:http": "tsx tests/http_api.test.ts",
     "eval:safety": "tsx tests/safety_benchmark.test.ts",
-    "fhir:code-displays": "tsx scripts/fhir-code-displays.ts"
+    "fhir:code-displays": "tsx scripts/fhir-code-displays.ts",
+    "explain": "tsx scripts/explain-summary.ts",
+    "test:no-llm": "tsx tests/no_llm_guarantee.test.ts",
+    "sync:kiosk-labels": "tsx scripts/sync-kiosk-labels.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

@@ -472,6 +472,9 @@ export function seedDatabase() {
     if (row) db.prepare('UPDATE encounters SET signature_json = ? WHERE id = ?').run(JSON.stringify(signRecord(JSON.parse(row.case_sheet_json), row.doctor_id)), id);
   }
 
+  // Everything the seed loads is sample data: hidden in Real mode (services/sampleData.ts).
+  db.exec('UPDATE patients SET is_demo = 1; UPDATE sessions SET is_demo = 1, parked_status = NULL;');
+
   console.log('[Seed] Database successfully seeded with 10 diverse Pan-Indian clinical patients and physical SQLite encounters.');
 }
 

@@ -44,18 +44,18 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               Sovereign Bare-Metal System Architecture & Operational Defense
             </h2>
             <p style={{ fontSize: 13.5, color: '#64748b', marginTop: 4 }}>
-              Zero-Cloud Bare-Metal Edge Stack • ₹13,400 Hardware BOM • DPDP Act 2023 Air-Gap Invariant Verification
+              On-premise stack • proposed ₹13,400 kiosk hardware • what is built, what is measured and what is still a plan
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span className="badge badge-routine" style={{ fontSize: 11, padding: '5px 10px' }}>
               <CheckCircle2 size={13} />
-              <span>12/12 Batteries Passed (100%)</span>
+              <span>31/31 test batteries passed (run of 10 Oct 2026)</span>
             </span>
             <span className="badge badge-sovereign" style={{ fontSize: 11, padding: '5px 10px' }}>
               <Lock size={13} />
-              <span>Hardware-Enforced Airgap</span>
+              <span>No language model in the patient&apos;s path</span>
             </span>
           </div>
         </div>
@@ -64,11 +64,11 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
         <div style={{ display: 'flex', gap: 6, marginTop: 18, background: '#f1f5f9', padding: 4, borderRadius: 10, border: '1px solid #e2e8f0', overflowX: 'auto' }}>
           {[
             { id: 'risks', label: '1. 4-Tier Risk Matrix', icon: ShieldAlert },
-            { id: 'hardware', label: '2. ₹13,400 Hardware BOM & Economics', icon: Coins },
+            { id: 'hardware', label: '2. Proposed Hardware & Economics', icon: Coins },
             { id: 'architecture', label: '3. 4-Layer Bare-Metal Stack', icon: Layers },
-            { id: 'speech', label: '4. Speech AI & VAD Pipeline', icon: Mic },
+            { id: 'speech', label: '4. Speech Pipeline', icon: Mic },
             { id: 'timeline', label: '5. Clinical Time Economics', icon: Clock },
-            { id: 'validation', label: '6. Master 12-Battery Empirical Scorecard', icon: Activity },
+            { id: 'validation', label: '6. Test Scorecard', icon: Activity },
             { id: 'patent', label: '7. Record Integrity & IP Status', icon: FileCode },
             { id: 'frontiers', label: '8. 7 Real-World & 5 Clinical Frontiers', icon: Zap }
           ].map((tab) => {
@@ -120,7 +120,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                 </h3>
               </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#ecfdf5', padding: '3px 9px', borderRadius: 4, border: '1px solid #a7f3d0' }}>
-                All 4 Invariants Protected
+                4 risks, and what the build does about each
               </span>
             </div>
 
@@ -137,7 +137,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   Overcrowded government hospital halls with 75–85 dB continuous background chatter, screaming children, and public address tannoy echoes.
                 </div>
                 <div style={{ marginTop: 8, background: '#fef2f2', border: '1px solid #fca5a5', padding: '8px 10px', borderRadius: 6, fontSize: 11.5, color: '#991b1b', lineHeight: 1.45 }}>
-                  <strong>Architectural Mitigation:</strong> Dual-mic hardware beamforming with acoustic DSP + WebRTC spectral noise gating (30ms frames) + Indian clinical phonetic Soundex/Metaphone dictionary matching for vernacular drug names.
+                  <strong>Architectural Mitigation:</strong> Push-to-talk with a close microphone (a denoiser was tested and made recognition worse). On-premise Hindi and English recognisers, a gate that rejects non-speech sound (32 of 40 noise clips were decoded as words before it, 0 of 40 after) and a clinical dictionary matched by sound. Measured on synthetic voices: all checks right 94% in quiet, 82% in 10 dB crowd noise, 61% in an echoing hall. So every spoken finding is shown to the patient to confirm.
                 </div>
               </div>
 
@@ -153,7 +153,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   Frequent connectivity drops in basements, remote primary health centres (PHCs), and extreme load-shedding conditions across rural India.
                 </div>
                 <div style={{ marginTop: 8, background: '#fffbeb', border: '1px solid #fde68a', padding: '8px 10px', borderRadius: 6, fontSize: 11.5, color: '#92400e', lineHeight: 1.45 }}>
-                  <strong>Architectural Mitigation:</strong> 100% air-gapped bare-metal edge execution. Local SQLite WAL (Write-Ahead Logging) database with sub-0.02ms query latency; zero dependency on cloud APIs or external internet connectivity.
+                  <strong>Architectural Mitigation:</strong> Understanding, triage, safety checks, records and Hindi / English speech run on the hospital&apos;s own server with a local SQLite database (tested with the network cut off). Kiosk languages without an on-premise recogniser use the browser&apos;s speech service unless the build disables it; SMS and ABDM exchange need a connection.
                 </div>
               </div>
 
@@ -169,7 +169,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   Overworked physicians refuse systems that require extra clicks, keyboard typing, or disrupt patient eye contact during brief 90-second consults.
                 </div>
                 <div style={{ marginTop: 8, background: '#eff6ff', border: '1px solid #bfdbfe', padding: '8px 10px', borderRadius: 6, fontSize: 11.5, color: '#1e40af', lineHeight: 1.45 }}>
-                  <strong>Architectural Mitigation:</strong> Passive far-field ambient microphone listener (zero typing). Screen auto-prepopulates before patient walks in; physician only reviews an auto-structured 1-click editable prescription draft.
+                  <strong>Architectural Mitigation:</strong> The pre-visit summary is on screen before the patient walks in. Dictation is push-to-talk; recording the room needs the patient&apos;s consent for that visit. The visit note is drafted from a fixed template, and nothing is saved until the doctor edits and signs.
                 </div>
               </div>
 
@@ -185,7 +185,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   Undetected lethal interactions between Allopathy (e.g. Warfarin, Aspirin) and classical Ayush formulations (e.g. Yogaraja Guggulu, Lasuna).
                 </div>
                 <div style={{ marginTop: 8, background: '#faf5ff', border: '1px solid #ddd6fe', padding: '8px 10px', borderRadius: 6, fontSize: 11.5, color: '#5b21b6', lineHeight: 1.45 }}>
-                  <strong>Architectural Mitigation:</strong> Bayesian Truth Engine with NPvCC pharmacovigilance rules (Bayes Factor BF₁₀ &gt; 100) that intercepts contraindications in 0.16ms and mandates explicit clinical justification.
+                  <strong>Architectural Mitigation:</strong> A rules engine over a dictionary of 300 medicines and 108 Ayurvedic formulations checks interactions, doses, pregnancy, kidney function and banned combinations (153 of 153 benchmark cases, no false STOP). A STOP alert needs a typed reason before signing, and the reason is shown at the pharmacy.
                 </div>
               </div>
             </div>
@@ -260,7 +260,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   FIGURE 4 • HARDWARE BOM
                 </span>
                 <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', margin: '4px 0 0 0' }}>
-                  ₹13,400 Bare-Metal Hardware Bill of Materials (BOM) Specification
+                  Proposed ₹13,400 kiosk hardware (bill of materials) — not yet tested on this board
                 </h3>
               </div>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#047857' }}>₹0 / Month Recurring OpEx</span>
@@ -277,7 +277,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               <tbody>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>Single Board Computer (SBC)</td>
-                  <td style={{ padding: '8px 10px', color: '#475569' }}>Raspberry Pi 5 (8GB LPDDR4X RAM, Quad-Core Cortex-A76 @ 2.4GHz) or Rockchip RK3588 NPU</td>
+                  <td style={{ padding: '8px 10px', color: '#475569' }}>Proposed: Raspberry Pi 5 (8GB) or Rockchip RK3588. Every measurement so far is from an Apple M4 laptop, where the Hindi + English speech models use about 3.5 GB of memory</td>
                   <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textAlign: 'right' }} className="tabular-nums">₹7,200</td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -307,7 +307,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                 </tr>
                 <tr style={{ background: '#ecfdf5', fontWeight: 800 }}>
                   <td style={{ padding: '10px 10px', color: '#047857', fontSize: 13 }}>TOTAL HARDWARE UNIT COST</td>
-                  <td style={{ padding: '10px 10px', color: '#047857', fontSize: 12 }}>Complete 100% Offline Air-Gapped Bare-Metal Solution</td>
+                  <td style={{ padding: '10px 10px', color: '#047857', fontSize: 12 }}>Proposed hardware; offline running on it is still to be tested</td>
                   <td style={{ padding: '10px 10px', color: '#047857', fontSize: 14, textAlign: 'right' }} className="tabular-nums">₹13,400 (~$160)</td>
                 </tr>
               </tbody>
@@ -329,7 +329,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               </h3>
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#ecfdf5', padding: '3px 8px', borderRadius: 4, border: '1px solid #a7f3d0' }}>
-              100% Offline Air-Gapped
+              Runs on the hospital&apos;s own server
             </span>
           </div>
 
@@ -339,7 +339,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>LAYER 1: PRESENTATION &amp; DUAL-CHANNEL EDGE I/O</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                  Touch MediKiosk (React 19) • Geofenced Sovereign BYOD Smartphone Micro-Portal • Doctor Ambient Canvas • Dual Far-Field Mic Array • 58mm Thermal Slip
+                  Touch MediKiosk (React 19) • Geofenced Sovereign BYOD Smartphone Micro-Portal • Doctor desk with push-to-talk dictation • 58mm Thermal Slip
                 </div>
               </div>
               <span style={{ fontSize: 11, background: '#e0f2fe', color: '#0369a1', fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>Edge Hardware</span>
@@ -353,7 +353,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                   WebSocket Bus (ws://ambient) • Hospital Triage State Machine • Verhoeff D5 Aadhaar KYC • SQLite WAL
                 </div>
               </div>
-              <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>Sub-0.02ms Engine</span>
+              <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>Rules &amp; state machine</span>
             </div>
 
             {/* Layer 3 */}
@@ -361,7 +361,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>LAYER 3: MULTIMODAL CLINICAL AI & KNOWLEDGE SUBSTRATE</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                  Whisper C++ Hinglish ASR • WebRTC VAD • Clinical NER & Negation Parser • PiyGraph Bayesian KG
+                  IndicConformer (Hindi) and Parakeet (English) speech recognition via sherpa-onnx • clinical dictionary matched by sound • negation and duration rules • template summary (no language model)
                 </div>
               </div>
               <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>Local Edge AI</span>
@@ -372,7 +372,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' }}>LAYER 4: STANDARDS, INTEROPERABILITY & CRYPTOGRAPHY</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                  1,941 NAMASTE Morbidity A-Codes • WHO ICD-11 TM2 • SNOMED-CT • ABDM FHIR R4 • Ed25519 Record Signatures
+                  NAMASTE / ICD-11 TM2 search (20 sample entries bundled; the official export loads with the import script) • SNOMED-CT • ABDM FHIR R4 • Ed25519 Record Signatures
                 </div>
               </div>
               <span style={{ fontSize: 11, background: '#ede9fe', color: '#6d28d9', fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>Statutory Trust</span>
@@ -390,7 +390,7 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                 FIGURE 3 • SPEECH AI PIPELINE
               </span>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '4px 0 0 0' }}>
-                Far-Field Bilingual Audio Stream & Clinical Parsing Pipeline
+                From speech to a structured record (Hindi and English)
               </h3>
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', padding: '3px 8px', borderRadius: 4, border: '1px solid #bfdbfe' }}>
@@ -400,12 +400,12 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
             {[
-              { stage: '1. Audio Mic', spec: 'Far-Field USB', detail: 'Hardware AGC & Noise Filter', color: '#0284c7' },
-              { stage: '2. WebRTC VAD', spec: '30ms Frames', detail: 'Silence & Acoustic Gating', color: '#047857' },
-              { stage: '3. Whisper C++', spec: 'Hinglish ASR', detail: 'Code-mixed normalizer', color: '#d97706' },
-              { stage: '4. Clinical NER', spec: 'Phonetic Match', detail: 'Metaphone/Soundex rules', color: '#7c3aed' },
-              { stage: '5. Negation Guard', spec: 'DISPLACE-M', detail: '"dard nahi hai" = negated', color: '#be185d' },
-              { stage: '6. Structured SOAP', spec: 'Instant Push', detail: 'Tri-coded prescription', color: '#047857' }
+              { stage: '1. Microphone', spec: 'Push to talk', detail: 'Close microphone, no denoiser', color: '#0284c7' },
+              { stage: '2. Speech check', spec: 'Non-speech gate', detail: 'Fan and hum are rejected', color: '#047857' },
+              { stage: '3. Recogniser', spec: 'IndicConformer · Parakeet', detail: 'On-premise, Hindi and English', color: '#d97706' },
+              { stage: '4. Dictionary', spec: 'Sound-key match', detail: '1,076 word forms, 110 concepts', color: '#7c3aed' },
+              { stage: '5. Grammar rules', spec: 'Denial and duration', detail: '"dard nahi hai" = denied', color: '#be185d' },
+              { stage: '6. Summary', spec: 'Fixed templates', detail: 'No language model; patient confirms', color: '#047857' }
             ].map((st, i) => (
               <div key={i} style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 8, padding: 12, textAlign: 'center' }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: st.color, textTransform: 'uppercase' }}>
@@ -474,15 +474,15 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
                 FIGURE 8 • EMPIRICAL PROOF
               </span>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '4px 0 0 0' }}>
-                Master 12-Battery Sovereign Titanium Validation Scorecard
+                Test scorecard: 31 batteries, run with npm test on 10 Oct 2026 (development laptop, Apple M4)
               </h3>
             </div>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: '#047857', background: '#ecfdf5', padding: '3px 8px', borderRadius: 4, border: '1px solid #a7f3d0' }}>
-                100% Passed (12/12)
+                31/31 batteries passed
               </span>
               <span style={{ display: 'block', fontSize: 11, color: '#64748b', fontWeight: 600, marginTop: 2 }}>
-                140,000 Invariants Verified
+                Reproduce: cd backend && npm test
               </span>
             </div>
           </div>
@@ -497,13 +497,14 @@ export const ArchitectureDefenseMatrix: React.FC = () => {
             </thead>
             <tbody>
               {[
-                { name: '1. 5,000-Case Indian Clinical OPD', metric: '10,753 cases/sec (0.033 ms/case)', status: 'PASSED (100% Recall)' },
-                { name: '2. 10,000-Record Verhoeff Aadhaar KYC', metric: '0.0017 ms/record (Dihedral D5)', status: 'PASSED (100% Accuracy)' },
-                { name: '3. Dual-Pharmacology Truth Engine', metric: '0.16 ms latency (Warfarin + Guggulu)', status: 'PASSED (0% FP / 0% FN)' },
-                { name: '4. ABDM FHIR R4 Bundle Generator', metric: '49,425 bundles/sec (NRCeS valid)', status: 'PASSED (100% Schema Valid)' },
-                { name: '5. Groth16 verifier self-test (demo circuit)', metric: 'snarkjs verify on BN128; not bound to records', status: 'PASSED (self-test only)' },
-                { name: '6. Pan-Indian 22-Scheduled Dialects', metric: '26/26 Emergency Linguistic Invariants', status: 'PASSED (0.00% False Negatives)' },
-                { name: '7. AIIA NPvCC Pharmacovigilance', metric: '20/20 Viruddha Ahara Invariants', status: 'PASSED (100% Intercept)' }
+                { name: '1. 5,000 generated OPD transcripts (speed)', metric: '3,876 transcripts/sec (0.26 ms each)', status: 'PASSED (speed check)' },
+                { name: '2. 10,000-record Verhoeff check digit', metric: '0.0008 ms/record (Dihedral D5)', status: 'PASSED (10,000/10,000)' },
+                { name: '3. Speech-to-record gold set', metric: '231/231 checks; first run on unseen sets 88.5% / 92.2% / 88.3%', status: 'PASSED' },
+                { name: '4. Prescription safety benchmark', metric: '153/153 cases, no false STOP', status: 'PASSED' },
+                { name: '5. ABDM FHIR R4 bundle generator', metric: '15,853 bundles/sec', status: 'PASSED (structure checks)' },
+                { name: '6. Groth16 verifier self-test (demo circuit)', metric: 'snarkjs verify on BN128; not bound to records', status: 'PASSED (self-test only)' },
+                { name: '7. Emergency vs routine phrases, 34 Indian languages and dialects', metric: '34/34 classified correctly (written phrases, not audio)', status: 'PASSED' },
+                { name: '8. No-language-model guarantee', metric: '37/37 checks (policy, grounding, Hindi wording)', status: 'PASSED' }
               ].map((row, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>{row.name}</td>

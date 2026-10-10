@@ -14,6 +14,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db/database';
 import { securityConfig } from '../security/config';
 import { audit } from '../security/audit';
+import { sampleFlag, samplesHidden } from '../services/sampleData';
 
 export const ashaRouter = Router();
 
@@ -169,7 +170,8 @@ const upsert = db.prepare(`
     client_updated_at = excluded.client_updated_at, received_at = excluded.received_at
 `);
 
-function store(v: ReturnType<typeof cleanVisit>, ashaUserId: string, ashaName: string, isDemo = false) {
+/** A visit recorded in Mock mode is sample data (is_demo), like the seeded demo visits; Real mode hides both. */
+function store(v: ReturnType<typeof cleanVisit>, ashaUserId: string, ashaName: string, isDemo: boolean = sampleFlag() === 1) {
   const risk = assessRisk({ isPregnant: v.isPregnant, age: v.age, hb: v.hb, sys: v.sys, dia: v.dia, dangerSigns: v.dangerSigns });
   upsert.run({
     ...v,
@@ -203,8 +205,10 @@ ashaRouter.get('/records', (req: Request, res: Response): void => {
   try {
     const where: string[] = [];
     const args: any[] = [];
+    if (samplesHidden()) where.push('is_demo = 0');
     if (req.staff!.role === 'asha') {
-      where.push("(asha_user_id = ? OR (is_demo = 1 AND ? = 1))");
+      // Her own visits; a demo ASHA account also sees the seeded demo visits (Mock mode only).
+      where.push("(asha_user_id = ? OR (asha_user_id = 'demo' AND ? = 1))");
       args.push(req.staff!.id, req.staff!.isDemo ? 1 : 0);
     }
     if (typeof req.query.village === 'string' && req.query.village) { where.push('village = ?'); args.push(req.query.village); }
@@ -238,6 +242,10 @@ ashaRouter.post('/sync', (req: Request, res: Response): void => {
         const existing: any = db.prepare('SELECT * FROM field_visits WHERE id = ?').get(v.id);
         if (existing && existing.asha_user_id !== req.staff!.id && req.staff!.role === 'asha') {
           results.push({ id: v.id, status: 'rejected', reason: 'Belongs to another worker' });
+          continue;
+        }
+        if (existing && existing.is_demo && samplesHidden()) {
+          results.push({ id: v.id, status: 'rejected', reason: 'Sample visit (recorded in Mock mode); not stored in Real mode' });
           continue;
         }
         if (existing && (existing.version > v.version || (existing.version === v.version && existing.client_updated_at > v.clientUpdatedAt))) {

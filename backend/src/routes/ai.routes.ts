@@ -2,12 +2,14 @@
  * AI-assisted features, served by the on-premise Edge AI service with rule-based fallbacks.
  *
  * Safety rules that apply to every endpoint here:
- *  - AI output is a suggestion. Kiosk findings must be confirmed by the patient; notes and
- *    translations must be reviewed by the clinician before they are saved or printed.
- *  - Triage, red flags, drug interactions and doses are NEVER decided by a language model; they
- *    stay with the deterministic rules.
- *  - Extracted findings must quote the patient's own words (grounding); anything that does not
- *    appear in the input is discarded as a hallucination.
+ *  - Nothing a patient says or taps is read by a language model. Extraction (POST /extract) is the rules
+ *    engine in every configuration; there is no code path from the kiosk to a language model.
+ *  - Triage, red flags, drug interactions, doses and the history summary are NEVER decided or written by a
+ *    language model; they stay with the deterministic rules and templates.
+ *  - The one place a language model may be used is a signed-in clinician's visit-note draft (POST /soap),
+ *    and only when the hospital sets LLM_ASSIST=clinician (services/aiPolicy.ts). The draft is labelled, the
+ *    plan always comes from what was prescribed, and the clinician edits it before anything is saved.
+ *  - Machine output is a suggestion: translations are reviewed by the clinician before they are printed.
  */
 
 import express, { Router, Request, Response } from 'express';
@@ -20,6 +22,7 @@ import { EdgeAiClient } from '../services/edgeAi.client';
 import { ClinicalParserService } from '../services/clinicalParser.service';
 import { normaliseHistory, buildHistorySummary } from '../services/clinicalHistory.service';
 import { deniedSymptoms } from '../services/intakeExtraction.service';
+import { AiPolicyError } from '../services/aiPolicy';
 
 export const aiRouter = Router();
 const aiLimiter = rateLimit('ai', 60, 60_000);
@@ -27,8 +30,11 @@ const aiLimiter = rateLimit('ai', 60, 60_000);
 const LANGS = ['en', 'hi', 'mr', 'bn', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'or'];
 const cleanLang = (l: unknown) => (typeof l === 'string' && LANGS.includes(l) ? l : 'hi');
 
-aiRouter.get('/status', requireKioskOrStaff, async (_req: Request, res: Response): Promise<void> => {
-  res.json({ success: true, data: await EdgeAiClient.status() });
+aiRouter.get('/status', requireKioskOrStaff, async (req: Request, res: Response): Promise<void> => {
+  const status = await EdgeAiClient.status();
+  // a kiosk is never offered the language model, whatever the hospital has switched on for its clinicians
+  if (!req.staff) status.capabilities.llm = { available: false };
+  res.json({ success: true, data: status });
 });
 
 /** Speech to text. Body: raw audio (audio/wav, audio/webm, audio/ogg). */
@@ -45,6 +51,10 @@ aiRouter.post('/asr', requireKioskOrStaff, aiLimiter, express.raw({ type: ['audi
     const r = await EdgeAiClient.transcribe(req.body, String(req.headers['content-type'] || ''), cleanLang(req.query.lang), req.query.profile === 'dictation' ? 'dictation' : undefined);
     res.json({ success: true, data: r });
   } catch (err: any) {
+    if (err instanceof AiPolicyError) {
+      res.status(503).json({ error: 'On-premise speech recognition is not available for this language. Please tap or type instead.', code: err.code });
+      return;
+    }
     res.status(502).json({ error: 'Speech recognition failed. Please try again or type instead.', detail: err.message });
   }
 });
@@ -100,56 +110,17 @@ aiRouter.post('/translate', requireStaff(...CLINICIAN_ROLES, 'pharmacist'), aiLi
   }
 });
 
-/** Normalise for grounding checks: lower-case, collapse whitespace and punctuation. */
-const norm = (s: string) => s.toLowerCase().normalize('NFC').replace(/[\s.,!?;:।॥"'()-]+/g, ' ').trim();
-
 /**
- * Structured symptom extraction from free speech/text.
- * Rules run first; the LLM (when present) can only ADD findings, each grounded in the input.
+ * Structured symptom extraction from free speech/text: the rules engine, and nothing else, in every
+ * configuration. `aiFindings` and `model` stay in the response for older kiosk builds and are always empty.
  */
 aiRouter.post('/extract', requireKioskOrStaff, aiLimiter, async (req: Request, res: Response): Promise<void> => {
   const text = typeof req.body?.text === 'string' ? req.body.text.slice(0, 3000) : '';
-  const lang = cleanLang(req.body?.lang);
   if (!text.trim()) {
     res.status(400).json({ error: 'text is required' });
     return;
   }
   const rules = ClinicalParserService.parse(text);
-  let aiFindings: any[] = [];
-  let model: string | undefined;
-  let rejected = 0;
-
-  if (await EdgeAiClient.available('llm')) {
-    try {
-      const r = await EdgeAiClient.extract(text, lang);
-      model = r.model;
-      const hay = norm(text);
-      for (const f of Array.isArray(r.findings) ? r.findings : []) {
-        const evidence = typeof f?.evidence === 'string' ? norm(f.evidence) : '';
-        const name = typeof f?.symptom === 'string' ? f.symptom.trim().slice(0, 60) : '';
-        const severity = Number(f?.severity);
-        // Grounding: the quoted words must really be in what the patient said.
-        if (!name || evidence.length < 2 || !hay.includes(evidence)) { rejected++; continue; }
-        aiFindings.push({
-          symptom: name,
-          bodyPart: typeof f.bodyPart === 'string' ? f.bodyPart.slice(0, 40) : null,
-          side: ['left', 'right', 'both'].includes(f.side) ? f.side : null,
-          severity: Number.isFinite(severity) && severity >= 0 && severity <= 10 ? Math.round(severity) : null,
-          durationDays: Number.isFinite(Number(f.durationDays)) && Number(f.durationDays) >= 0 ? Number(f.durationDays) : null,
-          negated: f.negated === true,
-          evidence: f.evidence,
-          source: 'ai',
-          needsConfirmation: true
-        });
-      }
-      // Drop anything the rules already found.
-      const known = new Set((rules.symptoms || []).map((s: any) => norm(String(s.name || ''))));
-      aiFindings = aiFindings.filter(f => !known.has(norm(f.symptom)));
-    } catch (err) {
-      console.warn('[AI] extract failed, using rules only:', (err as Error).message);
-    }
-  }
-
   res.json({
     success: true,
     data: {
@@ -159,9 +130,9 @@ aiRouter.post('/extract', requireKioskOrStaff, aiLimiter, async (req: Request, r
         isEmergencyRedFlag: rules.isEmergencyRedFlag,
         redFlagTriggers: rules.redFlagTriggers || []
       },
-      aiFindings,
-      rejectedUngrounded: rejected,
-      model: model || null
+      aiFindings: [],
+      rejectedUngrounded: 0,
+      model: null
     }
   });
 });
@@ -171,17 +142,19 @@ const safe = <T>(raw: any, fallback: T): T => {
   try { return JSON.parse(raw); } catch { return fallback; }
 };
 
-/** Deterministic SOAP note built only from recorded data (used when no LLM is available). */
+/** Deterministic SOAP note built only from recorded data: the default, and the fallback when the model draft is off or fails. */
 function templateSoap(session: any, draft: any, transcript: string) {
   const symptoms: any[] = safe(session.symptoms_json, []);
   const vitals: any = safe(session.vitals_json, {});
   const history: any = safe(session.history_json, {});
   const pariksha: any = safe(session.pariksha_json, {});
   // pertinent negatives from the patient's own words at the kiosk ("बुखार नहीं है" → "Denies fever")
-  const denied = deniedSymptoms(session.raw_transcript || '');
-  const sym = symptoms.map(s => {
+  // plus every complaint the record itself marks as denied: a denied complaint must never read as "Presents with"
+  const denied = [...new Map([...deniedSymptoms(session.raw_transcript || ''), ...symptoms.filter(s => s?.isNegated).map(s => String(s.name || s.symptom_name || ''))]
+    .filter(Boolean).map(d => [d.toLowerCase(), d] as const)).values()];
+  const sym = symptoms.filter(s => s && !s.isNegated).map(s => {
     const parts = [s.name || s.symptom_name || 'Complaint'];
-    if (s.site && s.site !== 'General') parts.push(`at ${s.site}`);
+    if (s.site && !/^(general|unspecified)$/i.test(s.site)) parts.push(`at ${s.site}`);
     if (s.character) parts.push(`(${s.character})`);
     if (Number(s.severityScore) > 0) parts.push(`severity ${s.severityScore}/10`); // 0 = not stated
     if (s.duration) parts.push(`for ${s.duration}`);
@@ -211,7 +184,8 @@ function templateSoap(session: any, draft: any, transcript: string) {
 }
 
 /**
- * Draft a SOAP note for the clinician to edit. Uses the LLM when available, the template otherwise.
+ * Draft a SOAP note for the clinician to edit: the fixed template, unless the hospital has set
+ * LLM_ASSIST=clinician and a model is installed (EdgeAiClient.available('llm') is false otherwise).
  * Body: { sessionId, transcript?, draft? }
  */
 aiRouter.post('/soap', requireStaff('doctor', 'vaidya', 'nurse'), aiLimiter, async (req: Request, res: Response): Promise<void> => {

@@ -5,13 +5,16 @@
  * personal → review of systems → prior investigations (+ Ayush pariksha when present).
  *
  * The summary distinguishes "denied" from "not asked", carries a completeness score, and is
- * produced from recorded data only (no language model). Hindi text is template-based.
+ * produced from recorded data only (no language model). The Hindi text uses the same templates with
+ * Hindi wording looked up in fixed tables (summaryRealiser.ts); a term with no entry stays as recorded.
+ * Every section that states facts lists where each one came from (`sources`).
  */
 
 import {
   AllergyItem, ClinicalHistory, DrugHistoryItem, FamilyHistoryItem, HistoryCompleteness, HistoryItem, HistorySummary,
-  HistorySummarySection, PersonalHistory, ReviewOfSystems, ROS_SYSTEMS, RosAnswer, SectionStatus, SocratesSymptom
+  HistorySummarySection, PersonalHistory, ReviewOfSystems, ROS_SYSTEMS, RosAnswer, SectionStatus, SocratesSymptom, SummarySource
 } from '../shared/types';
+import { HindiTerms, historySource, symptomSources } from './summaryRealiser';
 
 const str = (v: unknown, max = 120): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim() && x.trim() !== 'None').map(x => x.trim().slice(0, 80)) : []);
@@ -209,24 +212,35 @@ export function buildHistorySummary(input: SummaryInput): HistorySummary {
   const h = input.history;
   const sections: HistorySummarySection[] = [];
   const st = h.completeness.sections;
-  const add = (id: string, title: string, text: string, textHi: string, status: SectionStatus) => sections.push({ id, title, titleHi: hi(id), text, textHi, status });
+  const add = (id: string, title: string, text: string, textHi: string, status: SectionStatus, sources?: SummarySource[]) =>
+    sections.push({ id, title, titleHi: hi(id), text, textHi, status, ...(sources && sources.length ? { sources } : {}) });
+  const T = new HindiTerms();
+  const spoken = symptomSources(input.symptoms || [], input.rawTranscript);
 
   const present = (input.symptoms || []).filter((s: any) => s && !s.isNegated);
   const denied = (input.symptoms || []).filter((s: any) => s && s.isNegated).map((s: any) => s.name || s.symptom_name);
   const cc = h.chiefComplaint || (present[0] ? symptomLine(present[0]) : '');
-  add('chiefComplaint', 'Chief complaint', cc || 'Not recorded.', cc ? cc : 'दर्ज नहीं।', cc ? 'complete' : 'not_asked');
+  const ccHi = h.chiefComplaint ? T.known(h.chiefComplaint) : present[0] ? T.symptomLine(present[0]) : '';
+  const firstPresent = (input.symptoms || []).findIndex((s: any) => s && !s.isNegated);
+  add('chiefComplaint', 'Chief complaint', cc || 'Not recorded.', cc ? ccHi : 'दर्ज नहीं।', cc ? 'complete' : 'not_asked',
+    h.chiefComplaint ? [{ item: h.chiefComplaint, from: 'record' }] : firstPresent >= 0 ? [spoken[firstPresent]] : undefined);
 
   const hpi = present.map(symptomLine);
   const hpiText = [hpi.length ? hpi.join('; ') + '.' : 'No presenting complaints recorded.', denied.length ? `Denies: ${denied.join(', ')}.` : ''].filter(Boolean).join(' ');
-  add('hpi', 'History of present illness', hpiText, hpi.length ? `${hpi.join('; ')}।${denied.length ? ` ${hi('denied')}: ${denied.join(', ')}।` : ''}` : 'कोई शिकायत दर्ज नहीं।', hpi.length ? 'complete' : 'not_asked');
+  const hpiHi = present.map((s: any) => T.symptomLine(s));
+  const deniedHi = denied.map((d: string) => T.symptom(d));
+  add('hpi', 'History of present illness', hpiText, hpi.length ? `${hpiHi.join('; ')}।${denied.length ? ` ${hi('denied')}: ${deniedHi.join(', ')}।` : ''}` : 'कोई शिकायत दर्ज नहीं।', hpi.length ? 'complete' : 'not_asked', spoken);
 
   const pm = h.pastMedical.map(p => `${p.name}${p.since ? ` (since ${p.since})` : ''}${p.status && p.status !== 'unknown' ? `, ${p.status}` : ''}`);
+  const pmHi = h.pastMedical.map(p => `${T.condition(p.name)}${p.since ? ` (${T.since(p.since)})` : ''}${p.status && p.status !== 'unknown' ? `, ${T.status(p.status)}` : ''}`);
   add('pastMedical', 'Past medical history', st.pastMedical === 'not_asked' ? 'Not asked.' : pm.length ? pm.join('; ') + '.' : st.pastMedical === 'partial' ? 'Asked at the kiosk, not answered.' : 'No known chronic illness (patient denies).',
-    st.pastMedical === 'not_asked' ? hi('notAsked') : pm.length ? pm.join('; ') + '।' : st.pastMedical === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कोई पुरानी बीमारी नहीं (मरीज़ ने नकारा)।', st.pastMedical);
+    st.pastMedical === 'not_asked' ? hi('notAsked') : pm.length ? pmHi.join('; ') + '।' : st.pastMedical === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कोई पुरानी बीमारी नहीं (मरीज़ ने नकारा)।', st.pastMedical,
+    h.pastMedical.map(p => historySource(p.name, p.source)));
 
   const ps = h.pastSurgical.map(p => `${p.name}${p.since ? ` (${p.since})` : ''}`);
   add('pastSurgical', 'Past surgical history', st.pastSurgical === 'not_asked' ? 'Not asked.' : ps.length ? ps.join('; ') + '.' : st.pastSurgical === 'partial' ? 'Asked, not answered.' : 'No previous surgery (patient denies).',
-    st.pastSurgical === 'not_asked' ? hi('notAsked') : ps.length ? ps.join('; ') + '।' : st.pastSurgical === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कोई शल्य-चिकित्सा नहीं।', st.pastSurgical);
+    st.pastSurgical === 'not_asked' ? hi('notAsked') : ps.length ? ps.join('; ') + '।' : st.pastSurgical === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कोई शल्य-चिकित्सा नहीं।', st.pastSurgical,
+    h.pastSurgical.map(p => historySource(p.name, p.source)));
 
   const drugs = h.drugHistory.map(d => [d.name, d.dose, d.frequency, d.adherence && d.adherence !== 'unknown' ? `(${d.adherence})` : ''].filter(Boolean).join(' '));
   const allergies = h.allergyList.map(a => `${a.agent}${a.reaction ? `: ${a.reaction}` : ''}${a.severity && a.severity !== 'unknown' ? ` (${a.severity})` : ''}`);
@@ -235,12 +249,17 @@ export function buildHistorySummary(input: SummaryInput): HistorySummary {
     st.allergies === 'not_asked' ? 'Allergies: not asked.' : allergies.length ? `ALLERGIES: ${allergies.join('; ')}.` : st.allergies === 'partial' ? 'Allergies: asked, not answered. Confirm before prescribing.' : 'No known allergies (patient denies).'
   ].join(' ');
   const drugStatus: SectionStatus = st.drugHistory === 'not_asked' && st.allergies === 'not_asked' ? 'not_asked' : st.drugHistory === 'complete' && st.allergies === 'complete' ? 'complete' : 'partial';
+  // medicine names and allergy agents stay exactly as written; only the status words are put in Hindi
+  const drugsHi = h.drugHistory.map(d => [d.name, d.dose, d.frequency, d.adherence && d.adherence !== 'unknown' ? `(${T.status(d.adherence)})` : ''].filter(Boolean).join(' '));
+  const allergiesHi = h.allergyList.map(a => `${a.agent}${a.reaction ? `: ${a.reaction}` : ''}${a.severity && a.severity !== 'unknown' ? ` (${T.status(a.severity)})` : ''}`);
   add('drugAllergy', 'Drug and allergy history', drugText,
-    `${drugs.length ? `वर्तमान दवाइयाँ: ${drugs.join('; ')}।` : st.drugHistory === 'not_asked' ? `दवाइयाँ: ${hi('notAsked')}।` : 'कोई दवा नहीं।'} ${allergies.length ? `एलर्जी: ${allergies.join('; ')}।` : st.allergies === 'not_asked' ? `एलर्जी: ${hi('notAsked')}।` : 'कोई एलर्जी नहीं।'}`, drugStatus);
+    `${drugs.length ? `वर्तमान दवाइयाँ: ${drugsHi.join('; ')}।` : st.drugHistory === 'not_asked' ? `दवाइयाँ: ${hi('notAsked')}।` : st.drugHistory === 'partial' ? 'दवाइयाँ: पूछा गया, उत्तर नहीं मिला।' : 'कोई दवा नहीं (मरीज़ ने नकारा)।'} ${allergies.length ? `एलर्जी: ${allergiesHi.join('; ')}।` : st.allergies === 'not_asked' ? `एलर्जी: ${hi('notAsked')}।` : st.allergies === 'partial' ? 'एलर्जी: पूछा गया, उत्तर नहीं मिला — दवा लिखने से पहले पूछें।' : 'कोई एलर्जी नहीं (मरीज़ ने नकारा)।'}`, drugStatus,
+    [...h.drugHistory.map(d => historySource(d.name, d.source)), ...h.allergyList.map(a => historySource(`Allergy: ${a.agent}`, a.source))]);
 
   const fam = h.familyHistory.map(f => `${f.condition}${f.relation ? ` (${f.relation})` : ''}`);
+  const famHi = h.familyHistory.map(f => `${T.condition(f.condition)}${f.relation ? ` (${T.relation(f.relation)})` : ''}`);
   add('family', 'Family history', st.familyHistory === 'not_asked' ? 'Not asked.' : fam.length ? fam.join('; ') + '.' : st.familyHistory === 'partial' ? 'Asked, not answered.' : 'Nothing significant (patient denies).',
-    st.familyHistory === 'not_asked' ? hi('notAsked') : fam.length ? fam.join('; ') + '।' : 'कुछ विशेष नहीं।', st.familyHistory);
+    st.familyHistory === 'not_asked' ? hi('notAsked') : fam.length ? famHi.join('; ') + '।' : st.familyHistory === 'partial' ? 'पूछा गया, उत्तर नहीं मिला।' : 'कुछ विशेष नहीं (मरीज़ ने नकारा)।', st.familyHistory);
 
   const p = h.personal;
   const personalParts: string[] = [];
@@ -264,6 +283,7 @@ export function buildHistorySummary(input: SummaryInput): HistorySummary {
 
   const docs = (input.documents || []).slice().sort((a, b) => String(b.recordedDate || b.createdAt || '').localeCompare(String(a.recordedDate || a.createdAt || '')));
   const invLines: string[] = [];
+  const invLinesHi: string[] = [];
   for (const d of docs) {
     const date = (d.recordedDate || d.createdAt || '').slice(0, 10);
     const abnormal = (d.extractedLabMarkers || []).filter((m: any) => m?.isAbnormal).map((m: any) => `${m.testName} ${m.value}${m.unit ? ` ${m.unit}` : ''} (${m.flag || 'abnormal'})`);
@@ -271,22 +291,32 @@ export function buildHistorySummary(input: SummaryInput): HistorySummary {
     const dx = (d.extractedDiagnoses || []).slice(0, 4).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
     const bits = [abnormal.length ? `abnormal: ${abnormal.join(', ')}` : '', dx.length ? `diagnoses: ${dx.join(', ')}` : '', meds.length ? `medicines: ${meds.join(', ')}` : ''].filter(Boolean);
     invLines.push(`${date || 'undated'} ${String(d.documentType || 'document').replace(/_/g, ' ').toLowerCase()}${bits.length ? `: ${bits.join('; ')}` : ''}`);
+    // test names, diagnoses and medicine names are quoted as read from the document; only the framing words are Hindi
+    const abnormalHi = (d.extractedLabMarkers || []).filter((m: any) => m?.isAbnormal).map((m: any) => `${m.testName} ${m.value}${m.unit ? ` ${m.unit}` : ''} (${T.flag(m.flag || 'abnormal')})`);
+    const bitsHi = [abnormalHi.length ? `असामान्य: ${abnormalHi.join(', ')}` : '', dx.length ? `निदान: ${dx.join(', ')}` : '', meds.length ? `दवाइयाँ: ${meds.join(', ')}` : ''].filter(Boolean);
+    invLinesHi.push(`${date || 'बिना तारीख'} ${T.docType(String(d.documentType || ''))}${bitsHi.length ? `: ${bitsHi.join('; ')}` : ''}`);
   }
-  add('investigations', 'Prior investigations and documents', invLines.length ? invLines.join('. ') + '.' : 'No prior documents scanned.', invLines.length ? invLines.join('। ') + '।' : 'कोई पुराना दस्तावेज़ नहीं।', invLines.length ? 'complete' : 'not_asked');
+  add('investigations', 'Prior investigations and documents', invLines.length ? invLines.join('. ') + '.' : 'No prior documents scanned.', invLines.length ? invLinesHi.join('। ') + '।' : 'कोई पुराना दस्तावेज़ नहीं।', invLines.length ? 'complete' : 'not_asked',
+    docs.map(d => ({ item: `${(d.recordedDate || d.createdAt || '').slice(0, 10) || 'undated'} ${String(d.documentType || 'document').replace(/_/g, ' ').toLowerCase()}`, from: 'document' as const })));
 
   const pk = input.pariksha || h.ayush?.pariksha;
   if (pk && (pk.prakriti || pk.agni || pk.koshtha || pk.sara)) {
     const parts = [pk.prakriti && `Prakriti ${pk.prakriti}`, pk.vikriti && `Vikriti ${pk.vikriti}`, pk.agni && `Agni ${pk.agni}`, pk.koshtha && `Koshtha ${pk.koshtha}`, pk.sara && `Sara ${pk.sara}`, pk.satmya && `Satmya ${pk.satmya}`, pk.sattva && `Sattva ${pk.sattva}`, pk.vyayamaShakti && `Vyayama shakti ${pk.vyayamaShakti}`, pk.amaPresent !== undefined && `Ama ${pk.amaPresent ? 'present' : 'absent'}`].filter(Boolean) as string[];
-    add('ayush', 'Dashavidha Pariksha (self-assessed)', parts.join('; ') + '.', parts.join('; ') + '।', 'complete');
+    const partsHi = [pk.prakriti && `प्रकृति ${T.ayush(pk.prakriti)}`, pk.vikriti && `विकृति ${T.ayush(pk.vikriti)}`, pk.agni && `अग्नि ${T.ayush(pk.agni)}`, pk.koshtha && `कोष्ठ ${T.ayush(pk.koshtha)}`, pk.sara && `सार ${T.ayush(pk.sara)}`, pk.satmya && `सात्म्य ${T.ayush(pk.satmya)}`, pk.sattva && `सत्त्व ${T.ayush(pk.sattva)}`, pk.vyayamaShakti && `व्यायाम शक्ति ${T.ayush(pk.vyayamaShakti)}`, pk.amaPresent !== undefined && `आम ${pk.amaPresent ? 'उपस्थित' : 'अनुपस्थित'}`].filter(Boolean) as string[];
+    add('ayush', 'Dashavidha Pariksha (self-assessed)', parts.join('; ') + '.', partsHi.join('; ') + '।', 'complete');
   }
 
   const v = input.vitals || {};
   const vit = [v.bp && `BP ${v.bp}`, v.pulse && `pulse ${v.pulse}/min`, v.spo2 && `SpO2 ${String(v.spo2).replace('%', '')}%`, v.temp && `temperature ${v.temp}`, v.respiratoryRate && `RR ${v.respiratoryRate}/min`, v.bloodSugar && `glucose ${v.bloodSugar}`].filter(Boolean).join(', ');
   const vitSrc = v.source === 'clinician' ? `measured by ${v.recordedBy || 'staff'}` : 'patient-reported, unverified';
-  add('vitals', 'Vitals', vit ? `${vit} (${vitSrc})${v.news2 ? `; NEWS2 ${v.news2.news2 ?? v.news2}` : ''}.` : 'Not recorded.', vit ? `${vit} (${v.source === 'clinician' ? 'स्टाफ द्वारा मापा' : 'मरीज़ द्वारा बताया, असत्यापित'})।` : 'दर्ज नहीं।', vit ? 'complete' : 'not_asked');
+  const vitHi = [v.bp && `बीपी ${v.bp}`, v.pulse && `नाड़ी ${v.pulse}/मिनट`, v.spo2 && `SpO2 ${String(v.spo2).replace('%', '')}%`, v.temp && `तापमान ${v.temp}`, v.respiratoryRate && `श्वसन दर ${v.respiratoryRate}/मिनट`, v.bloodSugar && `शुगर ${v.bloodSugar}`].filter(Boolean).join(', ');
+  add('vitals', 'Vitals', vit ? `${vit} (${vitSrc})${v.news2 ? `; NEWS2 ${v.news2.news2 ?? v.news2}` : ''}.` : 'Not recorded.', vit ? `${vitHi} (${v.source === 'clinician' ? 'स्टाफ द्वारा मापा' : 'मरीज़ द्वारा बताया, असत्यापित'})${v.news2 ? `; NEWS2 ${v.news2.news2 ?? v.news2}` : ''}।` : 'दर्ज नहीं।', vit ? 'complete' : 'not_asked',
+    vit ? [{ item: 'Vitals', from: v.source === 'clinician' ? 'staff' : 'kiosk' }] : undefined);
 
   const demo = [input.patient.name, input.patient.age !== undefined ? `${input.patient.age} y` : '', input.patient.gender ? String(input.patient.gender).toLowerCase() : '', input.patient.isPregnant ? `pregnant${input.patient.gestationalWeeks ? ` ${input.patient.gestationalWeeks} wk` : ''}` : '', input.patient.isLactating ? 'lactating' : ''].filter(Boolean).join(', ');
   const text = [demo ? `${demo}.` : '', ...sections.map(s => `${s.title}: ${s.text}`)].filter(Boolean).join('\n');
-  const textHi = [demo ? `${demo}।` : '', ...sections.map(s => `${s.titleHi}: ${s.textHi}`)].filter(Boolean).join('\n');
-  return { generatedAt: new Date().toISOString(), method: 'deterministic-template', language: ['en', 'hi'], sections, text, textHi, completeness: h.completeness };
+  const demoHi = [input.patient.name, input.patient.age !== undefined ? `${input.patient.age} वर्ष` : '', input.patient.gender ? T.gender(String(input.patient.gender)) : '', input.patient.isPregnant ? `गर्भवती${input.patient.gestationalWeeks ? ` (${input.patient.gestationalWeeks} सप्ताह)` : ''}` : '', input.patient.isLactating ? 'स्तनपान कराती हैं' : ''].filter(Boolean).join(', ');
+  const textHi = [demoHi ? `${demoHi}।` : '', ...sections.map(s => `${s.titleHi}: ${s.textHi}`)].filter(Boolean).join('\n');
+  const untranslatedHi = [...T.untranslated].sort();
+  return { generatedAt: new Date().toISOString(), method: 'deterministic-template', language: ['en', 'hi'], sections, text, textHi, completeness: h.completeness, ...(untranslatedHi.length ? { untranslatedHi } : {}) };
 }

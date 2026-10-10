@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import { AshaFieldRecord, AshaRiskFlag } from '../../types/api';
 import { useStaffUser } from '../../components/auth/StaffGate';
 import { sovereignSound } from '../../utils/audio';
+import { useAppMode } from '../../services/runtimeMode';
 
 /**
  * ASHA / ANM field app — works without network.
@@ -100,12 +101,17 @@ const newId = () => {
   return `v-${Array.from(b, x => x.toString(16).padStart(2, '0')).join('')}`;
 };
 
-const storeKey = (userId: string) => `asha_visits_${userId}`;
-const loadLocal = (userId: string): AshaFieldRecord[] => {
-  try { return JSON.parse(localStorage.getItem(storeKey(userId)) || '[]'); } catch { return []; }
+/**
+ * Visits are kept on the device until they sync. On a demonstration server the Real-mode visits have
+ * a store of their own (`store` = 'real_'), so a visit recorded or fetched in Mock mode is never
+ * shown, or sent to the server, in Real mode. A hospital installation has one store.
+ */
+const storeKey = (userId: string, store: string) => `asha_visits_${store}${userId}`;
+const loadLocal = (userId: string, store: string): AshaFieldRecord[] => {
+  try { return JSON.parse(localStorage.getItem(storeKey(userId, store)) || '[]'); } catch { return []; }
 };
-const saveLocal = (userId: string, rows: AshaFieldRecord[]) => {
-  try { localStorage.setItem(storeKey(userId), JSON.stringify(rows)); } catch {}
+const saveLocal = (userId: string, store: string, rows: AshaFieldRecord[]) => {
+  try { localStorage.setItem(storeKey(userId, store), JSON.stringify(rows)); } catch {}
 };
 
 const levelCls: Record<AshaRiskFlag['level'], string> = {
@@ -114,11 +120,18 @@ const levelCls: Record<AshaRiskFlag['level'], string> = {
   WATCH: 'bg-sky-500/15 text-sky-800 dark:text-sky-200'
 };
 
+/** The ASHA screen over the right on-device store; switching store starts it afresh. */
 export const AshaFieldView: React.FC = () => {
+  const appMode = useAppMode();
+  const store = appMode.canSwitch && appMode.mode === 'real' ? 'real_' : '';
+  return <AshaFieldScreen key={store} store={store} />;
+};
+
+const AshaFieldScreen: React.FC<{ store: string }> = ({ store }) => {
   const user = useStaffUser();
   const uid = user?.id || 'anonymous';
   const [lang, setLang] = useState<Lang>('hi');
-  const [records, setRecords] = useState<AshaFieldRecord[]>(() => loadLocal(uid));
+  const [records, setRecords] = useState<AshaFieldRecord[]>(() => loadLocal(uid, store));
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -126,10 +139,10 @@ export const AshaFieldView: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState('');
 
-  useEffect(() => { saveLocal(uid, records); }, [uid, records]);
+  useEffect(() => { saveLocal(uid, store, records); }, [uid, store, records]);
 
   const sync = useCallback(async () => {
-    const pending = loadLocal(uid).filter(r => !r.synced);
+    const pending = loadLocal(uid, store).filter(r => !r.synced);
     setSyncing(true);
     setSyncMsg(null);
     try {
@@ -161,7 +174,7 @@ export const AshaFieldView: React.FC = () => {
     } finally {
       setSyncing(false);
     }
-  }, [uid, lang]);
+  }, [uid, store, lang]);
 
   // Sync on open, when the network returns, and every 2 minutes.
   useEffect(() => {
