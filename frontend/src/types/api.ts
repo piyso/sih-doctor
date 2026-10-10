@@ -200,13 +200,15 @@ export interface AyushFormulation {
 
 export type SafetyTier = 'STOP' | 'WARN' | 'INFO';
 
+export type ConflictAlertSeverity = 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'INFO' | 'AYUSH_INCOMPATIBILITY' | 'STATUTORY_SCHEDULE_E1' | 'CRITICAL_LETHAL';
+
 export interface ConflictAlert {
   alertId?: string;
   itemA?: string;
   itemB?: string;
   allopathicDrug: string;
   ayushHerb: string;
-  severity: 'CRITICAL_CONTRAINDICATION' | 'WARNING' | 'INFO' | 'AYUSH_INCOMPATIBILITY' | 'STATUTORY_SCHEDULE_E1';
+  severity: ConflictAlertSeverity;
   /** STOP: needs a typed reason to sign. WARN: shown beside the medicine. INFO: summary only. */
   tier?: SafetyTier;
   family?: string;

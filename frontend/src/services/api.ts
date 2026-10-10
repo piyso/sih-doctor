@@ -485,6 +485,63 @@ class ApiService {
   }
 
   /**
+   * Multi-Order Hypergraph Polypharmacy Evaluation (CYP2C9/CYP3A4 saturation, quad-hit coagulopathy)
+   */
+  public async checkContraindicationsFull(
+    allopathic: any[],
+    ayush: any[]
+  ): Promise<{
+    alerts: ConflictAlert[];
+    hasConflicts: boolean;
+    viruddhaWarnings: any[];
+    hypergraphPolypharmacy: HypergraphPolypharmacyResult;
+  }> {
+    try {
+      const res = await fetchWithTimeout(`${BASE_URL}/api/contraindications/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          allopathic: allopathic.map(a => ({ name: a.name || a.genericName, dosage: a.dosage || 'standard', route: a.route || 'ORAL', frequency: a.frequency || 'OD', durationDays: a.durationDays || 30 })),
+          ayush: ayush.map(a => ({ classicalName: a.classicalName || a.name, dosageForm: a.dosageForm || 'Vati', dose: a.dose || '1', anupana: a.anupana || 'Water', frequency: a.frequency || 'OD', durationDays: a.durationDays || 30 }))
+        })
+      }, 8000);
+      const data = await res.json();
+      return {
+        alerts: Array.isArray(data.alerts) ? data.alerts : [],
+        hasConflicts: !!data.hasConflicts,
+        viruddhaWarnings: Array.isArray(data.viruddhaWarnings) ? data.viruddhaWarnings : [],
+        hypergraphPolypharmacy: data.hypergraphPolypharmacy || {
+          hypergraphConflictDetected: false,
+          participatingNodes: [],
+          synergisticInteractions: [],
+          enzymeSaturations: [],
+          cumulativeSaturationIndex: 0,
+          bayesFactorBF10: 1.0,
+          overallRiskCategory: 'NONE',
+          substitutions: []
+        }
+      };
+    } catch (e) {
+      console.warn('[ApiService] checkContraindicationsFull fallback:', e);
+      return {
+        alerts: [],
+        hasConflicts: false,
+        viruddhaWarnings: [],
+        hypergraphPolypharmacy: {
+          hypergraphConflictDetected: false,
+          participatingNodes: [],
+          synergisticInteractions: [],
+          enzymeSaturations: [],
+          cumulativeSaturationIndex: 0,
+          bayesFactorBF10: 1.0,
+          overallRiskCategory: 'NONE',
+          substitutions: []
+        }
+      };
+    }
+  }
+
+  /**
    * Finalize Doctor Encounter to Live SQLite WAL Database
    */
   public async finalizePrescription(payload: {

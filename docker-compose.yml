@@ -22,6 +22,7 @@ services:
       TRUST_PROXY: "true"
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       ALLOW_DEMO_DATA: ${ALLOW_DEMO_DATA:-false}
+      DEMO_TOGGLE: ${DEMO_TOGGLE:-true}
       KIOSK_OPEN: ${KIOSK_OPEN:-false}
       SETUP_CODE: ${SETUP_CODE:?Set SETUP_CODE in .env (needed for first-time admin setup)}
       HOSPITAL_TIMEZONE: ${HOSPITAL_TIMEZONE:-Asia/Kolkata}

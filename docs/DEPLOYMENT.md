@@ -7,7 +7,8 @@ This guide installs the system on one server. For real patients, use an on-premi
 | Where | When | Why |
 |---|---|---|
 | **On-premise box** (recommended for a hospital) — a small PC with 4+ cores, 16 GB RAM, SSD, on a UPS, on the hospital LAN | Live use with patients | Kiosks keep working when the internet is down; patient data stays in the hospital (DPDP); Hindi + English speech recognition runs on its CPU. |
-| **India-region cloud VM** — e.g. an ARM VM (4 cores / 24 GB) in Mumbai or Hyderabad; `deploy/oracle-setup.sh` sets one up | Pilot, demo, multi-site dashboard | Persistent disk, data stays in India, enough RAM for the speech models. Check whether your client requires a MeitY-empanelled provider. |
+| **Microsoft Azure ($200 Free Trial / Cloud VM)** — e.g. `Standard_B2s` in Central India (Pune) / South India; `deploy/azure-setup.sh` sets one up | Pilot, live demo, jury presentations | Full HTTPS with free `*.cloudapp.azure.com` domain, persistent SSD, speech models supported. See [`docs/AZURE_DEPLOYMENT.md`](file:///Users/piyushkumar/Desktop/SIH/26047/docs/AZURE_DEPLOYMENT.md). |
+| **India-region cloud VM** — e.g. an ARM VM in Mumbai or Hyderabad; `deploy/oracle-setup.sh` sets one up | Pilot, demo, multi-site dashboard | Persistent disk, data stays in India, enough RAM for the speech models. |
 | ~~Free PaaS tiers (e.g. Render free)~~ | Never with patient data | The disk is wiped on every restart (the SQLite database and signing keys are lost), the service sleeps after inactivity, and the region may be outside India. |
 
 - Linux (Ubuntu 22.04+), Docker and Docker Compose.

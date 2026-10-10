@@ -21,12 +21,13 @@ echo "  [4] Vercel Edge Frontend + Fly.io Persistent Backend (Serverless Split)"
 echo "  [5] GitHub Auto-Push & CI/CD Trigger (piyso/sih-doctor)"
 echo "  [6] Run Full 22-Battery Clinical Rigor Test Suite"
 echo "  [7] Complete Full Production Rebuild (Backend Dist + Frontend Dist)"
+echo "  [8] Microsoft Azure VM ($200 Free Credit Setup & Deploy)"
 echo "================================================================================"
 
 CHOICE="${1:-}"
 
 if [ -z "$CHOICE" ]; then
-  read -p "Enter selection [1-7] (Default: 5): " CHOICE
+  read -p "Enter selection [1-8] (Default: 5): " CHOICE
   CHOICE="${CHOICE:-5}"
 fi
 
@@ -67,8 +68,14 @@ case "$CHOICE" in
     cd "$ROOT_DIR/frontend" && npm run build
     echo "[OK] Full production build complete."
     ;;
+  8)
+    echo "[INFO] Microsoft Azure VM Deployment..."
+    echo "Run this command on your Azure Ubuntu VM:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/piyso/sih-doctor/main/deploy/azure-setup.sh | sudo bash -s <azure-domain-or-fqdn> <admin-email>"
+    echo "Or read the full step-by-step guide in docs/AZURE_DEPLOYMENT.md"
+    ;;
   *)
-    echo "[ERROR] Invalid selection. Please enter 1-7."
+    echo "[ERROR] Invalid selection. Please enter 1-8."
     exit 1
     ;;
 esac
