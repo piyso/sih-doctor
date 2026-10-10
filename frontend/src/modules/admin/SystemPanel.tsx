@@ -6,13 +6,13 @@ import { DemoModePanel } from '../../components/common/DemoModeControl';
 
 const Row: React.FC<{ label: string; ok?: boolean; value: React.ReactNode; hint?: string }> = ({ label, ok, value, hint }) => (
   <div className="flex items-start justify-between gap-3 py-2 border-b border-border/40 text-xs">
-    <div>
+    <div className="min-w-0 flex-1">
       <div className="font-semibold text-foreground">{label}</div>
-      {hint && <div className="text-[11px] text-muted-foreground mt-0.5 max-w-md">{hint}</div>}
+      {hint && <div className="text-[11px] text-muted-foreground mt-0.5 max-w-md [overflow-wrap:anywhere]">{hint}</div>}
     </div>
-    <div className="flex items-center gap-1.5 text-right font-medium">
-      {ok !== undefined && (ok ? <CheckCircle2 size={14} className="text-emerald-600" /> : <XCircle size={14} className="text-amber-600" />)}
-      <span>{value}</span>
+    <div className="flex items-start gap-1.5 text-right font-medium shrink-0 max-w-[55%]">
+      {ok !== undefined && (ok ? <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-px" /> : <XCircle size={14} className="text-amber-600 shrink-0 mt-px" />)}
+      <span className="min-w-0 [overflow-wrap:anywhere]">{value}</span>
     </div>
   </div>
 );
@@ -79,7 +79,7 @@ export const SystemPanel: React.FC = () => {
         <DemoModePanel onSwitched={() => load()} />
       </Panel>
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Panel title="Security & configuration" actions={<Btn onClick={load}><RefreshCw size={13} /> Refresh</Btn>}>
           <Row label="Environment" value={sys.environment} ok={sys.environment === 'production'} hint="Set NODE_ENV=production on the hospital server." />
           <Row label="Sample (mock) data" value={sys.demoData ? 'ON' : 'off'} ok={!sys.demoData} hint="Must be off once real patients are seen (Real mode above, or ALLOW_DEMO_DATA=false on a hospital installation)." />
@@ -97,7 +97,7 @@ export const SystemPanel: React.FC = () => {
         </Panel>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Panel
           title="Backups"
           subtitle="Encrypted (AES-256-GCM) copy of the database every night. Keep a copy on another machine or drive."
@@ -106,7 +106,7 @@ export const SystemPanel: React.FC = () => {
           {backups.length === 0 ? <p className="text-xs text-muted-foreground">No backups yet.</p> : (
             <ul className="text-xs divide-y divide-border/40">
               {backups.map(b => (
-                <li key={b.file} className="py-1.5 flex justify-between gap-2"><span className="font-mono truncate">{b.file}</span><span className="text-muted-foreground whitespace-nowrap">{Math.round(b.bytes / 1024)} KB · {fmtTime(b.createdAt)}</span></li>
+                <li key={b.file} className="py-1.5 flex justify-between gap-2 min-w-0"><span className="font-mono truncate min-w-0">{b.file}</span><span className="text-muted-foreground whitespace-nowrap shrink-0">{Math.round(b.bytes / 1024)} KB · {fmtTime(b.createdAt)}</span></li>
               ))}
             </ul>
           )}
@@ -117,7 +117,7 @@ export const SystemPanel: React.FC = () => {
           subtitle={`Unfinished check-ins are deleted after ${sys.retention.draftHours} h; visits never seen are closed after ${sys.retention.abandonedVisitDays} days; records with no visit for ${sys.retention.clinicalYears} years are deleted. Runs automatically every 6 hours.`}
           actions={<Btn busy={busy === 'retention'} onClick={retention}><Trash2 size={13} /> Run clean-up now</Btn>}
         >
-          <p className="text-[11px] text-muted-foreground">Retention periods are set by the server administrator (DRAFT_RETENTION_HOURS, ABANDONED_SESSION_DAYS, CLINICAL_RETENTION_YEARS). Confirm the clinical period with the hospital's medical-records policy and state rules.</p>
+          <p className="text-[11px] text-muted-foreground [overflow-wrap:anywhere]">Retention periods are set by the server administrator (DRAFT_RETENTION_HOURS, ABANDONED_SESSION_DAYS, CLINICAL_RETENTION_YEARS). Confirm the clinical period with the hospital's medical-records policy and state rules.</p>
         </Panel>
       </div>
     </div>

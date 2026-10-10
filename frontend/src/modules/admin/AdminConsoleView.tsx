@@ -36,7 +36,16 @@ export const AdminConsoleView: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-5 py-4">
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mb-4 pb-1" role="tablist">
+      {/* Phones: one select (six tabs do not fit, and a hidden sideways scroll gives no cue). */}
+      {tabs.length > 1 && (
+        <label className="sm:hidden block mb-3">
+          <span className="sr-only">Section</span>
+          <select value={activeTab} onChange={e => setTab(e.target.value as Tab)} className="w-full h-11 rounded-xl border border-border bg-card px-3 text-sm font-bold text-foreground">
+            {tabs.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+        </label>
+      )}
+      <div className="hidden sm:flex items-center gap-1.5 flex-wrap mb-4" role="tablist">
         {tabs.map(t => {
           const Icon = t.icon;
           const active = activeTab === t.id;

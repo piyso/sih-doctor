@@ -4,7 +4,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 /** Shared building blocks for the admin console panels. */
 
 export const Panel: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode }> = ({ title, subtitle, actions, children }) => (
-  <section className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xs">
+  <section className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xs min-w-0">
     <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
       <div className="min-w-0">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>

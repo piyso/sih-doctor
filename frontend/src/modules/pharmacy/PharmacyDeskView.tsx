@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Scan, CheckCircle2, AlertTriangle, Printer, ShieldAlert, Pill, Loader2, XCircle, Leaf, Check, Undo2, PackageCheck, PackageMinus, ArrowRight, Info, PencilLine } from 'lucide-react';
+import { Scan, CheckCircle2, AlertTriangle, Printer, ShieldAlert, Pill, Loader2, XCircle, Leaf, Check, Undo2, PackageCheck, PackageMinus, ArrowRight, Info, PencilLine, BookOpenCheck } from 'lucide-react';
 import { ConflictAlert, PharmacyDispenseItem } from '../../types/api';
 import { sovereignSound } from '../../utils/audio';
-import { api } from '../../services/api';
+import { api, apiFetch, BASE_URL } from '../../services/api';
 import { printElement } from '../../utils/printDocument';
 import { buildInstruction, LANGUAGE_NATIVE_NAME, RxLang, isRxLang } from '../../utils/rxInstructions';
 import { HOSPITAL } from '../../utils/hospitalConfig';
 import { lookAlike, LookAlike } from '../../utils/tallMan';
+import { H1RegisterDialog } from './H1RegisterDialog';
 
 type Rx = PharmacyDispenseItem;
 type RecordStatus = 'DISPENSED' | 'PARTIAL' | 'NOT_DISPENSED' | 'REFERRED_BACK';
@@ -154,6 +155,8 @@ export const PharmacyDeskView: React.FC = () => {
   const [picked, setPicked] = useState<Record<string, number[]>>({});
   /** Batch numbers typed for register medicines, per prescription and line. */
   const [batch, setBatch] = useState<Record<string, Record<number, string>>>({});
+  /** Quantity actually supplied, for Schedule H1 / NDPS lines (it goes into the register). */
+  const [qtyGiven, setQtyGiven] = useState<Record<string, Record<number, string>>>({});
   /** Patient identity confirmed at the counter (name + token), per prescription. */
   const [identified, setIdentified] = useState<Record<string, boolean>>({});
   /** Labels left out of printing, per prescription (by line index). */
@@ -164,12 +167,17 @@ export const PharmacyDeskView: React.FC = () => {
   const [note, setNote] = useState('');
   const [actionError, setActionError] = useState('');
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [registerOpen, setRegisterOpen] = useState(false);
   const labelRef = useRef<HTMLDivElement>(null);
   const knownIds = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const items: Rx[] = await api.getPharmacyQueue();
+      // Read the queue directly: a network blip must keep the last list on screen, not empty the counter.
+      const res = await apiFetch(`${BASE_URL}/api/doctor/encounters`);
+      if (!res.ok) throw new Error(`queue ${res.status}`);
+      const body = await res.json();
+      const items: Rx[] = body?.success && Array.isArray(body.data) ? body.data : [];
       const replaced = new Set(items.map(i => i.amendsEncounterId).filter(Boolean) as string[]);
       const waiting = items.filter(i => i.dispenseStatus === 'PENDING_VERIFICATION' && !replaced.has(i.id));
       // A new prescription arrived while the counter was open.
@@ -335,6 +343,12 @@ export const PharmacyDeskView: React.FC = () => {
 
   const pickedHere = selected ? picked[selected.id] || [] : [];
   const batchHere = selected ? batch[selected.id] || {} : {};
+  const qtyHere = selected ? qtyGiven[selected.id] || {} : {};
+  /** What goes on record as supplied: the typed figure for a register line, else the prescription's quantity. */
+  const suppliedQty = (i: number): number | null => {
+    const typed = Number(qtyHere[i]);
+    return typed > 0 ? typed : lines[i]?.qty ?? null;
+  };
   const notPicked = lines.filter((_, i) => !pickedHere.includes(i)).map(l => l.name || 'unnamed line');
   const someTicked = pickedHere.length > 0 && notPicked.length > 0;
   const unnamedCount = lines.filter(l => !l.name).length;
@@ -372,12 +386,15 @@ export const PharmacyDeskView: React.FC = () => {
     if (correctingThis && typed.length < 5) { setActionError('Write what is being corrected, and why.'); return; }
     if (status === 'PARTIAL' && !text) { setActionError('Tick what was given, or write which medicine was not given.'); return; }
     if (status === 'REFERRED_BACK' && text.length < 5) { setActionError('Write why it goes back to the doctor.'); return; }
+    // The Schedule H1 register needs the quantity supplied for every register medicine that is handed over.
+    const noQty = lines.findIndex((l, i) => !!l.register && !!l.name && (status === 'DISPENSED' || (status === 'PARTIAL' && pickedHere.includes(i))) && suppliedQty(i) === null);
+    if (noQty >= 0) { setActionError(`Enter the quantity given for ${lines[noQty].name} — it goes into the Schedule H1 register.`); return; }
     const batches = lines.map((l, i) => (batchHere[i]?.trim() ? `${l.name} batch ${batchHere[i].trim()}` : '')).filter(Boolean);
     if (status !== 'REFERRED_BACK' && batches.length) text = [text, batches.join('; ')].filter(Boolean).join(' · ');
     if (correctingThis) text = `Correction: ${text}`;
     // What was handed over, line by line (only when that is known: everything, or the ticked lines).
     const given = status === 'DISPENSED' || (status === 'PARTIAL' && pickedHere.length > 0)
-      ? lines.map((l, i) => ({ name: l.name || 'unnamed line', given: status === 'DISPENSED' || pickedHere.includes(i), quantity: l.qty ?? undefined, batch: batchHere[i]?.trim() || undefined }))
+      ? lines.map((l, i) => ({ name: l.name || 'unnamed line', given: status === 'DISPENSED' || pickedHere.includes(i), quantity: suppliedQty(i) ?? undefined, batch: batchHere[i]?.trim() || undefined }))
       : undefined;
     setBusy(true);
     setActionError('');
@@ -393,6 +410,20 @@ export const PharmacyDeskView: React.FC = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** A correction starts from what was recorded: the same ticks, quantities and batch numbers. */
+  const startCorrection = () => {
+    if (!selected) return;
+    const recorded = (name: string) => (selected.dispensedItems || []).find(g => norm(g.name) === norm(name));
+    const byLine = <T,>(pick: (g: NonNullable<ReturnType<typeof recorded>>) => T | undefined) =>
+      Object.fromEntries(lines.map((l, i) => [i, recorded(l.name)]).filter(([, g]) => g && pick(g as any) !== undefined).map(([i, g]) => [i, String(pick(g as any))]));
+    if (selected.dispensedItems?.length) {
+      setPicked(p => ({ ...p, [selected.id]: lines.map((l, i) => (recorded(l.name)?.given ? i : -1)).filter(i => i >= 0) }));
+      setBatch(v => ({ ...v, [selected.id]: byLine(g => g.batch) }));
+      setQtyGiven(v => ({ ...v, [selected.id]: byLine(g => (g.given ? g.quantity : undefined)) }));
+    }
+    setCorrecting(selected.id);
   };
 
   const nextWaiting = pending.find(p => p.id !== selectedId);
@@ -422,6 +453,9 @@ export const PharmacyDeskView: React.FC = () => {
               className="w-full sm:w-80 h-10 pl-8 pr-3 rounded-lg border border-border bg-background text-sm" />
           </div>
           <button type="submit" className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold">Find</button>
+          <button type="button" onClick={() => setRegisterOpen(true)} className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap" title="Schedule H1 / NDPS supplies: prescriber, patient, medicine, quantity">
+            <BookOpenCheck size={14} /> H1 register
+          </button>
         </form>
       </div>
 
@@ -626,6 +660,8 @@ export const PharmacyDeskView: React.FC = () => {
                       {lines.map((line, i) => {
                         const isPicked = pickedHere.includes(i);
                         const canTick = canRecord && !!line.name;
+                        // On a recorded prescription: what the pharmacist recorded for this line.
+                        const rec = !canRecord ? (selected.dispensedItems || []).find(g => norm(g.name) === norm(line.name)) : undefined;
                         return (
                           <div key={i} className={`px-3 py-2.5 ${isPicked ? 'bg-emerald-500/5' : ''} ${!line.name ? 'bg-amber-500/[0.06]' : ''}`}>
                             <label className={`flex items-start gap-3 ${canTick ? 'cursor-pointer' : ''}`}>
@@ -633,6 +669,11 @@ export const PharmacyDeskView: React.FC = () => {
                                 <span className={`mt-0.5 h-5 w-5 rounded-md border flex items-center justify-center shrink-0 ${isPicked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-foreground/40 bg-background'} ${canTick ? '' : 'opacity-40'}`}>
                                   {isPicked && <Check size={13} strokeWidth={3} />}
                                   <input type="checkbox" className="sr-only" checked={isPicked} disabled={!canTick} onChange={() => toggleIn(setPicked, i)} aria-label={`Picked ${line.name || 'unnamed line'}`} />
+                                </span>
+                              )}
+                              {rec && (
+                                <span className="mt-0.5 shrink-0" title={rec.given ? 'Given' : 'Not given'}>
+                                  {rec.given ? <CheckCircle2 size={16} className="text-emerald-600" /> : <XCircle size={16} className="text-rose-600" />}
                                 </span>
                               )}
                               <span className="mt-0.5 shrink-0" title={line.kind === 'ayush' ? 'Ayurvedic formulation' : 'Allopathic medicine'}>
@@ -644,6 +685,7 @@ export const PharmacyDeskView: React.FC = () => {
                                   : <span className="block text-sm font-bold text-amber-700">Name missing — confirm with the doctor</span>}
                                 <span className="block text-xs text-muted-foreground">{line.detail || '—'}</span>
                                 {line.instructions && <span className="block text-xs text-foreground/80 mt-0.5">“{line.instructions}”</span>}
+                                {rec && <span className={`block text-xs font-semibold mt-0.5 ${rec.given ? 'text-emerald-700' : 'text-rose-700'}`}>{rec.given ? 'Given' : 'Not given'}{rec.given && rec.quantity ? ` · ${num(rec.quantity)}` : ''}{rec.batch ? ` · batch ${rec.batch}` : ''}</span>}
                                 {line.alert && <LineTag tone={line.alert === 'stop' ? 'rose' : 'amber'}>{line.alert === 'stop' ? 'In a serious alert — see above' : 'In a warning — see above'}</LineTag>}
                                 {line.look && <LineTag tone="amber">Look-alike name: this is {line.look.tallMan}, not {line.look.confusedWith.join(' or ')}</LineTag>}
                                 {line.e1 && <LineTag tone="violet">Schedule E(1) — caution label</LineTag>}
@@ -657,11 +699,22 @@ export const PharmacyDeskView: React.FC = () => {
                               )}
                             </label>
                             {canRecord && (line.e1 || line.register) && line.name && (
-                              <div className="mt-2 ml-8 flex items-center gap-2">
-                                <label htmlFor={`batch-${i}`} className="text-[11px] font-semibold text-muted-foreground">Batch no.</label>
-                                <input id={`batch-${i}`} value={batchHere[i] || ''} maxLength={30}
-                                  onChange={e => setBatch(b => ({ ...b, [selected.id]: { ...(b[selected.id] || {}), [i]: e.target.value } }))}
-                                  placeholder="from the pack" className="h-9 w-44 rounded-lg border border-border bg-background px-2 text-sm font-mono" />
+                              <div className="mt-2 ml-8 flex items-center gap-x-4 gap-y-2 flex-wrap">
+                                {line.register && (
+                                  <span className="flex items-center gap-2">
+                                    <label htmlFor={`qty-${i}`} className="text-[11px] font-semibold text-muted-foreground">Quantity given</label>
+                                    <input id={`qty-${i}`} inputMode="numeric" value={qtyHere[i] || ''} maxLength={5}
+                                      onChange={e => { setQtyGiven(q => ({ ...q, [selected.id]: { ...(q[selected.id] || {}), [i]: e.target.value.replace(/[^\d.]/g, '') } })); setActionError(''); }}
+                                      placeholder={line.qty !== null ? num(line.qty) : 'for the register'}
+                                      className={`h-9 w-28 rounded-lg border bg-background px-2 text-sm font-bold tabular-nums ${line.qty === null && !qtyHere[i] ? 'border-amber-500/70' : 'border-border'}`} />
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-2">
+                                  <label htmlFor={`batch-${i}`} className="text-[11px] font-semibold text-muted-foreground">Batch no.</label>
+                                  <input id={`batch-${i}`} value={batchHere[i] || ''} maxLength={30}
+                                    onChange={e => setBatch(b => ({ ...b, [selected.id]: { ...(b[selected.id] || {}), [i]: e.target.value } }))}
+                                    placeholder="from the pack" className="h-9 w-44 rounded-lg border border-border bg-background px-2 text-sm font-mono" />
+                                </span>
                               </div>
                             )}
                           </div>
@@ -689,7 +742,7 @@ export const PharmacyDeskView: React.FC = () => {
                       <strong>{STATUS_LABEL[selected.dispenseStatus]?.text}</strong>{selected.dispensedBy ? ` · ${selected.dispensedBy}` : ''}{selected.dispensedAt ? ` · ${whenFull(selected.dispensedAt)}` : ''}
                       {selected.dispenseNote ? <span className="text-muted-foreground"> — {selected.dispenseNote}</span> : null}
                     </span>
-                    <button type="button" onClick={() => setCorrecting(selected.id)} className="h-8 px-2.5 rounded-lg border border-border bg-background hover:bg-card text-xs font-bold inline-flex items-center gap-1.5 ml-auto">
+                    <button type="button" onClick={startCorrection} className="h-8 px-2.5 rounded-lg border border-border bg-background hover:bg-card text-xs font-bold inline-flex items-center gap-1.5 ml-auto">
                       <PencilLine size={13} /> Correct this record
                     </button>
                   </div>
@@ -757,6 +810,7 @@ export const PharmacyDeskView: React.FC = () => {
           )}
         </aside>
       </div>
+      {registerOpen && <H1RegisterDialog onClose={() => setRegisterOpen(false)} />}
     </div>
   );
 };

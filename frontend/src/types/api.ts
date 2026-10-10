@@ -560,6 +560,8 @@ export interface PharmacyDispenseItem {
   notChecked?: string[];
   /** Set when this prescription replaces an earlier one for the same visit. */
   amendsEncounterId?: string | null;
+  /** What was handed over, line by line (null when only a status and a note were recorded). */
+  dispensedItems?: Array<{ name: string; given: boolean; quantity?: number; batch?: string }> | null;
   dispenseStatus: 'PENDING_VERIFICATION' | 'DISPENSED' | 'PARTIAL' | 'NOT_DISPENSED' | 'REFERRED_BACK' | 'FLAGGED_ALERT';
   language?: string;
   department?: string;

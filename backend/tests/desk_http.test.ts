@@ -107,6 +107,32 @@ export async function runDeskHttpBattery() {
     const tl = await api('GET', `/api/doctor/patient/${patientId}/timeline`, undefined, doctor);
     check(tl.json.data.encounters[0]?.medicines?.[0]?.name === 'Amoxicillin', 'timeline lists the visit and its medicines');
 
+    console.log('\n--- Pharmacy counter: patient context, amendment, per-line record, Schedule H1 register ---');
+    check(item?.patientContext?.allergies?.some((a: any) => /penicillin/i.test(a.agent)) && item?.patientContext?.pregnancy === null, 'pharmacy sees the allergies the checks used (and no pregnancy field for a man)');
+    check(Array.isArray(item?.lasaAlerts) && item.lasaAlerts.length === 0, 'interaction alerts are not passed off as look-alike alerts');
+    const amended = await api('POST', '/api/doctor/prescribe', {
+      sessionId, amend: true, diagnoses: [{ display: 'Acute pain', status: 'final', source: 'doctor' }],
+      allopathicPrescription: [{ name: 'Paracetamol', dosage: '650 mg', frequency: '1-1-1 after food', durationDays: 3 }, { name: 'Tramadol', dosage: '50 mg', frequency: '1-0-1', durationDays: 3 }], advice: 'rest'
+    }, doctor);
+    check(amended.status === 200, 'doctor signs an amended prescription after the referral');
+    const pq2 = await api('GET', '/api/doctor/pharmacy-queue', undefined, pharm);
+    const newer = pq2.json.data.find((x: any) => x.id === amended.json.encounterId);
+    check(newer?.amendsEncounterId === signed.json.encounterId && newer?.dispenseStatus === 'PENDING_VERIFICATION', 'the amended prescription names the one it replaces');
+    check(newer?.scheduleH1?.some((h: any) => /tramadol/i.test(h.generic)), 'tramadol is flagged for the register');
+    const partly = await api('POST', `/api/doctor/encounters/${amended.json.encounterId}/dispense`, {
+      status: 'PARTIAL', note: 'Not given: Paracetamol',
+      items: [{ name: 'Paracetamol', given: false, quantity: 9 }, { name: 'Tramadol', given: true, quantity: 6, batch: 'TRM-2291', secret: 'dropped' }]
+    }, pharm);
+    check(partly.status === 200, 'partly-given hand-over recorded line by line');
+    const pq3 = await api('GET', '/api/doctor/pharmacy-queue', undefined, pharm);
+    const done = pq3.json.data.find((x: any) => x.id === amended.json.encounterId);
+    check(done?.dispensedItems?.length === 2 && done.dispensedItems[1].given === true && done.dispensedItems[1].batch === 'TRM-2291' && !('secret' in done.dispensedItems[1]), 'the queue returns what was given per line, and only the known fields');
+    const reg = await api('GET', '/api/doctor/h1-register', undefined, pharm);
+    const entry = reg.json?.data?.entries?.find((e: any) => e.encounterId === amended.json.encounterId);
+    check(reg.status === 200 && !!entry && /tramadol/i.test(entry.medicine) && entry.quantity === 6 && entry.batch === 'TRM-2291' && entry.supplied === 'yes' && /Sharma/.test(entry.prescriber) && entry.patient === `${tag} Ramesh`, 'Schedule H1 register lists the supply: prescriber, patient, medicine, quantity, batch');
+    check(!reg.json.data.entries.some((e: any) => /paracetamol/i.test(e.medicine)), 'the register holds only Schedule H1 / NDPS medicines');
+    check((await api('GET', '/api/doctor/h1-register', undefined, doctor)).status === 403, 'the register is for the pharmacist and the administrator');
+
     console.log('\n--- Vitals, order sets, terminology, quality, ADR ---');
     const vit = await api('PATCH', `/api/doctor/encounter/${sessionId}/vitals`, { vitals: { respiratoryRate: 18, weightKg: 62, consciousness: 'A' } }, doctor);
     check(vit.status === 200 && vit.json.vitals.weightKg === 62 && vit.json.vitalsAssessment, 'RR, AVPU and weight recorded');

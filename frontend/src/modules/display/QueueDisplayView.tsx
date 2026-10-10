@@ -97,9 +97,14 @@ export const QueueDisplayView: React.FC<{ onExit?: () => void }> = ({ onExit }) 
     return () => { clearInterval(poll); clearInterval(tick); stop(); };
   }, [load, drain]);
 
+  // A TV on the wall is never scrolled: the room cards share the screen, in as many columns as keeps them readable.
+  const rooms: any[] = board?.departments || [];
+  const n = rooms.length;
+  const cols = n <= 3 ? Math.max(1, n) : n === 4 ? 2 : n <= 6 ? 3 : n <= 8 ? 4 : n === 9 ? 3 : n <= 12 ? 4 : 5;
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 sm:px-8 py-5">
-      <div className="flex items-center justify-between gap-3 mb-5">
+    <div className="tv-board bg-slate-950 text-white px-4 sm:px-8 py-5">
+      <div className="flex items-center justify-between gap-3 mb-4 shrink-0">
         <div>
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">OPD Queue · ओपीडी कतार</h1>
           <p className="text-slate-400 text-sm sm:text-base mt-1">Please wait for your token to be called · कृपया अपना टोकन बुलाए जाने तक प्रतीक्षा करें</p>
@@ -124,11 +129,11 @@ export const QueueDisplayView: React.FC<{ onExit?: () => void }> = ({ onExit }) 
       </div>
 
       {!online && (
-        <div className="mb-4 p-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 font-semibold flex items-center gap-2"><WifiOff size={18} /> Connection lost — showing the last known queue.</div>
+        <div className="mb-4 p-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 font-semibold flex items-center gap-2 shrink-0"><WifiOff size={18} /> Connection lost — showing the last known queue.</div>
       )}
 
       {flash && (
-        <div className="mb-5 p-5 sm:p-7 rounded-3xl bg-emerald-600 text-white text-center shadow-2xl animate-in fade-in zoom-in-95" role="status" aria-live="assertive">
+        <div className="mb-4 p-5 sm:p-7 rounded-3xl bg-emerald-600 text-white text-center shadow-2xl animate-in fade-in zoom-in-95 shrink-0" role="status" aria-live="assertive">
           <div className="text-lg sm:text-2xl font-semibold opacity-90">Now calling · अभी बुलाया जा रहा है</div>
           <div className="text-6xl sm:text-8xl font-black tracking-tight my-2 tabular-nums">{flash.tokenNo}</div>
           <div className="text-2xl sm:text-4xl font-extrabold">Room {flash.room} · कमरा {flash.room}</div>
@@ -137,36 +142,41 @@ export const QueueDisplayView: React.FC<{ onExit?: () => void }> = ({ onExit }) 
 
       {!board ? (
         <div className="text-center text-slate-400 py-20 text-xl">Loading queue…</div>
-      ) : board.departments.length === 0 ? (
+      ) : n === 0 ? (
         <div className="text-center text-slate-400 py-20 text-2xl">No one is waiting right now.</div>
       ) : (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {board.departments.map((d: any) => (
-            <div key={d.code} className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
+        <div className="tv-rooms" style={{ ['--tv-cols' as string]: cols } as React.CSSProperties}>
+          {rooms.map(d => (
+            <div key={d.code} className="tv-room rounded-3xl bg-slate-900 border border-slate-800">
               <div className="flex items-baseline justify-between gap-2">
-                <div className="text-xl font-extrabold">Room {d.room}</div>
+                <div className="tv-room-name font-extrabold whitespace-nowrap">Room {d.room}</div>
                 <div className="text-sm text-slate-400 truncate">{DEPT_SHORT[d.code] || d.name}</div>
               </div>
-              <div className="mt-3 text-xs uppercase tracking-wider text-slate-400 font-bold">Now serving</div>
-              <div className="text-5xl font-black tabular-nums text-emerald-400 leading-tight">{d.nowServing || '—'}</div>
-              <div className="mt-3 text-xs uppercase tracking-wider text-slate-400 font-bold">Next</div>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {d.next.length ? d.next.map((t: string) => (
-                  <span key={t} className="px-3 py-1.5 rounded-xl bg-slate-800 text-xl font-bold tabular-nums">{t}</span>
-                )) : <span className="text-slate-500">—</span>}
+              <div className="mt-2 text-xs uppercase tracking-wider text-slate-400 font-bold">Now serving</div>
+              {/* Green only when a token really is being served; an idle room must not look live. */}
+              {d.nowServing
+                ? <div className="tv-token font-black tabular-nums text-emerald-400 leading-none">{d.nowServing}</div>
+                : <div className="tv-token font-black leading-none text-slate-600">{d.waitingCount > 0 ? <span className="tv-soon">Starting soon</span> : '—'}</div>}
+              <div className="tv-next-block">
+                <div className="mt-2 text-xs uppercase tracking-wider text-slate-400 font-bold">Next</div>
+                <div className="tv-next flex gap-2 mt-1 overflow-hidden">
+                  {d.next.length ? d.next.map((t: string) => (
+                    <span key={t} className="tv-chip rounded-xl bg-slate-800 font-bold tabular-nums whitespace-nowrap">{t}</span>
+                  )) : <span className="text-slate-500">—</span>}
+                </div>
               </div>
-              <div className="mt-3 text-sm text-slate-400">{d.waitingCount} waiting · about {d.estimatedWaitMinutes} min</div>
+              <div className="tv-foot mt-auto pt-2 text-sm text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis">{d.waitingCount} waiting{d.waitingCount > 0 ? ` · about ${d.estimatedWaitMinutes} min` : ''}</div>
             </div>
           ))}
         </div>
       )}
 
       {board?.recentCalls?.length > 0 && (
-        <div className="mt-6">
-          <div className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Recently called</div>
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-4 shrink-0 flex items-center gap-3 min-w-0">
+          <div className="text-xs uppercase tracking-wider text-slate-400 font-bold shrink-0">Recently called</div>
+          <div className="flex gap-2 overflow-hidden min-w-0">
             {board.recentCalls.map((c: any) => (
-              <span key={`${c.tokenNo}-${c.calledAt}`} className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-lg font-bold tabular-nums">{c.tokenNo} → {c.room}</span>
+              <span key={`${c.tokenNo}-${c.calledAt}`} className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-lg font-bold tabular-nums whitespace-nowrap">{c.tokenNo} → {c.room}</span>
             ))}
           </div>
         </div>

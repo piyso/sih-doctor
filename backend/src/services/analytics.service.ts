@@ -37,7 +37,7 @@ const SYNDROMES: Array<{ id: string; name: string; pattern: RegExp }> = [
 export function getOperationalSnapshot() {
   const today = localDate();
   const active = db.prepare(`
-    SELECT s.id, s.department, s.token_no, s.triage_priority, s.status, s.created_at, s.called_at, s.consult_started_at
+    SELECT s.id, s.department, s.token_no, s.token_date, s.triage_priority, s.status, s.created_at, s.called_at, s.consult_started_at
     FROM sessions s WHERE s.status IN ('PENDING_DOCTOR', 'IN_CONSULTATION', 'DIVERTED_EMERGENCY')
   `).all() as any[];
 
@@ -84,6 +84,10 @@ export function getOperationalSnapshot() {
 
   const sos = db.prepare(`SELECT created_at, acknowledged_at FROM alerts WHERE kind = 'SOS' AND created_at > datetime('now', '-1 day')`).all() as any[];
 
+  // Visits still open from an earlier day: they explain "0 checked in today" beside "10 waiting now".
+  const fromEarlierDay = (a: any) => (a.token_date || localDate(new Date(a.created_at))) !== today;
+  const openNow = active.filter(a => a.status === 'PENDING_DOCTOR' || a.status === 'IN_CONSULTATION');
+
   return {
     date: today,
     totals: {
@@ -91,6 +95,8 @@ export function getOperationalSnapshot() {
       waitingNow: active.filter(a => a.status === 'PENDING_DOCTOR').length,
       inConsultationNow: active.filter(a => a.status === 'IN_CONSULTATION').length,
       emergencyNow: active.filter(a => a.triage_priority === 'EMERGENCY_RED_FLAG').length,
+      carriedOver: openNow.filter(fromEarlierDay).length,
+      emergencyCarriedOver: active.filter(a => a.triage_priority === 'EMERGENCY_RED_FLAG' && fromEarlierDay(a)).length,
       completedToday: count(r => r.status === 'COMPLETED'),
       notSeen: count(r => r.status === 'NOT_SEEN')
     },

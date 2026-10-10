@@ -38,6 +38,8 @@ export const DiagnosisPicker: React.FC<DiagnosisPickerProps> = ({ role, value, o
   const pendingSuggestions = suggestions
     .map(s => suggestionToDiagnosis(s, role))
     .filter((d): d is DiagnosisEntry => !!d && !value.some(v => v.display.toLowerCase() === d.display.toLowerCase()))
+    // Two complaints can resolve to the same diagnosis: offer it once.
+    .filter((d, i, all) => all.findIndex(x => x.display.toLowerCase() === d.display.toLowerCase()) === i)
     .slice(0, 3);
 
   return (

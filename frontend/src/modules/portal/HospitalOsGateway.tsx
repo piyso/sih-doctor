@@ -39,7 +39,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'kiosk', code: '01', shortcutKey: '1',
     title: 'Patient Check-in Kiosk', shortTitle: 'Kiosk', hindiTitle: 'मरीज़ कियोस्क',
     role: 'Patients & caregivers', device: 'Touchscreen kiosk',
-    summary: 'Self check-in in 11 Indian languages: body map, voice, vitals, history and documents. Prints a token with room and wait time.',
+    summary: "Self check-in in 11 Indian languages. Prints a token with the room and wait time.",
     liveMetric: 'No sign-in needed',
     icon: <User size={20} strokeWidth={2} />, DeviceIcon: <Monitor size={12} />
   },
@@ -47,7 +47,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'doctor', code: '02', shortcutKey: '2',
     title: 'Doctor / Vaidya Desk', shortTitle: 'Doctor Desk', hindiTitle: 'चिकित्सक परामर्श',
     role: 'Doctors and vaidyas', device: 'Consultation-room PC',
-    summary: 'Queue with priorities, pre-visit summary, call patient to the room, interaction checks, signed prescription and ABDM record.',
+    summary: "Queue, pre-visit summary, safety-checked prescription with a digital seal.",
     liveMetric: 'Staff sign-in',
     icon: <Activity size={20} strokeWidth={2} />, DeviceIcon: <Laptop size={12} />
   },
@@ -55,7 +55,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'nurse', code: '03', shortcutKey: '3',
     title: 'Nurse Station', shortTitle: 'Nurse Station', hindiTitle: 'नर्स स्टेशन',
     role: 'Nurses & triage staff', device: 'Nurse-station PC',
-    summary: 'Live SOS alarms from kiosks with acknowledge and resolve, and measured vitals entry for waiting patients.',
+    summary: "Live SOS alarms from the kiosks, and measured vitals for waiting patients.",
     liveMetric: 'Live alerts',
     icon: <ShieldAlert size={20} strokeWidth={2} />, DeviceIcon: <Laptop size={12} />
   },
@@ -63,7 +63,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'pharmacy', code: '04', shortcutKey: '4',
     title: 'Pharmacy Counter', shortTitle: 'Pharmacy', hindiTitle: 'औषधालय काउंटर',
     role: 'Pharmacists', device: 'Counter PC + label printer',
-    summary: 'Signed prescriptions arrive automatically. Check the signature, review interaction warnings, and record what was dispensed.',
+    summary: "Signed prescriptions arrive here: check, hand over and record.",
     liveMetric: 'Staff sign-in',
     icon: <BoxSelect size={20} strokeWidth={2} />, DeviceIcon: <BoxSelect size={12} />
   },
@@ -71,7 +71,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'display', code: '05', shortcutKey: '5',
     title: 'Waiting-room Display', shortTitle: 'Queue Display', hindiTitle: 'कतार डिस्प्ले',
     role: 'Waiting hall TV', device: 'TV / large screen',
-    summary: 'Now serving and next tokens per room, with spoken announcements in local languages. Shows token numbers only, never names.',
+    summary: "Now serving and next tokens per room, announced aloud. Never shows names.",
     liveMetric: 'No names shown',
     icon: <Monitor size={20} strokeWidth={2} />, DeviceIcon: <Monitor size={12} />
   },
@@ -79,7 +79,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'asha', code: '06', shortcutKey: '6',
     title: 'ASHA Field App', shortTitle: 'ASHA Field', hindiTitle: 'आशा ग्रामीण सेवा',
     role: 'ASHA / ANM workers', device: 'Phone or tablet',
-    summary: 'Record village visits and pregnancy risk screening without network; records sync to the hospital when back in range.',
+    summary: "Village visits and pregnancy risk screening. Works without a network.",
     liveMetric: 'Works offline',
     icon: <HeartPulse size={20} strokeWidth={2} />, DeviceIcon: <Tablet size={12} />
   },
@@ -87,7 +87,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'admin', code: '07', shortcutKey: '7',
     title: 'Hospital Administration', shortTitle: 'Admin', hindiTitle: 'प्रशासन',
     role: 'Medical superintendent / admin', device: 'Office PC',
-    summary: 'Today\'s numbers from real records, staff accounts, kiosk enrolment, audit trail, patient data requests and backups.',
+    summary: "Today’s numbers, staff accounts, kiosks, audit trail and backups.",
     liveMetric: 'Staff sign-in',
     icon: <ActivitySquare size={20} strokeWidth={2} />, DeviceIcon: <Monitor size={12} />
   },
@@ -95,7 +95,7 @@ export const TERMINAL_OPTIONS: TerminalOption[] = [
     id: 'matrix', code: '08', shortcutKey: '8',
     title: 'Architecture Notes', shortTitle: 'Architecture', hindiTitle: 'तकनीकी विवरण',
     role: 'Technical reviewers', device: 'Any',
-    summary: 'How the system is built: data flow, security controls and the research components behind it.',
+    summary: "How the system is built: data flow, security controls, research components.",
     liveMetric: 'Reference',
     icon: <Fingerprint size={20} strokeWidth={2} />, DeviceIcon: <ShieldAlert size={12} />
   }
@@ -118,6 +118,11 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const launch = (id: TerminalId) => {
+    sovereignSound.playCrystalChime();
+    onLaunchTerminal(id);
+  };
 
   return (
     <div className="gateway-container">
@@ -159,16 +164,6 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
                 <span style={{ fontSize: isMobile ? 15 : 17, fontWeight: 700, letterSpacing: '-0.03em', color: '#090d16' }}>
                   Sovereign Hospital OS
                 </span>
-                {!isMobile && (
-                  <>
-                    <span className="gateway-badge-pill">
-                      SOVEREIGN
-                    </span>
-                    <span className="gateway-badge-pill">
-                      ABDM-R4
-                    </span>
-                  </>
-                )}
               </div>
               <p style={{ fontSize: isMobile ? 11 : 12, color: '#64748b', margin: '1px 0 0 0', fontWeight: 500, letterSpacing: '-0.01em' }}>
                 Madhya Pradesh Public Health &amp; AIIA · Ministry of Ayush &amp; MoHFW
@@ -202,9 +197,6 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
 
         {/* Refined Duotone Headline Section */}
         <div className="gateway-headline-section">
-          <div className="gateway-headline-tag">
-            <span>CLINICAL TERMINAL GATEWAY</span>
-          </div>
           <h1 style={{ fontSize: isMobile ? 20 : 25, fontWeight: 700, color: '#090d16', letterSpacing: '-0.035em', margin: '6px 0 0 0' }}>
             Choose this computer's role
           </h1>
@@ -222,12 +214,15 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
             return (
               <div
                 key={terminal.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`${terminal.title}. ${terminal.liveMetric}. Shortcut key ${terminal.shortcutKey}.`}
                 onMouseEnter={() => setHoveredId(terminal.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                onClick={() => {
-                  sovereignSound.playCrystalChime();
-                  onLaunchTerminal(terminal.id);
-                }}
+                onFocus={() => setHoveredId(terminal.id)}
+                onBlur={() => setHoveredId(null)}
+                onClick={() => launch(terminal.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); launch(terminal.id); } }}
                 className={`gateway-card ${isHovered ? 'hovered' : ''}`}
               >
                 {/* Duotone Card Top Bar */}
@@ -239,30 +234,18 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
                 </div>
 
                 <div className="gateway-card-content">
-                  <div className="gateway-card-device">
-                    {terminal.DeviceIcon}
-                    <span>{terminal.device}</span>
-                  </div>
-
                   <h3 className="gateway-card-title">
                     {terminal.title}
                   </h3>
-
-                  <div className="gateway-card-subtitle">
-                    <span className="gateway-hindi-pill">
-                      {terminal.hindiTitle}
-                    </span>
-                    <span className="gateway-role-text">· {terminal.role}</span>
-                  </div>
+                  <div lang="hi" style={{ fontSize: 12, fontWeight: 600, color: '#64748b', margin: '1px 0 6px 0' }}>{terminal.hindiTitle}</div>
 
                   <p className="gateway-card-summary">
                     {terminal.summary}
                   </p>
 
                   <div className="gateway-card-footer">
-                    {/* Live Metric */}
-                    <div className="gateway-live-metric">
-                      <span className="gateway-live-dot" />
+                    {/* What it needs: sign-in or not, and the kind of device */}
+                    <div className="gateway-live-metric" title={`${terminal.role} · ${terminal.device}`}>
                       <span>{terminal.liveMetric}</span>
                     </div>
 
@@ -287,7 +270,7 @@ export const HospitalOsGateway: React.FC<HospitalOsGatewayProps> = ({
         </div>
         {!isMobile && (
           <div style={{ fontSize: 11, color: '#64748b' }}>
-            Keys <kbd className="gateway-kbd">1</kbd>–<kbd className="gateway-kbd">8</kbd> to launch · <kbd className="gateway-kbd">Esc</kbd> for Gateway
+            Keys <kbd className="gateway-kbd">1</kbd>–<kbd className="gateway-kbd">8</kbd> open a screen · <strong>All screens</strong> at the top left brings you back here
           </div>
         )}
       </footer>

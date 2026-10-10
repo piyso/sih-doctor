@@ -272,7 +272,7 @@ export const PreIntakePanel: React.FC<PreIntakePanelProps> = ({ session, role, o
             <span>Sugar {session.vitals?.bloodSugar ?? '—'}</span>
             {session.vitals?.recordedBy
               ? <span>· measured by {session.vitals.recordedBy}</span>
-              : vitalsAssessment?.selfReported && <span className="basis-full font-sans font-semibold text-amber-700">Entered by the patient at the kiosk — not yet measured by staff.</span>}
+              : vitalsAssessment?.selfReported && Object.values(status).some(v => v !== 'empty') && <span className="basis-full font-sans font-semibold text-amber-700">Entered by the patient at the kiosk — not yet measured by staff.</span>}
           </div>
         )}
         {saveError && <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">{saveError}</p>}

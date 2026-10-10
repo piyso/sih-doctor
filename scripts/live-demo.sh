@@ -59,11 +59,27 @@ CLOUDFLARED="$(command -v cloudflared || true)"
 [ -z "$CLOUDFLARED" ] && [ -x /opt/homebrew/bin/cloudflared ] && CLOUDFLARED=/opt/homebrew/bin/cloudflared
 [ -z "$CLOUDFLARED" ] && [ -x /usr/local/bin/cloudflared ] && CLOUDFLARED=/usr/local/bin/cloudflared
 
+# Runs a command in its own session, with no ties to this terminal or to whatever ran this script:
+# closing the terminal (or the tool) cannot take it down. Usage: detach <logfile> <dir> cmd args…
+detach() {
+  perl -MPOSIX -e '
+    my ($log, $dir, @cmd) = @ARGV;
+    exit 0 if fork();
+    POSIX::setsid();
+    exit 0 if fork();
+    chdir $dir or die "cannot enter $dir";
+    open(STDIN, "<", "/dev/null");
+    open(STDOUT, ">>", $log) or die "cannot write $log";
+    open(STDERR, ">&", \*STDOUT);
+    exec @cmd or die "cannot run $cmd[0]";
+  ' "$@"
+}
+
 # ---- backend ------------------------------------------------------------------
 # Started detached and WITHOUT file-watching: saving a source file changes nothing until
 # --restart-backend is run.
 start_backend() {
-  (cd "$ROOT/backend" && PORT="$PORT" nohup npx tsx src/index.ts >>"$RUN_DIR/backend.log" 2>&1 &)
+  detach "$RUN_DIR/backend.log" "$ROOT/backend" env PORT="$PORT" npx tsx src/index.ts
   for _ in $(seq 1 45); do backend_up && return 0; sleep 1; done
   return 1
 }
@@ -96,7 +112,8 @@ smoke_test() {
   local dir="$RUN_DIR/smoke" pid
   rm -rf "$dir"; mkdir -p "$dir"
   for pid in $(listeners "$SMOKE_PORT"); do kill "$pid" 2>/dev/null || true; done
-  (cd "$ROOT/backend" && PORT="$SMOKE_PORT" DB_PATH="$dir/hospital.db" DATA_DIR="$dir" BACKUP_HOUR=off nohup npx tsx src/index.ts >"$RUN_DIR/smoke.log" 2>&1 &)
+  : >"$RUN_DIR/smoke.log"
+  detach "$RUN_DIR/smoke.log" "$ROOT/backend" env PORT="$SMOKE_PORT" DB_PATH="$dir/hospital.db" DATA_DIR="$dir" BACKUP_HOUR=off npx tsx src/index.ts
   local up=1
   for _ in $(seq 1 45); do
     if backend_up "$SMOKE_PORT" && curl -fsS -m 4 "http://127.0.0.1:$SMOKE_PORT/api/system/mode" >/dev/null 2>&1; then up=0; break; fi
@@ -110,7 +127,7 @@ smoke_test() {
 # ---- tunnel -------------------------------------------------------------------
 start_tunnel() {
   [ -z "$CLOUDFLARED" ] && { bad "cloudflared is not installed (brew install cloudflared)"; return 1; }
-  nohup "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" --metrics "$METRICS" >>"$RUN_DIR/tunnel.log" 2>&1 &
+  detach "$RUN_DIR/tunnel.log" "$ROOT" "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" --metrics "$METRICS"
   for _ in $(seq 1 45); do [ -n "$(tunnel_host || true)" ] && return 0; sleep 1; done
   return 1
 }
@@ -146,7 +163,7 @@ JSON
 keep_awake() {
   command -v caffeinate >/dev/null 2>&1 || return 0
   pgrep -f "caffeinate -dims" >/dev/null 2>&1 && return 0
-  nohup caffeinate -dims >/dev/null 2>&1 &
+  detach /dev/null "$ROOT" caffeinate -dims
   ok "keeping this Mac awake (caffeinate)"
 }
 

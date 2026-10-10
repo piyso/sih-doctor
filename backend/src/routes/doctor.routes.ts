@@ -384,7 +384,7 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
     const rows: any[] = db.prepare(`
       SELECT e.*, p.name as patient_name, p.age, p.gender, p.language, p.prakriti, p.abha_id,
              s.triage_priority, s.token_no, s.department AS dept_code,
-             d.status AS dispense_status, d.pharmacist_name, d.created_at AS dispensed_at, d.note AS dispense_note
+             d.status AS dispense_status, d.pharmacist_name, d.created_at AS dispensed_at, d.note AS dispense_note, d.items_json AS dispense_items
       FROM encounters e
       JOIN patients p ON e.patient_id = p.id
       JOIN sessions s ON e.session_id = s.id
@@ -442,6 +442,8 @@ doctorRouter.get(['/encounters', '/pharmacy-queue'], requireStaff('pharmacist', 
         dispensedBy: r.pharmacist_name || null,
         dispensedAt: r.dispensed_at || null,
         dispenseNote: r.dispense_note || null,
+        // What was handed over, line by line (null when the pharmacist recorded only a status and a note).
+        dispensedItems: cleanDispensedItems(safeJsonParse(r.dispense_items, null)),
         amendsEncounterId: sheet.amendsEncounterId || null
       };
     });
@@ -475,10 +477,72 @@ doctorRouter.post('/encounters/:encounterId/dispense', requireStaff('pharmacist'
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(encounter_id) DO UPDATE SET status = excluded.status, pharmacist_id = excluded.pharmacist_id,
         pharmacist_name = excluded.pharmacist_name, items_json = excluded.items_json, note = excluded.note, created_at = excluded.created_at
-    `).run(uuidv4(), enc.id, status, req.staff!.id, req.staff!.displayName, JSON.stringify(req.body?.items || null), String(req.body?.note || '').slice(0, 500) || null, now);
+    `).run(uuidv4(), enc.id, status, req.staff!.id, req.staff!.displayName, JSON.stringify(cleanDispensedItems(req.body?.items)), String(req.body?.note || '').slice(0, 500) || null, now);
     audit(req, 'pharmacy.dispense', enc.id, { status });
     if (status === 'REFERRED_BACK') publish({ type: 'queue.changed', reason: 'pharmacy_referred', sessionId: enc.session_id });
     res.json({ success: true, status, dispensedAt: now, dispensedBy: req.staff!.displayName });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** The per-line hand-over record: name, whether it was given, quantity and batch — nothing else is stored. */
+function cleanDispensedItems(raw: unknown): Array<{ name: string; given: boolean; quantity?: number; batch?: string }> | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const items = raw.slice(0, 40).map((x: any) => ({
+    name: cleanText(x?.name, 160).trim(),
+    given: x?.given === true,
+    quantity: Number(x?.quantity) > 0 && Number(x?.quantity) < 100000 ? Number(x.quantity) : undefined,
+    batch: cleanText(x?.batch, 40).trim() || undefined
+  })).filter(x => x.name);
+  return items.length ? items : null;
+}
+
+/** Schedule H1 / NDPS medicines on a signed sheet (resolved from the medicine, never from a free-text flag). */
+function registerLines(sheet: any, stream: string | null): Array<{ medicine: string; generic: string; schedule: string; ndps: boolean; quantity?: number }> {
+  const allo: any[] = (stream || sheet.careStream) === 'AYURVEDA' ? [] : (sheet.allopathicPrescription || []);
+  return allo.flatMap((m: any) => resolveAllopathicLine(m, 0, 'prescribed').conceptIds.map(drugById).filter(c => c && (c.schedule === 'H1' || c.ndps))
+    .map(c => ({ medicine: String(m.name || m.drugName || ''), generic: c!.inn, schedule: c!.schedule || 'NDPS', ndps: !!c!.ndps, quantity: Number(m.quantity) > 0 ? Number(m.quantity) : undefined })));
+}
+
+/**
+ * GET /api/doctor/h1-register?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * The Schedule H1 register (Drugs & Cosmetics Rules, rule 65): for every supply of a Schedule H1 or NDPS
+ * medicine — prescriber, patient, medicine and the quantity supplied. Built from the signed prescriptions
+ * and the pharmacy's hand-over records, so it cannot drift from what was dispensed. Kept for three years.
+ */
+doctorRouter.get('/h1-register', requireStaff('pharmacist', 'admin'), (req: Request, res: Response): void => {
+  try {
+    const day = (v: unknown, fallback: string) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fallback);
+    const today = new Date().toISOString().slice(0, 10);
+    const from = day(req.query.from, new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
+    const to = day(req.query.to, today);
+    const rows: any[] = db.prepare(`
+      SELECT e.id, e.doctor_name, e.case_sheet_json, e.care_stream, p.name AS patient_name, p.age, p.gender, s.token_no,
+             d.status, d.pharmacist_name, d.created_at AS supplied_at, d.items_json
+      FROM dispenses d JOIN encounters e ON e.id = d.encounter_id JOIN patients p ON p.id = e.patient_id JOIN sessions s ON s.id = e.session_id
+      WHERE d.status IN ('DISPENSED', 'PARTIAL') AND date(d.created_at) >= ? AND date(d.created_at) <= ? AND s.status != 'DEMO_PARKED'
+      ORDER BY d.created_at ASC
+    `).all(from, to);
+    const entries = rows.flatMap(r => {
+      const sheet: any = safeJsonParse(r.case_sheet_json, {});
+      const given = cleanDispensedItems(safeJsonParse(r.items_json, null));
+      return registerLines(sheet, r.care_stream).map(line => {
+        const rec = given?.find(g => g.name.toLowerCase() === line.medicine.toLowerCase());
+        // A partly-given prescription without a per-line record does not say which lines were supplied.
+        const supplied: 'yes' | 'no' | 'not recorded' = rec ? (rec.given ? 'yes' : 'no') : r.status === 'DISPENSED' ? 'yes' : 'not recorded';
+        return {
+          suppliedAt: r.supplied_at, encounterId: r.id, token: r.token_no || null,
+          prescriber: r.doctor_name, prescriberRegistration: sheet.doctorRegistration || '',
+          patient: r.patient_name, age: r.age, gender: r.gender,
+          medicine: line.medicine, generic: line.generic, schedule: line.ndps ? 'NDPS' : 'H1',
+          quantity: rec?.quantity ?? line.quantity ?? null, batch: rec?.batch || null,
+          supplied, pharmacist: r.pharmacist_name
+        };
+      }).filter(x => x.supplied !== 'no');
+    });
+    audit(req, 'pharmacy.h1_register_viewed', null, { from, to, entries: entries.length });
+    res.json({ success: true, data: { from, to, entries } });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

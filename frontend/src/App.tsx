@@ -79,7 +79,10 @@ export function App() {
     api.checkHealth().catch(() => {});
   }, []);
 
-  // Global Pro Shortcuts: Esc to Portal, 1-6 on Portal (or Alt+1-6 globally)
+  // Shortcuts: 1–8 on the gateway (Alt+1–8 anywhere) open a screen. Escape goes back to the gateway
+  // only from the screens nobody works in (the waiting-room display, the notes, the mobile page).
+  // On the kiosk and every staff screen Escape does nothing here: a doctor who presses it to close
+  // a dropdown must never be thrown out of a half-written prescription.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -92,7 +95,7 @@ export function App() {
       };
 
       if (e.key === 'Escape') {
-        launch('portal');
+        if (activeView === 'display' || activeView === 'matrix' || activeView === 'byod') launch('portal');
       } else if (activeView === 'portal' || e.altKey) {
         const order: ActiveViewMode[] = ['kiosk', 'doctor', 'nurse', 'pharmacy', 'display', 'asha', 'admin', 'matrix'];
         const idx = Number(e.key) - 1;
@@ -120,7 +123,7 @@ export function App() {
                   setActiveView('portal');
                 }}
                 className="h-8 pl-2 pr-2.5 rounded-lg border border-border/70 bg-background hover:bg-muted text-xs font-semibold inline-flex items-center gap-1.5 shrink-0"
-                title="Back to all screens (Esc)"
+                title="Back to all screens"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">All screens</span>
