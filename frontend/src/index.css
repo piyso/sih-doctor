@@ -1316,3 +1316,11 @@
 }
 /* Gateway cards are operated by keyboard too. */
 .gateway-card:focus-visible { outline: 2px solid #0284c7; outline-offset: 2px; }
+/* Gateway header on a phone: the name gets its own row; the mode switch and BYOD button sit below it
+   (side by side they needed 261 px and crushed the title into a 120 px column, 19 px off-screen). */
+@media (max-width: 640px) {
+  .gateway-header { flex-wrap: wrap; row-gap: 10px; }
+  .gateway-header > :first-child { flex: 1 1 100%; min-width: 0; }
+  .gateway-header > :last-child { flex: 1 1 100%; justify-content: space-between; flex-wrap: wrap; row-gap: 8px; }
+  .gateway-byod-btn { white-space: nowrap; }
+}
