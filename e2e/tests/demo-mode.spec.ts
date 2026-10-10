@@ -52,8 +52,16 @@ test.describe('Mock / Real switch', () => {
     await expect(dialog.getByText('Mock mode', { exact: true })).toBeVisible();
     await expect(dialog.getByText('Real mode', { exact: true })).toBeVisible();
     await expect(dialog.getByText(/Mock mode · sample patients from the hospital server/)).toBeVisible();
+    // Keyboard: Tab never leaves the dialog, Escape closes it and focus returns to the "i" button.
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('Tab');
+      expect(await dialog.evaluate(d => d.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press('Shift+Tab');
+    expect(await dialog.evaluate(d => d.contains(document.activeElement))).toBe(true);
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'What Mock and Real mode mean' })).toBeFocused();
     await expect(page.getByRole('heading', { name: "Choose this computer's role" })).toBeVisible();
   });
 });

@@ -173,12 +173,25 @@ export const DemoModeBadge: React.FC<{ className?: string }> = ({ className = ''
   const dialogRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLButtonElement>(null);
 
+  // Modal behaviour: focus goes into the dialog, Tab stays inside it, Escape closes it, and focus
+  // returns to the "i" button however it was closed.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); infoRef.current?.focus(); } };
+    const trigger = infoRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); return; }
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const items = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+      if (items.length === 0) { e.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === dialogRef.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey, true);
     dialogRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey, true);
+    return () => { window.removeEventListener('keydown', onKey, true); trigger?.focus(); };
   }, [open]);
 
   // The result of a click shows for a few seconds under the switch; a needed approval opens the dialog.

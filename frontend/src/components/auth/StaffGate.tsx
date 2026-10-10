@@ -185,13 +185,18 @@ export const StaffChip: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
+  // A disclosure, not an ARIA menu: Tab moves through its buttons, focus goes in when it opens
+  // and back to the account button on Escape.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); triggerRef.current?.focus(); } };
     document.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey, true);
+    panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
     return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey, true); };
   }, [open]);
 
@@ -199,14 +204,14 @@ export const StaffChip: React.FC = () => {
   const initials = user.displayName.replace(/^(Dr|Sr|Vaidya)\.?\s+/i, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   return (
     <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`Account: ${user.displayName}, ${ROLE_LABEL[user.role]}`}
+      <button ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls="account-panel" aria-label={`Account: ${user.displayName}, ${ROLE_LABEL[user.role]}`}
         className="h-8 pl-1 pr-2.5 rounded-full border border-border/80 bg-background hover:bg-muted inline-flex items-center gap-2 text-[11px] font-semibold text-foreground">
         <span className="h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold inline-flex items-center justify-center">{initials || <UserRound size={13} />}</span>
         <span className="hidden md:inline max-w-[160px] truncate">{user.displayName}</span>
         <span className="hidden lg:inline text-muted-foreground font-medium">· {ROLE_LABEL[user.role]}</span>
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 mt-1.5 w-60 rounded-xl border border-border bg-card shadow-xl p-1.5 z-[60]">
+        <div ref={panelRef} id="account-panel" className="absolute right-0 mt-1.5 w-60 rounded-xl border border-border bg-card shadow-xl p-1.5 z-[60]">
           <div className="px-2.5 py-2 border-b border-border/70 mb-1">
             <div className="text-sm font-bold text-foreground truncate">{user.displayName}</div>
             <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
@@ -216,11 +221,11 @@ export const StaffChip: React.FC = () => {
           </div>
           {/* A demo account's PIN is what one-tap sign-in uses, so it is not changed from here. */}
           {!user.isDemo && (
-            <button type="button" role="menuitem" onClick={() => { setOpen(false); setChanging(true); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2">
+            <button type="button" onClick={() => { setOpen(false); setChanging(true); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2">
               <KeyRound size={14} className="text-muted-foreground" /> Change PIN
             </button>
           )}
-          <button type="button" role="menuitem" onClick={() => { setOpen(false); api.logout(); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2">
+          <button type="button" onClick={() => { setOpen(false); api.logout(); }} className="w-full h-9 px-2.5 rounded-lg hover:bg-muted text-xs font-semibold text-foreground inline-flex items-center gap-2">
             <LogOut size={14} className="text-muted-foreground" /> Sign out
           </button>
         </div>

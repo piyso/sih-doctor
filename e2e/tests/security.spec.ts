@@ -34,7 +34,14 @@ test.describe('Access control', () => {
   test('one tap signs a demo doctor in on a demonstration server', async ({ page }) => {
     await page.goto('/?mode=doctor');
     await page.getByTestId('quick-signin-dr.sharma').click();
-    await expect(page.getByRole('button', { name: /Account: Dr\. Ananya Sharma/ })).toBeVisible();
+    const account = page.getByRole('button', { name: /Account: Dr\. Ananya Sharma/ });
+    await expect(account).toBeVisible();
+    // The account panel is keyboard-usable: focus moves in when it opens and back out on Escape.
+    await account.click();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeHidden();
+    await expect(account).toBeFocused();
     // The pharmacy screen is for other roles: it offers the right account in one tap, too.
     await page.goto('/?mode=pharmacy');
     await expect(page.getByText('is not available for your role')).toBeVisible();

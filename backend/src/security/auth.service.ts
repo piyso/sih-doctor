@@ -215,14 +215,19 @@ export const AuthService = {
       appendAudit({ action: 'auth.login', actor: r.id, actorRole: r.role, ip: meta.ip, outcome: 'denied', metadata: { reason: 'inactive' } });
       return { ok: false, reason: 'inactive' };
     }
-    if (r.locked_until && new Date(r.locked_until).getTime() > Date.now()) {
+    // The demo accounts of a demonstration server have published PINs, so a lockout protects
+    // nothing there and would only let any visitor disable an account (and the Mock / Real switch,
+    // which the demo administrator approves) for everyone. Every other account, and every account
+    // on a hospital installation, locks as usual. Wrong PINs are refused and audited either way.
+    const lockable = !(r.is_demo && securityConfig.demoToggle);
+    if (lockable && r.locked_until && new Date(r.locked_until).getTime() > Date.now()) {
       const mins = Math.ceil((new Date(r.locked_until).getTime() - Date.now()) / 60000);
       appendAudit({ action: 'auth.login', actor: r.id, actorRole: r.role, ip: meta.ip, outcome: 'denied', metadata: { reason: 'locked' } });
       return { ok: false, reason: 'locked', retryAfterMinutes: mins };
     }
     if (!this.verifyPin(r.id, pin)) {
       const attempts = (r.failed_attempts || 0) + 1;
-      const lock = attempts >= securityConfig.maxFailedLogins
+      const lock = lockable && attempts >= securityConfig.maxFailedLogins
         ? new Date(Date.now() + securityConfig.lockMinutes * 60000).toISOString()
         : null;
       db.prepare('UPDATE staff_users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(lock ? 0 : attempts, lock, r.id);

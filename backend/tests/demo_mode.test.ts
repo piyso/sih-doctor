@@ -12,6 +12,7 @@ import path from 'path';
 import { createServer } from '../src/app';
 import { DEMO_CARE_STREAMS } from '../src/db/seed';
 import { securityConfig, setRuntimeDemoMode } from '../src/security/config';
+import { resetDemoStaff } from '../src/db/demoStaff';
 
 function demoPin(username: string): string {
   const file = fs.readFileSync(path.resolve(__dirname, '../src/db/demoStaff.ts'), 'utf8');
@@ -84,9 +85,18 @@ export async function runDemoModeBattery() {
     check(demoIds.every(id => backIds.includes(id)) && backIds.includes(intake.json.sessionId), 'sample patients are back and the real check-in was kept');
     check((await api('POST', '/api/doctor/demo-queue', undefined, doctor)).status === 200, 'demo endpoints answer again');
 
+    console.log('\n--- Wrong PINs on a demonstration server ---');
+    let wrong = 0;
+    for (let i = 0; i < 7; i++) if ((await login('asha.sunita', '000000')).status === 401) wrong++;
+    check(wrong === 7, 'seven wrong PINs are each refused');
+    check((await login('asha.sunita')).status === 200, 'but a demo account is never locked (its PIN is public; a lock would only let a visitor disable it)');
+
     console.log('\n--- A hospital installation (no switch) keeps its protections ---');
     (securityConfig as any).demoToggle = false;
     try {
+      const tries: number[] = [];
+      for (let i = 0; i < 6; i++) tries.push((await login('asha.sunita', '000000')).status);
+      check(tries.slice(0, 4).every(s => s === 401) && tries[5] === 423 && (await login('asha.sunita')).status === 423, 'the same account locks after five wrong PINs');
       check((await api('POST', '/api/system/demo-mode', { on: false }, demoAdmin)).json?.code === 'TOGGLE_DISABLED', 'there is no switch');
       setRuntimeDemoMode(false);
       const blocked = await login('dr.sharma');
@@ -99,6 +109,15 @@ export async function runDemoModeBattery() {
       setRuntimeDemoMode(true);
     }
     check((await api('GET', '/api/auth/me', undefined, doctor)).status === 200, 'back on the demonstration server the session works again');
+
+    console.log('\n--- Reset after a visitor tampered with the demo accounts ---');
+    const users = (await api('GET', '/api/admin/users', undefined, demoAdmin)).json.data as Array<{ id: string; username: string }>;
+    const nurse = users.find(u => u.username === 'nurse.priya')!;
+    await api('POST', `/api/admin/users/${nurse.id}/reset-pin`, { pin: '864213' }, demoAdmin);
+    await api('PATCH', `/api/admin/users/${users.find(u => u.username === 'pharma.ravi')!.id}`, { active: false }, demoAdmin);
+    check((await login('nurse.priya')).status === 401 && (await login('pharma.ravi')).status === 401, 'a changed PIN and a deactivated account stop one-tap sign-in');
+    const restored = resetDemoStaff();
+    check(restored.restored === 6 && (await login('nurse.priya')).status === 200 && (await login('pharma.ravi')).status === 200 && (await login('asha.sunita')).status === 200, 'resetDemoStaff() puts all six back: active, unlocked, published PINs');
   } catch (err: any) {
     check(false, `battery crashed: ${err.message}`);
   } finally {
