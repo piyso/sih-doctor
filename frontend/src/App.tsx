@@ -26,6 +26,7 @@ import { DemoModeBadge } from './components/common/DemoModeControl';
 import { useServerReachable, refreshRuntimeMode } from './services/runtimeMode';
 import { sovereignSound } from './utils/audio';
 import { api } from './services/api';
+import { session } from './services/session';
 import { ArrowLeft, Loader2, Smartphone, MonitorSmartphone, Stethoscope, HeartPulse, Pill, Tv, Footprints, LayoutDashboard, Network } from 'lucide-react';
 
 /** Each terminal's name in the top bar, so staff always know which screen they are on. */
@@ -233,13 +234,25 @@ export function App() {
 
       {/* The server is not answering (often a free cloud server waking up). Every screen retries on its own. */}
       {reachable === false && (
-        <div className="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-[1300] max-w-[calc(100vw-24px)] rounded-xl border border-amber-500/50 bg-card shadow-xl px-3.5 py-2.5 flex items-center gap-3 text-xs" role="status">
+        <div className="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-[1300] max-w-[calc(100vw-24px)] rounded-xl border border-amber-500/50 bg-card shadow-xl px-3.5 py-2.5 flex items-center gap-2.5 text-xs flex-wrap sm:flex-nowrap" role="status">
           <Loader2 size={15} className="animate-spin text-amber-600 shrink-0" />
           <span className="text-foreground">
             <strong>Connecting to the hospital server…</strong>
-            <span className="text-muted-foreground"> A free cloud server can take up to a minute to wake. Retrying automatically.</span>
+            <span className="text-muted-foreground"> Retrying automatically.</span>
           </span>
-          <button type="button" onClick={() => refreshRuntimeMode()} className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted font-semibold shrink-0">Retry</button>
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+            <button type="button" onClick={() => refreshRuntimeMode()} className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted font-semibold text-xs">Retry</button>
+            <button
+              type="button"
+              onClick={() => {
+                session.setSandbox(true);
+                window.location.reload();
+              }}
+              className="h-7 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm"
+            >
+              ⚡ Offline Sandbox
+            </button>
+          </div>
         </div>
       )}
 

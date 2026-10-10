@@ -150,7 +150,7 @@ const getAutoApiUrl = (): string => {
     hostname.includes('netlify.app')
   ) {
     if (!hostname.includes('backend')) {
-      return 'https://hospitalos-doctor-backend.onrender.com';
+      return 'https://gamma-tones-positioning-adjust.trycloudflare.com';
     }
   }
 
@@ -184,7 +184,7 @@ const getAutoWsUrl = (): string => {
     hostname.includes('netlify.app')
   ) {
     if (!hostname.includes('backend')) {
-      return 'wss://hospitalos-doctor-backend.onrender.com/ws/ambient';
+      return 'wss://gamma-tones-positioning-adjust.trycloudflare.com/ws/ambient';
     }
   }
 
