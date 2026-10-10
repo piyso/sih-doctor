@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { Lock, LogIn, LogOut, KeyRound, ShieldCheck, UserRound, Loader2, AlertCircle, Delete } from 'lucide-react';
-import { api } from '../../services/api';
+import { Lock, LogIn, LogOut, KeyRound, ShieldCheck, UserRound, Loader2, AlertCircle, Delete, Globe, Server, RefreshCw } from 'lucide-react';
+import { api, BASE_URL, getCustomApiUrl, setCustomApiUrl } from '../../services/api';
 import { session, StaffRole, StaffUser, ROLE_LABEL } from '../../services/session';
 
 /** Current staff user, re-rendering when they sign in or out. */
@@ -225,6 +225,9 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
     }
   }, [username, pin, onDone]);
 
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverInput, setServerInput] = useState(getCustomApiUrl() || '');
+
   if (status?.needsSetup) return <FirstRunSetup needsCode={status.setupNeedsCode} onDone={() => api.getAuthStatus().then(setStatus)} />;
 
   const suggested = (status?.demoAccounts || []).filter(a => roles.includes(a.role as StaffRole));
@@ -261,7 +264,7 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
               </button>
             </div>
             <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-              Free cloud backends (e.g. Render) take up to a minute to wake from sleep. Click <strong>1-Click Offline Sandbox</strong> to immediately access the Doctor Desk, Dual-Pharmacology Prescriber, and Kiosk with sample patients and zero waiting.
+              Free cloud backends take time to wake. Click <strong>1-Click Offline Sandbox</strong> to immediately access the Doctor Desk, Dual-Pharmacology Prescriber, and Kiosk with sample patients and zero waiting.
             </p>
           </div>
         )}
@@ -307,6 +310,65 @@ const SignInCard: React.FC<{ terminalName: string; roles: StaffRole[]; notice: s
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Server Connection Manager */}
+        <div className="mt-4 pt-3 border-t border-border/70">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
+            <span className="flex items-center gap-1.5 font-medium">
+              <Server size={12} className="text-primary" /> Hospital Server:
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowServerConfig(!showServerConfig)}
+              className="text-[10px] text-primary hover:underline font-semibold"
+            >
+              {showServerConfig ? 'Close' : 'Change Server'}
+            </button>
+          </div>
+          <div className="text-[11px] font-mono text-foreground/80 truncate bg-muted/50 px-2 py-1 rounded-md border border-border/50">
+            {BASE_URL}
+          </div>
+
+          {showServerConfig && (
+            <div className="mt-2.5 p-3 rounded-xl bg-muted/40 border border-border text-xs space-y-2">
+              <label className="block text-[11px] font-semibold text-foreground">Custom Server URL (Cloudflare Tunnel, Codespaces, or VPS)</label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={serverInput}
+                  onChange={e => setServerInput(e.target.value)}
+                  placeholder="https://...trycloudflare.com or https://...app.github.dev"
+                  className="flex-1 h-9 rounded-lg border border-border bg-background px-2.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCustomApiUrl(serverInput)}
+                  className="px-3 h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs whitespace-nowrap"
+                >
+                  Connect
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setCustomApiUrl('https://gamma-tones-positioning-adjust.trycloudflare.com')}
+                  className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline inline-flex items-center gap-1"
+                >
+                  <Globe size={11} /> ⚡ Connect Live Cloudflare Tunnel
+                </button>
+                {getCustomApiUrl() && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomApiUrl(null)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                  >
+                    <RefreshCw size={10} /> Reset Default
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -108,7 +108,33 @@ const envPointsToOtherMachinesLocalhost = (url: string) => {
   }
 };
 
+export function getCustomApiUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('HOSPITAL_BACKEND_URL') || null;
+}
+
+export function setCustomApiUrl(url: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (!url || !url.trim()) {
+    localStorage.removeItem('HOSPITAL_BACKEND_URL');
+  } else {
+    let clean = url.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `https://${clean}`;
+    }
+    localStorage.setItem('HOSPITAL_BACKEND_URL', clean.replace(/\/$/, ''));
+  }
+  window.location.reload();
+}
+
 const getAutoApiUrl = (): string => {
+  if (isBrowser) {
+    const custom = localStorage.getItem('HOSPITAL_BACKEND_URL');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/$/, '');
+    }
+  }
+
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
     const full = envUrl.startsWith('http') ? envUrl : `https://${envUrl}`;
@@ -133,6 +159,15 @@ const getAutoApiUrl = (): string => {
 };
 
 const getAutoWsUrl = (): string => {
+  if (isBrowser) {
+    const custom = localStorage.getItem('HOSPITAL_BACKEND_URL');
+    if (custom && custom.trim()) {
+      const wsProto = custom.startsWith('https') ? 'wss' : 'ws';
+      const hostPart = custom.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      return `${wsProto}://${hostPart}/ws/ambient`;
+    }
+  }
+
   const envWs = import.meta.env.VITE_WS_URL;
   if (envWs && typeof envWs === 'string' && envWs.trim()) {
     const full = envWs.startsWith('ws') ? envWs : `wss://${envWs}`;
