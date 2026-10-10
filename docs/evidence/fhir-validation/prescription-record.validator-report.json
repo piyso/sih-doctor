@@ -1,0 +1,71 @@
+{
+  "resourceType" : "OperationOutcome",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p class=\"res-header-id\"><b>OperationOutcome </b></p><p>All OK</p><table class=\"grid\"><tr><td><b>Severity</b></td><td><b>Location</b></td><td><b>Code</b></td><td><b>Details</b></td><td><b>Diagnostics</b></td><td><b>Source</b></td></tr><tr><td>Information</td><td>Bundle.entry[1].resource/*Patient/483174ad-5ad0-4eba-8b79-75019a8f17c7*/.identifier[0].type</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[1].resource/*Patient/483174ad-5ad0-4eba-8b79-75019a8f17c7*/.identifier[1].type</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1</td><td/><td>TerminologyEngine</td></tr></table></div>"
+  },
+  "extension" : [{
+    "url" : "http://hl7.org/fhir/tools/StructureDefinition/validator-version",
+    "valueString" : "FHIR Validation tool Version 7.0.1 (Git# d8783284409e). Built 2026-10-08T03:33:12.303Z (54 hours old)"
+  },
+  {
+    "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-file",
+    "valueString" : "sample-prescription.json"
+  }],
+  "issue" : [{
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 102
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 14
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT_SRC_STATUS"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Patient|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1"
+    },
+    "expression" : ["Bundle.entry[1].resource/*Patient/483174ad-5ad0-4eba-8b79-75019a8f17c7*/.identifier[0].type"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 116
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 14
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT_SRC_STATUS"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Patient|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1"
+    },
+    "expression" : ["Bundle.entry[1].resource/*Patient/483174ad-5ad0-4eba-8b79-75019a8f17c7*/.identifier[1].type"]
+  }]
+}

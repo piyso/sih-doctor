@@ -40,6 +40,12 @@ const NRCES_STRICT = process.env.FHIR_NRCES_STRICT !== 'false';
 const NDHM_ID_TYPE = 'https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code';
 const V2_ID_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const TRADITIONAL_SYSTEMS = new Set(['https://namstp.ayush.gov.in', 'http://id.who.int/icd/release/11/mms']);
+import codeDisplays from '../data/code_displays.json';
+/** ICD-10 / SNOMED CT codings must carry the official display (NRCES: display 1..1; validator checks wording). */
+const officialDisplay = (system: string, code: string, fallback?: string): string | undefined => {
+  const table = system === 'http://hl7.org/fhir/sid/icd-10' ? (codeDisplays as any).icd10 : system === SCT ? (codeDisplays as any).snomed : null;
+  return (table && table[String(code)]) || fallback;
+};
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as any)[c]);
 
 export const SECTION_CODES = {
@@ -88,7 +94,7 @@ export interface FhirBuildInput {
 interface Entry { fullUrl: string; resource: Record<string, any> }
 
 const ref = (id: string) => ({ reference: `urn:uuid:${id}` });
-const coding = (system: string, code: string, display?: string) => ({ system, code, ...(display ? { display } : {}) });
+const coding = (system: string, code: string, display?: string) => { const d = system === 'http://hl7.org/fhir/sid/icd-10' || system === SCT ? officialDisplay(system, code, display) : display; return { system, code, ...(d ? { display: d } : {}) }; };
 const text = (t: string) => ({ text: t });
 const genderOf = (g: unknown): 'male' | 'female' | 'other' | 'unknown' => {
   const s = String(g || '').toLowerCase();
@@ -125,7 +131,7 @@ function addNarrative(r: Record<string, any>): void {
   // Rebuild the object so `text` sits after `meta` (readability of the JSON only; FHIR ignores order).
   const { resourceType, id, meta, ...rest } = r;
   for (const k of Object.keys(r)) delete r[k];
-  Object.assign(r, { resourceType, id, ...(meta ? { meta } : {}), text: { status: 'generated', div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${esc(body)}</p></div>` }, ...rest });
+  Object.assign(r, { resourceType, id, ...(meta ? { meta } : {}), text: { status: 'generated', div: `<div xmlns="http://www.w3.org/1999/xhtml" lang="en-IN" xml:lang="en-IN"><p>${esc(body)}</p></div>` }, ...rest });
 }
 
 export class FhirGeneratorService {
@@ -458,7 +464,9 @@ export class FhirGeneratorService {
    * Composition typed SNOMED 440545006 |Prescription record|.
    */
   static buildPrescriptionRecord(consultBundle: AbdmFhirBundle): AbdmFhirBundle {
-    const keep = new Set(['Patient', 'Practitioner', 'Organization', 'Encounter', 'Condition', 'MedicationRequest']);
+    // NRCES PrescriptionRecord: one section whose entries are MedicationRequest (or Binary) only, each entry typed.
+    // Conditions are not part of this document (every entry must be reachable from the Composition, R4 §3.3.1).
+    const keep = new Set(['Patient', 'Practitioner', 'Organization', 'Encounter', 'MedicationRequest']);
     const entries = consultBundle.entry.filter((e: any) => keep.has(e.resource?.resourceType));
     const by = (t: string) => entries.find((e: any) => e.resource.resourceType === t)?.resource as any;
     const meds = entries.filter((e: any) => e.resource.resourceType === 'MedicationRequest');
@@ -472,8 +480,9 @@ export class FhirGeneratorService {
       status: 'final', type: { coding: [coding(SCT, '440545006', 'Prescription record')], text: 'Prescription record' },
       subject: refTo(by('Patient')), ...(by('Encounter') ? { encounter: refTo(by('Encounter')) } : {}), date: timestamp, author: [refTo(by('Practitioner'))],
       title: 'Prescription record', ...(by('Organization') ? { custodian: refTo(by('Organization')) } : {}),
-      section: meds.length ? [{ title: 'Prescription record', code: { coding: [coding(SCT, '440545006', 'Prescription record')] }, entry: meds.map((e: any) => refTo(e.resource)) }] : []
+      section: meds.length ? [{ title: 'Prescription record', code: { coding: [coding(SCT, '440545006', 'Prescription record')] }, entry: meds.map((e: any) => ({ ...refTo(e.resource), type: 'MedicationRequest' })) }] : []
     };
+    addNarrative(composition);
     return {
       resourceType: 'Bundle', id: bundleId, meta: { versionId: '1', lastUpdated: timestamp, profile: [`${NDHM}/DocumentBundle`] },
       identifier: { system: `${HOSPITAL}/bundle`, value: bundleId }, type: 'document', timestamp,

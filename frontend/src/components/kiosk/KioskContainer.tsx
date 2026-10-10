@@ -36,7 +36,7 @@ const emptyHistory = (): PatientHistory => ({ conditions: [], allergies: '', cur
 const STEP_TITLE_KEYS: KioskTextKey[] = ['stepTitle1', 'stepTitle2', 'stepTitle3', 'stepTitle4', 'stepTitleInterview', 'stepTitle5', 'stepTitle6'];
 const LAST_FORM_STEP = 7;
 const SUMMARY_STEP = 8;
-const DRAFT_MAX_AGE_MS = 3 * 60 * 1000; // a draft shown to the next person at the kiosk is a privacy leak, so only very recent ones are offered
+const DRAFT_MAX_AGE_MS = 30 * 60 * 1000; // resumable for half an hour: the server strips Aadhaar / ABHA / phone from a restored draft, and only someone who knows the phone number can ask for it
 const stripIdentifiers = (p: KioskPatient) => ({ ...p, aadhaar: '', abhaId: '' });
 
 type SosState =

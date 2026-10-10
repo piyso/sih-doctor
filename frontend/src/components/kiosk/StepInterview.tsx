@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertOctagon, Check, Loader2, Mic, MicOff, Volume2, WifiOff, MessageCircleQuestion } from 'lucide-react';
 import { PatientHistory, SocratesSymptom } from '../../types/api';
-import { api, InterviewQuestion, InterviewRedFlag, InterviewResult } from '../../services/api';
+import { api, InterviewQuestion, InterviewRedFlag, InterviewResult, InterviewStep } from '../../services/api';
 import { KioskPatient } from './Step2AbhaAuth';
 import { RegisterNav, useStepNav } from './kioskNav';
 import { BCP47, kioskText, normalizeLang } from '../../utils/kioskLocalization';
@@ -96,6 +96,18 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recRef = useRef<any>(null);
   const startedRef = useRef(false);
+  // Answers already captured by the pain-and-vitals step: whenever the interview reaches one of these questions it is answered silently.
+  const prefillRef = useRef<Map<string, unknown>>(new Map(prefillFromSymptom(symptoms[0])));
+  const autoAnswer = async <S extends { question: InterviewQuestion | null; done: boolean }>(id: string, step: S): Promise<S | InterviewStep> => {
+    let cur: S | InterviewStep = step;
+    for (let guard = 0; guard < 12 && !cur.done && cur.question && prefillRef.current.has(cur.question.id); guard++) {
+      const qid = cur.question.id;
+      const v = prefillRef.current.get(qid);
+      prefillRef.current.delete(qid);
+      try { cur = await api.answerInterview(id, { questionId: qid, value: v }); } catch { break; }
+    }
+    return cur;
+  };
 
   const stopSpeaking = useCallback(() => {
     try { audioRef.current?.pause(); } catch {}
@@ -125,7 +137,8 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
       setBusy(true);
       try {
         if (interviewId) {
-          const r = await api.resumeInterview(interviewId);
+          let r = await api.resumeInterview(interviewId);
+          r = await autoAnswer(interviewId, r);
           if (r.done) setDone(true); else showQuestion(r.question);
         } else {
           const r = await api.startInterview({
@@ -138,13 +151,9 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
           if (fam) {
             let step = await api.answerInterview(r.interviewId, { questionId: 'cc_family', value: fam });
             if (step.question?.id === 'cc_text' && transcript.trim()) step = await api.answerInterview(r.interviewId, { questionId: 'cc_text', value: transcript.trim().slice(0, 500) });
-            // What the pain-and-vitals step already captured answers the matching HPI questions.
-            for (const [qid, v] of prefillFromSymptom(symptoms[0])) {
-              if (step.question?.id !== qid) continue;
-              try { step = await api.answerInterview(r.interviewId, { questionId: qid, value: v }); } catch { break; }
-            }
+            step = await autoAnswer(r.interviewId, step);
             setLocalRedFlags(step.redFlags);
-            showQuestion(step.question);
+            if (step.done) await finish(); else showQuestion(step.question);
           } else {
             showQuestion(r.question);
           }
@@ -221,7 +230,8 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
     if (!question || !interviewId || busy) return;
     setBusy(true);
     try {
-      const step = await api.answerInterview(interviewId, skip ? { questionId: question.id, skip: true } : { questionId: question.id, value: question.type === 'text' ? String(value).trim() : value });
+      let step = await api.answerInterview(interviewId, skip ? { questionId: question.id, skip: true } : { questionId: question.id, value: question.type === 'text' ? String(value).trim() : value });
+      step = await autoAnswer(interviewId, step);
       setLocalRedFlags(step.redFlags);
       if (step.redFlags.some(f => f.tier === 'sos') && !redFlags.some(f => f.tier === 'sos')) { try { sovereignSound.playClinicalAlert(); } catch {} }
       if (step.done) await finish(); else showQuestion(step.question);
@@ -288,7 +298,7 @@ export const StepInterview: React.FC<StepInterviewProps> = ({
           <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><MessageCircleQuestion size={18} /></div>
           <div className="min-w-0">
             <div className="text-sm font-heading font-bold text-foreground truncate">{tx('stepTitleInterview')}</div>
-            {progress && <div className="text-[11px] text-muted-foreground">{progress.answered}/{progress.planned} · {question?.section}</div>}
+            {progress && <div className="text-[11px] text-muted-foreground">{progress.answered}/{progress.planned} · {question?.sectionTitle || question?.section}</div>}
           </div>
         </div>
         {question && (

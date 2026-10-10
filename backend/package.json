@@ -26,7 +26,8 @@
     "calibrate:conformal": "tsx scripts/calibrate-conformal.ts",
     "import:namaste": "tsx scripts/import-namaste.ts",
     "test:http": "tsx tests/http_api.test.ts",
-    "eval:safety": "tsx tests/safety_benchmark.test.ts"
+    "eval:safety": "tsx tests/safety_benchmark.test.ts",
+    "fhir:code-displays": "tsx scripts/fhir-code-displays.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

@@ -1,0 +1,1423 @@
+{
+  "resourceType": "Bundle",
+  "id": "8ab5096f-aac7-4106-b421-5f350753a4fe",
+  "meta": {
+    "versionId": "1",
+    "lastUpdated": "2026-10-10T04:50:25.078Z",
+    "profile": [
+      "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+    ]
+  },
+  "identifier": {
+    "system": "https://hospital.example/fhir/bundle",
+    "value": "8ab5096f-aac7-4106-b421-5f350753a4fe"
+  },
+  "type": "document",
+  "timestamp": "2026-10-10T04:50:25.078Z",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:5767f979-5b0f-4f65-8062-691cafa6e0b9",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "5767f979-5b0f-4f65-8062-691cafa6e0b9",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/OPConsultRecord"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>OP Consultation Record: Chief Complaints (1), Physical Examination (4), Allergies (1), Medical History (1), Family History (1), Investigation Advice (1), Medications (3), Follow Up (1), Procedure (1), Other Observations (6), Document Reference (1)</p></div>"
+        },
+        "language": "en-IN",
+        "identifier": {
+          "system": "https://hospital.example/fhir/composition",
+          "value": "enc-sample-001"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "371530004",
+              "display": "Clinical consultation report"
+            }
+          ],
+          "text": "Clinical Consultation report"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "date": "2026-10-10T04:50:25.078Z",
+        "author": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "title": "OP Consultation Record",
+        "custodian": {
+          "reference": "urn:uuid:701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a"
+        },
+        "section": [
+          {
+            "title": "Chief Complaints",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "422843007",
+                  "display": "Chief complaint section"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:9eead103-557c-4aab-b383-d7dc1bc2f005"
+              }
+            ]
+          },
+          {
+            "title": "Physical Examination",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "425044008",
+                  "display": "Physical exam section"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:cedf2c02-914f-44d4-ba5a-f353bde2d4d7"
+              },
+              {
+                "reference": "urn:uuid:c4a6996d-5028-46ba-a5a3-48f4a92d182e"
+              },
+              {
+                "reference": "urn:uuid:12195ebc-82d1-44ff-b001-0c84f2e524c3"
+              },
+              {
+                "reference": "urn:uuid:dbb7ca64-4f32-41bc-a2f1-d56956a6736c"
+              }
+            ]
+          },
+          {
+            "title": "Allergies",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "722446000",
+                  "display": "Allergy record"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:3011d070-acf2-4c5b-8473-c7ed505e17bd"
+              }
+            ]
+          },
+          {
+            "title": "Medical History",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "371529009",
+                  "display": "History and physical report"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:ebfdaf2a-476d-4ddf-9a3f-ae5b04bf1093"
+              }
+            ]
+          },
+          {
+            "title": "Family History",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "422432008",
+                  "display": "Family history section"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:dd2b8288-fa36-4ba7-b975-49b5735a67a6"
+              }
+            ]
+          },
+          {
+            "title": "Investigation Advice",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "721963009",
+                  "display": "Order document"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:fc169d44-11be-47d8-b774-739b3800d5f4"
+              }
+            ]
+          },
+          {
+            "title": "Medications",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "721912009",
+                  "display": "Medication summary document"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:be8abd07-ee85-4573-a5d4-c02e7a5e6789"
+              },
+              {
+                "reference": "urn:uuid:f86377ab-2550-4ed2-806a-82a7ff1e798d"
+              },
+              {
+                "reference": "urn:uuid:68b5b48a-50f5-4c07-9242-72e265e5d4bd"
+              }
+            ]
+          },
+          {
+            "title": "Follow Up",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "736271009",
+                  "display": "Outpatient care plan"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:6e6e4c2b-0a23-49d5-ba7f-6c13417ace23"
+              }
+            ]
+          },
+          {
+            "title": "Procedure",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "371525003",
+                  "display": "Clinical procedure report"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:24adaf8b-09f6-4ca6-9723-61f5d9ba580b"
+              }
+            ]
+          },
+          {
+            "title": "Other Observations",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "404684003",
+                  "display": "Clinical finding"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:7e1c1514-886e-4a4b-8283-0258600c41a7"
+              },
+              {
+                "reference": "urn:uuid:3e8e0527-0883-4f77-9821-2a3cbe345bf4"
+              },
+              {
+                "reference": "urn:uuid:60502052-efd5-4a90-bebf-9c5004c70221"
+              },
+              {
+                "reference": "urn:uuid:a04b2810-a745-478c-b691-9555db5535ef"
+              },
+              {
+                "reference": "urn:uuid:1bc0a6f0-bdcc-460e-bcd9-25540bf261a9"
+              },
+              {
+                "reference": "urn:uuid:04fc3063-bb0c-4c43-bab3-bff77772ce5a"
+              }
+            ]
+          },
+          {
+            "title": "Document Reference",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "371530004",
+                  "display": "Clinical consultation report"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:7e441539-2341-4da9-b5b9-4daad80fbcb6"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "483174ad-5ad0-4eba-8b79-75019a8f17c7",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Rekha Devi, female, born 1995</p></div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code",
+                  "code": "ABHA",
+                  "display": "Ayushman Bharat Health Account (ABHA) ID"
+                }
+              ],
+              "text": "ABHA number"
+            },
+            "system": "https://healthid.ndhm.gov.in",
+            "value": "91-1234-5678-9012"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code",
+                  "code": "ABHA",
+                  "display": "Ayushman Bharat Health Account (ABHA) ID"
+                }
+              ],
+              "text": "ABHA address"
+            },
+            "system": "https://healthid.abdm.gov.in",
+            "value": "rekha.demo@sbx"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical record number"
+                }
+              ],
+              "text": "Hospital MRN"
+            },
+            "system": "https://hospital.example/fhir/mrn",
+            "value": "pat-sample-001"
+          }
+        ],
+        "name": [
+          {
+            "text": "Rekha Devi"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1995"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Hospital (Local facility code (not yet registered in the Health Facility Registry): LOCAL)</p></div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "PRN",
+                  "display": "Provider number"
+                }
+              ],
+              "text": "Local facility code (not yet registered in the Health Facility Registry)"
+            },
+            "system": "https://hospital.example/fhir/facility",
+            "value": "LOCAL"
+          }
+        ],
+        "name": "Hospital"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "6f66415e-66ad-4e9f-8509-38ff26c518a0",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Dr Ananya Sharma, MBBS, MD (General Medicine)</p></div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MD",
+                  "display": "Medical License number"
+                }
+              ],
+              "text": "Council registration"
+            },
+            "system": "https://www.nmc.org.in",
+            "value": "DMC Reg. 98421"
+          }
+        ],
+        "name": [
+          {
+            "text": "Dr Ananya Sharma"
+          }
+        ],
+        "qualification": [
+          {
+            "code": {
+              "text": "MBBS, MD (General Medicine)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "376d2700-21a8-4278-bbcb-4cfcdfbded1c",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Encounter"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Encounter finished on 2026-10-10</p></div>"
+        },
+        "identifier": [
+          {
+            "system": "https://hospital.example/fhir/encounter",
+            "value": "enc-sample-001"
+          }
+        ],
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "serviceType": {
+          "text": "General Medicine OPD"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "participant": [
+          {
+            "individual": {
+              "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+            }
+          }
+        ],
+        "period": {
+          "start": "2026-10-10T04:50:25.078Z",
+          "end": "2026-10-10T04:50:25.078Z"
+        },
+        "serviceProvider": {
+          "reference": "urn:uuid:701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9eead103-557c-4aab-b383-d7dc1bc2f005",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "9eead103-557c-4aab-b383-d7dc1bc2f005",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Condition"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Vataja Jwara (Acute Pyrexia / Viral Fever) (Provisional)</p></div>"
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "provisional",
+              "display": "Provisional"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis",
+                "display": "Encounter Diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10",
+              "code": "R50.9",
+              "display": "Fever, unspecified"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "386661006",
+              "display": "Fever"
+            }
+          ],
+          "text": "Vataja Jwara (Acute Pyrexia / Viral Fever)"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "recordedDate": "2026-10-10T04:50:25.078Z"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:7e1c1514-886e-4a4b-8283-0258600c41a7",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "7e1c1514-886e-4a4b-8283-0258600c41a7",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Traditional medicine diagnosis coding (NAMASTE / ICD-11 TM2): Vataja Jwara</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "exam",
+                "display": "Exam"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "439401001",
+              "display": "Diagnosis"
+            }
+          ],
+          "text": "Traditional medicine diagnosis coding (NAMASTE / ICD-11 TM2)"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "focus": [
+          {
+            "reference": "urn:uuid:9eead103-557c-4aab-b383-d7dc1bc2f005"
+          }
+        ],
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "valueCodeableConcept": {
+          "coding": [
+            {
+              "system": "https://namstp.ayush.gov.in",
+              "code": "AYU-JWA-001",
+              "display": "Vataja Jwara"
+            }
+          ],
+          "text": "Vataja Jwara"
+        },
+        "note": [
+          {
+            "text": "Dual coding of the same diagnosis in the AYUSH NAMASTE terminology (and ICD-11 TM2 where mapped); NRCES Condition.code is limited to ICD-10 / SNOMED CT."
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:cedf2c02-914f-44d4-ba5a-f353bde2d4d7",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "cedf2c02-914f-44d4-ba5a-f353bde2d4d7",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Blood pressure: Systolic blood pressure 118 mmHg, Diastolic blood pressure 76 mmHg</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "85354-9",
+              "display": "Blood pressure panel with all children optional"
+            }
+          ],
+          "text": "Blood pressure"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "component": [
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8480-6",
+                  "display": "Systolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 118,
+              "unit": "mmHg",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8462-4",
+                  "display": "Diastolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 76,
+              "unit": "mmHg",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c4a6996d-5028-46ba-a5a3-48f4a92d182e",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "c4a6996d-5028-46ba-a5a3-48f4a92d182e",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Heart rate: 112 /min</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "valueQuantity": {
+          "value": 112,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:12195ebc-82d1-44ff-b001-0c84f2e524c3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "12195ebc-82d1-44ff-b001-0c84f2e524c3",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Oxygen saturation in Arterial blood: 94 %</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2708-6",
+              "display": "Oxygen saturation in Arterial blood"
+            }
+          ],
+          "text": "Oxygen saturation in Arterial blood"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "valueQuantity": {
+          "value": 94,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:dbb7ca64-4f32-41bc-a2f1-d56956a6736c",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "dbb7ca64-4f32-41bc-a2f1-d56956a6736c",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Body temperature: 38.6 Cel</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8310-5",
+              "display": "Body temperature"
+            }
+          ],
+          "text": "Body temperature"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "valueQuantity": {
+          "value": 38.6,
+          "unit": "Cel",
+          "system": "http://unitsofmeasure.org",
+          "code": "Cel"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3011d070-acf2-4c5b-8473-c7ed505e17bd",
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "3011d070-acf2-4c5b-8473-c7ed505e17bd",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/AllergyIntolerance"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Allergy: Penicillin (rash)</p></div>"
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+              "code": "unconfirmed",
+              "display": "Unconfirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Penicillin (rash)"
+        },
+        "patient": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "recordedDate": "2026-10-10T04:50:25.078Z"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:ebfdaf2a-476d-4ddf-9a3f-ae5b04bf1093",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "ebfdaf2a-476d-4ddf-9a3f-ae5b04bf1093",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Condition"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Hypothyroidism (status unknown)</p></div>"
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item",
+                "display": "Problem List Item"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Hypothyroidism"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:24adaf8b-09f6-4ca6-9723-61f5d9ba580b",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "24adaf8b-09f6-4ca6-9723-61f5d9ba580b",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Procedure"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Procedure: LSCS (2022)</p></div>"
+        },
+        "status": "completed",
+        "code": {
+          "text": "LSCS"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "performedString": "2022"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:dd2b8288-fa36-4ba7-b975-49b5735a67a6",
+      "resource": {
+        "resourceType": "FamilyMemberHistory",
+        "id": "dd2b8288-fa36-4ba7-b975-49b5735a67a6",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/FamilyMemberHistory"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Family history: mother with Diabetes</p></div>"
+        },
+        "status": "completed",
+        "patient": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "relationship": {
+          "text": "mother"
+        },
+        "condition": [
+          {
+            "code": {
+              "text": "Diabetes"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:be8abd07-ee85-4573-a5d4-c02e7a5e6789",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "be8abd07-ee85-4573-a5d4-c02e7a5e6789",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/MedicationRequest"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Paracetamol: 500 mg TDS After Food (PC) 3 days</p></div>"
+        },
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Paracetamol"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "authoredOn": "2026-10-10T04:50:25.078Z",
+        "requester": {
+          "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+        },
+        "dosageInstruction": [
+          {
+            "text": "500 mg TDS After Food (PC) 3 days"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:f86377ab-2550-4ed2-806a-82a7ff1e798d",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "f86377ab-2550-4ed2-806a-82a7ff1e798d",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/MedicationStatement"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Taking Levothyroxine 50 mcg</p></div>"
+        },
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Levothyroxine 50 mcg"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "dateAsserted": "2026-10-10T04:50:25.078Z"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:68b5b48a-50f5-4c07-9242-72e265e5d4bd",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "68b5b48a-50f5-4c07-9242-72e265e5d4bd",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/MedicationStatement"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Taking Levothyroxine 50 mcg</p></div>"
+        },
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Levothyroxine 50 mcg"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "dateAsserted": "2026-10-10T04:50:25.078Z"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:fc169d44-11be-47d8-b774-739b3800d5f4",
+      "resource": {
+        "resourceType": "ServiceRequest",
+        "id": "fc169d44-11be-47d8-b774-739b3800d5f4",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/ServiceRequest"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Requested: Complete blood count</p></div>"
+        },
+        "status": "active",
+        "intent": "order",
+        "code": {
+          "text": "Complete blood count"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "authoredOn": "2026-10-10T04:50:25.078Z",
+        "requester": {
+          "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6e6e4c2b-0a23-49d5-ba7f-6c13417ace23",
+      "resource": {
+        "resourceType": "Appointment",
+        "id": "6e6e4c2b-0a23-49d5-ba7f-6c13417ace23",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Appointment"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Follow-up visit after 5 days</p></div>"
+        },
+        "status": "proposed",
+        "description": "Follow-up visit after 5 days",
+        "start": "2026-10-15T04:50:25.078Z",
+        "end": "2026-10-15T04:50:25.078Z",
+        "participant": [
+          {
+            "actor": {
+              "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+            },
+            "status": "needs-action"
+          },
+          {
+            "actor": {
+              "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+            },
+            "status": "needs-action"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3e8e0527-0883-4f77-9821-2a3cbe345bf4",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "3e8e0527-0883-4f77-9821-2a3cbe345bf4",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Tobacco use: never</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "social-history",
+                "display": "Social History"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "72166-2",
+              "display": "Tobacco smoking status"
+            }
+          ],
+          "text": "Tobacco use"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+          }
+        ],
+        "valueString": "never"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:60502052-efd5-4a90-bebf-9c5004c70221",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "60502052-efd5-4a90-bebf-9c5004c70221",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Alcohol use: never</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "social-history",
+                "display": "Social History"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "74013-4",
+              "display": "Alcoholic drinks per day"
+            }
+          ],
+          "text": "Alcohol use"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+          }
+        ],
+        "valueString": "never"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a04b2810-a745-478c-b691-9555db5535ef",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a04b2810-a745-478c-b691-9555db5535ef",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Diet: vegetarian</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "social-history",
+                "display": "Social History"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Diet"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+          }
+        ],
+        "valueString": "vegetarian"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:1bc0a6f0-bdcc-460e-bcd9-25540bf261a9",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "1bc0a6f0-bdcc-460e-bcd9-25540bf261a9",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Symptoms denied by patient: Chest Pain</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "social-history",
+                "display": "Social History"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Symptoms denied by patient"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+          }
+        ],
+        "valueString": "Chest Pain"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:04fc3063-bb0c-4c43-bab3-bff77772ce5a",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "04fc3063-bb0c-4c43-bab3-bff77772ce5a",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Observation"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Review of systems: negative: cardiovascular</p></div>"
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "social-history",
+                "display": "Social History"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Review of systems: negative"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "effectiveDateTime": "2026-10-10T04:50:25.078Z",
+        "performer": [
+          {
+            "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+          }
+        ],
+        "valueString": "cardiovascular"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:7e441539-2341-4da9-b5b9-4daad80fbcb6",
+      "resource": {
+        "resourceType": "DocumentReference",
+        "id": "7e441539-2341-4da9-b5b9-4daad80fbcb6",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentReference"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>LAB REPORT</p></div>"
+        },
+        "status": "current",
+        "type": {
+          "text": "LAB REPORT"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "date": "2026-10-10T04:50:25.079Z",
+        "content": [
+          {
+            "attachment": {
+              "contentType": "text/plain",
+              "data": "SGIgMTEuMiBnL2RM",
+              "title": "OCR text",
+              "creation": "2026-10-10T04:50:25.079Z"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

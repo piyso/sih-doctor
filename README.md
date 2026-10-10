@@ -498,7 +498,7 @@ The software is evaluated directly against authoritative, real-world public heal
 
 ### 7.7 ABDM Milestone 3 (M3) FHIR R4 Bundle Conformance [29]
 * **Official Portals:** [Ayushman Bharat Digital Mission (ABDM) Sandbox](https://sandbox.abdm.gov.in/) | [National Resource Center for EHR Standards (NRCeS)](https://nrces.in/) [29]
-* **Conformance Test:** 100% syntactic and semantic conformance against HL7 FHIR Release 4 Document Bundle schemas. Serializes at **174,241 bundles/second** with zero acyclic graph violations [29].
+* **Conformance Test:** the OPConsultRecord and PrescriptionRecord bundles validate with **0 errors** against the NRCES `ndhm.in#4.0.0` implementation guide using the official HL7 FHIR validator 7.0.1 (reports, sample bundles and the exact command in `docs/evidence/fhir-validation/`). Battery 4 additionally checks 1,000 generated bundles structurally at ~17,000 bundles/second [29].
 
 ### 7.8 Madhya Pradesh State Public Health & MPOnline Portal Integration [1, 18, 30]
 * **Official Portals:** [MPOnline Innovation Portal](https://innovate.mponline.gov.in/notices) | [Madhya Pradesh Department of Public Health and Medical Education](https://health.mp.gov.in/) [18, 30]
@@ -516,8 +516,8 @@ This cryptographic chain satisfies the technical admissibility conditions for el
 ### 8.2 ABDM FHIR R4 Bundle Architecture [29]
 Each finalized consultation is serialized as an HL7 FHIR R4 document bundle following the NRCES NDHM implementation guide (see `docs/ABDM_INTEGRATION.md`):
 * **Bundle / Composition:** `type: document`, Composition profile `OPConsultRecord` with the IG's coded sections (chief complaints, physical examination, allergies, medical history, family history, investigation advice, medications, follow-up, procedure, other observations, document reference).
-* **Patient / Practitioner / Organization:** ABHA number and address only when the patient has them, hospital MRN otherwise; the practitioner carries the council registration number from the staff record; facility id only when configured. Nothing is invented.
-* **Condition:** NAMASTE code with ICD-10 and SNOMED CT (ICD-11 TM2 when the terminology import provides it).
+* **Patient / Practitioner / Organization:** ABHA number and address only when the patient has them (NDHM identifier type `ABHA`), hospital MRN otherwise; age becomes a year-precision birthDate; the practitioner carries the council registration number from the staff record; the Organization carries the HFR id when configured, otherwise the hospital's own facility code labelled as local. Nothing is invented.
+* **Condition:** ICD-10 and SNOMED CT with the official display names (the NRCES profile closes `Condition.code.coding` to these two systems). The NAMASTE code, and ICD-11 TM2 when the terminology import provides it, travel in a linked Observation (SNOMED 439401001 |Diagnosis|, `focus` = the Condition), so the AYUSH dual coding survives profile validation.
 * **Observation / AllergyIntolerance / FamilyMemberHistory / MedicationStatement / Procedure / ServiceRequest / Appointment / DocumentReference:** vitals (LOINC), allergies, family history, ongoing medicines, past surgery, investigations, follow-up and scanned documents from the structured history.
 * **HIP flows:** care-context linking, consent artefact intake and encrypted health-information push (ECDH Curve25519 + HKDF-SHA256 + AES-256-GCM), with a local HIU simulation for demonstrations.
 
@@ -533,7 +533,7 @@ Upon completing an OPD consultation, selecting **"Finalize & Print Official Rx"*
 | **Patient Demographics** | Name, Age, Sex, Date of Encounter, OPD Token Number | ABDM Demographics Profile [29] |
 | **National Patient Identifier** | 14-digit ABHA ID formatted as `XX-XXXX-XXXX-XXXX` | Verhoeff Dihedral $D_5$ Verified [14] |
 | **Clinical Objective Signs** | Blood Pressure (mmHg), Pulse (bpm), Digestive Fire (*Agni*), Constitution (*Prakriti*) | Charaka Dashavidha Pariksha [28] |
-| **Tri-Coded Diagnosis** | Ayush NAMASTE A-Code, WHO ICD-11 Chapter 26, SNOMED-CT Descriptor | NRCeS Tri-Coding Interoperability [26, 29] |
+| **Tri-Coded Diagnosis** | Ayush NAMASTE A-Code (linked Observation), WHO ICD-10 and SNOMED-CT on the Condition, ICD-11 TM2 when imported | NRCeS `ndhm.in` 4.0.0 profiles, validator-clean [26, 29] |
 | **Formulations & Posology** | Medicine Name, Dosage Form, Frequency (OD/BD/TDS), Timing, *Anupana* | Pharmacopoeia of India (API / IP) [27] |
 | **Lifestyle Guidance** | Prescribed Diet (*Pathya*), Proscribed Diet (*Apathya*), Activity Guidance | Charaka Samhita Swasthavritta [28] |
 | **Cryptographic Seal** | SHA-256 record hash, Ed25519 hospital signature, hash-chained provenance node | BSA 2023 §63 [21] & DPDP Act 2023 [19] |

@@ -1,0 +1,315 @@
+{
+  "resourceType": "Bundle",
+  "id": "e0aa79ea-3504-423e-a1e5-4e845b85ffde",
+  "meta": {
+    "versionId": "1",
+    "lastUpdated": "2026-10-10T04:50:25.078Z",
+    "profile": [
+      "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+    ]
+  },
+  "identifier": {
+    "system": "https://hospital.example/fhir/bundle",
+    "value": "e0aa79ea-3504-423e-a1e5-4e845b85ffde"
+  },
+  "type": "document",
+  "timestamp": "2026-10-10T04:50:25.078Z",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:b1f8516e-98d9-4c5c-b4ec-ced2539e8135",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "b1f8516e-98d9-4c5c-b4ec-ced2539e8135",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/PrescriptionRecord"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Prescription record: Prescription record (1)</p></div>"
+        },
+        "language": "en-IN",
+        "identifier": {
+          "system": "https://hospital.example/fhir/prescription",
+          "value": "b1f8516e-98d9-4c5c-b4ec-ced2539e8135"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "440545006",
+              "display": "Prescription record"
+            }
+          ],
+          "text": "Prescription record"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "date": "2026-10-10T04:50:25.078Z",
+        "author": [
+          {
+            "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+          }
+        ],
+        "title": "Prescription record",
+        "custodian": {
+          "reference": "urn:uuid:701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a"
+        },
+        "section": [
+          {
+            "title": "Prescription record",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "440545006",
+                  "display": "Prescription record"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:be8abd07-ee85-4573-a5d4-c02e7a5e6789",
+                "type": "MedicationRequest"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "483174ad-5ad0-4eba-8b79-75019a8f17c7",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Rekha Devi, female, born 1995</p></div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code",
+                  "code": "ABHA",
+                  "display": "Ayushman Bharat Health Account (ABHA) ID"
+                }
+              ],
+              "text": "ABHA number"
+            },
+            "system": "https://healthid.ndhm.gov.in",
+            "value": "91-1234-5678-9012"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code",
+                  "code": "ABHA",
+                  "display": "Ayushman Bharat Health Account (ABHA) ID"
+                }
+              ],
+              "text": "ABHA address"
+            },
+            "system": "https://healthid.abdm.gov.in",
+            "value": "rekha.demo@sbx"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical record number"
+                }
+              ],
+              "text": "Hospital MRN"
+            },
+            "system": "https://hospital.example/fhir/mrn",
+            "value": "pat-sample-001"
+          }
+        ],
+        "name": [
+          {
+            "text": "Rekha Devi"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1995"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Hospital (Local facility code (not yet registered in the Health Facility Registry): LOCAL)</p></div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "PRN",
+                  "display": "Provider number"
+                }
+              ],
+              "text": "Local facility code (not yet registered in the Health Facility Registry)"
+            },
+            "system": "https://hospital.example/fhir/facility",
+            "value": "LOCAL"
+          }
+        ],
+        "name": "Hospital"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "6f66415e-66ad-4e9f-8509-38ff26c518a0",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Dr Ananya Sharma, MBBS, MD (General Medicine)</p></div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MD",
+                  "display": "Medical License number"
+                }
+              ],
+              "text": "Council registration"
+            },
+            "system": "https://www.nmc.org.in",
+            "value": "DMC Reg. 98421"
+          }
+        ],
+        "name": [
+          {
+            "text": "Dr Ananya Sharma"
+          }
+        ],
+        "qualification": [
+          {
+            "code": {
+              "text": "MBBS, MD (General Medicine)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "376d2700-21a8-4278-bbcb-4cfcdfbded1c",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Encounter"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Encounter finished on 2026-10-10</p></div>"
+        },
+        "identifier": [
+          {
+            "system": "https://hospital.example/fhir/encounter",
+            "value": "enc-sample-001"
+          }
+        ],
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "serviceType": {
+          "text": "General Medicine OPD"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "participant": [
+          {
+            "individual": {
+              "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+            }
+          }
+        ],
+        "period": {
+          "start": "2026-10-10T04:50:25.078Z",
+          "end": "2026-10-10T04:50:25.078Z"
+        },
+        "serviceProvider": {
+          "reference": "urn:uuid:701377d7-66aa-4c4e-ab6f-4ee0e5e5a23a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:be8abd07-ee85-4573-a5d4-c02e7a5e6789",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "be8abd07-ee85-4573-a5d4-c02e7a5e6789",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/MedicationRequest"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en-IN\" xml:lang=\"en-IN\"><p>Paracetamol: 500 mg TDS After Food (PC) 3 days</p></div>"
+        },
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Paracetamol"
+        },
+        "subject": {
+          "reference": "urn:uuid:483174ad-5ad0-4eba-8b79-75019a8f17c7"
+        },
+        "encounter": {
+          "reference": "urn:uuid:376d2700-21a8-4278-bbcb-4cfcdfbded1c"
+        },
+        "authoredOn": "2026-10-10T04:50:25.078Z",
+        "requester": {
+          "reference": "urn:uuid:6f66415e-66ad-4e9f-8509-38ff26c518a0"
+        },
+        "dosageInstruction": [
+          {
+            "text": "500 mg TDS After Food (PC) 3 days"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -73,6 +73,8 @@ export interface RedFlagHit { questionId: string; label: string; tier: 'sos' | '
 export interface PresentedQuestion {
   id: string;
   section: string;
+  /** Human-readable section name in the interview language (English fallback). */
+  sectionTitle: string;
   type: Question['type'];
   text: string;
   textEn: string;
@@ -88,6 +90,8 @@ export interface PresentedQuestion {
 const Q = ontology.questions as Record<string, Question>;
 const FAMILIES = ontology.complaintFamilies as Array<{ id: string; en: string; hi: string; symptom: string; site: string }>;
 const SECTION_ORDER = ontology.sectionOrder as string[];
+const SECTION_TITLES = (ontology as any).sectionTitles as Record<string, { en: string; hi: string }>;
+const sectionTitle = (section: string, lang: string) => SECTION_TITLES[section]?.[lang as 'en' | 'hi'] || SECTION_TITLES[section]?.en || section;
 
 function visible(q: Question, state: InterviewState): boolean {
   const fam = state.answers.cc_family as string | undefined;
@@ -143,7 +147,7 @@ function present(id: string, state: InterviewState, plan: string[]): PresentedQu
   const answered = plan.filter(p => p in state.answers || state.skipped.includes(p)).length;
   const sectionIndex = SECTION_ORDER.indexOf(q.section);
   return {
-    id, section: q.section, type: q.type, text: q.text[lang] || q.text.en, textEn: q.text.en, textHi: q.text.hi,
+    id, section: q.section, sectionTitle: sectionTitle(q.section, lang), type: q.type, text: q.text[lang] || q.text.en, textEn: q.text.en, textHi: q.text.hi,
     options: opts, optional: !!q.optional, voice: !!q.voice, min: q.min, max: q.max,
     progress: { answered, planned: plan.length, section: q.section, sectionIndex, sectionCount: SECTION_ORDER.length }
   };

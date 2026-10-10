@@ -326,8 +326,52 @@ Everything in Tiers 0 to 2 above was implemented after this review, plus the ABD
   the draft retention window, `scripts/load/k6-opd.js` load profile.
 - Frontend: doctor panel shows the structured summary, NEWS2 and safety context; diagnostics modal shows live values.
 
+**Still open after 2026-10-09**
+- ABDM sandbox credentials and the Fidelius interop check (needs NHA-issued client id / HIP id).
+- Real NAMASTE export import (seed holds 20 entries; `npm run import:namaste` is ready, no public CSV found).
+
+## 8. Implementation log (2026-10-10)
+
+Verified by `cd backend && npm test` (29 batteries, all passing), `tests/http_api.test.ts` 39/39, frontend `tsc -b`
+clean, Playwright 20/20 against the live stack.
+
+**ABDM fidelity: official validator, zero errors**
+- The HL7 FHIR validator 7.0.1 was run against the NRCES `ndhm.in#4.0.0` package (IPv4 forced; the registry
+  fetch was refused over IPv6). The first run of the OPConsultRecord bundle produced 54 errors; both documents now
+  validate with 0 errors (`docs/evidence/fhir-validation/`, with before/after reports).
+- Root causes and fixes in `fhirGenerator.service.ts`: NRCES closes `Condition.code.coding` to ICD-10 and SNOMED
+  slices with a mandatory official `display`, so NAMASTE / ICD-11 TM2 codings moved to a linked Observation
+  (SNOMED 439401001, `focus` = Condition; `FHIR_NRCES_STRICT=false` inlines them); `src/data/code_displays.json`
+  holds the terminology's own display names, regenerated from the validator by `npm run fhir:code-displays`;
+  the registry's `K58.9` (ICD-10-CM only) became WHO ICD-10 `K58.8`; `Organization.identifier` is mandatory (HFR id
+  or a labelled local facility code); the custom `age-years` extension became a year-precision `birthDate`; every
+  resource has a narrative (dom-6) and every Observation a performer; the PrescriptionRecord section entries are
+  typed and the document carries only resources reachable from its Composition.
+- Three batteries that asserted NAMASTE inside `Condition.code.coding` now assert the tri-coding across the
+  Condition and its linked Observation.
+
+**Kiosk interview (closing the last 2026-10-09 open item)**
+- `StepInterview.tsx` is live as kiosk step 5: `scope: 'kiosk'` plan (chief complaint, HPI, red flags, past medical,
+  drugs, allergies, obstetric only when pregnancy is unknown, review of systems collapsed to one multi-select),
+  roughly 12 to 18 questions instead of 41; a visible Skip on every question after the first; HPI answers are
+  pre-filled from the SOCRATES symptom captured in step 4; Hindi / English TTS from `edge-ai` (sherpa-onnx VITS)
+  when the service reports it, browser speech recognition for free-text answers.
+- `interview.service.ts` carries a `scope` per session, `ros_any` maps onto the ten ROS systems, typed denials
+  ("none", "nahi") become `allergyStatus` / `medicineStatus = 'none'` instead of list items.
+
+**Intake triage and history merge (`kiosk.routes.ts`, `clinicalHistory.service.ts`)**
+- Pregnancy and lactation are tri-state (`NULL` = not asked); a woman aged 12 to 50 with unknown status is treated as
+  possibly pregnant by the danger-sign rules. `ageMonths` supported: fever under 3 months is an emergency, any
+  infant under 24 months with fever / breathing / feeding / fluid-loss complaints is high priority (IMNCI).
+- Lexicon flags read in context: `gyn-bleeding` with pregnant / unknown status is an emergency; `wound` in a
+  diabetic is high priority (diabetic foot).
+- The health page the patient confirms after the interview wins for conditions, allergies, current medicines and
+  the structured lists; the interview fills gaps and keeps completeness. `allergyStatus`, `medicineStatus` and
+  `mentionedInSpeech` are preserved on the stored history. `/lookup-draft` strips Aadhaar, ABHA id and phone from a
+  restored draft, and the kiosk offers resumption for 30 minutes.
+
 **Still open**
-- Kiosk UI for the interview endpoints (the backend state machine is live; the kiosk steps still use the fixed wizard).
-- ABDM sandbox credentials and the Fidelius interop check; HAPI validator run with the NDHM IG package.
-- On-premise TTS and OCR models in `edge-ai/` (service reports them as unavailable until models are installed).
-- Real NAMASTE export import (seed holds 20 entries).
+- ABDM sandbox credentials and the Fidelius interop check (needs NHA-issued client id / HIP id).
+- Real NAMASTE export import (seed holds 20 entries; importer ready).
+- `code_displays.json` covers the registry's codes; a diagnosis typed by a doctor with a code outside the registry
+  keeps the typed display and would need `npm run fhir:code-displays` before submission.

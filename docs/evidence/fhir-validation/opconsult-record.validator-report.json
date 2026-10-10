@@ -1,0 +1,99 @@
+{
+  "resourceType" : "OperationOutcome",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p class=\"res-header-id\"><b>OperationOutcome </b></p><table class=\"grid\"><tr><td><b>Severity</b></td><td><b>Location</b></td><td><b>Code</b></td><td><b>Details</b></td><td><b>Diagnostics</b></td><td><b>Source</b></td></tr><tr><td>Information</td><td>Bundle.entry[1].resource/*Patient/1001cadc-19b1-4a58-83e9-5e5a88785058*/.identifier[0].type</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[1].resource/*Patient/1001cadc-19b1-4a58-83e9-5e5a88785058*/.identifier[1].type</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[6].resource/*Observation/34b66842-f007-40cd-8b8b-1a3f192966cf*/.value.ofType(CodeableConcept).coding[0].system</td><td>Not Found</td><td>A definition for CodeSystem 'https://namstp.ayush.gov.in' could not be found, so the code cannot be validated</td><td/><td>TerminologyEngine</td></tr></table></div>"
+  },
+  "extension" : [{
+    "url" : "http://hl7.org/fhir/tools/StructureDefinition/validator-version",
+    "valueString" : "FHIR Validation tool Version 7.0.1 (Git# d8783284409e). Built 2026-10-08T03:33:12.303Z (54 hours old)"
+  },
+  {
+    "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-file",
+    "valueString" : "sample-opconsult.json"
+  }],
+  "issue" : [{
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 301
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 14
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT_SRC_STATUS"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Patient|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1"
+    },
+    "expression" : ["Bundle.entry[1].resource/*Patient/1001cadc-19b1-4a58-83e9-5e5a88785058*/.identifier[0].type"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 315
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 14
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT_SRC_STATUS"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Patient|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code|4.0.0 from active ValueSet http://hl7.org/fhir/ValueSet/identifier-type|4.0.1"
+    },
+    "expression" : ["Bundle.entry[1].resource/*Patient/1001cadc-19b1-4a58-83e9-5e5a88785058*/.identifier[1].type"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 597
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "UNKNOWN_CODESYSTEM"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner|4.0.0"
+    }],
+    "severity" : "warning",
+    "code" : "not-found",
+    "details" : {
+      "text" : "A definition for CodeSystem 'https://namstp.ayush.gov.in' could not be found, so the code cannot be validated"
+    },
+    "expression" : ["Bundle.entry[6].resource/*Observation/34b66842-f007-40cd-8b8b-1a3f192966cf*/.value.ofType(CodeableConcept).coding[0].system"]
+  }]
+}

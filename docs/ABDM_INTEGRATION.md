@@ -23,7 +23,7 @@ Composition `type` SNOMED 371530004 with sections coded per the NDHM IG:
 
 | Section | SNOMED | Resources |
 | --- | --- | --- |
-| Chief complaints | 422843007 | Condition (NAMASTE + ICD-10 + SNOMED, ICD-11 when present) |
+| Chief complaints | 422843007 | Condition (ICD-10 + SNOMED CT with the official displays; the NRCES profile closes `code.coding` to these two systems) |
 | Physical examination | 425044008 | Observation (LOINC vitals: BP panel 85354-9, HR 8867-4, SpO2 2708-6, RR 9279-1, temp 8310-5, weight 29463-7, glucose 2339-0) |
 | Allergies | 722446000 | AllergyIntolerance |
 | Medical history | 371529009 | Condition (past medical) |
@@ -32,17 +32,30 @@ Composition `type` SNOMED 371530004 with sections coded per the NDHM IG:
 | Medications | 721912009 | MedicationRequest (prescribed), MedicationStatement (ongoing) |
 | Follow up | 736271009 | Appointment |
 | Procedure | 371525003 | Procedure (past surgical) |
-| Other observations | 404684003 | Observation (social history, denied symptoms, negative ROS) |
+| Other observations | 404684003 | Observation (traditional-medicine diagnosis coding: NAMASTE + ICD-11 TM2 as `valueCodeableConcept`, `focus` = the Condition; social history; denied symptoms; negative ROS) |
 | Document reference | 371530004 | DocumentReference (scanned documents) |
 
-Identifiers are never invented: ABHA number and address appear only when the patient has them,
-the MRN uses `HOSPITAL_FHIR_BASE/mrn`, the practitioner carries the council registration from the
-staff record, and the facility id appears only when `HFR_FACILITY_ID` is set.
+Identifiers are never invented: ABHA number and address appear only when the patient has them
+(typed with the NDHM identifier-type code `ABHA`), the MRN uses `HOSPITAL_FHIR_BASE/mrn`, the
+practitioner carries the council registration from the staff record, and the Organization carries the
+HFR id when `HFR_FACILITY_ID` is set, otherwise the hospital's own `HOSPITAL_FACILITY_CODE` labelled as a
+local (non-HFR) identifier, because the NRCES Organization profile makes an identifier mandatory. Age
+captured at the kiosk becomes a year-precision `birthDate` (no invented day or month).
 
-Full profile validation (run before any sandbox submission):
+Why the AYUSH codes sit in an Observation: NRCES ndhm.in 4.0.0 slices `Condition.code.coding` closed to
+ICD-10 and SNOMED CT, each with a mandatory official `display`. The NAMASTE and ICD-11 TM2 codings for the
+same diagnosis are emitted as an Observation (SNOMED 439401001 |Diagnosis|) that points at the Condition
+through `focus`, so the dual coding survives the profile and the document still validates. Set
+`FHIR_NRCES_STRICT=false` to inline them in `Condition.code.coding` (the ABDM Ayush dual-coding proposal
+form; fails the current validator). Official ICD-10 / SNOMED displays live in
+`backend/src/data/code_displays.json` and are regenerated from the validator with `npm run fhir:code-displays`.
+
+Full profile validation (run before any sandbox submission; results and sample bundles are in
+[`docs/evidence/fhir-validation/`](evidence/fhir-validation/README.md): OPConsultRecord and
+PrescriptionRecord both validate with 0 errors against `ndhm.in#4.0.0` with validator 7.0.1):
 
 ```bash
-java -jar validator_cli.jar bundle.json -version 4.0.1 -ig nrces.in.ndhm.fhir.r4#6.5.0
+java -Djava.net.preferIPv4Stack=true -Xmx3g -jar validator_cli.jar bundle.json -version 4.0.1 -ig ndhm.in#4.0.0 -level warnings
 ```
 
 ## Going live: what NHA must issue

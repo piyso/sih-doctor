@@ -40,6 +40,7 @@ export interface KioskConsent {
 export interface InterviewQuestion {
   id: string;
   section: string;
+  sectionTitle?: string;
   type: 'single' | 'multi' | 'yesno' | 'number' | 'text' | 'scale';
   text: string;
   textEn: string;

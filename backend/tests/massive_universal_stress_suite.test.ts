@@ -137,7 +137,7 @@ export async function runMassiveUniversalStressSuite() {
     { aCode: 'AYU-SAN-005', term: 'Sandhivata', icd10: 'M17.9', snomed: '239873007' },
     { aCode: 'AYU-PRA-001', term: 'Kaphaja Prameha', icd10: 'E11.9', snomed: '44054006' },
     { aCode: 'AYU-MUT-003', term: 'Mutrakrichhra', icd10: 'N39.0', snomed: '68566005' },
-    { aCode: 'AYU-GRA-001', term: 'Grahani Roga', icd10: 'K58.9', snomed: '10743008' },
+    { aCode: 'AYU-GRA-001', term: 'Grahani Roga', icd10: 'K58.8', snomed: '10743008' },
     { aCode: 'AYU-VAT-008', term: 'Gridhrasi', icd10: 'M54.3', snomed: '23056005' },
     { aCode: 'AYU-HRI-002', term: 'Hridroga', icd10: 'I25.9', snomed: '414545008' },
     { aCode: 'AYU-TVA-004', term: 'Kushtha / Vicharchika', icd10: 'L30.9', snomed: '43116000' },
