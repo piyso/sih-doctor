@@ -27,8 +27,8 @@ VM_NAME="hospitalos-server"
 # Priority regions where Free Trial has active 10-core quota
 CANDIDATE_REGIONS=("southeastasia" "eastus2" "northeurope" "centralus" "westeurope" "westus2" "eastus")
 
-# Candidate sizes compatible with Azure Free Trial ($200 credit)
-CANDIDATE_SIZES=("Standard_B1s" "Standard_B2ats_v2" "Standard_D2as_v5" "Standard_D2s_v5" "Standard_B1ms" "Standard_B2s")
+# Candidate sizes compatible with Azure Free Trial ($200 credit) - prioritizing classic stable SKUs
+CANDIDATE_SIZES=("Standard_D2s_v3" "Standard_D2s_v4" "Standard_D2as_v5" "Standard_D2s_v5" "Standard_A2_v2" "Standard_B1s" "Standard_B2s")
 
 SUCCESS=0
 DEPLOYED_REGION=""
@@ -52,13 +52,14 @@ for REGION in "${CANDIDATE_REGIONS[@]}"; do
     DNS_PREFIX="medikiosk-$RANDOM"
     echo "    Attempting creation in $REGION with size $SIZE..."
     
-    # Attempt VM creation (capturing error if any)
+    # Attempt VM creation with explicit Standard security to prevent Trusted Launch CLI crashes
     ERR_MSG=$(az vm create \
         --resource-group "$RG" \
         --name "$VM_NAME" \
         --location "$REGION" \
         --image "Ubuntu2204" \
         --size "$SIZE" \
+        --security-type "Standard" \
         --admin-username "azureuser" \
         --generate-ssh-keys \
         --public-ip-sku "Standard" \
